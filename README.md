@@ -13,4 +13,7 @@ Memory access is strictly 16bit and 8bit. For memory, stack and variable access,
 
 See also:
 - https://en.wikipedia.org/wiki/Recursive_descent_parser
-- 
+- https://rosettacode.org/wiki/BNF_Grammar
+- https://en.wikipedia.org/wiki/Tiny_BASIC
+
+
