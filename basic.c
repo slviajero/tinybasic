@@ -1,5 +1,11 @@
 // $Id: basic.c,v 1.32 2021/07/11 05:34:31 stefan Exp stefan $
-// 
+/*
+	Stefan's tiny basic interpreter 
+
+	Playing around with frugal programming. See the licence file on 
+	https://github.com/slviajero/tinybasic for copyright/left.
+
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,9 +26,10 @@
 
 /*
 
-   	the tokens 
-	all single character operators are their own tokens
-	ASCII values above 0x7f are used for tokens of keywords
+   	The tokens:
+
+	All single character operators are their own tokens
+	ASCII values above 0x7f are used for tokens of keywords.
 
 */
 
@@ -78,35 +85,52 @@
 #define NKEYWORDS 30
 #define BASEKEYWORD -123
 
-// interpreter status values 
-// SRUN means running from a programm
-// SINT means interactibe mode
+/*
+	Interpreter states 
+	SRUN means running from a programm
+	SINT means interactive mode
+	(enum would be the right way of doing this.)
+
+*/
+
 #define SINT 0
 #define SRUN 1
 
-//keywords
+/*
+
+	All basic keywords, not all of them are implemented yet.
+
+*/
+
 static char* const keyword[] = {"=>", "<=", "<>", "IF","TO", "NEW","RUN","LET","FOR", "END", "THEN" ,
                                 "GOTO" , "STOP", "NEXT", "STEP", "PRINT", "INPUT", "GOSUB", "RETURN", 
                                 "LIST", "CLR", "NOT", "AND", "OR" , "ABS", "RND", "SGN", "PEEK",
                                 "SQR", "FRE"};
 
 /*
-	the basic interpreter is implemented as a stack machine
+	The basic interpreter is implemented as a stack machine
 	with global variable for the interpreter state, the memory
 	and the arithmetic during run time.
 
-	stack and sp controll the stack
-	ibuffer is the input buffer and *bi a pointer to it
-	vars is a static array of 26 single character vaiables
-	mem is the working memory of the basic interperter 
+	stack is the stack memory and sp controls the stack.
 
-	x, y, xc, yc are two 16 bit and two 8 bit accumulators
+	ibuffer is an input buffer and *bi a pointer to it.
 
-	ir is a general index egister for string processing
+	vars is a static array of 26 single character variables.
 
-	token contains the actually processes token
+	mem is the working memory of the basic interperter.
 
-	st, here and top are the interpreter runtime controls
+	x, y, xc, yc are two 16 bit and two 8 bit accumulators.
+
+	ir is a general index egister for string processing.
+
+	token contains the actually processes token.
+
+	st, here and top are the interpreter runtime controls.
+	here2 and here3 are aux variable to make walking through
+	lines more efficient.
+
+	rd is the random number storage.
 
 */
 static short stack[STACKSIZE];
@@ -132,7 +156,13 @@ static unsigned short top;
 
 static unsigned int rd;
 
-// goes to a header later on
+/*
+
+	A few declarations.
+	The need to go to a header later on.
+
+*/
+
 void outputtoken();
 void outsc(char *);
 void outcr();
@@ -144,15 +174,16 @@ void error(char);
 
 /* 
 
-	there two function access variables 
-	in this implementation variables are a 
-	static array and we simply subract 'A' 
+	These function access variables, 
+	In this implementation variables are a 
+	static array and we simply subtract 'A' 
 	from the variable name to get the index
 	any other way to generate an index from a 
-	byte hash can be used just as well
+	byte hash can be used just as well.
 
 	delvar and createvar as stubs for further 
-	use
+	use. They are not yet used consistenty in
+	the code.
 
  */
 
@@ -188,7 +219,8 @@ void clrvars() {
 
 /* 
 
-  the general error handler 
+  The general error handler. The static variable er
+  contains the error state. 
 
 */ 
 
@@ -223,8 +255,8 @@ void error(char e){
 }
 
 /*
-	arithmetic and runtime operations are mostly done
-	on a stack of 16 bit objects
+	Arithmetic and runtime operations are mostly done
+	on a stack of 16 bit objects.
 
 */
 
@@ -258,7 +290,7 @@ void clearst(){
 	sp=0;
 }
 
-// very basic random number generator with constant seed
+// very basic random number generator with constant seed.
 short rnd(int r) {
 	rd = (31421*rd + 6927) % 0x10000;
 	if (r>=0) 
@@ -267,7 +299,7 @@ short rnd(int r) {
 		return (rd*r)/0x10000+1;
 }
 
-// a very simple approximate square root formula
+// a very simple approximate square root formula. 
 short sqr(short r){
 	short t=r;
 	short l=0;
@@ -287,13 +319,14 @@ short sqr(short r){
 
 /* 
 
-	Functions related with input and output.
+	Input and output functions.
+
 	The interpreter is implemented to use only putchar 
-	and getchar. 
+	and getchar.
 
 	These functions need to be provided by the stdio lib 
 	or by any other routine like a serial terminal or keyboard 
-	interface of an arduino
+	interface of an arduino.
 
 */
 
@@ -347,6 +380,7 @@ void ins(){
 	}
 }
 
+// prints a 16 bit number
 void outnumber(short x){
 	char c, co;
 	short d;
@@ -367,10 +401,8 @@ void outnumber(short x){
 		d=d/10;
 	}
 }
-/* 
-	usind the stack to collect digits during input
-*/  
 
+// reading a 16 bit number using the stack to collect bytes
 short innumber(){
 	char c;
 	char nd;
@@ -566,12 +598,12 @@ void nexttoken() {
 
 /* 
 
-	ir is resused here to implement string compares
-	scanning the keyword array 
-	once a keyword is detected the input buffer is advanced 
-	by its length, and the token value is returned 
+	ir is reused here to implement string compares
+	scanning the keyword array. 
+	Once a keyword is detected the input buffer is advanced 
+	by its length, and the token value is returned. 
 
-	keywords are an arry of null terminated strings
+	keywords are an arry of null terminated strings.
 
 */
 
@@ -634,7 +666,13 @@ void nexttoken() {
 	Gettoken operate on the variable here 
 	which will also be the key variable in run mode.
 
-	Tokens are stored including their payload
+	Tokens are stored including their payload.
+
+	This group of functions changes global states and
+	cannot be called at program runtime with saving
+	the relevant global variable to the stack.
+
+	Error handling is still incomplete.
 */
 
 char nomemory(short b){
@@ -740,8 +778,9 @@ void findline(short l) {
 }
 
 /*
-   move a block of storage beginng at b ending at e
-  to destination d
+
+   	Move a block of storage beginng at b ending at e
+  	to destination d. No error handling here!!
 
 */
 
@@ -769,13 +808,16 @@ void zeroblock(short b, short l){
 
 /*
 
-	this is a prototype, no sorting of lines implemented
+	Line editor: 
+
 	stage 1: no matter what the line number is - store at the top
    				remember the location in here.
 	stage 2: see if it is only an empty line - try to delete this line
 	stage 3: caculate lengthes and free memory and make room at the 
 				appropriate place
 	stage 4: copy to the right place 
+
+	Very fragile code. 
 	
 */
 
@@ -791,12 +833,10 @@ void diag(){
 }
 
 void storeline() {
-
 	short linelength;
 	short newline; 
 
-// zero is an illegal line number
-
+	// zero is an illegal line number
 	if (x == 0) {
 		error(ELINE);
 		return;
@@ -1226,9 +1266,11 @@ void expression(){
 
 
 /*
+
    the print command 
    PRINT expressionlist ( EOL | : )
    expressionlist :== ( string | expression ) (, ( string | expression ) )* 
+
 */ 
 void print(){
 	if (DEBUG1) { outsc("Entering print with token: "); debugtoken(); }
@@ -1412,7 +1454,8 @@ void new(){
 }
 
 /* 
-	statement processes an entire basic statement 
+
+	statement processes an entire basic statement. 
 
 */
 
