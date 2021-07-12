@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#undef ARDUINO
+
 #define TRUE  1
 #define FALSE 0
 
@@ -106,6 +108,11 @@ static char* const keyword[] = {"=>", "<=", "<>", "IF","TO", "NEW","RUN","LET","
                                 "GOTO" , "STOP", "NEXT", "STEP", "PRINT", "INPUT", "GOSUB", "RETURN", 
                                 "LIST", "CLR", "NOT", "AND", "OR" , "ABS", "RND", "SGN", "PEEK",
                                 "SQR", "FRE"};
+
+static char* const messages[] = {
+	"Ready\n",
+	"Error Var\n"
+};
 
 /*
 	The basic interpreter is implemented as a stack machine
@@ -234,21 +241,21 @@ void error(char e){
 	}
 	switch (e) {
 		case EVARIABLE:
-			outsc("Unknown Variable. \n");
+			outsc("Unknown Variable.\n");
 		case EUNKNOWN: 
-			outsc("Unknown token. \n");
+			outsc("Unknown token.\n");
 			return;
 		case ELINE:
-			outsc("Line not found. \n");
+			outsc("Illegal line.\n");
 			return;
 		case ESTACK: 
-			outsc("Stack error. \n");
+			outsc("Stack error.\n");
 			return;
 		case EOUTOFMEMORY: 
-			outsc("Out of memory. \n");
+			outsc("Out of memory.\n");
 			return;
 		case ERANGE:
-			outsc("Out of range. \n");
+			outsc("Out of range.\n");
 			return;
 	}
 	return;
@@ -331,11 +338,24 @@ short sqr(short r){
 */
 
 void outch(char c) {
+#ifdef ARDUINO
+	Serial.write(c);
+#else 
 	putchar(c);
+#endif
 }
 
 char inch(){
+#ifdef ARDUINO
+  char c;
+  do 
+    if (Serial.available()) c=Serial.read();
+  while(c == 0); 
+  outch(c);
+  return c;
+#else
 	return getchar();
+#endif
 }
 
 void outcr() {
@@ -787,9 +807,8 @@ void findline(short l) {
 void moveblock(short b, short l, short d){
 	short i;
 	
-	if (l<1) {
+	if (l<1) 
 		return;
-	}
 	if (b < d)
 		for (i=l-1; i>=0; i--)
 			mem[d+i]=mem[b+i]; 
@@ -800,9 +819,8 @@ void moveblock(short b, short l, short d){
 
 void zeroblock(short b, short l){
 	short i;
-	if (l<1) {
+	if (l<1) 
 		return;
-	}
 	for (i=0; i<l+1; i++) mem[b+i]=0;
 }
 
@@ -1447,7 +1465,7 @@ void run(){
 	if (DEBUG2) { outsc("Leaving run with token: "); debugtoken(); }
 }
 
-void new(){
+void xnew(){
 	top=0;
 	*mem=EOL;
 	clrvars();
@@ -1468,7 +1486,7 @@ void statement(){
 				nexttoken();
 				break;
 			case TNEW:
-				new();
+				xnew();
 				return;
 			case TCLR:
 				clr();
@@ -1511,28 +1529,44 @@ void statement(){
 	if (DEBUG2) { outsc("Leaving statement with token: "); debugtoken(); }
 }
 
-int main(){
+// the setup routine runs once when you press reset:
+void setup() {
 
-	new();
-	while (TRUE) {
-
-		// get a new line 
-		ins();
-
-		// go to the beginning of the line
-		bi=ibuffer;
-
-		// processing a new input line 
-		nexttoken();
-
-		// leading line number means edit mode - new program data is input
-		// else run mode, command is input and directly executed
-		if (token == NUMBER)
-			storeline();
-		else {
-			st=SINT;
-			statement();
-		}
-	}
-
+#ifdef ARDUINO
+  // initialize serial communication at 9600 bits per second:
+  Serial.begin(9600);
+#endif
+  xnew();
 }
+
+// the loop routine runs over and over again forever:
+void loop() {
+
+     outsc("Ready \n");
+      // get a new line 
+    ins();
+    
+    // go to the beginning of the line
+    bi=ibuffer;
+
+    // processing a new input line 
+    nexttoken();
+
+    // leading line number means edit mode - new program data is input
+    // else run mode, command is input and directly executed
+    if (token == NUMBER)
+      storeline();
+    else {
+      st=SINT;
+      statement();   
+    }
+}
+
+
+#ifndef ARDUINO
+int main(){
+	setup();
+	while (TRUE)
+		loop();
+}
+#endif
