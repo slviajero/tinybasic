@@ -19,7 +19,7 @@
 #define DEBUG1 0
 #define DEBUG2 0
 #define DEBUG3 0
-#define DEBUG4 1
+#define DEBUG4 0
 
 #define BUFSIZE 72
 #define MEMSIZE 256
@@ -104,15 +104,12 @@
 
 */
 
-static char* const keyword[] = {"=>", "<=", "<>", "IF","TO", "NEW","RUN","LET","FOR", "END", "THEN" ,
-                                "GOTO" , "STOP", "NEXT", "STEP", "PRINT", "INPUT", "GOSUB", "RETURN", 
-                                "LIST", "CLR", "NOT", "AND", "OR" , "ABS", "RND", "SGN", "PEEK",
-                                "SQR", "FRE"};
-
-static char* const messages[] = {
-	"Ready\n",
-	"Error Var\n"
-};
+static char* const keyword[] = {
+	"=>", "<=", "<>", "IF","TO", "NEW","RUN",
+	"LET","FOR", "END", "THEN" , "GOTO" , "STOP", 
+	"NEXT", "STEP", "PRINT", "INPUT", "GOSUB", 
+	"RETURN", "LIST", "CLR", "NOT", "AND", "OR" , 
+	"ABS", "RND", "SGN", "PEEK", "SQR", "FRE"};
 
 /*
 	The basic interpreter is implemented as a stack machine
@@ -170,16 +167,62 @@ static unsigned int rd;
 
 */
 
-void outputtoken();
-void outsc(char *);
+/* 
+	Layer 0 functions 
+*/
+
+// variable handling - interface between memory 
+// and variable storage
+short getvar(char);
+void setvar(char, short);
+char varname(char);
+void createvar(char);
+void delvar(char);
+void clrvars();
+
+// error handling
+void error(char);
+
+// stack stuff
+void push(short);
+short pop();
+void drop();
+void clearst();
+
+// mathematics
+short rnd(int);
+short sqr(short);
+
+// input output
+void outch(char);
+char inch();
 void outcr();
+void outspc();
+void outtab();
+void outs(char*, short);
+void outsc(char*);
+void ins();
 void outnumber(short);
+short innumber();
+
+/* 
+	
+	Layer 1 function
+
+*/
+
+void outputtoken();
+
+
+
 void debugtoken();
 void statement();
 void gettoken();
-void error(char);
+
 
 /* 
+
+	Layer 0 function - variable handling.
 
 	These function access variables, 
 	In this implementation variables are a 
@@ -226,6 +269,8 @@ void clrvars() {
 
 /* 
 
+  Layer 0 - error handling
+
   The general error handler. The static variable er
   contains the error state. 
 
@@ -262,17 +307,18 @@ void error(char e){
 }
 
 /*
+
+
 	Arithmetic and runtime operations are mostly done
 	on a stack of 16 bit objects.
 
 */
 
 void push(short t){
-	if (sp == STACKSIZE) {
+	if (sp == STACKSIZE)
 		error(EOUTOFMEMORY);
-		return;
-	}
-	stack[sp++]=t;
+	else
+		stack[sp++]=t;
 }
 
 short pop(){
@@ -457,7 +503,6 @@ short innumber(){
 	}
 	return r;
 }
-
 
 /*
 
@@ -785,7 +830,6 @@ void nextline() {
 	}
 }
 
-
 void findline(short l) {
 	here=0;
 	while (here < top) {
@@ -872,7 +916,7 @@ void storeline() {
 	do {
 		storetoken();
 		if (er == EOUTOFMEMORY) {
-			outsc("Out of memory error, line ignored.\n");
+			outsc("Line ignored.\n");
 			drop();
 			return;
 		}
@@ -997,7 +1041,7 @@ void storeline() {
 void expression();
 
 void factor(){
-	if (DEBUG1) { outsc("Entering factor with token: "); debugtoken(); }
+	if (DEBUG1) { outsc("In factor: "); debugtoken(); }
 	switch (token) {
 		case NUMBER: 
 			push(x);
@@ -1122,16 +1166,16 @@ void factor(){
 		default:
 			error(token);
 	}
-	if (DEBUG2) { outsc("Leaving factor with token: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out factor: "); debugtoken(); }
 }
 
 void term(){
-	if (DEBUG1) { outsc("Entering term with token: "); debugtoken(); }
+	if (DEBUG1) { outsc("In term: "); debugtoken(); }
 	factor();
 
 nextfactor:
 	nexttoken();
-	if (DEBUG) { outsc("Called nexttoken in term with token: "); debugtoken(); }
+	if (DEBUG) { outsc("Nexttoken: "); debugtoken(); }
 	if (token == '*'){
 		nexttoken();
 		factor();
@@ -1164,11 +1208,11 @@ nextfactor:
 		}
 		goto nextfactor;
 	} 
-	if (DEBUG2) { outsc("Leaving term with token: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out term: "); debugtoken(); }
 }
 
 void addexpression(){
-	if (DEBUG1) { outsc("Entering addexpression with token: "); debugtoken(); }
+	if (DEBUG1) { outsc("In addexpression: "); debugtoken(); }
 	if (token != '+' && token != '-') {
 		term();
 	} else {
@@ -1191,11 +1235,11 @@ nextterm:
 		push(x-y);
 		goto nextterm;
 	}
-	if (DEBUG2) { outsc("Leaving addexpression with token: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out addexpression: "); debugtoken(); }
 }
 
 void compexpression() {
-	if (DEBUG1) { outsc("Entering compexpression with token: "); debugtoken(); }
+	if (DEBUG1) { outsc("In compexpression: "); debugtoken(); }
 	addexpression();
 	switch (token){
 		case '=':
@@ -1241,11 +1285,11 @@ void compexpression() {
 			push(x >= y);
 			break;
 	}
-	if (DEBUG2) { outsc("Leaving compexpression with token: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out compexpression: "); debugtoken(); }
 }
 
 void notexpression() {
-	if (DEBUG1) { outsc("Entering notexpression with token: "); debugtoken(); }
+	if (DEBUG1) { outsc("In notexpression: "); debugtoken(); }
 	if (token == TNOT) {
 		nexttoken();
 		compexpression();
@@ -1253,11 +1297,11 @@ void notexpression() {
 		push(! x);
 	} else 
 		compexpression();
-	if (DEBUG2) { outsc("Leaving notexpression with token: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out notexpression: "); debugtoken(); }
 }
 
 void andexpression() {
-	if (DEBUG1) { outsc("Entering andexpression with token: "); debugtoken(); }
+	if (DEBUG1) { outsc("In andexpression: "); debugtoken(); }
 	notexpression();
 	if (token == TAND) {
 		nexttoken();
@@ -1266,11 +1310,11 @@ void andexpression() {
 		x=pop(); 
 		push(x && y);
 	}
-	if (DEBUG2) { outsc("Leaving andexpression with token: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out andexpression: "); debugtoken(); }
 }
 
 void expression(){
-	if (DEBUG1) { outsc("Entering expression with token: "); debugtoken(); }
+	if (DEBUG1) { outsc("In expression: "); debugtoken(); }
 	andexpression();
 	if (token == TOR) {
 		nexttoken();
@@ -1279,7 +1323,7 @@ void expression(){
 		x=pop(); 
 		push(x || y);
 	}
-	if (DEBUG2) { outsc("Leaving expression with token: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out expression: "); debugtoken(); }
 }
 
 
@@ -1291,7 +1335,7 @@ void expression(){
 
 */ 
 void print(){
-	if (DEBUG1) { outsc("Entering print with token: "); debugtoken(); }
+	if (DEBUG1) { outsc("In print: "); debugtoken(); }
 	while (TRUE) {
 		nexttoken();
 		if (token == STRING) {
@@ -1312,11 +1356,11 @@ void print(){
 			break;
 		}
 	}
-	if (DEBUG2) { outsc("Leaving print with token: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out print: "); debugtoken(); }
 }
 
 void assignment() {
-	if (DEBUG1) { outsc("Entering assignment with token: "); debugtoken(); }
+	if (DEBUG1) { outsc("In assignment: "); debugtoken(); }
 	push(xc);
 	nexttoken();
 	if ( token == '=') {
@@ -1333,11 +1377,11 @@ void assignment() {
 		}
 	} else 
 		error(token);
-	if (DEBUG2) { outsc("Leaving assignment with token: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out assignment: "); debugtoken(); }
 }
 
 void xgoto() {
-	if (DEBUG1) { outsc("Entering goto with token: "); debugtoken(); }
+	if (DEBUG1) { outsc("In goto: "); debugtoken(); }
 	nexttoken();
 	expression();
 	if (er == 0) {
@@ -1349,7 +1393,7 @@ void xgoto() {
 		er=0;
 		return;
 	}
-	if (DEBUG2) { outsc("Leaving goto with token: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out goto: "); debugtoken(); }
 }
 
 void end(){
@@ -1357,12 +1401,12 @@ void end(){
 }
 
 void xif(){
-	if (DEBUG1) { outsc("Entering if with token: "); debugtoken(); }
+	if (DEBUG1) { outsc("In if: "); debugtoken(); }
 	nexttoken();
 	expression();
 	if (er == 0) {
 		x=pop();
-		if (DEBUG1) { outsc("In if with boolean value: "); outnumber(x); outcr(); } 
+		if (DEBUG1) { outsc("If boolean: "); outnumber(x); outcr(); } 
 		if (! x) {// on condition false skip the entire line
 			do {
 				nexttoken();
@@ -1375,16 +1419,16 @@ void xif(){
 			}
 		}
 	} else {
-		outsc("Error in if from expression \n");
+		outsc("Error in if \n");
 		clearst();
 		er=0;
 		return;
 	}
-	if (DEBUG2) { outsc("Leaving if with token: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out if with: "); debugtoken(); }
 }
 
 void input(){
-	if (DEBUG1) { outsc("Entering input with token: "); debugtoken(); }
+	if (DEBUG1) { outsc("In input: "); debugtoken(); }
 	nexttoken();
 	if (token == STRING) {
 		outs(ir, x);
@@ -1403,7 +1447,7 @@ void input(){
 		}
 		nexttoken();
 	} while (token == ',');
-	if (DEBUG2) { outsc("Leaving if with token: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out if: "); debugtoken(); }
 }
 
 /* 
@@ -1454,7 +1498,7 @@ void list(){
 
 
 void run(){
-	if (DEBUG1) { outsc("Entering run with token: "); debugtoken(); }
+	if (DEBUG1) { outsc("In run: "); debugtoken(); }
 	here=0;
 	st=SRUN;
 	nexttoken();
@@ -1462,7 +1506,7 @@ void run(){
 		statement();
 	}
 	st=SINT;
-	if (DEBUG2) { outsc("Leaving run with token: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out run: "); debugtoken(); }
 }
 
 void xnew(){
@@ -1478,7 +1522,7 @@ void xnew(){
 */
 
 void statement(){
-	if (DEBUG1) { outsc("Entering statement with token: "); debugtoken(); }
+	if (DEBUG1) { outsc("In statement: "); debugtoken(); }
 	while (token != EOL) {
 		switch(token){
 			case TLIST:
@@ -1526,7 +1570,7 @@ void statement(){
 				nexttoken();
 		}
 	}
-	if (DEBUG2) { outsc("Leaving statement with token: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out statement: "); debugtoken(); }
 }
 
 // the setup routine runs once when you press reset:
