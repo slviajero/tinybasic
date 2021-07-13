@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.32 2021/07/11 05:34:31 stefan Exp stefan $
+// $Id: basic.c,v 1.35 2021/07/13 17:20:23 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -20,6 +20,7 @@
 #define DEBUG2 0
 #define DEBUG3 0
 #define DEBUG4 0
+#define DEBUG5 1
 
 #define BUFSIZE 72
 #define MEMSIZE 512
@@ -73,6 +74,7 @@
 #define TSQR	-95
 #define TFRE	-94
 #define TDUMP 	-93
+#define TBREAK  -92
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
@@ -87,7 +89,7 @@
 #define ERANGE 		 7
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS 31
+#define NKEYWORDS 32
 #define BASEKEYWORD -123
 
 /*
@@ -112,7 +114,8 @@ static char* const keyword[] = {
 	"LET","FOR", "END", "THEN" , "GOTO" , "STOP", 
 	"NEXT", "STEP", "PRINT", "INPUT", "GOSUB", 
 	"RETURN", "LIST", "CLR", "NOT", "AND", "OR" , 
-	"ABS", "RND", "SGN", "PEEK", "SQR", "FRE", "DUMP"};
+	"ABS", "RND", "SGN", "PEEK", "SQR", "FRE", "DUMP",
+    "BREAK"};
 
 /*
 	The basic interpreter is implemented as a stack machine
@@ -345,11 +348,8 @@ void error(char e){
 }
 
 /*
-
-
 	Arithmetic and runtime operations are mostly done
 	on a stack of 16 bit objects.
-
 */
 
 void push(short t){
@@ -370,13 +370,11 @@ short pop(){
 	}
 }
 
-
 void drop() {
 	if (sp == 0)
 		error(ESTACK);
 	else
 		--sp;	
-
 }
 
 void clearst(){
@@ -1457,15 +1455,14 @@ void xif(){
 		x=pop();
 		if (DEBUG1) { outsc("If boolean: "); outnumber(x); outcr(); } 
 		if (! x) {// on condition false skip the entire line
-			do {
+			do
 				nexttoken();
-			} while (token != EOL && here <= top);
+			while (token != LINENUMBER && token !=EOL && here <= top);
 		}
 		if (token == TTHEN) {
 			nexttoken();
-			if (token == NUMBER) {
+			if (token == NUMBER) 
 				findline(x);
-			}
 		}
 	} else {
 		outsc("Error in if \n");
@@ -1536,9 +1533,8 @@ void dropforstack(){
 }
 
 void findnext(){
-	while (token != TNEXT && here < top) {
-		nexttoken();
-	} 
+	while (token != TNEXT && here < top) 
+		nexttoken(); 
 }
 
 void xfor(){
@@ -1564,8 +1560,11 @@ void xfor(){
 	x=pop();
 	xc=pop();
 	setvar(xc,x);
+	if (DEBUG1) { outsc("In for: \n"); 
+		outsc("Variable is : "); outch(xc); outcr();
+		outsc("Value is    : "); outnumber(x); outcr();
+	}
 	push(xc);
-	nexttoken();
 	if (token != TTO){
 		drop();
 		error(token);
@@ -1577,7 +1576,6 @@ void xfor(){
 		drop();
 		return;
 	}
-	nexttoken();
 	if (token == TSTEP) {
 		nexttoken();
 		expression();
@@ -1589,7 +1587,11 @@ void xfor(){
 		y=pop();
 	} else 
 		y=1;
-	if (token != EOL && token != ':') {
+	if (DEBUG1) { 
+		outsc("In for: \n"); 
+		outsc("Step is    : "); outnumber(y); outcr();
+	}
+	if (token != LINENUMBER && token != ':') {
 		error(token);
 		drop();
 		drop();
@@ -1603,24 +1605,60 @@ void xfor(){
 	if (er != 0){
 		return;
 	}
-	if (getvar(xc)>x) { // skip the entire block -- BAUSTELLE -- step Vorzeichen
+/*
+	this tests the condition and stops if it is fulfilled already from start 
+	there is an apocryphal feature her STEP 0 is legal triggers an infinite loop
+*/
+	if ( (y > 0 && getvar(xc)>x) || (y < 0 && getvar(xc)<x ) ) { 
 		dropforstack();
-		outsc("Skip the for block \n");
 		findnext();
 		nexttoken();
 		return;
 	}
-
-
-
-
-
 	if (DEBUG2) { outsc("Out for: "); debugtoken(); }
 }
 
-void next(){
-	if (DEBUG1) { outsc("In next: "); debugtoken(); }
+/*
+	an apocryphal feature here is the BREAK command ending a look
+*/
+void xbreak(){
+	if (DEBUG1) { outsc("In break: "); debugtoken(); }
+	dropforstack();
+	findnext();
+	nexttoken();
+	if (DEBUG2) { outsc("Out break: "); debugtoken(); }
+}
 
+
+void xnext(){
+	if (DEBUG1) { outsc("In next: "); debugtoken(); }
+	push(here);
+	popforstack();
+	// at this point xc is the variable, x the stop value and y the step
+	// here is the point tp jump back
+	if (y == 0) {				// next loop - we branch to <here>
+		pushforstack();
+		drop();
+		nexttoken();
+		return;
+	} 
+	int t=getvar(xc)+y;
+	setvar(xc, t);
+	if (y > 0 && t <= x) {		// next loop - we branch to <here>
+		pushforstack();
+		drop();
+		nexttoken();
+		return;
+	}
+	if (y < 0 && t >= x) {		// next loop - we branch to <here>
+		pushforstack();
+		drop();
+		nexttoken();
+		return;
+	} 
+	// last iteration completed
+	here=pop();
+	nexttoken();
 	if (DEBUG2) { outsc("Out next: "); debugtoken(); }
 }
 
@@ -1689,9 +1727,8 @@ void run(){
 	here=0;
 	st=SRUN;
 	nexttoken();
-	while (here < top && st == SRUN){
+	while (here < top && st == SRUN)
 		statement();
-	}
 	st=SINT;
 	if (DEBUG2) { outsc("Out run: "); debugtoken(); }
 }
@@ -1750,6 +1787,12 @@ void statement(){
 				break;
 			case TFOR:
 				xfor();
+				break;		
+			case TNEXT:
+				xnext();
+				break;
+			case TBREAK:
+				xbreak();
 				break;
 			case TINPUT:
 				input();
@@ -1770,10 +1813,8 @@ void statement(){
 
 // the setup routine runs once when you press reset:
 void setup() {
-
 #ifdef ARDUINO
-  // initialize serial communication at 9600 bits per second:
-  Serial.begin(9600);
+  Serial.begin(9600); 
 #endif
   xnew();
 }
@@ -1782,17 +1823,11 @@ void setup() {
 void loop() {
 
     outsc("Ready \n");
-      // get a new line 
     ins();
     
-    // go to the beginning of the line
     bi=ibuffer;
-
-    // processing a new input line 
     nexttoken();
 
-    // leading line number means edit mode - new program data is input
-    // else run mode, command is input and directly executed
     if (token == NUMBER)
       storeline();
     else {
