@@ -64,6 +64,12 @@ LIST doesn't allow no argument.
 
 DUMP prints the initial section of the memory as a decimal dump.
 
+END ends a program and preserves the interpreter state completely. It is more like STOP in standard basic. STOP is not implemented.
+
+CONT restarts the program where it ended, using only the here variable. 
+
+REM is a comment but behaves different than in other BASICs. It requires one string argument. This is because the tokenizer will try to tokenize every command and the only way to store characters in a program is to convert them into the internal string format.
+
 Target machines and compilation:
 
 No makefile or headers are provided. All is in one C file, function definitions are in a initial section in the code. On Mac und Linux the definition #undef ARDUINO has to be used. With this putchar and getchar are the only functions in the standard library for input and output. #define ARDUINO replaces these functions with Serial.write and Serial.read for the arduino. The code can be directly compiled in the arduino ide with the build in C++ compiler. The standard serial library costs 180 bytes RAM and 1 kB of flash memory. It is the single biggest library on an arduino. Current arduino code size is 8 kB, memory demand is 1.2 kB for a 512 byte basic memory executable. My test system is a Arduino Uno, 16 kB flash, 2 kB memory.
