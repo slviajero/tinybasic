@@ -22,9 +22,11 @@
 #define DEBUG4 0
 
 #define BUFSIZE 72
-#define MEMSIZE 256
-#define VARSIZE 26
+#define MEMSIZE 512
+#define VARSIZE	26
 #define STACKSIZE 15
+#define GOSUBDEPTH 4
+#define FORDEPTH 4
 
 /*
 
@@ -44,7 +46,7 @@
 #define LESSEREQUAL  -122
 #define NOTEQUAL    -121
 #define TIF     -120
-#define TOT     -119
+#define TTO     -119
 #define TNEW    -118
 #define TRUN    -117
 #define TLET    -116
@@ -70,6 +72,7 @@
 #define TPEEK	-96
 #define TSQR	-95
 #define TFRE	-94
+#define TDUMP 	-93
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
@@ -84,7 +87,7 @@
 #define ERANGE 		 7
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS 30
+#define NKEYWORDS 31
 #define BASEKEYWORD -123
 
 /*
@@ -105,11 +108,11 @@
 */
 
 static char* const keyword[] = {
-	"=>", "<=", "<>", "IF","TO", "NEW","RUN",
+	"=>", "<=", "<>", "IF", "TO", "NEW","RUN",
 	"LET","FOR", "END", "THEN" , "GOTO" , "STOP", 
 	"NEXT", "STEP", "PRINT", "INPUT", "GOSUB", 
 	"RETURN", "LIST", "CLR", "NOT", "AND", "OR" , 
-	"ABS", "RND", "SGN", "PEEK", "SQR", "FRE"};
+	"ABS", "RND", "SGN", "PEEK", "SQR", "FRE", "DUMP"};
 
 /*
 	The basic interpreter is implemented as a stack machine
@@ -147,6 +150,12 @@ static short vars[VARSIZE];
 
 static char mem[MEMSIZE];
 
+static struct {char var; short here; short to; short step;} forstack[FORDEPTH];
+static short forsp = 0;
+
+static struct {short here;} gosubstack[GOSUBDEPTH];
+static short gosubsp = 0;
+
 static short x, y;
 static char xc, yc;
 
@@ -159,13 +168,6 @@ static unsigned short here, here2, here3;
 static unsigned short top;
 
 static unsigned int rd;
-
-/*
-
-	A few declarations.
-	The need to go to a header later on.
-
-*/
 
 /* 
 	Layer 0 functions 
@@ -205,20 +207,56 @@ void ins();
 void outnumber(short);
 short innumber();
 
-/* 
-	
-	Layer 1 function
-
+/* 	
+	Layer 1 function, provide data and do the heavy lifting 
+	for layer 2.
 */
 
-void outputtoken();
-
-
-
+// lexical analysis
 void debugtoken();
-void statement();
+void whitespaces();
+void nexttoken();
+// storeing and retrieving programs
+char nomemory(short);
+void storetoken(); 
 void gettoken();
+void firstline();
+void nextline();
+void findline(short);
+void moveblock(short, short, short);
+void zeroblock(short, short);
+void diag();
+void storeline();
+// expression evaluation
+void factor();
+void term();
+void addexpression();
+void compexpression();
+void notexpression();
+void andexpression();
+void expression();
 
+/* 
+	Layer 2 - statements call Layer 1 functions and 
+	use the global variables 
+*/
+
+void print();
+void assignment();
+void xgoto();
+void end();
+void xif();
+void input();
+
+// control commands LIST, RUN, NEW, CLR
+void clr();
+void outputtoken();
+void list();
+void run();
+void xnew();
+
+// the statement loop
+void statement();
 
 /* 
 
@@ -317,8 +355,9 @@ void error(char e){
 void push(short t){
 	if (sp == STACKSIZE)
 		error(EOUTOFMEMORY);
-	else
+	else{	
 		stack[sp++]=t;
+	}
 }
 
 short pop(){
@@ -326,8 +365,9 @@ short pop(){
 		error(ESTACK);
 		return 0;
 	}
-	else
+	else{
 		return stack[--sp];	
+	}
 }
 
 
@@ -434,7 +474,7 @@ void ins(){
 	while(TRUE) {
 		c=inch();
 		if (bi-ibuffer < BUFSIZE-1) {
-			if (c == '\n') {
+			if (c == '\n' || c == '\r') {
 				*bi=0x00;
 				break;
 			} else 
@@ -491,7 +531,7 @@ short innumber(){
 			x=pop();
 			nd--;
 		}
-		if (c == '\n')
+		if (c == '\n' || c == '\r')
 			break;
 		c=inch();
 	}
@@ -503,6 +543,14 @@ short innumber(){
 	}
 	return r;
 }
+
+/* 
+
+	Layer 1 functions - providing data into the global variable and 
+	changing the interpreter state
+
+*/
+
 
 /*
 
@@ -714,6 +762,8 @@ void nexttoken() {
 }
 
 /* 
+	Layer 1 - program editor 
+
 	Editing the program, the structure of a line is 
 	LINENUMBER linenumber(2bytes) token(n bytes)
 
@@ -795,14 +845,14 @@ void gettoken() {
 	switch (token) {
 		case NUMBER:
 		case LINENUMBER:		
-			x=mem[here++];
+			x=(unsigned char)mem[here++];
 			x+=mem[here++]*256;
 			break;
 		case VARIABLE:
 			xc=mem[here++];
 			break;
 		case STRING:
-			x=mem[here++];
+			x=(unsigned char)mem[here++];
 			ir=&mem[here];
 			here+=x;
 	}
@@ -953,6 +1003,7 @@ void storeline() {
 		}
 		return;
 	}
+
 /* 
 	stage 3, a nontrivial line with linenumber x is to be stored
 	try to find it first by walking through all lines 
@@ -1037,8 +1088,6 @@ void storeline() {
  implementing a C style logical expression model
 
 */
-
-void expression();
 
 void factor(){
 	if (DEBUG1) { outsc("In factor: "); debugtoken(); }
@@ -1314,7 +1363,7 @@ void andexpression() {
 }
 
 void expression(){
-	if (DEBUG1) { outsc("In expression: "); debugtoken(); }
+	if (DEBUG1) { outsc("In expression: "); debugtoken(); outsc("sp = "); outnumber(sp); outcr();}
 	andexpression();
 	if (token == TOR) {
 		nexttoken();
@@ -1322,8 +1371,8 @@ void expression(){
 		y=pop(); 
 		x=pop(); 
 		push(x || y);
-	}
-	if (DEBUG2) { outsc("Out expression: "); debugtoken(); }
+	} 
+	if (DEBUG2) { outsc("Out expression: "); debugtoken(); outsc("sp = "); outnumber(sp); outcr();}
 }
 
 
@@ -1450,6 +1499,144 @@ void input(){
 	if (DEBUG2) { outsc("Out if: "); debugtoken(); }
 }
 
+
+void pushforstack(){
+	if (forsp < FORDEPTH) {
+		forstack[forsp].var=xc;
+		forstack[forsp].here=here;
+		forstack[forsp].to=x;
+		forstack[forsp].step=y;
+		forsp++;	
+		return;	
+	} else 
+		error(ESTACK);
+}
+
+
+void popforstack(){
+	if (forsp>0) {
+		forsp--;
+	} else {
+		error(ESTACK);
+		return;
+	} 
+	xc=forstack[forsp].var;
+	here=forstack[forsp].here;
+	x=forstack[forsp].to;
+	y=forstack[forsp].step;
+}
+
+void dropforstack(){
+	if (forsp>0) {
+		forsp--;
+	} else {
+		error(ESTACK);
+		return;
+	} 
+}
+
+void findnext(){
+	while (token != TNEXT && here < top) {
+		nexttoken();
+	} 
+}
+
+void xfor(){
+	if (DEBUG1) { outsc("In for: "); debugtoken(); }
+	nexttoken();
+	if (token != VARIABLE) {
+		error(token);
+		return;
+	}
+	push(xc);
+	nexttoken();
+	if (token != '=') {
+		error(token);
+		drop();
+		return;
+	}
+	nexttoken();
+	expression();
+	if (er != 0) {
+		drop();
+		return;
+	}
+	x=pop();
+	xc=pop();
+	setvar(xc,x);
+	push(xc);
+	nexttoken();
+	if (token != TTO){
+		drop();
+		error(token);
+		return;
+	}
+	nexttoken();
+	expression();
+	if (er != 0) {
+		drop();
+		return;
+	}
+	nexttoken();
+	if (token == TSTEP) {
+		nexttoken();
+		expression();
+		if (er != 0) {
+			drop(); 
+			drop();
+			return;
+		}
+		y=pop();
+	} else 
+		y=1;
+	if (token != EOL && token != ':') {
+		error(token);
+		drop();
+		drop();
+		return;
+	}
+	x=pop();
+	xc=pop();
+	if (st == SINT)
+		here=ibuffer-bi;
+	pushforstack();
+	if (er != 0){
+		return;
+	}
+	if (getvar(xc)>x) { // skip the entire block -- BAUSTELLE -- step Vorzeichen
+		dropforstack();
+		outsc("Skip the for block \n");
+		findnext();
+		nexttoken();
+		return;
+	}
+
+
+
+
+
+	if (DEBUG2) { outsc("Out for: "); debugtoken(); }
+}
+
+void next(){
+	if (DEBUG1) { outsc("In next: "); debugtoken(); }
+
+	if (DEBUG2) { outsc("Out next: "); debugtoken(); }
+}
+
+void gosub(){
+	if (DEBUG1) { outsc("In for: "); debugtoken(); }
+
+	if (DEBUG2) { outsc("Out for: "); debugtoken(); }
+}
+
+void xreturn(){
+	if (DEBUG1) { outsc("In next: "); debugtoken(); }
+
+	if (DEBUG2) { outsc("Out next: "); debugtoken(); }
+}
+
+
 /* 
 
 	control commands LIST, RUN, NEW, CLR
@@ -1517,7 +1704,8 @@ void xnew(){
 
 /* 
 
-	statement processes an entire basic statement. 
+	statement processes an entire basic statement until the end 
+	of the line. 
 
 */
 
@@ -1560,8 +1748,15 @@ void statement(){
 			case TIF:
 				xif();
 				break;
+			case TFOR:
+				xfor();
+				break;
 			case TINPUT:
 				input();
+				break;
+			case TDUMP:
+				dumpmem(5);
+				nexttoken();
 				break;
 			case UNKNOWN:
 				error(EUNKNOWN);
@@ -1586,7 +1781,7 @@ void setup() {
 // the loop routine runs over and over again forever:
 void loop() {
 
-     outsc("Ready \n");
+    outsc("Ready \n");
       // get a new line 
     ins();
     
