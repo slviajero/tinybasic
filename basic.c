@@ -22,12 +22,12 @@
 #define DEBUG4 0
 #define DEBUG5 1
 
-#define BUFSIZE 72
-#define MEMSIZE 512
-#define VARSIZE	26
-#define STACKSIZE 15
-#define GOSUBDEPTH 4
-#define FORDEPTH 4
+#define BUFSIZE 	72
+#define MEMSIZE  	512
+#define VARSIZE		26
+#define STACKSIZE 	15
+#define GOSUBDEPTH 	4
+#define FORDEPTH 	4
 
 /*
 
@@ -38,14 +38,14 @@
 
 */
 
-#define EOL			0
-#define NUMBER   	-127
-#define LINENUMBER  -126
-#define STRING   	-125
-#define VARIABLE 	-124
+#define EOL			 0
+#define NUMBER   	 -127
+#define LINENUMBER   -126
+#define STRING   	 -125
+#define VARIABLE 	 -124
 #define GREATEREQUAL -123
 #define LESSEREQUAL  -122
-#define NOTEQUAL    -121
+#define NOTEQUAL	 -121
 #define TIF     -120
 #define TTO     -119
 #define TNEW    -118
@@ -55,7 +55,7 @@
 #define TEND    -114
 #define TTHEN   -113
 #define TGOTO   -112
-#define TSTOP   -111
+#define TCONT   -111
 #define TNEXT   -110
 #define TSTEP   -109
 #define TPRINT  -108
@@ -75,6 +75,9 @@
 #define TFRE	-94
 #define TDUMP 	-93
 #define TBREAK  -92
+#define TSAVE   -91
+#define TLOAD   -90
+#define TREM 	-89
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
@@ -89,7 +92,7 @@
 #define ERANGE 		 7
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS 32
+#define NKEYWORDS 	39
 #define BASEKEYWORD -123
 
 /*
@@ -97,25 +100,22 @@
 	SRUN means running from a programm
 	SINT means interactive mode
 	(enum would be the right way of doing this.)
-
 */
 
 #define SINT 0
 #define SRUN 1
 
 /*
-
 	All basic keywords, not all of them are implemented yet.
-
 */
 
 static char* const keyword[] = {
 	"=>", "<=", "<>", "IF", "TO", "NEW","RUN",
-	"LET","FOR", "END", "THEN" , "GOTO" , "STOP", 
+	"LET","FOR", "END", "THEN" , "GOTO" , "CONT", 
 	"NEXT", "STEP", "PRINT", "INPUT", "GOSUB", 
 	"RETURN", "LIST", "CLR", "NOT", "AND", "OR" , 
 	"ABS", "RND", "SGN", "PEEK", "SQR", "FRE", "DUMP",
-    "BREAK"};
+    "BREAK", "SAVE", "LOAD", "REM"};
 
 /*
 	The basic interpreter is implemented as a stack machine
@@ -152,6 +152,7 @@ static char *bi;
 static short vars[VARSIZE];
 
 static char mem[MEMSIZE];
+static short himem=MEMSIZE;
 
 static struct {char var; short here; short to; short step;} forstack[FORDEPTH];
 static short forsp = 0;
@@ -262,7 +263,6 @@ void xnew();
 void statement();
 
 /* 
-
 	Layer 0 function - variable handling.
 
 	These function access variables, 
@@ -275,7 +275,6 @@ void statement();
 	delvar and createvar as stubs for further 
 	use. They are not yet used consistenty in
 	the code.
-
  */
 
 short getvar(char c){
@@ -789,7 +788,7 @@ void nexttoken() {
 */
 
 char nomemory(short b){
-	if (top >= MEMSIZE-b) return TRUE; else return FALSE;
+	if (top >= himem-b) return TRUE; else return FALSE;
 }
 
 void dumpmem(int i) {
@@ -898,9 +897,15 @@ void findline(short l) {
 
 void moveblock(short b, short l, short d){
 	short i;
+
+	if (d+l > himem) {
+		error(EOUTOFMEMORY);
+		return;
+	}
 	
 	if (l<1) 
 		return;
+
 	if (b < d)
 		for (i=l-1; i>=0; i--)
 			mem[d+i]=mem[b+i]; 
@@ -911,6 +916,11 @@ void moveblock(short b, short l, short d){
 
 void zeroblock(short b, short l){
 	short i;
+
+	if (b+l > himem) {
+		error(EOUTOFMEMORY);
+		return;
+	}
 	if (l<1) 
 		return;
 	for (i=0; i<l+1; i++) mem[b+i]=0;
@@ -1447,6 +1457,11 @@ void end(){
 	st=SINT;
 }
 
+void cont(){
+	st=SRUN;
+	nexttoken();
+}
+
 void xif(){
 	if (DEBUG1) { outsc("In if: "); debugtoken(); }
 	nexttoken();
@@ -1531,6 +1546,35 @@ void dropforstack(){
 		return;
 	} 
 }
+
+void pushgosubstack(){
+	if (gosubsp < GOSUBDEPTH) {
+		gosubstack[gosubsp].here=here;
+		gosubsp++;	
+		return;	
+	} else 
+		error(ESTACK);
+}
+
+void popgosubstack(){
+	if (gosubsp>0) {
+		gosubsp--;
+	} else {
+		error(ESTACK);
+		return;
+	} 
+	here=gosubstack[gosubsp].here;
+}
+
+void dropgosubstack(){
+	if (gosubsp>0) {
+		gosubsp--;
+	} else {
+		error(ESTACK);
+		return;
+	} 
+}
+
 
 void findnext(){
 	while (token != TNEXT && here < top) 
@@ -1663,18 +1707,35 @@ void xnext(){
 }
 
 void gosub(){
-	if (DEBUG1) { outsc("In for: "); debugtoken(); }
+	if (DEBUG1) { outsc("In gosub: "); debugtoken(); }
 
-	if (DEBUG2) { outsc("Out for: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out gosub: "); debugtoken(); }
 }
 
 void xreturn(){
-	if (DEBUG1) { outsc("In next: "); debugtoken(); }
+	if (DEBUG1) { outsc("In return: "); debugtoken(); }
 
-	if (DEBUG2) { outsc("Out next: "); debugtoken(); }
+	if (DEBUG2) { outsc("Out return: "); debugtoken(); }
 }
 
+void load() {
+	if (DEBUG1) { outsc("In load: "); debugtoken(); }
 
+	if (DEBUG2) { outsc("Out load: "); debugtoken(); }
+}
+
+void save() {
+	if (DEBUG1) { outsc("In save: "); debugtoken(); }
+
+	if (DEBUG2) { outsc("Out save: "); debugtoken(); }
+}
+
+void rem() {
+	if (DEBUG1) { outsc("In rem: "); debugtoken(); }
+	while (token != LINENUMBER && token != EOL && here <= top)
+		nexttoken(); 
+	if (DEBUG2) { outsc("Out rem: "); debugtoken(); }
+}
 /* 
 
 	control commands LIST, RUN, NEW, CLR
@@ -1683,6 +1744,7 @@ void xreturn(){
 
 void clr() {
 	clrvars();
+	nexttoken();
 }
 
 void outputtoken() {
@@ -1719,6 +1781,7 @@ void list(){
 		gettoken();
 	}
 	outcr();
+	nexttoken();
  }
 
 
@@ -1735,7 +1798,7 @@ void run(){
 
 void xnew(){
 	top=0;
-	*mem=EOL;
+	zeroblock(0,himem);
 	clrvars();
 }
 
@@ -1743,6 +1806,13 @@ void xnew(){
 
 	statement processes an entire basic statement until the end 
 	of the line. 
+
+	The statement loop is a bit odd and requires some explanation.
+	A statement function called in the central switch here must either
+	call nexttoken as its last action to feed the loop with a new token 
+	and then break or it must return which means that the rest of the 
+	line is ignored. A function that doesn't call nexttoken and just 
+	breaks causes an infinite loop.
 
 */
 
@@ -1752,14 +1822,12 @@ void statement(){
 		switch(token){
 			case TLIST:
 				list();
-				nexttoken();
 				break;
 			case TNEW:
 				xnew();
 				return;
 			case TCLR:
 				clr();
-				nexttoken();
 				break;
 			case TRUN:
 				run();
@@ -1782,6 +1850,12 @@ void statement(){
 			case TEND:
 				end();
 				return;
+			case TCONT:
+				cont();
+				break;
+			case TREM:
+				rem();
+				break;
 			case TIF:
 				xif();
 				break;
@@ -1794,12 +1868,24 @@ void statement(){
 			case TBREAK:
 				xbreak();
 				break;
+			case TGOSUB:
+				gosub();
+				break;
+			case TRETURN:
+				xreturn();
+				break;
 			case TINPUT:
 				input();
 				break;
 			case TDUMP:
 				dumpmem(5);
 				nexttoken();
+				break;
+			case TSAVE:
+				save();
+				break;
+			case TLOAD:
+				load();
 				break;
 			case UNKNOWN:
 				error(EUNKNOWN);
