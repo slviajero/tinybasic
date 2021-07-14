@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.36 2021/07/13 20:08:45 stefan Exp stefan $
+// $Id: basic.c,v 1.38 2021/07/14 20:38:13 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -11,6 +11,7 @@
 #include <stdlib.h>
 
 #undef ARDUINO
+#define ARDUINOIO
 
 #ifndef ARDUINO
 #include <stdio.h>
@@ -18,7 +19,7 @@
 #endif
 
 #ifdef ARDUINO
-#include <avr/pgmspace.h>
+#include <EEPROM.h>
 #endif
 
 #define TRUE  1
@@ -87,6 +88,14 @@
 #define TSAVE   -91
 #define TLOAD   -90
 #define TREM 	-89
+#ifdef ARDUINOIO
+#define TPINM	-88
+#define TDWRITE	-87
+#define TDREAD	-86
+#define TAWRITE	-85
+#define TAREAD   -84
+#define TDELAY   -83
+#endif
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
@@ -101,7 +110,11 @@
 #define ERANGE 		 7
 
 // the number of keywords, and the base index of the keywords
+#ifndef ARDUINOIO
 #define NKEYWORDS 	35
+#else
+#define NKEYWORDS	41
+#endif
 #define BASEKEYWORD -123
 
 /*
@@ -124,7 +137,11 @@ static char* const keyword[] = {
 	"NEXT", "STEP", "PRINT", "INPUT", "GOSUB", 
 	"RETURN", "LIST", "CLR", "NOT", "AND", "OR" , 
 	"ABS", "RND", "SGN", "PEEK", "SQR", "FRE", "DUMP",
-    "BREAK", "SAVE", "LOAD", "REM"};
+    "BREAK", "SAVE", "LOAD", "REM"
+#ifdef ARDUINOIO
+    , "PINM", "DWRITE", "DREAD", "AWRITE", "AREAD", "DELAY" 
+#endif
+};
 
 /*
 	The basic interpreter is implemented as a stack machine
@@ -1107,6 +1124,28 @@ void storeline() {
 }
 
 /* 
+	Intermezzo the wrappers of the arduino io functions
+*/ 
+
+#ifdef ARDUINOIO
+#ifdef ARDUINO
+short aread(short x){ return 0; }
+short dread(short x){ return 0 }
+void awrite(short x){}
+void dwrite(short x){}
+void pinm(short x, short y){}
+void delay(short x) {}
+#else
+short aread(short x){ return 0; }
+short dread(short x){ return 0; }
+void awrite(short x){}
+void dwrite(short x){}
+void pinm(short x, short y){}
+void delay(short x) {}
+#endif
+#endif
+
+/* 
  
  calculates an expression, with a recursive descent algorithm
  using the functions term, factor and expression
@@ -1238,7 +1277,43 @@ void factor(){
 				error(')');
 				break;
 			}
-			break;	
+			break;
+#ifdef ARDUINOIO
+		case TAREAD: 
+			nexttoken();
+			if ( token != '(') {
+				error(TAREAD);
+				break;
+			}
+			nexttoken();
+			expression();
+			if (er == 0 && token == ')') {
+				x=pop();
+				x=aread(x);
+				push(x);
+			} else {
+				error(')');
+				break;
+			}
+			break;
+		case TDREAD: 
+			nexttoken();
+			if ( token != '(') {
+				error(TAREAD);
+				break;
+			}
+			nexttoken();
+			expression();
+			if (er == 0 && token == ')') {
+				x=pop();
+				x=dread(x);
+				push(x);
+			} else {
+				error(')');
+				break;
+			}
+			break;
+#endif
 		default:
 			error(token);
 	}
@@ -1741,13 +1816,41 @@ void xreturn(){
 
 void load() {
 	if (DEBUG1) { outsc("In load: "); debugtoken(); }
-
+#ifdef ARDUINO
+		x=0;
+		// here comes the autorun flag code 
+		x++;
+		top=(unsigned char) EEPROM.read(x++);
+		top+=((unsigned char) EEPROM.read(x++))*256;
+		while (x < top+3){
+			mem[x-3]=EEPROM.read(x);
+			x++;
+		}
+		nexttoken();
+#endif
 	if (DEBUG2) { outsc("Out load: "); debugtoken(); }
 }
 
 void save() {
 	if (DEBUG1) { outsc("In save: "); debugtoken(); }
-
+#ifdef ARDUINO
+	if (top+3 < EEPROM.length()) {
+		x=0;
+		EEPROM.write(x++, 0); // currently always zero - this will be the outrun flag
+		EEPROM.write(x++, top%256);
+		EEPROM.write(x++, top/256);
+		while (x < top+3){
+			EEPROM.update(mem[x-3]);
+			x++;
+		}
+		nexttoken();
+	} else {
+		error(EOUTOFMEMORY);
+		er=0;
+		nexttoken();
+		return;
+	}
+#endif
 	if (DEBUG2) { outsc("Out save: "); debugtoken(); }
 }
 
