@@ -50,7 +50,7 @@ FOR TO STEP NEXT is implemented with a maximum nesting size of 4. STEP 0 is lega
 
 BREAK is "apocryphal" and not generally found in basic. It can be used to abort a FOR loop in the middle, clearing the stack.
 
-GOSUB, RETURN is not yet implemented.
+GOSUB, RETURN work in a standard way but GOSUB accepts expressions like GOTO (it is the same function).
 
 Program control statements include RUN, CLR, NEW, LIST, DUMP. 
 
@@ -60,7 +60,7 @@ CLR sets all variable to zero.
 
 NEW sets all variables to zero and deletes the entire program.
 
-LIST doesn't allow no argument.
+LIST doesn't allow an argument - only full listing is supported.
 
 DUMP prints the initial section of the memory as a decimal dump.
 
@@ -94,7 +94,7 @@ ir: a general character pointer for the internal string operations.
 
 FOR and GOSUB have own shallow stacks.
 
-The intepreter is writen in 3 layers
+The intepreter is written in 3 layers
 
 Layer 0: variable handling, errors, stack, mathemetics and input/output. Layer 0 functions do not change the interpreter state.
 

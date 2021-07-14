@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.35 2021/07/13 17:20:23 stefan Exp stefan $
+// $Id: basic.c,v 1.36 2021/07/13 20:08:45 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -12,6 +12,15 @@
 
 #undef ARDUINO
 
+#ifndef ARDUINO
+#include <stdio.h>
+#include <stdlib.h>
+#endif
+
+#ifdef ARDUINO
+#include <avr/pgmspace.h>
+#endif
+
 #define TRUE  1
 #define FALSE 0
 
@@ -20,7 +29,7 @@
 #define DEBUG2 0
 #define DEBUG3 0
 #define DEBUG4 0
-#define DEBUG5 1
+#define DEBUG5 0
 
 #define BUFSIZE 	72
 #define MEMSIZE  	512
@@ -251,6 +260,14 @@ void xgoto();
 void end();
 void xif();
 void input();
+
+// helpers of gosub and for
+void pushforstack();
+void popforstack();
+void dropforstack();
+void pushgosubstack();
+void popgosubstack();
+void dropgosubstack();
 
 // control commands LIST, RUN, NEW, CLR
 void clr();
@@ -1439,11 +1456,18 @@ void assignment() {
 
 void xgoto() {
 	if (DEBUG1) { outsc("In goto: "); debugtoken(); }
+	int t=token;
 	nexttoken();
 	expression();
 	if (er == 0) {
+		if (t == TGOSUB) {
+			pushgosubstack();
+		}
 		x=pop();
 		findline(x);
+		if ( er != 0 ) {
+			dropgosubstack();
+		}
 		nexttoken();
 	} else {
 		clearst();
@@ -1706,15 +1730,10 @@ void xnext(){
 	if (DEBUG2) { outsc("Out next: "); debugtoken(); }
 }
 
-void gosub(){
-	if (DEBUG1) { outsc("In gosub: "); debugtoken(); }
-
-	if (DEBUG2) { outsc("Out gosub: "); debugtoken(); }
-}
-
 void xreturn(){
 	if (DEBUG1) { outsc("In return: "); debugtoken(); }
-
+	popgosubstack();
+	nexttoken();
 	if (DEBUG2) { outsc("Out return: "); debugtoken(); }
 }
 
@@ -1844,6 +1863,7 @@ void statement(){
 			case VARIABLE:
 				assignment();
 				break;
+			case TGOSUB:
 			case TGOTO:
 				xgoto();
 				break;
@@ -1867,9 +1887,6 @@ void statement(){
 				break;
 			case TBREAK:
 				xbreak();
-				break;
-			case TGOSUB:
-				gosub();
 				break;
 			case TRETURN:
 				xreturn();
