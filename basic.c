@@ -101,7 +101,7 @@
 #define ERANGE 		 7
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS 	39
+#define NKEYWORDS 	35
 #define BASEKEYWORD -123
 
 /*
@@ -707,6 +707,8 @@ void nexttoken() {
 	// keyworks and variables
 	// isolate a word, bi points to the beginning, x is the length of the word
 	// ir points to the end of the word after isolating
+
+	if (DEBUG) outsc("Scanning vars");
 	x=0;
 	ir=bi;
 	while (-1) {
