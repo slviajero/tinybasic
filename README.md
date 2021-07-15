@@ -8,6 +8,7 @@ Arithmetic is 16 bit. The full set of logical expresssions with NOT, AND, OR is 
 
 Memory access is strictly 16bit and 8bit. For memory, stack and variable access, array logic is used and not C pointers. This allows all pointers to be short integers which can be stored on the arithmetic stack if needed. 
 
+The interpreted can be compliled with standard gcc on almost any architecture or in the Arduino IDE (set the ARDUINO definition for this).
 
 See also:
 - https://en.wikipedia.org/wiki/Recursive_descent_parser
@@ -24,7 +25,7 @@ Expressions include basic arithmetic, conditions and logical operators AND, OR, 
 
 Conditions work C style as part of the expression evaluation with 0 as FALSE and all other values as TRUE.
 
-Functions ABS, SGN, SQR, RND, FRE, PEEK are implemented in the basic language. 
+Functions ABS, SGN, SQR, RND, FRE, PEEK are implemented. 
 
 SQR is an approximate square root with is not always accurate for perfect squares.
 
@@ -32,7 +33,7 @@ RND is a 16 bit constant seed random number generator which always delivers the 
 
 FRE takes a dummy argument and has the value of the rest of the core basic memory.
 
-Basic statements are PRINT, INPUT, LET, IF THEN, GOTO, FOR TO STEP NEXT BREAK.
+Basic statements are PRINT, INPUT, LET, IF THEN, GOTO, FOR TO STEP - NEXT - BREAK, GOSUB - RETURN.
 
 PRINT is pretty standard, printed objects are concatenated without spaces.
 
@@ -50,7 +51,7 @@ BREAK is "apocryphal" and not generally found in basic. It can be used to abort 
 
 GOSUB, RETURN work in a standard way but GOSUB accepts expressions like GOTO (it is the same function).
 
-Program control statements include RUN, CLR, NEW, LIST, DUMP. 
+Program control statements include RUN, CLR, NEW, LIST, DUMP, SAVE, LOAD. 
 
 RUN starts the program. It has no argument.
 
@@ -74,7 +75,7 @@ DWRITE, DREAD, AWRITE, AREAD, PINM, and DELAY are planned but not implemented. T
 
 Target machines and compilation:
 
-No makefile or headers are provided. All is in one C file, function definitions are in a initial section in the code. On Mac und Linux the definition #undef ARDUINO has to be used. With this putchar and getchar are the only functions in the standard library for input and output. #define ARDUINO replaces these functions with Serial.write and Serial.read for the arduino. The code can be directly compiled in the arduino ide with the build in C++ compiler. The standard serial library costs 180 bytes RAM and 1 kB of flash memory. It is the single biggest library on an arduino. Current arduino code size is 8 kB, memory demand is 1.2 kB for a 512 byte basic memory executable. My test system is a Arduino Uno, 16 kB flash, 2 kB memory.
+No makefile or headers are provided. All is in one C file, function definitions are in a initial section in the code. On Mac und Linux the definition #undef ARDUINO has to be used. With this putchar and getchar are the only functions in the standard library for input and output. #define ARDUINO replaces these functions with Serial.write and Serial.read for the arduino. The code can be directly compiled in the arduino ide with the build in C++ compiler. The standard serial library costs 180 bytes RAM and 1 kB of flash memory. It is the single biggest library on an arduino. Current arduino code size is 8 kB, memory demand is 1.2 kB for a 512 byte basic memory. My test system is a Arduino Uno, 16 kB flash, 2 kB memory.
 
 Interpreter architecture:
 
