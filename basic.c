@@ -1542,7 +1542,7 @@ void xgoto() {
 		}
 		x=pop();
 		findline(x);
-		if ( er != 0 ) {
+		if ( er != 0 && t == TGOSUB) {
 			dropgosubstack();
 		}
 		nexttoken();
