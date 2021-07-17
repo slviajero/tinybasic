@@ -32,9 +32,6 @@
 #define DEBUG  0
 #define DEBUG1 0
 #define DEBUG2 0
-#define DEBUG3 0
-#define DEBUG4 0
-#define DEBUG5 0
 
 #define BUFSIZE 	72
 #define MEMSIZE  	1024
@@ -113,6 +110,8 @@
 #define EDIVIDE		 6
 #define ERANGE 		 7
 #define EFILE 		 8
+#define EFUN 		 9
+#define EARGS		 10
 
 // the number of keywords, and the base index of the keywords
 #ifndef ARDUINOIO
@@ -133,7 +132,7 @@
 #define SRUN 1
 
 /*
-	All basic keywords, not all of them are implemented yet.
+	All basic keywords
 */
 
 static char* const keyword[] = {
@@ -233,7 +232,7 @@ void drop();
 void clearst();
 
 // mathematics
-short rnd(int);
+short rnd(short);
 short sqr(short);
 
 // input output
@@ -355,7 +354,20 @@ void clrvars() {
 }
 
 /* 
+	Layer 0 - keyword handling - PROGMEM logic goes here
+		getkeyword is the only access to the keyword array
+		in the code. 
+*/ 
 
+char* getkeyword(char t) {
+	if (t < BASEKEYWORD || t > BASEKEYWORD+NKEYWORDS) {
+		error(EUNKNOWN);
+		return 0;
+	} 
+	return keyword[token-BASEKEYWORD];
+}
+
+/*
   Layer 0 - error handling
 
   The general error handler. The static variable er
@@ -366,33 +378,58 @@ void clrvars() {
 void error(char e){
 	er=e;
 	if (e < 0) {
-		outsc("Error in:");
+		outsc("Error in: \n");
 		debugtoken();
+		exit(0);
 		return;
 	}
 	switch (e) {
 		case EVARIABLE:
-			outsc("Unknown Variable.\n");
+			outsc("Var");
 		case EUNKNOWN: 
-			outsc("Unknown token.\n");
+			outsc("Syntax");
 			return;
 		case ELINE:
-			outsc("Illegal line.\n");
+			outsc("Line");
 			return;
 		case ESTACK: 
-			outsc("Stack error.\n");
+			outsc("Stack");
 			return;
 		case EOUTOFMEMORY: 
-			outsc("Out of memory.\n");
+			outsc("Memory");
 			return;
 		case ERANGE:
-			outsc("Out of range.\n");
+			outsc("Range");
 			return;
 		case EFILE:
-			outsc("File error.\n");
+			outsc("File");
 			return;
+		case EFUN:
+			outsc("Function");
+			return;		
+		case EARGS:
+			outsc("Arg");	
 	}
+	outsc(" error\n");
 	return;
+}
+
+void debug(char *c){
+	outsc(c); 
+	debugtoken();
+}
+
+void debugn(char t){}
+
+void debugtoken(){
+	outsc("Token: ");
+	if (token != EOL) {
+		outputtoken();
+		outcr();
+	} else {
+		outsc("EOL");
+		outcr();
+	}
 }
 
 /*
@@ -403,9 +440,8 @@ void error(char e){
 void push(short t){
 	if (sp == STACKSIZE)
 		error(EOUTOFMEMORY);
-	else{	
+	else
 		stack[sp++]=t;
-	}
 }
 
 short pop(){
@@ -413,9 +449,8 @@ short pop(){
 		error(ESTACK);
 		return 0;
 	}
-	else{
+	else
 		return stack[--sp];	
-	}
 }
 
 void drop() {
@@ -430,7 +465,7 @@ void clearst(){
 }
 
 // very basic random number generator with constant seed.
-short rnd(int r) {
+short rnd(short r) {
 	rd = (31421*rd + 6927) % 0x10000;
 	if (r>=0) 
 		return (rd*r)/0x10000;
@@ -606,7 +641,7 @@ short innumber(){
 
 /*
 
-	Barebone lexical analyser - tokenizes the input line.
+	Lexical analyser - tokenizes the input line.
 
 	nexttoken() increments the input buffer index bi and delivers values in the global 
 	variable token, with arguments in the accumulator x and the index register ir
@@ -624,16 +659,6 @@ short innumber(){
 
 */ 
 
-void debugtoken(){
-	outsc("Token: ");
-	if (token != EOL) {
-		outputtoken();
-		outcr();
-	} else {
-		outsc("EOL");
-		outcr();
-	}
-}
 
 void whitespaces(){
 	while (*bi == ' ' || *bi == '\t') bi++;
@@ -774,9 +799,9 @@ void nexttoken() {
 
 */
 
-	token=0;
-	while (token < NKEYWORDS){
-		ir=keyword[token];
+	token=BASEKEYWORD;
+	while (token < NKEYWORDS+BASEKEYWORD){
+		ir=getkeyword(token);
 		xc=0;
 		while (*(ir+xc) != 0) {
 			if (*(ir+xc) != *(bi+xc)){
@@ -790,7 +815,6 @@ void nexttoken() {
 			continue;
 		if ( *(bi+xc) < 'A' || *(bi+x) > 'Z' ) {
 			bi+=xc;
-			token+=BASEKEYWORD;
 			if (DEBUG) debugtoken();
 			return;
 		} else {
@@ -1187,8 +1211,51 @@ void delay(short t) {}
 
 */
 
+void parsefunction(short (*f)(short)){
+	nexttoken();
+	if ( token != '(') {
+		error('(');
+		return;
+	}
+	nexttoken();
+	expression();
+	if (er == 0 && token == ')') {
+		x=pop();
+		x=f(x);
+		push(x);
+	} else {
+		error(')');
+		return;
+	}
+	nexttoken();
+}
+
+short xabs(short x){
+	if (x<0) x=-x;
+	return x;
+}
+
+short xsgn(short x){
+	if (x>0) x=1;
+	if (x<0) x=-1;
+	return x;
+}
+
+short peek(short x){
+	if (x>=0 && x<MEMSIZE) 
+		return mem[x];
+	else {
+		error(ERANGE);
+		return 0;
+	}
+}
+
+short xfre(short x) {
+	return MEMSIZE-top;
+}
+
 void factor(){
-	if (DEBUG1) { outsc("In factor: "); debugtoken(); }
+	if (DEBUG1) debug("factor");
 	switch (token) {
 		case NUMBER: 
 			push(x);
@@ -1203,162 +1270,44 @@ void factor(){
 				error(token);
 			break;
 		case TABS: 
-			nexttoken();
-			if ( token != '(') {
-				error(TABS);
-				break;
-			}
-			nexttoken();
-			expression();
-			if (er == 0 && token == ')') {
-				x=pop();
-				if (x<0) x=-x;
-				push(x);
-			} else {
-				error(')');
-				break;
-			}
-			nexttoken();
+			parsefunction(xabs);
 			break;
 		case TRND: 
-			nexttoken();
-			if ( token != '(') {
-				error(TABS);
-				break;
-			}
-			nexttoken();
-			expression();
-			if (er == 0 && token == ')') {
-				x=pop();
-				x=rnd(x);
-				push(x);
-			} else {
-				error(')');
-				break;
-			}
+			parsefunction(rnd);
 			break;
 		case TSGN: 
-			nexttoken();
-			if ( token != '(') {
-				error(TSGN);
-				break;
-			}
-			nexttoken();
-			expression();
-			if (er == 0 && token == ')') {
-				x=pop();
-				if (x>0) x=1;
-				if (x<0) x=-1;
-				push(x);
-			} else {
-				error(')');
-				break;
-			}
+			parsefunction(xsgn);
 			break;
 		case TPEEK: 
-			nexttoken();
-			if ( token != '(') {
-				error(TPEEK);
-				break;
-			}
-			nexttoken();
-			expression();
-			if (er == 0 && token == ')') {
-				x=pop();
-				if (x>=0 && x<MEMSIZE) {
-					push(mem[x]);
-				} else 
-					error(ERANGE);
-			} else {
-				error(')');
-				break;
-			}
+			parsefunction(peek);
 			break;
 		case TSQR: 
-			nexttoken();
-			if ( token != '(') {
-				error(TSQR);
-				break;
-			}
-			nexttoken();
-			expression();
-			if (er == 0 && token == ')') {
-				x=pop();
-				if (x>=0) {
-					push(sqr(x));
-				} 
-
-			} else {
-				error(')');
-				break;
-			}
+			parsefunction(sqr);
 			break;
 		case TFRE: 
-			nexttoken();
-			if ( token != '(') {
-				error(TSQR);
-				break;
-			}
-			nexttoken();
-			expression();
-			if (er == 0 && token == ')') {
-				x=pop();
-				x=(MEMSIZE-top);
-				push(x);
-			} else {
-				error(')');
-				break;
-			}
+			parsefunction(xfre);
 			break;
 #ifdef ARDUINOIO
 		case TAREAD: 
-			nexttoken();
-			if ( token != '(') {
-				error(TAREAD);
-				break;
-			}
-			nexttoken();
-			expression();
-			if (er == 0 && token == ')') {
-				x=pop();
-				x=aread(x);
-				push(x);
-			} else {
-				error(')');
-				break;
-			}
+			parsefunction(aread);
 			break;
 		case TDREAD: 
-			nexttoken();
-			if ( token != '(') {
-				error(TAREAD);
-				break;
-			}
-			nexttoken();
-			expression();
-			if (er == 0 && token == ')') {
-				x=pop();
-				x=dread(x);
-				push(x);
-			} else {
-				error(')');
-				break;
-			}
+			parsefunction(dread);
 			break;
 #endif
 		default:
 			error(token);
 	}
-	if (DEBUG2) { outsc("Out factor: "); debugtoken(); }
+	if (DEBUG2) debug("factor"); 
 }
 
 void term(){
-	if (DEBUG1) { outsc("In term: "); debugtoken(); }
+	if (DEBUG1) debug("term"); 
 	factor();
 
 nextfactor:
 	nexttoken();
-	if (DEBUG) { outsc("Nexttoken: "); debugtoken(); }
+	if (DEBUG) debug("nexttoken");
 	if (token == '*'){
 		nexttoken();
 		factor();
@@ -1391,11 +1340,11 @@ nextfactor:
 		}
 		goto nextfactor;
 	} 
-	if (DEBUG2) { outsc("Out term: "); debugtoken(); }
+	if (DEBUG2) debug("term"); 
 }
 
 void addexpression(){
-	if (DEBUG1) { outsc("In addexpression: "); debugtoken(); }
+	if (DEBUG1) debug("addexp");
 	if (token != '+' && token != '-') {
 		term();
 	} else {
@@ -1418,11 +1367,11 @@ nextterm:
 		push(x-y);
 		goto nextterm;
 	}
-	if (DEBUG2) { outsc("Out addexpression: "); debugtoken(); }
+	if (DEBUG2) debug("addexp");
 }
 
 void compexpression() {
-	if (DEBUG1) { outsc("In compexpression: "); debugtoken(); }
+	if (DEBUG1) debug("compexp"); 
 	addexpression();
 	switch (token){
 		case '=':
@@ -1468,23 +1417,23 @@ void compexpression() {
 			push(x >= y);
 			break;
 	}
-	if (DEBUG2) { outsc("Out compexpression: "); debugtoken(); }
+	if (DEBUG2) debug("compexp");
 }
 
 void notexpression() {
-	if (DEBUG1) { outsc("In notexpression: "); debugtoken(); }
+	if (DEBUG1) debug("notexp");
 	if (token == TNOT) {
 		nexttoken();
 		compexpression();
 		x=pop();
-		push(! x);
+		push(!x);
 	} else 
 		compexpression();
-	if (DEBUG2) { outsc("Out notexpression: "); debugtoken(); }
+	if (DEBUG2) debug("notexp"); 
 }
 
 void andexpression() {
-	if (DEBUG1) { outsc("In andexpression: "); debugtoken(); }
+	if (DEBUG1) debug("andexp");
 	notexpression();
 	if (token == TAND) {
 		nexttoken();
@@ -1493,11 +1442,11 @@ void andexpression() {
 		x=pop(); 
 		push(x && y);
 	}
-	if (DEBUG2) { outsc("Out andexpression: "); debugtoken(); }
+	if (DEBUG2) debug("andexp"); 
 }
 
 void expression(){
-	if (DEBUG1) { outsc("In expression: "); debugtoken(); outsc("sp = "); outnumber(sp); outcr();}
+	if (DEBUG1) debug("exp"); 
 	andexpression();
 	if (token == TOR) {
 		nexttoken();
@@ -1506,9 +1455,8 @@ void expression(){
 		x=pop(); 
 		push(x || y);
 	} 
-	if (DEBUG2) { outsc("Out expression: "); debugtoken(); outsc("sp = "); outnumber(sp); outcr();}
+	if (DEBUG2) debug("exp");
 }
-
 
 /*
 
@@ -1518,7 +1466,7 @@ void expression(){
 
 */ 
 void print(){
-	if (DEBUG1) { outsc("In print: "); debugtoken(); }
+	if (DEBUG1) debug("print"); 
 	while (TRUE) {
 		nexttoken();
 		if (token == STRING) {
@@ -1539,11 +1487,11 @@ void print(){
 			break;
 		}
 	}
-	if (DEBUG2) { outsc("Out print: "); debugtoken(); }
+	if (DEBUG2) debug("print"); 
 }
 
 void assignment() {
-	if (DEBUG1) { outsc("In assignment: "); debugtoken(); }
+	if (DEBUG1) debug("assign"); 
 	push(xc);
 	nexttoken();
 	if ( token == '=') {
@@ -1560,11 +1508,11 @@ void assignment() {
 		}
 	} else 
 		error(token);
-	if (DEBUG2) { outsc("Out assignment: "); debugtoken(); }
+	if (DEBUG2) debug("assign");
 }
 
 void xgoto() {
-	if (DEBUG1) { outsc("In goto: "); debugtoken(); }
+	if (DEBUG1) debug("goto"); 
 	int t=token;
 	nexttoken();
 	expression();
@@ -1583,7 +1531,7 @@ void xgoto() {
 		er=0;
 		return;
 	}
-	if (DEBUG2) { outsc("Out goto: "); debugtoken(); }
+	if (DEBUG2) debug("goto"); 
 }
 
 void end(){
@@ -1596,12 +1544,12 @@ void cont(){
 }
 
 void xif(){
-	if (DEBUG1) { outsc("In if: "); debugtoken(); }
+	if (DEBUG1) debug("if"); 
 	nexttoken();
 	expression();
 	if (er == 0) {
 		x=pop();
-		if (DEBUG1) { outsc("If boolean: "); outnumber(x); outcr(); } 
+		if (DEBUG1) { debug("boolean"); outnumber(x); outcr(); } 
 		if (! x) {// on condition false skip the entire line
 			do
 				nexttoken();
@@ -1618,11 +1566,11 @@ void xif(){
 		er=0;
 		return;
 	}
-	if (DEBUG2) { outsc("Out if with: "); debugtoken(); }
+	if (DEBUG2) debug("if");
 }
 
 void input(){
-	if (DEBUG1) { outsc("In input: "); debugtoken(); }
+	if (DEBUG1) debug("input"); 
 	nexttoken();
 	if (token == STRING) {
 		outs(ir, x);
@@ -1641,7 +1589,7 @@ void input(){
 		}
 		nexttoken();
 	} while (token == ',');
-	if (DEBUG2) { outsc("Out if: "); debugtoken(); }
+	if (DEBUG2) debug("input");
 }
 
 
@@ -1714,8 +1662,9 @@ void findnext(){
 		nexttoken(); 
 }
 
+// for is implemented only in program mode not in interactive mode
 void xfor(){
-	if (DEBUG1) { outsc("In for: "); debugtoken(); }
+	if (DEBUG1) debug("for");
 	nexttoken();
 	if (token != VARIABLE) {
 		error(token);
@@ -1792,23 +1741,23 @@ void xfor(){
 		nexttoken();
 		return;
 	}
-	if (DEBUG2) { outsc("Out for: "); debugtoken(); }
+	if (DEBUG2) debug("for"); 
 }
 
 /*
 	an apocryphal feature here is the BREAK command ending a look
 */
 void xbreak(){
-	if (DEBUG1) { outsc("In break: "); debugtoken(); }
+	if (DEBUG1) debug("break");
 	dropforstack();
 	findnext();
 	nexttoken();
-	if (DEBUG2) { outsc("Out break: "); debugtoken(); }
+	if (DEBUG2) debug("break");
 }
 
-
+// next is implemented in program mode and not in interactive mode
 void xnext(){
-	if (DEBUG1) { outsc("In next: "); debugtoken(); }
+	if (DEBUG1) debug("next"); 
 	push(here);
 	popforstack();
 	// at this point xc is the variable, x the stop value and y the step
@@ -1836,18 +1785,18 @@ void xnext(){
 	// last iteration completed
 	here=pop();
 	nexttoken();
-	if (DEBUG2) { outsc("Out next: "); debugtoken(); }
+	if (DEBUG2) debug("next");
 }
 
 void xreturn(){
-	if (DEBUG1) { outsc("In return: "); debugtoken(); }
+	if (DEBUG1) debug("return"); 
 	popgosubstack();
 	nexttoken();
-	if (DEBUG2) { outsc("Out return: "); debugtoken(); }
+	if (DEBUG2) debug("return"); 
 }
 
 void load() {
-	if (DEBUG1) { outsc("In load: "); debugtoken(); }
+	if (DEBUG1) debug("load: ");
 #ifdef ARDUINO
 	x=0;
 	// here comes the autorun flag code 
@@ -1876,11 +1825,11 @@ void load() {
 	fclose(fd);
 	fd=0;
 #endif
-	if (DEBUG2) { outsc("Out load: "); debugtoken(); }
+	if (DEBUG2) debug("load"); 
 }
 
 void save() {
-	if (DEBUG1) { outsc("In save: "); debugtoken(); }
+	if (DEBUG1) debug("save"); 
 #ifdef ARDUINO
 	if (top+3 < EEPROM.length()) {
 		x=0;
@@ -1910,14 +1859,14 @@ void save() {
 	fd=0;
 	// no nexttoken here because list has already done this
 #endif
-	if (DEBUG2) { outsc("Out save: "); debugtoken(); }
+	if (DEBUG2) debug("save"); 
 }
 
 void rem() {
-	if (DEBUG1) { outsc("In rem: "); debugtoken(); }
+	if (DEBUG1) debug("rem"); 
 	while (token != LINENUMBER && token != EOL && here <= top)
 		nexttoken(); 
-	if (DEBUG2) { outsc("Out rem: "); debugtoken(); }
+	if (DEBUG2) debug("rem"); 
 }
 /* 
 
@@ -1940,7 +1889,7 @@ void outputtoken() {
 	} else if (token == STRING) {
 		outch('"'); outs(ir, x); outch('"');
 	} else if (token < -3) {
-		outsc(keyword[token-BASEKEYWORD]); outspc();
+		outsc(getkeyword(token)); outspc();
 	} else if (token >= 32) {
 		outch(token); outspc();
 	} else{
@@ -1961,14 +1910,14 @@ void list(){
 
 
 void run(){
-	if (DEBUG1) { outsc("In run: "); debugtoken(); }
+	if (DEBUG1) debug("run");
 	here=0;
 	st=SRUN;
 	nexttoken();
 	while (here < top && st == SRUN)
 		statement();
 	st=SINT;
-	if (DEBUG2) { outsc("Out run: "); debugtoken(); }
+	if (DEBUG2) debug("run"); 
 }
 
 void xnew(){
@@ -1981,70 +1930,64 @@ void xnew(){
 	The arduino io functions.
 */
 
-#ifdef ARDUINOIO
-void xdwrite(){
+void parsetwoarguments() {
 	nexttoken();
 	expression();
 	if (token != ',' ) {
-		error(TDWRITE);
+		error(EARGS);
 		return;
 	} 
 	nexttoken();
 	expression();
 	if (token != ':' && token != LINENUMBER && token != EOL ) {
-		error(TDWRITE);
+		error(EARGS);
 		return;
 	} 
-	x=pop();
-	y=pop();
-	dwrite(y, x);
+}
+
+void parseoneargument() {
+	nexttoken();
+	expression();
+	if (token != ':' && token != LINENUMBER && token != EOL ) {
+		error(EARGS);
+		return;
+	} 
+}
+
+#ifdef ARDUINOIO
+void xdwrite(){
+	parsetwoarguments();
+	if (er == 0) {
+		x=pop();
+		y=pop();
+		dwrite(y, x);	
+	}
 }
 
 void xawrite(){
-	nexttoken();
-	expression();
-	if (token != ',' ) {
-		error(TAWRITE);
-		return;
-	} 
-	nexttoken();
-	expression();
-	if (token != ':' && token != LINENUMBER && token != EOL ) {
-		error(TAWRITE);
-		return;
-	} 
-	x=pop();
-	y=pop();
-	awrite(y, x);
+	parsetwoarguments();
+	if (er == 0) {
+		x=pop();
+		y=pop();
+		awrite(y, x);
+	}
 }
 
 void xpinm(){
-	nexttoken();
-	expression();
-	if (token != ',' ) {
-		error(TPINM);
-		return;
-	} 
-	nexttoken();
-	expression();
-	if (token != ':' && token != LINENUMBER && token != EOL ) {
-		error(TPINM);
-		return;
-	} 
-	x=pop();
-	y=pop();
-	pinm(y, x);
+	parsetwoarguments();
+	if (er == 0) {
+		x=pop();
+		y=pop();
+		pinm(y, x);
+	}
 }
 
 void xdelay(){
-	nexttoken();
-	expression();
-	if (token != ':' && token != LINENUMBER && token != EOL ) {
-		error(TDELAY);
-		return;
-	} 
-	x=pop();
-	delay(x);
+	parseoneargument();
+	if (er == 0) {
+		x=pop();
+		delay(x);	
+	}
 }
 #endif 
 
@@ -2063,7 +2006,7 @@ void xdelay(){
 */
 
 void statement(){
-	if (DEBUG1) { outsc("In statement: "); debugtoken(); }
+	if (DEBUG1) debug("statement"); 
 	while (token != EOL) {
 		switch(token){
 			case TLIST:
@@ -2152,7 +2095,7 @@ void statement(){
 				nexttoken();
 		}
 	}
-	if (DEBUG2) { outsc("Out statement: "); debugtoken(); }
+	if (DEBUG2) debug("statement"); 
 }
 
 // the setup routine runs once when you press reset:
@@ -2163,7 +2106,7 @@ void setup() {
   xnew();
 }
 
-// the loop routine runs over and over again forever:
+// the loop routine for interactive input 
 void loop() {
 
     outsc("Ready \n");
