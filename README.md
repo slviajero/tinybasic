@@ -27,7 +27,7 @@ Conditions work C style as part of the expression evaluation with 0 as FALSE and
 
 Functions ABS, SGN, SQR, RND, FRE, PEEK are implemented. 
 
-SQR is an approximate square root with is not always accurate for perfect squares.
+SQR is an approximate square root. It is exact for perfect squares.
 
 RND is a 16 bit constant seed random number generator which always delivers the same sequence.
 

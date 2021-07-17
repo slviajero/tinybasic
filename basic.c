@@ -37,7 +37,7 @@
 #define DEBUG5 0
 
 #define BUFSIZE 	72
-#define MEMSIZE  	512
+#define MEMSIZE  	1024
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
