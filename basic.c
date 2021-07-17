@@ -7,8 +7,12 @@
 
 */
 
-#include <stdio.h>
-#include <stdlib.h>
+/* 
+	Defines the target - ARDUINO compiles for ARDUINO
+	Defining ARDUINOIO add the arduino io functions this 
+		also works for other targets and is intened for 
+		future use with rasp* boards or cc65
+*/
 
 #undef ARDUINO
 #define ARDUINOIO
@@ -286,12 +290,14 @@ void pushgosubstack();
 void popgosubstack();
 void dropgosubstack();
 
-// control commands LIST, RUN, NEW, CLR
+// control commands LIST, RUN, NEW, CLR, SAVE, LOAD
 void clr();
 void outputtoken();
 void list();
 void run();
 void xnew();
+void save();
+void load();
 
 // the statement loop
 void statement();
@@ -1129,19 +1135,30 @@ void storeline() {
 
 #ifdef ARDUINOIO
 #ifdef ARDUINO
-short aread(short x){ return 0; }
-short dread(short x){ return 0 }
-void awrite(short x){}
-void dwrite(short x){}
-void pinm(short x, short y){}
-void delay(short x) {}
+short aread(short p){ return analogRead(p); }
+short dread(short p){ return digitalRead(p); }
+void awrite(short p, short v){
+	if (v >= 0 && v<256) analogWrite(p, v);
+	else error(ERANGE);
+}
+void dwrite(short p, short v){
+	if (v == 0) digitalWrite(p, LOW);
+	else if (v == 1) digitalWrite(p, HIGH);
+	else error(ERANGE);
+}
+void pinm(short p, short m){
+	if ( m == 0 ) pinMode(p, OUTPUT);
+	else if (m == 1) pinMode(p, INPUT);
+	else if (m == 2) pinMode(p, INPUT_PULLUP);
+	else error(ERANGE); 
+}
 #else
-short aread(short x){ return 0; }
-short dread(short x){ return 0; }
-void awrite(short x){}
-void dwrite(short x){}
-void pinm(short x, short y){}
-void delay(short x) {}
+short aread(short p){ return 0; }
+short dread(short p){ return 0; }
+void awrite(short p, short v){}
+void dwrite(short p, short v){}
+void pinm(short p, short m){}
+void delay(short t) {}
 #endif
 #endif
 
@@ -1840,7 +1857,7 @@ void save() {
 		EEPROM.write(x++, top%256);
 		EEPROM.write(x++, top/256);
 		while (x < top+3){
-			EEPROM.update(mem[x-3]);
+			EEPROM.update(x, mem[x-3]);
 			x++;
 		}
 		nexttoken();
@@ -1927,6 +1944,77 @@ void xnew(){
 }
 
 /* 
+	The arduino io functions.
+*/
+
+#ifdef ARDUINOIO
+void xdwrite(){
+	nexttoken();
+	expression();
+	if (token != ',' ) {
+		error(TDWRITE);
+		return;
+	} 
+	nexttoken();
+	expression();
+	if (token != ':' && token != LINENUMBER && token != EOL ) {
+		error(TDWRITE);
+		return;
+	} 
+	x=pop();
+	y=pop();
+	dwrite(y, x);
+}
+
+void xawrite(){
+	nexttoken();
+	expression();
+	if (token != ',' ) {
+		error(TAWRITE);
+		return;
+	} 
+	nexttoken();
+	expression();
+	if (token != ':' && token != LINENUMBER && token != EOL ) {
+		error(TAWRITE);
+		return;
+	} 
+	x=pop();
+	y=pop();
+	awrite(y, x);
+}
+
+void xpinm(){
+	nexttoken();
+	expression();
+	if (token != ',' ) {
+		error(TPINM);
+		return;
+	} 
+	nexttoken();
+	expression();
+	if (token != ':' && token != LINENUMBER && token != EOL ) {
+		error(TPINM);
+		return;
+	} 
+	x=pop();
+	y=pop();
+	pinm(y, x);
+}
+
+void xdelay(){
+	nexttoken();
+	expression();
+	if (token != ':' && token != LINENUMBER && token != EOL ) {
+		error(TDELAY);
+		return;
+	} 
+	x=pop();
+	delay(x);
+}
+#endif 
+
+/* 
 
 	statement processes an entire basic statement until the end 
 	of the line. 
@@ -2009,6 +2097,20 @@ void statement(){
 			case TLOAD:
 				load();
 				break;
+#ifdef ARDUINOIO
+			case TDWRITE:
+				xdwrite();
+				break;	
+			case TAWRITE:
+				xawrite();
+				break;
+			case TPINM:
+				xpinm();
+				break;
+			case TDELAY:
+				xdelay();
+				break;		
+#endif
 			case UNKNOWN:
 				error(EUNKNOWN);
 				return;
