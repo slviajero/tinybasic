@@ -71,7 +71,7 @@ REM is a comment but behaves different than in other BASICs. It requires one str
 
 SAVE on the arduino writes a program to the EEPROM, LOAD reloads it. An EEPROM autorun feature is planned.
 
-DWRITE, DREAD, AWRITE, AREAD, PINM, and DELAY are planned but not implemented. These functions allow manipulation of the Arduino I/O.
+DWRITE, DREAD, AWRITE, AREAD, PINM, and DELAY are the Arduino I/O functions.
 
 Target machines and compilation:
 
@@ -105,6 +105,23 @@ Layer 1: lexical analysis, storing and retrieving programs, expression evaluatio
 
 Layer 2: Statements, control commands and the statement loop.
 
+Arduino I/O: DWRITE, DREAD, AWRITE, AREAD, PINM, and DELAY 
+
+Syntax of the Arduino functions: 
+
+"PINM pin, mode": mode is 0 for OUTPUT, 1 for INPUT, 2 for INPUT_PULLUP
+
+"DWRITE pin, value": value can be 0 or 1
+
+"A = DREAD(pin)"
+
+"AWRITE pin, value": value can be between 0 and 255.
+
+"A = AREAD(pin)": A can have a value between 0 and 1023.
+
+"DELAY time": time is measured in miliseconds, maximum delay is 32 seconds. 
+
+The pin value is never checked for validity on the basic level. For all analog functions the numeric pin values need to be known. No translation to the conventinal A0-Ax values is done. See https://www.arduino.cc/reference/de/language/functions/analog-io/analogwrite/ for more information.
 
 
 
