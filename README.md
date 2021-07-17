@@ -69,7 +69,7 @@ CONT restarts the program where it ended, using only the here variable.
 
 REM is a comment but behaves different than in other BASICs. It requires one string argument. This is because the tokenizer will try to tokenize every command and the only way to store characters in a program is to convert them into the internal string format.
 
-SAVE on the arduino writes a program to the EEPROM, LOAD reloads it. An EEPROM autorun feature is planned.
+SAVE on the arduino writes a program to the EEPROM, LOAD reloads it. An EEPROM autorun feature is planned. On other platforms a file "file.bas" is read or written for an ASCII output of the program. This is rudimentary and not well tested.
 
 DWRITE, DREAD, AWRITE, AREAD, PINM, and DELAY are the Arduino I/O functions.
 

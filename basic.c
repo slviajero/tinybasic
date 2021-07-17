@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.38 2021/07/14 20:38:13 stefan Exp stefan $
+// $Id: basic.c,v 1.39 2021/07/17 04:13:33 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -112,6 +112,7 @@
 #define EVARIABLE	 5
 #define EDIVIDE		 6
 #define ERANGE 		 7
+#define EFILE 		 8
 
 // the number of keywords, and the base index of the keywords
 #ifndef ARDUINOIO
@@ -172,6 +173,8 @@ static char* const keyword[] = {
 
 	rd is the random number storage.
 
+	fd is the filedescriptor for save/load
+
 */
 static short stack[STACKSIZE];
 static unsigned short sp=0; 
@@ -202,6 +205,10 @@ static unsigned short here, here2, here3;
 static unsigned short top;
 
 static unsigned int rd;
+
+#ifndef ARDUINO
+FILE* fd;
+#endif
 
 /* 
 	Layer 0 functions 
@@ -357,10 +364,9 @@ void clrvars() {
 */ 
 
 void error(char e){
-	outsc("Syntax Error ");
 	er=e;
 	if (e < 0) {
-		outsc("in token:");
+		outsc("Error in:");
 		debugtoken();
 		return;
 	}
@@ -381,6 +387,9 @@ void error(char e){
 			return;
 		case ERANGE:
 			outsc("Out of range.\n");
+			return;
+		case EFILE:
+			outsc("File error.\n");
 			return;
 	}
 	return;
@@ -464,7 +473,10 @@ void outch(char c) {
 #ifdef ARDUINO
 	Serial.write(c);
 #else 
-	putchar(c);
+	if (!fd)
+		putchar(c);
+	else 
+		fputc(c, fd);
 #endif
 }
 
@@ -477,7 +489,10 @@ char inch(){
   outch(c);
   return c;
 #else
-	return getchar();
+  	if (!fd)
+		return getchar();
+	else 
+		return fgetc(fd);
 #endif
 }
 
@@ -610,7 +625,7 @@ short innumber(){
 */ 
 
 void debugtoken(){
-	outsc("Token found: ");
+	outsc("Token: ");
 	if (token != EOL) {
 		outputtoken();
 		outcr();
@@ -1834,16 +1849,32 @@ void xreturn(){
 void load() {
 	if (DEBUG1) { outsc("In load: "); debugtoken(); }
 #ifdef ARDUINO
-		x=0;
-		// here comes the autorun flag code 
+	x=0;
+	// here comes the autorun flag code 
+	x++;
+	top=(unsigned char) EEPROM.read(x++);
+	top+=((unsigned char) EEPROM.read(x++))*256;
+	while (x < top+3){
+		mem[x-3]=EEPROM.read(x);
 		x++;
-		top=(unsigned char) EEPROM.read(x++);
-		top+=((unsigned char) EEPROM.read(x++))*256;
-		while (x < top+3){
-			mem[x-3]=EEPROM.read(x);
-			x++;
-		}
+	}
+	nexttoken();
+#else 
+	fd=fopen("file.bas", "r");
+	if (!fd) {
+		error(EFILE);
 		nexttoken();
+		return;
+	}
+	while (fgets(ibuffer, BUFSIZE, fd)) {
+		bi=ibuffer;
+		while(*bi != 0) { if (*bi == '\n') *bi=' '; bi++; };
+		bi=ibuffer;
+		nexttoken();
+		if (token == NUMBER) storeline();
+	}
+	fclose(fd);
+	fd=0;
 #endif
 	if (DEBUG2) { outsc("Out load: "); debugtoken(); }
 }
@@ -1867,6 +1898,17 @@ void save() {
 		nexttoken();
 		return;
 	}
+#else 
+	fd=fopen("file.bas", "w");
+	if (!fd) {
+		error(EFILE);
+		nexttoken();
+		return;
+	} 
+	list();
+	fclose(fd);
+	fd=0;
+	// no nexttoken here because list has already done this
 #endif
 	if (DEBUG2) { outsc("Out save: "); debugtoken(); }
 }
@@ -1890,27 +1932,19 @@ void clr() {
 
 void outputtoken() {
 	if (token == LINENUMBER) {
-		outcr();
-		outnumber(x);
-		outspc();
+		outcr(); outnumber(x); outspc();			
 	} else if (token == NUMBER ){
 		outnumber(x); outspc();
 	} else if (token == VARIABLE){
-		outch(xc);
+		outch(xc); outspc();
 	} else if (token == STRING) {
-		outch('"');
-		outs(ir, x);
-		outch('"');
+		outch('"'); outs(ir, x); outch('"');
 	} else if (token < -3) {
-		outsc(keyword[token-BASEKEYWORD]);
-		if (token != LESSEREQUAL && token != GREATEREQUAL) 
-			outspc();
+		outsc(keyword[token-BASEKEYWORD]); outspc();
 	} else if (token >= 32) {
-		outch(token);
+		outch(token); outspc();
 	} else{
-		outch(token); 
-		outspc();
-		outnumber(token);
+		outch(token); outspc(); outnumber(token);
 	} 
 }
 
