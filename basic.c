@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.39 2021/07/17 04:13:33 stefan Exp stefan $
+// $Id: basic.c,v 1.40 2021/07/17 17:57:04 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -9,21 +9,16 @@
 
 /* 
 	Defines the target - ARDUINO compiles for ARDUINO
-	Defining ARDUINOIO add the arduino io functions this 
-		also works for other targets and is intened for 
-		future use with rasp* boards or cc65
 */
 
 #undef ARDUINO
-#define ARDUINOIO
-
-#ifndef ARDUINO
-#include <stdio.h>
-#include <stdlib.h>
-#endif
 
 #ifdef ARDUINO
 #include <EEPROM.h>
+#include <avr/pgmspace.h>
+#else 
+#include <stdio.h>
+#include <stdlib.h>
 #endif
 
 #define TRUE  1
@@ -34,6 +29,7 @@
 #define DEBUG2 0
 
 #define BUFSIZE 	72
+#define SBUFSIZE	8
 #define MEMSIZE  	1024
 #define VARSIZE		26
 #define STACKSIZE 	15
@@ -89,14 +85,13 @@
 #define TSAVE   -91
 #define TLOAD   -90
 #define TREM 	-89
-#ifdef ARDUINOIO
 #define TPINM	-88
 #define TDWRITE	-87
 #define TDREAD	-86
 #define TAWRITE	-85
 #define TAREAD   -84
 #define TDELAY   -83
-#endif
+#define TPOKE	-82
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
@@ -114,11 +109,7 @@
 #define EARGS		 10
 
 // the number of keywords, and the base index of the keywords
-#ifndef ARDUINOIO
-#define NKEYWORDS 	35
-#else
-#define NKEYWORDS	41
-#endif
+#define NKEYWORDS	42
 #define BASEKEYWORD -123
 
 /*
@@ -135,17 +126,70 @@
 	All basic keywords
 */
 
+#ifndef ARDUINO
 static char* const keyword[] = {
 	"=>", "<=", "<>", "IF", "TO", "NEW","RUN",
 	"LET","FOR", "END", "THEN" , "GOTO" , "CONT", 
 	"NEXT", "STEP", "PRINT", "INPUT", "GOSUB", 
 	"RETURN", "LIST", "CLR", "NOT", "AND", "OR" , 
 	"ABS", "RND", "SGN", "PEEK", "SQR", "FRE", "DUMP",
-    "BREAK", "SAVE", "LOAD", "REM"
-#ifdef ARDUINOIO
-    , "PINM", "DWRITE", "DREAD", "AWRITE", "AREAD", "DELAY" 
-#endif
+    "BREAK", "SAVE", "LOAD", "REM",
+    "PINM", "DWRITE", "DREAD", "AWRITE", "AREAD", "DELAY", 
+    "POKE"};
+#else
+const char sge[]   PROGMEM = "=>";
+const char sle[]   PROGMEM = "<=";
+const char sne[]   PROGMEM = "<>";
+const char sif[]   PROGMEM = "IF";
+const char sto[]   PROGMEM = "TO";
+const char snew[]  PROGMEM = "NEW";
+const char srun[]  PROGMEM = "RUN";
+const char slet[]  PROGMEM = "LET";
+const char sfor[]  PROGMEM = "FOR";
+const char send[]  PROGMEM = "END";
+const char sthen[] PROGMEM = "THEN";
+const char sgoto[] PROGMEM = "GOTO";
+const char scont[] PROGMEM = "CONT";
+const char snext[] PROGMEM = "NEXT";
+const char sstep[]   PROGMEM = "STEP";
+const char sprint[]  PROGMEM = "PRINT";
+const char sinput[]  PROGMEM = "INPUT";
+const char sgosub[]  PROGMEM = "GOSUB";
+const char sreturn[] PROGMEM = "RETURN";
+const char slist[]   PROGMEM = "LIST";
+const char sclr[]    PROGMEM = "CLR";
+const char snot[]    PROGMEM = "NOT";
+const char sand[]    PROGMEM = "AND";
+const char sor[]     PROGMEM = "OR";
+const char sabs[]    PROGMEM = "ABS";
+const char srnd[]    PROGMEM = "RND";
+const char ssgn[]    PROGMEM = "SGN";
+const char speek[]   PROGMEM = "PEEK";
+const char ssqr[]    PROGMEM = "SQR";
+const char sfre[]    PROGMEM = "FRE";
+const char sdump[]   PROGMEM = "DUMP";
+const char sbreak[]  PROGMEM = "BREAK";
+const char ssave[]   PROGMEM = "SAVE";
+const char sload[]   PROGMEM = "LOAD";
+const char srem[]    PROGMEM = "REM";
+const char spinm[]   PROGMEM = "PIMN";
+const char sdwrite[] PROGMEM = "DWRITE";
+const char sdread[]  PROGMEM = "DREAD";
+const char sawrite[] PROGMEM = "AWRITE";
+const char saread[]  PROGMEM = "AREAD";
+const char sdelay[]  PROGMEM = "DELAY";
+const char spoke[]   PROGMEM = "POKE";
+
+const char* const keyword[] PROGMEM = {
+	sge, sle, sne, sif, sto, snew, srun, slet,
+ 	sfor, send, sthen, sgoto, scont, snext,
+ 	sstep, sprint, sinput, sgosub, sreturn,
+ 	slist, sclr, snot, sand, sor, sabs, srnd,
+ 	ssgn, speek, ssqr, sfre, sdump, sbreak,
+ 	ssave, sload, srem, spinm, sdwrite, sdread,
+    sawrite, saread, sdelay, spoke	
 };
+#endif
 
 /*
 	The basic interpreter is implemented as a stack machine
@@ -155,6 +199,8 @@ static char* const keyword[] = {
 	stack is the stack memory and sp controls the stack.
 
 	ibuffer is an input buffer and *bi a pointer to it.
+
+	sbuffer is a short buffer for arduino progmem access. 
 
 	vars is a static array of 26 single character variables.
 
@@ -180,6 +226,8 @@ static unsigned short sp=0;
 
 static char ibuffer[BUFSIZE] = "\0";
 static char *bi;
+
+static char sbuffer[SBUFSIZE];
 
 static short vars[VARSIZE];
 
@@ -360,11 +408,16 @@ void clrvars() {
 */ 
 
 char* getkeyword(char t) {
+#ifndef ARDUINO
 	if (t < BASEKEYWORD || t > BASEKEYWORD+NKEYWORDS) {
 		error(EUNKNOWN);
 		return 0;
 	} 
-	return keyword[token-BASEKEYWORD];
+	return keyword[t-BASEKEYWORD];
+#else
+	strcpy_P(sbuffer, (char*)pgm_read_word(&(keyword[t-BASEKEYWORD]))); 
+	return sbuffer;
+#endif
 }
 
 /*
@@ -419,7 +472,9 @@ void debug(char *c){
 	debugtoken();
 }
 
-void debugn(char t){}
+void debugn(char t){
+	outsc(getkeyword(t)); outcr();
+}
 
 void debugtoken(){
 	outsc("Token: ");
@@ -1172,7 +1227,6 @@ void storeline() {
 	Intermezzo the wrappers of the arduino io functions
 */ 
 
-#ifdef ARDUINOIO
 #ifdef ARDUINO
 short aread(short p){ return analogRead(p); }
 short dread(short p){ return digitalRead(p); }
@@ -1198,7 +1252,6 @@ void awrite(short p, short v){}
 void dwrite(short p, short v){}
 void pinm(short p, short m){}
 void delay(short t) {}
-#endif
 #endif
 
 /* 
@@ -1241,12 +1294,22 @@ short xsgn(short x){
 	return x;
 }
 
+// on an arduino, negative values of peek lead to the EEPROM
 short peek(short x){
-	if (x>=0 && x<MEMSIZE) 
+	if (x >= 0 && x<MEMSIZE) 
 		return mem[x];
 	else {
+#ifndef ARDUINO
 		error(ERANGE);
 		return 0;
+#else
+		if (x < 0 && -x < EEPROM.length())
+			return EEPROM.read(-x);
+		else {
+			error(ERANGE);
+			return 0;
+		}
+#endif
 	}
 }
 
@@ -1287,14 +1350,12 @@ void factor(){
 		case TFRE: 
 			parsefunction(xfre);
 			break;
-#ifdef ARDUINOIO
 		case TAREAD: 
 			parsefunction(aread);
 			break;
 		case TDREAD: 
 			parsefunction(dread);
 			break;
-#endif
 		default:
 			error(token);
 	}
@@ -1466,7 +1527,7 @@ void expression(){
 
 */ 
 void print(){
-	if (DEBUG1) debug("print"); 
+	if (DEBUG1) debugn(TPRINT); 
 	while (TRUE) {
 		nexttoken();
 		if (token == STRING) {
@@ -1487,11 +1548,10 @@ void print(){
 			break;
 		}
 	}
-	if (DEBUG2) debug("print"); 
 }
 
 void assignment() {
-	if (DEBUG1) debug("assign"); 
+	if (DEBUG1) debugn(TLET); 
 	push(xc);
 	nexttoken();
 	if ( token == '=') {
@@ -1508,16 +1568,16 @@ void assignment() {
 		}
 	} else 
 		error(token);
-	if (DEBUG2) debug("assign");
 }
 
 void xgoto() {
-	if (DEBUG1) debug("goto"); 
+	if (DEBUG1) debugn(TGOTO); 
 	int t=token;
 	nexttoken();
 	expression();
 	if (er == 0) {
 		if (t == TGOSUB) {
+			if (DEBUG1) debugn(TGOSUB); 
 			pushgosubstack();
 		}
 		x=pop();
@@ -1530,8 +1590,7 @@ void xgoto() {
 		clearst();
 		er=0;
 		return;
-	}
-	if (DEBUG2) debug("goto"); 
+	} 
 }
 
 void end(){
@@ -1544,7 +1603,7 @@ void cont(){
 }
 
 void xif(){
-	if (DEBUG1) debug("if"); 
+	if (DEBUG1) debugn(TIF); 
 	nexttoken();
 	expression();
 	if (er == 0) {
@@ -1566,11 +1625,10 @@ void xif(){
 		er=0;
 		return;
 	}
-	if (DEBUG2) debug("if");
 }
 
 void input(){
-	if (DEBUG1) debug("input"); 
+	if (DEBUG1) debugn(TINPUT); 
 	nexttoken();
 	if (token == STRING) {
 		outs(ir, x);
@@ -1589,7 +1647,6 @@ void input(){
 		}
 		nexttoken();
 	} while (token == ',');
-	if (DEBUG2) debug("input");
 }
 
 
@@ -1664,7 +1721,7 @@ void findnext(){
 
 // for is implemented only in program mode not in interactive mode
 void xfor(){
-	if (DEBUG1) debug("for");
+	if (DEBUG1) debugn(TFOR);
 	nexttoken();
 	if (token != VARIABLE) {
 		error(token);
@@ -1741,23 +1798,21 @@ void xfor(){
 		nexttoken();
 		return;
 	}
-	if (DEBUG2) debug("for"); 
 }
 
 /*
 	an apocryphal feature here is the BREAK command ending a look
 */
 void xbreak(){
-	if (DEBUG1) debug("break");
+	if (DEBUG1) debugn(TBREAK);
 	dropforstack();
 	findnext();
 	nexttoken();
-	if (DEBUG2) debug("break");
 }
 
 // next is implemented in program mode and not in interactive mode
 void xnext(){
-	if (DEBUG1) debug("next"); 
+	if (DEBUG1) debugn(TNEXT); 
 	push(here);
 	popforstack();
 	// at this point xc is the variable, x the stop value and y the step
@@ -1785,18 +1840,16 @@ void xnext(){
 	// last iteration completed
 	here=pop();
 	nexttoken();
-	if (DEBUG2) debug("next");
 }
 
 void xreturn(){
-	if (DEBUG1) debug("return"); 
+	if (DEBUG1) debugn(TRETURN); 
 	popgosubstack();
 	nexttoken();
-	if (DEBUG2) debug("return"); 
 }
 
 void load() {
-	if (DEBUG1) debug("load: ");
+	if (DEBUG1) debugn(TLOAD);
 #ifdef ARDUINO
 	x=0;
 	// here comes the autorun flag code 
@@ -1825,11 +1878,10 @@ void load() {
 	fclose(fd);
 	fd=0;
 #endif
-	if (DEBUG2) debug("load"); 
 }
 
 void save() {
-	if (DEBUG1) debug("save"); 
+	if (DEBUG1) debugn(TSAVE); 
 #ifdef ARDUINO
 	if (top+3 < EEPROM.length()) {
 		x=0;
@@ -1859,14 +1911,12 @@ void save() {
 	fd=0;
 	// no nexttoken here because list has already done this
 #endif
-	if (DEBUG2) debug("save"); 
 }
 
 void rem() {
-	if (DEBUG1) debug("rem"); 
+	if (DEBUG1) debugn(TREM); 
 	while (token != LINENUMBER && token != EOL && here <= top)
 		nexttoken(); 
-	if (DEBUG2) debug("rem"); 
 }
 /* 
 
@@ -1898,6 +1948,7 @@ void outputtoken() {
 }
 
 void list(){
+	if (DEBUG1) debugn(TLIST);
 	here=0;
 	gettoken();
 	while (here <= top) {
@@ -1910,14 +1961,13 @@ void list(){
 
 
 void run(){
-	if (DEBUG1) debug("run");
+	if (DEBUG1) debugn(TRUN);
 	here=0;
 	st=SRUN;
 	nexttoken();
 	while (here < top && st == SRUN)
 		statement();
 	st=SINT;
-	if (DEBUG2) debug("run"); 
 }
 
 void xnew(){
@@ -1925,6 +1975,11 @@ void xnew(){
 	zeroblock(0,himem);
 	clrvars();
 }
+
+char termsymbol() {
+	return (token == ':' || token != LINENUMBER || token != EOL );
+}
+
 
 /* 
 	The arduino io functions.
@@ -1939,7 +1994,7 @@ void parsetwoarguments() {
 	} 
 	nexttoken();
 	expression();
-	if (token != ':' && token != LINENUMBER && token != EOL ) {
+	if (!termsymbol()) {
 		error(EARGS);
 		return;
 	} 
@@ -1948,13 +2003,12 @@ void parsetwoarguments() {
 void parseoneargument() {
 	nexttoken();
 	expression();
-	if (token != ':' && token != LINENUMBER && token != EOL ) {
+	if (!termsymbol()) {
 		error(EARGS);
 		return;
 	} 
 }
 
-#ifdef ARDUINOIO
 void xdwrite(){
 	parsetwoarguments();
 	if (er == 0) {
@@ -1989,7 +2043,25 @@ void xdelay(){
 		delay(x);	
 	}
 }
-#endif 
+
+void poke(){
+	parsetwoarguments();
+	y=pop();
+	x=pop();
+	if (x >= 0 && x<MEMSIZE) 
+		mem[x]=y;
+	else {
+#ifndef ARDUINO
+		error(ERANGE);
+#else
+		if (x < 0 && -x < EEPROM.length())
+			EEPROM.update(-x, y);
+		else {
+			error(ERANGE);
+		}
+#endif	
+	}
+}
 
 /* 
 
@@ -2006,7 +2078,7 @@ void xdelay(){
 */
 
 void statement(){
-	if (DEBUG1) debug("statement"); 
+	if (DEBUG1) debug("statement\n"); 
 	while (token != EOL) {
 		switch(token){
 			case TLIST:
@@ -2074,7 +2146,6 @@ void statement(){
 			case TLOAD:
 				load();
 				break;
-#ifdef ARDUINOIO
 			case TDWRITE:
 				xdwrite();
 				break;	
@@ -2087,7 +2158,9 @@ void statement(){
 			case TDELAY:
 				xdelay();
 				break;		
-#endif
+			case TPOKE:
+				poke();
+				break;
 			case UNKNOWN:
 				error(EUNKNOWN);
 				return;
@@ -2095,7 +2168,6 @@ void statement(){
 				nexttoken();
 		}
 	}
-	if (DEBUG2) debug("statement"); 
 }
 
 // the setup routine runs once when you press reset:
