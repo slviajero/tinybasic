@@ -33,6 +33,8 @@ RND is a 16 bit constant seed random number generator which always delivers the 
 
 FRE takes a dummy argument and has the value of the rest of the core basic memory.
 
+PEEK access to memory works in a standard way. On an arduino, negative values of the argument access the EEPROM.
+
 Basic statements are PRINT, INPUT, LET, IF THEN, GOTO, FOR TO STEP - NEXT - BREAK, GOSUB - RETURN.
 
 PRINT is pretty standard, printed objects are concatenated without spaces.
@@ -69,9 +71,11 @@ CONT restarts the program where it ended, using only the here variable.
 
 REM is a comment but behaves different than in other BASICs. It requires one string argument. This is because the tokenizer will try to tokenize every command and the only way to store characters in a program is to convert them into the internal string format.
 
-SAVE on the arduino writes a program to the EEPROM, LOAD reloads it. An EEPROM autorun feature is planned. On other platforms a file "file.bas" is read or written for an ASCII output of the program. This is rudimentary and not well tested.
-
+SAVE on the arduino writes a program to the EEPROM, LOAD reloads it. An EEPROM autorun feature is planned. On other platforms a file "file.bas" is read or written for an ASCII output of the program. This is rudimentary and not well tested. Move the test file "euler9.bas" to "file.bas" to try it out.
+ 
 DWRITE, DREAD, AWRITE, AREAD, PINM, and DELAY are the Arduino I/O functions.
+
+POKE is added to access the basic memory. Like for peek, negative values access the EEPROM.
 
 Target machines and compilation:
 
@@ -121,9 +125,11 @@ Syntax of the Arduino functions:
 
 "DELAY time": time is measured in miliseconds, maximum delay is 32 seconds. 
 
-The pin value is never checked for validity on the basic level. For all analog functions the numeric pin values need to be known. No translation to the conventinal A0-Ax values is done. See https://www.arduino.cc/reference/de/language/functions/analog-io/analogwrite/ for more information.
+The pin value is never checked for validity on the BASIC level. For all analog functions the numeric pin values need to be known. No translation to the conventinal A0-Ax values is done. See https://www.arduino.cc/reference/de/language/functions/analog-io/analogwrite/ for more information.
 
+Weaknesses and know bugs:
 
+Error handling is rudimentay. Many things are allowed that should be forbidden. This is an anarchic piece of software.
 
 
 
