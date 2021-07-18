@@ -39,7 +39,7 @@ Basic statements are PRINT, INPUT, LET, IF THEN, GOTO, FOR TO STEP - NEXT - BREA
 
 PRINT is pretty standard, printed objects are concatenated without spaces.
 
-INPUT is standard with one string and a variable list.
+INPUT is standard with one string and a variable list. Entering # as first character of input end the program (Arduino and Unix).
 
 LET is standard and can be ommited. 
 
@@ -55,7 +55,7 @@ GOSUB, RETURN work in a standard way but GOSUB accepts expressions like GOTO (it
 
 Program control statements include RUN, CLR, NEW, LIST, DUMP, SAVE, LOAD. 
 
-RUN starts the program. It has no argument.
+RUN starts the program. It has no argument. Running programs on an Arduino can be interrupted using #. This is not implemented on Unix. 
 
 CLR sets all variable to zero.
 
