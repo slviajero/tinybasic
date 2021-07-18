@@ -19,6 +19,7 @@
 #else 
 #include <stdio.h>
 #include <stdlib.h>
+#include <termios.h>
 #endif
 
 #define TRUE  1
@@ -255,6 +256,8 @@ static unsigned int rd;
 
 #ifndef ARDUINO
 FILE* fd;
+
+struct termios initialstate, newstate;
 #endif
 
 /* 
@@ -293,7 +296,7 @@ void outs(char*, short);
 void outsc(char*);
 void ins();
 void outnumber(short);
-short innumber();
+char innumber(short*);
 
 /* 	
 	Layer 1 function, provide data and do the heavy lifting 
@@ -570,19 +573,51 @@ void outch(char c) {
 #endif
 }
 
+// blocking input - the loop around getchar is 
+// unneccessary in the blocking I/O model 
 char inch(){
+	char c;
 #ifdef ARDUINO
-  char c;
-  do 
-    if (Serial.available()) c=Serial.read();
-  while(c == 0); 
-  outch(c);
-  return c;
+	do 
+		if (Serial.available()) c=Serial.read();
+	while(c == 0); 
+	outch(c);
+	return c;
 #else
-  	if (!fd)
-		return getchar();
-	else 
+	if (!fd) {
+		do 
+   			c=getchar();
+  		while(c == 0); 
+		return c;
+	} else 
 		return fgetc(fd);
+#endif
+}
+
+
+// this is the non blocking io function needed to 
+// interrupt a running program
+char checkch(char c){
+#ifdef ARDUINO
+	return (Serial.read() == c);
+#else 
+	/*
+	struct termios orgt, newt;
+	char ic;
+	tcgetattr(0,&orgt);
+  	newt = orgt;
+  	newt.c_lflag &= ~ICANON;
+  	newt.c_lflag &= ~ECHO;
+  	newt.c_lflag &= ~ISIG;
+  	newt.c_cc[VMIN] = 0;
+  	newt.c_cc[VTIME] = 0;
+	tcsetattr(0, TCSANOW, &newt);
+	ic=getchar();
+	tcsetattr(0, TCSANOW, &orgt);
+	if (ic != -1) { outsc("Got character "); outnumber(ic); outcr(); }
+	return (ic == c);
+	*/
+	return 0;
 #endif
 }
 
@@ -651,14 +686,17 @@ void outnumber(short x){
 }
 
 // reading a 16 bit number using the stack to collect bytes
-short innumber(){
+char innumber(short *r){
 	char c;
 	char nd;
 	short s;
-	short r;
 	s=1;
 	nd=0;
 	c=inch();
+	if (c == '#') {
+		*r=0;
+		return c;
+	}	
 	if (c == '-') {
 		s=-1;
 		c=inch();
@@ -677,13 +715,13 @@ short innumber(){
 			break;
 		c=inch();
 	}
-	r=0;
+	*r=0;
 	while(nd>0){
-		r+=pop()*s;
+		*r+=pop()*s;
 		s=s*10;
 		nd--;
 	}
-	return r;
+	return 1;
 }
 
 /* 
@@ -979,7 +1017,7 @@ void gettoken() {
 		case NUMBER:
 		case LINENUMBER:		
 			x=(unsigned char)mem[here++];
-			x+=mem[here++]*256;
+			x+=mem[here++]*256; 
 			break;
 		case VARIABLE:
 			xc=mem[here++];
@@ -1642,8 +1680,12 @@ void input(){
 	do {
 		if (token == VARIABLE) {
 			outsc("? ");
-			x=innumber();
-			setvar(xc, x);
+			if (innumber(&x) == '#') {
+				setvar(xc, 0);
+				st=SINT;
+			} else {
+				setvar(xc, x);
+			}
 		}
 		nexttoken();
 	} while (token == ',');
@@ -1961,12 +2003,14 @@ void list(){
 
 
 void run(){
+	char c;
 	if (DEBUG1) debugn(TRUN);
 	here=0;
 	st=SRUN;
 	nexttoken();
-	while (here < top && st == SRUN)
+	while (here < top && st == SRUN) {	
 		statement();
+	}
 	st=SINT;
 }
 
@@ -2107,7 +2151,7 @@ void statement(){
 				break;
 			case TGOSUB:
 			case TGOTO:
-				xgoto();
+				xgoto();	
 				break;
 			case TEND:
 				end();
@@ -2167,13 +2211,18 @@ void statement(){
 			default:
 				nexttoken();
 		}
+#ifdef ARDUINO
+		if (checkch('#')) {st=SINT; return;};  // on an Arduino entering "#" at runtime stops the program
+#endif
 	}
 }
 
-// the setup routine runs once when you press reset:
+// the setup routine - Arduino style
 void setup() {
 #ifdef ARDUINO
   Serial.begin(9600); 
+#else 
+// to be done
 #endif
   xnew();
 }
