@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.40 2021/07/17 17:57:04 stefan Exp stefan $
+// $Id: basic.c,v 1.41 2021/07/18 21:02:00 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -93,6 +93,7 @@
 #define TAREAD   -84
 #define TDELAY   -83
 #define TPOKE	-82
+#define TGET    -81
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
@@ -110,7 +111,7 @@
 #define EARGS		 10
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	42
+#define NKEYWORDS	43
 #define BASEKEYWORD -123
 
 /*
@@ -136,7 +137,7 @@ static char* const keyword[] = {
 	"ABS", "RND", "SGN", "PEEK", "SQR", "FRE", "DUMP",
     "BREAK", "SAVE", "LOAD", "REM",
     "PINM", "DWRITE", "DREAD", "AWRITE", "AREAD", "DELAY", 
-    "POKE"};
+    "POKE", "GET"};
 #else
 const char sge[]   PROGMEM = "=>";
 const char sle[]   PROGMEM = "<=";
@@ -180,6 +181,7 @@ const char sawrite[] PROGMEM = "AWRITE";
 const char saread[]  PROGMEM = "AREAD";
 const char sdelay[]  PROGMEM = "DELAY";
 const char spoke[]   PROGMEM = "POKE";
+const char sget[]    PROGMEM = "GET";
 
 const char* const keyword[] PROGMEM = {
 	sge, sle, sne, sif, sto, snew, srun, slet,
@@ -188,7 +190,7 @@ const char* const keyword[] PROGMEM = {
  	slist, sclr, snot, sand, sor, sabs, srnd,
  	ssgn, speek, ssqr, sfre, sdump, sbreak,
  	ssave, sload, srem, spinm, sdwrite, sdread,
-    sawrite, saread, sdelay, spoke	
+    sawrite, saread, sdelay, spoke, sget	
 };
 #endif
 
@@ -436,7 +438,6 @@ void error(char e){
 	if (e < 0) {
 		outsc("Error in: \n");
 		debugtoken();
-		exit(0);
 		return;
 	}
 	switch (e) {
@@ -574,12 +575,12 @@ void outch(char c) {
 }
 
 // blocking input - the loop around getchar is 
-// unneccessary in the blocking I/O model 
+// unneccessary in the blocking I/O model
 char inch(){
 	char c;
 #ifdef ARDUINO
 	do 
-		if (Serial.available()) c=Serial.read();
+		c=inch2();
 	while(c == 0); 
 	outch(c);
 	return c;
@@ -594,12 +595,13 @@ char inch(){
 #endif
 }
 
-
 // this is the non blocking io function needed to 
-// interrupt a running program
-char checkch(char c){
+// interrupt a running program and for GET, 
+// typically an ARDUINO code can add other keyboard 
+// models here
+char inch2(){
 #ifdef ARDUINO
-	return (Serial.read() == c);
+	if (Serial.available()) return Serial.read(); 
 #else 
 	/*
 	struct termios orgt, newt;
@@ -617,8 +619,8 @@ char checkch(char c){
 	if (ic != -1) { outsc("Got character "); outnumber(ic); outcr(); }
 	return (ic == c);
 	*/
-	return 0;
 #endif
+	return 0;
 }
 
 void outcr() {
@@ -2107,6 +2109,17 @@ void poke(){
 	}
 }
 
+void xget(){
+	if (DEBUG1) debugn(TGET); 
+	nexttoken();
+	if (token != VARIABLE) {
+		error(TGET);
+	} else {
+		setvar(xc, inch2());
+		nexttoken();
+	}	
+}
+
 /* 
 
 	statement processes an entire basic statement until the end 
@@ -2205,6 +2218,9 @@ void statement(){
 			case TPOKE:
 				poke();
 				break;
+			case TGET:
+				xget();
+				break;
 			case UNKNOWN:
 				error(EUNKNOWN);
 				return;
@@ -2212,7 +2228,7 @@ void statement(){
 				nexttoken();
 		}
 #ifdef ARDUINO
-		if (checkch('#')) {st=SINT; return;};  // on an Arduino entering "#" at runtime stops the program
+		if (inch2() == '#') {st=SINT; return;};  // on an Arduino entering "#" at runtime stops the program
 #endif
 	}
 }
