@@ -258,7 +258,6 @@ static unsigned int rd;
 
 #ifndef ARDUINO
 FILE* fd;
-
 struct termios initialstate, newstate;
 #endif
 
@@ -291,6 +290,7 @@ short sqr(short);
 // input output
 void outch(char);
 char inch();
+char checkch();
 void outcr();
 void outspc();
 void outtab();
@@ -577,10 +577,10 @@ void outch(char c) {
 // blocking input - the loop around getchar is 
 // unneccessary in the blocking I/O model
 char inch(){
-	char c;
+	char c=0;
 #ifdef ARDUINO
 	do 
-		c=inch2();
+		if (Serial.available()) c=Serial.read();
 	while(c == 0); 
 	outch(c);
 	return c;
@@ -599,9 +599,9 @@ char inch(){
 // interrupt a running program and for GET, 
 // typically an ARDUINO code can add other keyboard 
 // models here
-char inch2(){
+char checkch(){
 #ifdef ARDUINO
-	if (Serial.available()) return Serial.read(); 
+	if (Serial.available()) return Serial.peek(); 
 #else 
 	/*
 	struct termios orgt, newt;
@@ -2115,7 +2115,8 @@ void xget(){
 	if (token != VARIABLE) {
 		error(TGET);
 	} else {
-		setvar(xc, inch2());
+		if (checkch())
+			setvar(xc, inch());
 		nexttoken();
 	}	
 }
@@ -2228,7 +2229,7 @@ void statement(){
 				nexttoken();
 		}
 #ifdef ARDUINO
-		if (inch2() == '#') {st=SINT; return;};  // on an Arduino entering "#" at runtime stops the program
+		if (checkch() == '#') {st=SINT; xc=inch(); return;};  // on an Arduino entering "#" at runtime stops the program
 #endif
 	}
 }
