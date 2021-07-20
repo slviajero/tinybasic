@@ -240,7 +240,7 @@ static short himem=MEMSIZE;
 static struct {char var; short here; short to; short step;} forstack[FORDEPTH];
 static short forsp = 0;
 
-static struct {short here;} gosubstack[GOSUBDEPTH];
+static short gosubstack[GOSUBDEPTH];
 static short gosubsp = 0;
 
 static short x, y;
@@ -491,6 +491,13 @@ void debugtoken(){
 	}
 }
 
+void resetinterpreter(){ // the general cleanup function
+	clearst();
+	gosubsp=0;
+	forsp=0;
+}
+
+
 /*
 	Arithmetic and runtime operations are mostly done
 	on a stack of 16 bit objects.
@@ -521,6 +528,75 @@ void drop() {
 
 void clearst(){
 	sp=0;
+}
+
+/* 
+
+	Stack handling for gosub and for
+
+*/
+
+void pushforstack(){
+	if (forsp < FORDEPTH) {
+		forstack[forsp].var=xc;
+		forstack[forsp].here=here;
+		forstack[forsp].to=x;
+		forstack[forsp].step=y;
+		forsp++;	
+		return;	
+	} else 
+		error(ESTACK);
+}
+
+
+void popforstack(){
+	if (forsp>0) {
+		forsp--;
+	} else {
+		error(ESTACK);
+		return;
+	} 
+	xc=forstack[forsp].var;
+	here=forstack[forsp].here;
+	x=forstack[forsp].to;
+	y=forstack[forsp].step;
+}
+
+void dropforstack(){
+	if (forsp>0) {
+		forsp--;
+	} else {
+		error(ESTACK);
+		return;
+	} 
+}
+
+void pushgosubstack(){
+	if (gosubsp < GOSUBDEPTH) {
+		gosubstack[gosubsp]=here;
+		gosubsp++;	
+		return;	
+	} else 
+		error(ESTACK);
+}
+
+void popgosubstack(){
+	if (gosubsp>0) {
+		gosubsp--;
+	} else {
+		error(ESTACK);
+		return;
+	} 
+	here=gosubstack[gosubsp];
+}
+
+void dropgosubstack(){
+	if (gosubsp>0) {
+		gosubsp--;
+	} else {
+		error(ESTACK);
+		return;
+	} 
 }
 
 // very basic random number generator with constant seed.
@@ -1559,12 +1635,43 @@ void expression(){
 	if (DEBUG2) debug("exp");
 }
 
+/* 
+
+	The commands and their helpers
+		termsymbol and two argument parsers
+   
+*/
+
+char termsymbol() {
+	return (token == ':' || token == LINENUMBER || token == EOL );
+}
+
+void parsetwoarguments() {
+	nexttoken();
+	expression();
+	if (token != ',' ) {
+		error(EARGS);
+		return;
+	} 
+	nexttoken();
+	expression();
+	if (!termsymbol()) {
+		error(EARGS);
+		return;
+	} 
+}
+
+void parseoneargument() {
+	nexttoken();
+	expression();
+	if (!termsymbol()) {
+		error(EARGS);
+		return;
+	} 
+}
+
 /*
-
-   the print command 
-   PRINT expressionlist ( EOL | : )
-   expressionlist :== ( string | expression ) (, ( string | expression ) )* 
-
+   print 
 */ 
 void print(){
 	if (DEBUG1) debugn(TPRINT); 
@@ -1583,7 +1690,7 @@ void print(){
 				return ;
 			}
 		}
-		if (token == EOL || token ==':' || token == LINENUMBER) {
+		if (termsymbol()) {
 			outcr();
 			break;
 		}
@@ -1667,10 +1774,11 @@ void xif(){
 	}
 }
 
+// input ["string",] variable [,variable]* 
 void input(){
 	if (DEBUG1) debugn(TINPUT); 
 	nexttoken();
-	if (token == STRING) {
+	if (token == STRING) {   		// [ "string" ,]
 		outs(ir, x);
 		nexttoken();
 		if (token != ',') {
@@ -1679,84 +1787,25 @@ void input(){
 		} else 
 			nexttoken();
 	}
-	do {
-		if (token == VARIABLE) {
-			outsc("? ");
-			if (innumber(&x) == '#') {
-				setvar(xc, 0);
-				st=SINT;
-			} else {
-				setvar(xc, x);
-			}
+
+nextvariable:
+	if (token == VARIABLE) {   // variable [, variable]
+		outsc("? ");
+		if (innumber(&x) == '#') {
+			setvar(xc, 0);
+			st=SINT;
+			nexttoken();
+			return;
+		} else {
+			setvar(xc, x);
 		}
+	} 
+	nexttoken();
+	if (token == ',') {
 		nexttoken();
-	} while (token == ',');
+		goto nextvariable;
+	}
 }
-
-
-void pushforstack(){
-	if (forsp < FORDEPTH) {
-		forstack[forsp].var=xc;
-		forstack[forsp].here=here;
-		forstack[forsp].to=x;
-		forstack[forsp].step=y;
-		forsp++;	
-		return;	
-	} else 
-		error(ESTACK);
-}
-
-
-void popforstack(){
-	if (forsp>0) {
-		forsp--;
-	} else {
-		error(ESTACK);
-		return;
-	} 
-	xc=forstack[forsp].var;
-	here=forstack[forsp].here;
-	x=forstack[forsp].to;
-	y=forstack[forsp].step;
-}
-
-void dropforstack(){
-	if (forsp>0) {
-		forsp--;
-	} else {
-		error(ESTACK);
-		return;
-	} 
-}
-
-void pushgosubstack(){
-	if (gosubsp < GOSUBDEPTH) {
-		gosubstack[gosubsp].here=here;
-		gosubsp++;	
-		return;	
-	} else 
-		error(ESTACK);
-}
-
-void popgosubstack(){
-	if (gosubsp>0) {
-		gosubsp--;
-	} else {
-		error(ESTACK);
-		return;
-	} 
-	here=gosubstack[gosubsp].here;
-}
-
-void dropgosubstack(){
-	if (gosubsp>0) {
-		gosubsp--;
-	} else {
-		error(ESTACK);
-		return;
-	} 
-}
-
 
 void findnext(){
 	while (token != TNEXT && here < top) 
@@ -1764,6 +1813,7 @@ void findnext(){
 }
 
 // for is implemented only in program mode not in interactive mode
+// for variable = expression to expression [STEP expression]
 void xfor(){
 	if (DEBUG1) debugn(TFOR);
 	nexttoken();
@@ -1963,9 +2013,7 @@ void rem() {
 		nexttoken(); 
 }
 /* 
-
 	control commands LIST, RUN, NEW, CLR
-
 */
 
 void clr() {
@@ -2019,41 +2067,13 @@ void run(){
 void xnew(){
 	top=0;
 	zeroblock(0,himem);
-	clrvars();
+	resetinterpreter();
+	st=SINT;
 }
-
-char termsymbol() {
-	return (token == ':' || token != LINENUMBER || token != EOL );
-}
-
 
 /* 
 	The arduino io functions.
 */
-
-void parsetwoarguments() {
-	nexttoken();
-	expression();
-	if (token != ',' ) {
-		error(EARGS);
-		return;
-	} 
-	nexttoken();
-	expression();
-	if (!termsymbol()) {
-		error(EARGS);
-		return;
-	} 
-}
-
-void parseoneargument() {
-	nexttoken();
-	expression();
-	if (!termsymbol()) {
-		error(EARGS);
-		return;
-	} 
-}
 
 void xdwrite(){
 	parsetwoarguments();
