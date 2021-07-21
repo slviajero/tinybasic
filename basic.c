@@ -4,6 +4,9 @@
 
 	Playing around with frugal programming. See the licence file on 
 	https://github.com/slviajero/tinybasic for copyright/left.
+    (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
+
+	Author: Stefan Lenz, sl001@serverfabrik.de
 
 */
 
@@ -36,6 +39,9 @@
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
 #define FORDEPTH 	4
+
+// definitions on EEROM handling in the Arduino
+#define EHEADERSIZE 3
 
 /*
 
@@ -94,6 +100,7 @@
 #define TDELAY   -83
 #define TPOKE	-82
 #define TGET    -81
+#define TSET    -80
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
@@ -109,20 +116,23 @@
 #define EFILE 		 8
 #define EFUN 		 9
 #define EARGS		 10
+#define EEEPROM		 11
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	43
+#define NKEYWORDS	44
 #define BASEKEYWORD -123
 
 /*
 	Interpreter states 
 	SRUN means running from a programm
 	SINT means interactive mode
+	SERUN means running directly from EEPROM
 	(enum would be the right way of doing this.)
 */
 
 #define SINT 0
 #define SRUN 1
+#define SERUN 2
 
 /*
 	All basic keywords
@@ -137,7 +147,7 @@ static char* const keyword[] = {
 	"ABS", "RND", "SGN", "PEEK", "SQR", "FRE", "DUMP",
     "BREAK", "SAVE", "LOAD", "REM",
     "PINM", "DWRITE", "DREAD", "AWRITE", "AREAD", "DELAY", 
-    "POKE", "GET"};
+    "POKE", "GET", "SET"};
 #else
 const char sge[]   PROGMEM = "=>";
 const char sle[]   PROGMEM = "<=";
@@ -182,6 +192,7 @@ const char saread[]  PROGMEM = "AREAD";
 const char sdelay[]  PROGMEM = "DELAY";
 const char spoke[]   PROGMEM = "POKE";
 const char sget[]    PROGMEM = "GET";
+const char sset[]    PROGMEM = "SET";
 
 const char* const keyword[] PROGMEM = {
 	sge, sle, sne, sif, sto, snew, srun, slet,
@@ -190,7 +201,7 @@ const char* const keyword[] PROGMEM = {
  	slist, sclr, snot, sand, sor, sabs, srnd,
  	ssgn, speek, ssqr, sfre, sdump, sbreak,
  	ssave, sload, srem, spinm, sdwrite, sdread,
-    sawrite, saread, sdelay, spoke, sget	
+    sawrite, saread, sdelay, spoke, sget, sset	
 };
 #endif
 
@@ -282,6 +293,9 @@ void push(short);
 short pop();
 void drop();
 void clearst();
+
+// get keyword from PROGMEM
+char* getkeyword(char);
 
 // mathematics
 short rnd(short);
@@ -443,29 +457,33 @@ void error(char e){
 	switch (e) {
 		case EVARIABLE:
 			outsc("Var");
+			break;
 		case EUNKNOWN: 
 			outsc("Syntax");
-			return;
+			break;
 		case ELINE:
 			outsc("Line");
-			return;
+			break;
 		case ESTACK: 
 			outsc("Stack");
-			return;
+			break;
 		case EOUTOFMEMORY: 
 			outsc("Memory");
-			return;
+			break;
 		case ERANGE:
 			outsc("Range");
-			return;
+			break;
 		case EFILE:
 			outsc("File");
-			return;
+			break;
 		case EFUN:
 			outsc("Function");
-			return;		
+			break;		
 		case EARGS:
 			outsc("Arg");	
+			break;
+		case EEEPROM:
+			outsc("EEPROM");
 	}
 	outsc(" error\n");
 	return;
@@ -838,7 +856,7 @@ void whitespaces(){
 void nexttoken() {
 
 	// RUN mode vs. INT mode
-	if (st == SRUN) {
+	if (st == SRUN || st == SERUN) {
 		gettoken();
 		return;
 	}
@@ -1043,9 +1061,10 @@ char nomemory(short b){
 	if (top >= himem-b) return TRUE; else return FALSE;
 }
 
-void dumpmem(int i) {
-	int j;
+void dumpmem(int r) {
+	int j, i;	
 	int k=0;
+	i=r;
 	while (i>0) {
 		for (j=0; j<8; j++) {
 			outnumber(mem[k++]); outspc();
@@ -1053,6 +1072,18 @@ void dumpmem(int i) {
 		outcr();
 		i--;
 	}
+#ifdef ARDUINO
+	outsc("------- EEPROM ----------- \n");
+	i=r;
+	k=0;
+	while (i>0) {
+		for (j=0; j<8; j++) {
+			outnumber(EEPROM[k++]); outspc();
+		}
+		outcr();
+		i--;
+	}
+#endif
 	outsc("top= "); outnumber(top); outcr();
 }
 
@@ -1089,22 +1120,48 @@ memoryerror:
 	er=EOUTOFMEMORY;
 } 
 
+
+char memread(short i){
+#ifndef ARDUINO
+	return mem[i];
+#else 
+	if (st != SERUN) {
+		return mem[i];
+	} else {
+		return EEPROM[i+EHEADERSIZE];
+	}
+#endif
+}
+
+
 void gettoken() {
-	token=mem[here++];
+	token=memread(here++);
 	switch (token) {
 		case NUMBER:
 		case LINENUMBER:		
-			x=(unsigned char)mem[here++];
-			x+=mem[here++]*256; 
+			x=(unsigned char)memread(here++);
+			x+=memread(here++)*256; 
 			break;
 		case VARIABLE:
-			xc=mem[here++];
+			xc=memread(here++);
 			break;
 		case STRING:
-			x=(unsigned char)mem[here++];
+			x=(unsigned char)memread(here++);  // if we run interactive or from mem, pass back the mem location
+#ifndef ARDUINO
 			ir=&mem[here];
 			here+=x;
-	}
+#else 
+			if (st == SERUN) { // we run from the EEROM and cannot simply pass a point
+				for(int i=0; i<x; i++) {
+					ibuffer[i]=memread(here+i);   // we (ab)use the input buffer which is not needed here
+				}
+				ir=ibuffer;
+			} else {
+				ir=&mem[here];
+			}
+			here+=x;	
+#endif
+		}
 }
 
 void firstline() {
@@ -1697,6 +1754,18 @@ void print(){
 	}
 }
 
+void xget(){
+	if (DEBUG1) debugn(TGET); 
+	nexttoken();
+	if (token != VARIABLE) {
+		error(TGET);
+	} else {
+		if (checkch())
+			setvar(xc, inch());
+		nexttoken();
+	}	
+}
+
 void assignment() {
 	if (DEBUG1) debugn(TLET); 
 	push(xc);
@@ -1946,13 +2015,16 @@ void load() {
 	if (DEBUG1) debugn(TLOAD);
 #ifdef ARDUINO
 	x=0;
-	// here comes the autorun flag code 
-	x++;
-	top=(unsigned char) EEPROM.read(x++);
-	top+=((unsigned char) EEPROM.read(x++))*256;
-	while (x < top+3){
-		mem[x-3]=EEPROM.read(x);
+	if (EEPROM.read(x) == 0 || EEPROM.read(x) == 1) { // have we stored a program
 		x++;
+		top=(unsigned char) EEPROM.read(x++);
+		top+=((unsigned char) EEPROM.read(x++))*256;
+		while (x < top+EHEADERSIZE){
+			mem[x-EHEADERSIZE]=EEPROM.read(x);
+			x++;
+		}
+	} else { // no valid program data is stored 
+		error(EEEPROM);
 	}
 	nexttoken();
 #else 
@@ -1977,15 +2049,16 @@ void load() {
 void save() {
 	if (DEBUG1) debugn(TSAVE); 
 #ifdef ARDUINO
-	if (top+3 < EEPROM.length()) {
+	if (top+EHEADERSIZE < EEPROM.length()) {
 		x=0;
-		EEPROM.write(x++, 0); // currently always zero - this will be the outrun flag
+		EEPROM.write(x++, 0); // EEROM per default is 255, 0 indicates that there is a program
 		EEPROM.write(x++, top%256);
 		EEPROM.write(x++, top/256);
-		while (x < top+3){
-			EEPROM.update(x, mem[x-3]);
+		while (x < top+EHEADERSIZE){
+			EEPROM.update(x, mem[x-EHEADERSIZE]);
 			x++;
 		}
+		EEPROM.write(x++,0);
 		nexttoken();
 	} else {
 		error(EOUTOFMEMORY);
@@ -2056,9 +2129,9 @@ void run(){
 	char c;
 	if (DEBUG1) debugn(TRUN);
 	here=0;
-	st=SRUN;
+	if (st == SINT) st=SRUN;
 	nexttoken();
-	while (here < top && st == SRUN) {	
+	while (here < top && ( st == SRUN || st == SERUN)) {	
 		statement();
 	}
 	st=SINT;
@@ -2110,6 +2183,10 @@ void xdelay(){
 	}
 }
 
+/* 
+	low level poke to the basic memory
+*/
+
 void poke(){
 	parsetwoarguments();
 	y=pop();
@@ -2129,16 +2206,32 @@ void poke(){
 	}
 }
 
-void xget(){
-	if (DEBUG1) debugn(TGET); 
-	nexttoken();
-	if (token != VARIABLE) {
-		error(TGET);
-	} else {
-		if (checkch())
-			setvar(xc, inch());
-		nexttoken();
-	}	
+/* 
+	the set command itself is also apocryphal it is a low level
+	control command setting certain properties
+	syntax, currently it is only 
+
+	set expression
+*/
+
+void xset(){
+	parseoneargument();
+	if (er == 0) {
+		x=pop();
+		switch (x) {
+#ifdef ARDUINO
+			case 0: // change the autorun/run flag of the EEPROM
+				EEPROM[0]=255;
+				break;
+			case -1:
+				EEPROM[0]=1;		
+				break;
+			case 1:
+				EEPROM[0]=0;		
+				break;
+#endif
+		}
+	}
 }
 
 /* 
@@ -2242,6 +2335,9 @@ void statement(){
 			case TGET:
 				xget();
 				break;
+			case TSET:
+				xset();
+				break;
 			case UNKNOWN:
 				error(EUNKNOWN);
 				return;
@@ -2256,29 +2352,41 @@ void statement(){
 
 // the setup routine - Arduino style
 void setup() {
+
+  xnew();		
 #ifdef ARDUINO
   Serial.begin(9600); 
+  if (EEPROM.read(0) == 1){ // autorun from the EEPROM
+	top=(unsigned char) EEPROM.read(1);
+	top+=((unsigned char) EEPROM.read(2))*256;
+  	st=SERUN;
+  } 
 #else 
 // to be done
 #endif
-  xnew();
 }
 
 // the loop routine for interactive input 
 void loop() {
 
-    outsc("Ready \n");
-    ins();
-    
-    bi=ibuffer;
-    nexttoken();
+	if (st != SERUN) {
+		outsc("Ready \n");
+    	ins();
+        
+        bi=ibuffer;
+		nexttoken();
 
-    if (token == NUMBER)
-      storeline();
-    else {
-      st=SINT;
-      statement();   
-    }
+    	if (token == NUMBER)
+      		storeline();
+    	else {
+      		st=SINT;
+      		statement();   
+    	}
+	} else {
+		run();
+		// cleanup needed after autorun, top is the EEPROM top
+    	top=0;
+	}
 }
 
 
