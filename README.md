@@ -10,6 +10,8 @@ Memory access is strictly 16bit and 8bit. For memory, stack and variable access,
 
 The interpreted can be compliled with standard gcc on almost any architecture or in the Arduino IDE (set the ARDUINO definition for this).
 
+On an Arduino, programs can be saved on the EEPROM and also autorun from there.
+
 See also:
 - https://en.wikipedia.org/wiki/Recursive_descent_parser
 - https://rosettacode.org/wiki/BNF_Grammar
@@ -76,6 +78,8 @@ SAVE on the arduino writes a program to the EEPROM, LOAD reloads it. An EEPROM a
 DWRITE, DREAD, AWRITE, AREAD, PINM, and DELAY are the Arduino I/O functions.
 
 POKE is added to access the basic memory. Like for peek, negative values access the EEPROM.
+
+SET is a general command changing internal interpreter settings: set -1 sets a program saved in EEPROM to autorun on Arduino, set 1 sets the program back to normal mode, set 0 removes the program flag and makes it unloadable.
 
 Target machines and compilation:
 
