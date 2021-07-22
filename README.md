@@ -79,7 +79,7 @@ DWRITE, DREAD, AWRITE, AREAD, PINM, and DELAY are the Arduino I/O functions.
 
 POKE is added to access the basic memory. Like for peek, negative values access the EEPROM.
 
-SET is a general command changing internal interpreter settings: set -1 sets a program saved in EEPROM to autorun on Arduino, set 1 sets the program back to normal mode, set 0 removes the program flag and makes it unloadable.
+SET is a general command changing internal interpreter settings: implemented so far is the command group 1 trigged by set 1, x. set 1, 1 sets a program saved in EEPROM to autorun on Arduino, set 1, 0 sets the program back to normal mode, set 1, 255 removes the program flag and makes it unloadable. The prototype LCD code uses set 2, x and set 3, x. More to come soon.
 
 Target machines and compilation:
 
