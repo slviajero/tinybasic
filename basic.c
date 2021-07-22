@@ -15,10 +15,12 @@
 */
 
 #undef ARDUINO
+#undef ARDUINOLCD
 
 #ifdef ARDUINO
 #include <EEPROM.h>
 #include <avr/pgmspace.h>
+#include <LiquidCrystal.h>
 #else 
 #include <stdio.h>
 #include <stdlib.h>
@@ -134,6 +136,13 @@
 #define SRUN 1
 #define SERUN 2
 
+/* 
+	Arduino output models
+*/
+
+#define OSERIAL 0
+#define OLCD 1
+
 /*
 	All basic keywords
 */
@@ -205,6 +214,21 @@ const char* const keyword[] PROGMEM = {
 };
 #endif
 
+/* 
+	The Arduino LCD shield code
+*/ 
+
+#ifdef ARDUINOLCD
+const int pin_RS = 8; 
+const int pin_EN = 9; 
+const int pin_d4 = 4; 
+const int pin_d5 = 5; 
+const int pin_d6 = 6; 
+const int pin_d7 = 7; 
+const int pin_BL = 10; 
+LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
+#endif
+
 /*
 	The basic interpreter is implemented as a stack machine
 	with global variable for the interpreter state, the memory
@@ -231,6 +255,8 @@ const char* const keyword[] PROGMEM = {
 	lines more efficient.
 
 	rd is the random number storage.
+
+	od is the output model for an arduino
 
 	fd is the filedescriptor for save/load
 
@@ -266,6 +292,8 @@ static unsigned short here, here2, here3;
 static unsigned short top;
 
 static unsigned int rd;
+
+static char od;
 
 #ifndef ARDUINO
 FILE* fd;
@@ -657,9 +685,13 @@ short sqr(short r){
 
 */
 
+
 void outch(char c) {
 #ifdef ARDUINO
-	Serial.write(c);
+	if (od == OLCD) {
+		lcd.write(c);
+	} else 
+		Serial.write(c);
 #else 
 	if (!fd)
 		putchar(c);
@@ -1012,7 +1044,7 @@ void nexttoken() {
 		}
 	}
 
-	// a variable have length 1 in this first version
+	// a variable has length 1 in this first version
 	// its literal value is returned in xc
 	if ( x == 1 ){
 		token=VARIABLE;
@@ -2215,19 +2247,41 @@ void poke(){
 */
 
 void xset(){
-	parseoneargument();
+	parsetwoarguments();
 	if (er == 0) {
 		x=pop();
-		switch (x) {
+		y=pop();
+		switch (y) {
 #ifdef ARDUINO
-			case 0: // change the autorun/run flag of the EEPROM
-				EEPROM[0]=255;
+			// change the autorun/run flag of the EEPROM
+			// 255 for clear, 0 for prog, 1 for autorun
+			case 1: 
+				EEPROM[0]=x;
 				break;
-			case -1:
-				EEPROM[0]=1;		
+			case 2:
+				switch (x) {
+					case 0:
+						od=OSERIAL;
+						break;
+					case 1: 
+						od=OLCD;
+						break;
+					case 2:
+						lcd.clear();
+						break;
+					case 3:
+						lcd.home();
+						break;
+					case 4:
+						lcd.blink();
+						break;
+					case 5: 
+						lcd.noBlink();
+						break;
+				}
 				break;
-			case 1:
-				EEPROM[0]=0;		
+			case 3:
+				lcd.setCursor(x);
 				break;
 #endif
 		}
@@ -2356,6 +2410,9 @@ void setup() {
   xnew();		
 #ifdef ARDUINO
   Serial.begin(9600); 
+#ifdef ARDUINOLCD
+   lcd.begin(16, 2);  // the dimension of the lcd shield - hardcoded, ugly
+#endif
   if (EEPROM.read(0) == 1){ // autorun from the EEPROM
 	top=(unsigned char) EEPROM.read(1);
 	top+=((unsigned char) EEPROM.read(2))*256;
