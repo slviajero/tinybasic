@@ -1,5 +1,7 @@
 # tinybasic
 
+## The idea
+
 My attempt to create a small basic interpreter from scratch using frugal programming techniques and minimal memory. The project was inspired by Steve Wozniak's statement that the Apple 1 basic interpreter was the biggest challenge in his professional life. Bill Gates also had started his career and hir fortune by writing a basic interpreter for the Altair microcomputer. 
 
 The program is written in C but only putchar and getchar are used from the libraries. All other code is done by hand. The C stack is not used for arithemtic or runtime pruposes to keep it minimal. The interpreter uses a set of global variables, an own stack and a static memory and variable array to emulate the low memory environment of the early microcomputers. 
@@ -10,14 +12,14 @@ Memory access is strictly 16bit and 8bit. For memory, stack and variable access,
 
 The interpreted can be compliled with standard gcc on almost any architecture or in the Arduino IDE (set the ARDUINO definition for this).
 
-On an Arduino, programs can be saved on the EEPROM and also autorun from there.
+Look at the WIKI https://github.com/slviajero/tinybasic/wiki for more information.
 
 See also:
 - https://en.wikipedia.org/wiki/Recursive_descent_parser
 - https://rosettacode.org/wiki/BNF_Grammar
 - https://en.wikipedia.org/wiki/Tiny_BASIC
 
-Language features in a nutshell: 
+## Language features in a nutshell 
 
 16bit arithmetic with a range -32768 to 32767 
 
@@ -73,7 +75,7 @@ CONT restarts the program where it ended, using only the here variable.
 
 REM is a comment but behaves different than in other BASICs. It requires one string argument. This is because the tokenizer will try to tokenize every command and the only way to store characters in a program is to convert them into the internal string format.
 
-SAVE on the arduino writes a program to the EEPROM, LOAD reloads it. An EEPROM autorun feature is planned. On other platforms a file "file.bas" is read or written for an ASCII output of the program. This is rudimentary and not well tested. Move the test file "euler9.bas" to "file.bas" to try it out.
+SAVE on the arduino writes a program to the EEPROM, LOAD reloads it. An EEPROM autorun feature is added (see SET). On other platforms a file "file.bas" is read or written for an ASCII output of the program. This is rudimentary and not well tested. Move the test file "euler9.bas" to "file.bas" to try it out.
  
 DWRITE, DREAD, AWRITE, AREAD, PINM, and DELAY are the Arduino I/O functions.
 
@@ -81,11 +83,11 @@ POKE is added to access the basic memory. Like for peek, negative values access 
 
 SET is a general command changing internal interpreter settings: implemented so far is the command group 1 trigged by set 1, x. set 1, 1 sets a program saved in EEPROM to autorun on Arduino, set 1, 0 sets the program back to normal mode, set 1, 255 removes the program flag and makes it unloadable. The prototype LCD code uses set 2, x and set 3, x. More to come soon.
 
-Target machines and compilation:
+## Target machines and compilation
 
 No makefile or headers are provided. All is in one C file, function definitions are in a initial section in the code. On Mac und Linux the definition #undef ARDUINO has to be used. With this putchar and getchar are the only functions in the standard library for input and output. #define ARDUINO replaces these functions with Serial.write and Serial.read for the arduino. The code can be directly compiled in the arduino ide with the build in C++ compiler. The standard serial library costs 180 bytes RAM and 1 kB of flash memory. It is the single biggest library on an arduino. Current arduino code size is 8 kB, memory demand is 1.2 kB for a 512 byte basic memory. My test system is a Arduino Uno, 16 kB flash, 2 kB memory.
 
-Interpreter architecture:
+## Interpreter architecture
 
 The interpreter is build with the goal of minimal RAM footprint. Static global variables are used for most interpreter functions. The C stack is avoided. A set of global variables controls the interpreter
 
@@ -131,7 +133,7 @@ Syntax of the Arduino functions:
 
 The pin value is never checked for validity on the BASIC level. For all analog functions the numeric pin values need to be known. No translation to the conventinal A0-Ax values is done. See https://www.arduino.cc/reference/de/language/functions/analog-io/analogwrite/ for more information.
 
-Weaknesses and know bugs:
+## Weaknesses and know bugs
 
 Error handling is rudimentay. Many things are allowed that should be forbidden. This is an anarchic piece of software.
 
