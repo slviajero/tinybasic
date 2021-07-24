@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.41 2021/07/18 21:02:00 stefan Exp stefan $
+// $Id: basic.c,v 1.42 2021/07/23 16:56:13 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -12,6 +12,7 @@
 
 /* 
 	Defines the target - ARDUINO compiles for ARDUINO
+	ARDINOLCD includes the lcd code 
 */
 
 #undef ARDUINO
@@ -22,6 +23,7 @@
 #include <avr/pgmspace.h>
 #include <LiquidCrystal.h>
 #else 
+#define PROGMEM
 #include <stdio.h>
 #include <stdlib.h>
 #include <termios.h>
@@ -35,8 +37,8 @@
 #define DEBUG2 0
 
 #define BUFSIZE 	72
-#define SBUFSIZE	8
-#define MEMSIZE  	1024
+#define SBUFSIZE	9
+#define MEMSIZE  	8096
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -107,18 +109,21 @@
 #define UNKNOWN -2
 #define NEWLINE -1
 
-// the errors
-#define EOUTOFMEMORY 1
-#define ESTACK 		 2
-#define ELINE        3
-#define EUNKNOWN	 4
-#define EVARIABLE	 5
-#define EDIVIDE		 6
-#define ERANGE 		 7
-#define EFILE 		 8
-#define EFUN 		 9
-#define EARGS		 10
-#define EEEPROM		 11
+// the messages and errors
+#define MREADY       0
+#define EGENERAL 	 1
+#define EOUTOFMEMORY 2
+#define ESTACK 		 3
+#define ELINE        4
+#define EUNKNOWN	 5
+#define EVARIABLE	 6
+#define EDIVIDE		 7
+#define ERANGE 		 8
+#define EFILE 		 9
+#define EFUN 		 10
+#define EARGS		 11
+#define EEEPROM		 12
+
 
 // the number of keywords, and the base index of the keywords
 #define NKEYWORDS	44
@@ -147,17 +152,6 @@
 	All basic keywords
 */
 
-#ifndef ARDUINO
-static char* const keyword[] = {
-	"=>", "<=", "<>", "IF", "TO", "NEW","RUN",
-	"LET","FOR", "END", "THEN" , "GOTO" , "CONT", 
-	"NEXT", "STEP", "PRINT", "INPUT", "GOSUB", 
-	"RETURN", "LIST", "CLR", "NOT", "AND", "OR" , 
-	"ABS", "RND", "SGN", "PEEK", "SQR", "FRE", "DUMP",
-    "BREAK", "SAVE", "LOAD", "REM",
-    "PINM", "DWRITE", "DREAD", "AWRITE", "AREAD", "DELAY", 
-    "POKE", "GET", "SET"};
-#else
 const char sge[]   PROGMEM = "=>";
 const char sle[]   PROGMEM = "<=";
 const char sne[]   PROGMEM = "<>";
@@ -212,7 +206,46 @@ const char* const keyword[] PROGMEM = {
  	ssave, sload, srem, spinm, sdwrite, sdread,
     sawrite, saread, sdelay, spoke, sget, sset	
 };
-#endif
+
+/*
+	the message catalogue also moved to progmem
+*/
+
+// the messages and errors
+#define MREADY       0
+#define EGENERAL 	 1
+#define EOUTOFMEMORY 2
+#define ESTACK 		 3
+#define ELINE        4
+#define EUNKNOWN	 5
+#define EVARIABLE	 6
+#define EDIVIDE		 7
+#define ERANGE 		 8
+#define EFILE 		 9
+#define EFUN 		 10
+#define EARGS		 11
+#define EEEPROM		 12
+
+const char mready[]    	PROGMEM = "Ready";
+const char egeneral[]  	PROGMEM = "Error";
+const char emem[]  	   	PROGMEM = "Memory";
+const char estack[]    	PROGMEM = "Stack";
+const char eline[]  	PROGMEM = "Line";
+const char eunknown[]  	PROGMEM = "Syntax";
+const char evariable[]  PROGMEM = "Variable";
+const char edivide[]  	PROGMEM = "Divide";
+const char erange[]  	PROGMEM = "Range";
+const char efile[]  	PROGMEM = "File";
+const char efun[] 	 	PROGMEM = "Function";
+const char eargs[]  	PROGMEM = "Args";
+const char eeeprom[]	PROGMEM = "EEPROM";
+
+const char* const message[] PROGMEM = {
+	mready, egeneral, emem, estack, eline,
+	eunknown, evariable, edivide, erange,
+	efile, efun, eargs, eeeprom
+};
+
 
 /* 
 	The Arduino LCD shield code
@@ -451,21 +484,34 @@ void clrvars() {
 /* 
 	Layer 0 - keyword handling - PROGMEM logic goes here
 		getkeyword is the only access to the keyword array
-		in the code. 
+		in the code.  
+
+		Same for messages and errors
 */ 
 
 char* getkeyword(char t) {
-#ifndef ARDUINO
 	if (t < BASEKEYWORD || t > BASEKEYWORD+NKEYWORDS) {
 		error(EUNKNOWN);
 		return 0;
-	} 
-	return keyword[t-BASEKEYWORD];
+	} else 
+#ifndef ARDUINO
+	return (char *) keyword[t-BASEKEYWORD];
 #else
-	strcpy_P(sbuffer, (char*)pgm_read_word(&(keyword[t-BASEKEYWORD]))); 
+	strcpy_P(sbuffer, (char*) pgm_read_word(&(keyword[t-BASEKEYWORD]))); 
 	return sbuffer;
 #endif
 }
+
+void printmessage(char i){
+	#ifndef ARDUINO
+	outsc((char *)message[i]);
+#else
+	strcpy_P(sbuffer, (char*) pgm_read_word(&(message[i]))); 
+	outsc(sbuffer);
+#endif
+}
+
+
 
 /*
   Layer 0 - error handling
@@ -477,44 +523,13 @@ char* getkeyword(char t) {
 
 void error(char e){
 	er=e;
-	if (e < 0) {
-		outsc("Error in: \n");
+	if (e < 0) 
 		debugtoken();
-		return;
-	}
-	switch (e) {
-		case EVARIABLE:
-			outsc("Var");
-			break;
-		case EUNKNOWN: 
-			outsc("Syntax");
-			break;
-		case ELINE:
-			outsc("Line");
-			break;
-		case ESTACK: 
-			outsc("Stack");
-			break;
-		case EOUTOFMEMORY: 
-			outsc("Memory");
-			break;
-		case ERANGE:
-			outsc("Range");
-			break;
-		case EFILE:
-			outsc("File");
-			break;
-		case EFUN:
-			outsc("Function");
-			break;		
-		case EARGS:
-			outsc("Arg");	
-			break;
-		case EEEPROM:
-			outsc("EEPROM");
-	}
-	outsc(" error\n");
-	return;
+	else  
+		printmessage(e);
+	outspc();
+	printmessage(EGENERAL);
+	outcr();
 }
 
 void debug(char *c){
@@ -688,9 +703,11 @@ short sqr(short r){
 
 void outch(char c) {
 #ifdef ARDUINO
+#ifdef ARDUINOLCD
 	if (od == OLCD) {
 		lcd.write(c);
 	} else 
+#endif
 		Serial.write(c);
 #else 
 	if (!fd)
@@ -992,7 +1009,7 @@ void nexttoken() {
 	// isolate a word, bi points to the beginning, x is the length of the word
 	// ir points to the end of the word after isolating
 
-	if (DEBUG) outsc("Scanning vars");
+	if (DEBUG) printmessage(EVARIABLE);
 	x=0;
 	ir=bi;
 	while (-1) {
@@ -1105,7 +1122,7 @@ void dumpmem(int r) {
 		i--;
 	}
 #ifdef ARDUINO
-	outsc("------- EEPROM ----------- \n");
+	printmessage(EEEPROM); outcr();
 	i=r;
 	k=0;
 	while (i>0) {
@@ -1116,7 +1133,7 @@ void dumpmem(int r) {
 		i--;
 	}
 #endif
-	outsc("top= "); outnumber(top); outcr();
+	outnumber(top); outcr();
 }
 
 void storetoken() {
@@ -1282,6 +1299,7 @@ void zeroblock(short b, short l){
 	
 */
 
+#ifdef DEBUG
 void diag(){
 	outsc("top, here, here2, here3, y and x\n");
 	outnumber(top); outspc();
@@ -1292,6 +1310,7 @@ void diag(){
 	outnumber(x); outspc();		
 	outcr();
 }
+#endif
 
 void storeline() {
 	short linelength;
@@ -1315,7 +1334,7 @@ void storeline() {
 	do {
 		storetoken();
 		if (er == EOUTOFMEMORY) {
-			outsc("Line ignored.\n");
+			printmessage(EOUTOFMEMORY); outcr();
 			drop();
 			return;
 		}
@@ -1336,7 +1355,7 @@ void storeline() {
 		y=x;					
 		findline(y);
 		if (er == ELINE) {
-			outsc("Line not found \n");
+			printmessage(ELINE); outcr();
 			return;
 		}		
 		y=here-3;							
@@ -2258,6 +2277,7 @@ void xset(){
 			case 1: 
 				EEPROM[0]=x;
 				break;
+#ifdef ARDUINOLCD
 			case 2:
 				switch (x) {
 					case 0:
@@ -2281,8 +2301,9 @@ void xset(){
 				}
 				break;
 			case 3:
-				lcd.setCursor(x);
+				lcd.setCursor(0, x);
 				break;
+#endif
 #endif
 		}
 	}
@@ -2427,7 +2448,7 @@ void setup() {
 void loop() {
 
 	if (st != SERUN) {
-		outsc("Ready \n");
+		printmessage(MREADY); outcr();
     	ins();
         
         bi=ibuffer;
