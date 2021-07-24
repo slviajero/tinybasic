@@ -17,9 +17,12 @@
 
 #undef ARDUINO
 #undef ARDUINOLCD
+#undef ARDUINOEEPROM
 
 #ifdef ARDUINO
+#ifdef ARDUINOEEPROM
 #include <EEPROM.h>
+#endif
 #include <avr/pgmspace.h>
 #include <LiquidCrystal.h>
 #else 
@@ -33,12 +36,10 @@
 #define FALSE 0
 
 #define DEBUG  0
-#define DEBUG1 0
-#define DEBUG2 0
 
 #define BUFSIZE 	72
 #define SBUFSIZE	9
-#define MEMSIZE  	512
+#define MEMSIZE  	1024
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -524,7 +525,7 @@ void printmessage(char i){
 void error(char e){
 	er=e;
 	if (e < 0) 
-		debugtoken();
+		outputtoken();
 	else  
 		printmessage(e);
 	outspc();
@@ -541,6 +542,7 @@ void debugn(char t){
 	outsc(getkeyword(t)); outcr();
 }
 
+#ifdef DEBUG
 void debugtoken(){
 	outsc("Token: ");
 	if (token != EOL) {
@@ -551,6 +553,7 @@ void debugtoken(){
 		outcr();
 	}
 }
+#endif
 
 void resetinterpreter(){ // the general cleanup function
 	clearst();
@@ -780,8 +783,7 @@ void outtab() {
 
 // output a string of length x at index ir - basic style
 void outs(char *ir, short x){
-	int i;
-	for(i=0; i<x; i++) outch(ir[i]);
+	for(int i=0; i<x; i++) outch(ir[i]);
 }
 
 // output a zero terminated string at ir - c style
@@ -1121,7 +1123,7 @@ void dumpmem(int r) {
 		outcr();
 		i--;
 	}
-#ifdef ARDUINO
+#ifdef ARDUINOEEPROM
 	printmessage(EEEPROM); outcr();
 	i=r;
 	k=0;
@@ -1171,7 +1173,7 @@ memoryerror:
 
 
 char memread(short i){
-#ifndef ARDUINO
+#ifndef ARDUINOEEPROM
 	return mem[i];
 #else 
 	if (st != SERUN) {
@@ -1336,6 +1338,9 @@ void storeline() {
 		if (er == EOUTOFMEMORY) {
 			printmessage(EOUTOFMEMORY); outcr();
 			drop();
+			top=newline;
+			here=0;
+			zeroblock(top, himem-top);
 			return;
 		}
 		nexttoken();
@@ -1523,7 +1528,7 @@ short peek(short x){
 	if (x >= 0 && x<MEMSIZE) 
 		return mem[x];
 	else {
-#ifndef ARDUINO
+#ifndef ARDUINOEEPROM
 		error(ERANGE);
 		return 0;
 #else
@@ -1542,7 +1547,7 @@ short xfre(short x) {
 }
 
 void factor(){
-	if (DEBUG1) debug("factor");
+	if (DEBUG) debug("factor");
 	switch (token) {
 		case NUMBER: 
 			push(x);
@@ -1583,11 +1588,10 @@ void factor(){
 		default:
 			error(token);
 	}
-	if (DEBUG2) debug("factor"); 
 }
 
 void term(){
-	if (DEBUG1) debug("term"); 
+	if (DEBUG) debug("term"); 
 	factor();
 
 nextfactor:
@@ -1625,11 +1629,10 @@ nextfactor:
 		}
 		goto nextfactor;
 	} 
-	if (DEBUG2) debug("term"); 
 }
 
 void addexpression(){
-	if (DEBUG1) debug("addexp");
+	if (DEBUG) debug("addexp");
 	if (token != '+' && token != '-') {
 		term();
 	} else {
@@ -1652,11 +1655,10 @@ nextterm:
 		push(x-y);
 		goto nextterm;
 	}
-	if (DEBUG2) debug("addexp");
 }
 
 void compexpression() {
-	if (DEBUG1) debug("compexp"); 
+	if (DEBUG) debug("compexp"); 
 	addexpression();
 	switch (token){
 		case '=':
@@ -1702,11 +1704,10 @@ void compexpression() {
 			push(x >= y);
 			break;
 	}
-	if (DEBUG2) debug("compexp");
 }
 
 void notexpression() {
-	if (DEBUG1) debug("notexp");
+	if (DEBUG) debug("notexp");
 	if (token == TNOT) {
 		nexttoken();
 		compexpression();
@@ -1714,11 +1715,10 @@ void notexpression() {
 		push(!x);
 	} else 
 		compexpression();
-	if (DEBUG2) debug("notexp"); 
 }
 
 void andexpression() {
-	if (DEBUG1) debug("andexp");
+	if (DEBUG) debug("andexp");
 	notexpression();
 	if (token == TAND) {
 		nexttoken();
@@ -1726,12 +1726,11 @@ void andexpression() {
 		y=pop(); 
 		x=pop(); 
 		push(x && y);
-	}
-	if (DEBUG2) debug("andexp"); 
+	} 
 }
 
 void expression(){
-	if (DEBUG1) debug("exp"); 
+	if (DEBUG) debug("exp"); 
 	andexpression();
 	if (token == TOR) {
 		nexttoken();
@@ -1740,7 +1739,6 @@ void expression(){
 		x=pop(); 
 		push(x || y);
 	} 
-	if (DEBUG2) debug("exp");
 }
 
 /* 
@@ -1782,7 +1780,7 @@ void parseoneargument() {
    print 
 */ 
 void print(){
-	if (DEBUG1) debugn(TPRINT); 
+	if (DEBUG) debugn(TPRINT); 
 	while (TRUE) {
 		nexttoken();
 		if (token == STRING) {
@@ -1806,7 +1804,7 @@ void print(){
 }
 
 void xget(){
-	if (DEBUG1) debugn(TGET); 
+	if (DEBUG) debugn(TGET); 
 	nexttoken();
 	if (token != VARIABLE) {
 		error(TGET);
@@ -1818,7 +1816,7 @@ void xget(){
 }
 
 void assignment() {
-	if (DEBUG1) debugn(TLET); 
+	if (DEBUG) debugn(TLET); 
 	push(xc);
 	nexttoken();
 	if ( token == '=') {
@@ -1838,13 +1836,13 @@ void assignment() {
 }
 
 void xgoto() {
-	if (DEBUG1) debugn(TGOTO); 
+	if (DEBUG) debugn(TGOTO); 
 	int t=token;
 	nexttoken();
 	expression();
 	if (er == 0) {
 		if (t == TGOSUB) {
-			if (DEBUG1) debugn(TGOSUB); 
+			if (DEBUG) debugn(TGOSUB); 
 			pushgosubstack();
 		}
 		x=pop();
@@ -1870,15 +1868,16 @@ void cont(){
 }
 
 void xif(){
-	if (DEBUG1) debugn(TIF); 
+	if (DEBUG) debugn(TIF); 
 	nexttoken();
 	expression();
 	if (er == 0) {
 		x=pop();
-		if (DEBUG1) { debug("boolean"); outnumber(x); outcr(); } 
+		if (DEBUG) { outnumber(x); outcr(); } 
 		if (! x) {// on condition false skip the entire line
-			do
-				nexttoken();
+			do {
+				nexttoken();	
+			}
 			while (token != LINENUMBER && token !=EOL && here <= top);
 		}
 		if (token == TTHEN) {
@@ -1896,7 +1895,7 @@ void xif(){
 
 // input ["string",] variable [,variable]* 
 void input(){
-	if (DEBUG1) debugn(TINPUT); 
+	if (DEBUG) debugn(TINPUT); 
 	nexttoken();
 	if (token == STRING) {   		// [ "string" ,]
 		outs(ir, x);
@@ -1935,7 +1934,7 @@ void findnext(){
 // for is implemented only in program mode not in interactive mode
 // for variable = expression to expression [STEP expression]
 void xfor(){
-	if (DEBUG1) debugn(TFOR);
+	if (DEBUG) debugn(TFOR);
 	nexttoken();
 	if (token != VARIABLE) {
 		error(token);
@@ -1957,9 +1956,7 @@ void xfor(){
 	x=pop();
 	xc=pop();
 	setvar(xc,x);
-	if (DEBUG1) { outsc("In for: \n"); 
-		outsc("Variable is : "); outch(xc); outcr();
-		outsc("Value is    : "); outnumber(x); outcr();
+	if (DEBUG) {  outch(xc); outspc(); outnumber(x); outcr();
 	}
 	push(xc);
 	if (token != TTO){
@@ -1984,9 +1981,7 @@ void xfor(){
 		y=pop();
 	} else 
 		y=1;
-	if (DEBUG1) { 
-		outsc("In for: \n"); 
-		outsc("Step is    : "); outnumber(y); outcr();
+	if (DEBUG) { debugtoken(); outnumber(y); outcr();
 	}
 	if (token != LINENUMBER && token != ':') {
 		error(token);
@@ -2018,7 +2013,7 @@ void xfor(){
 	an apocryphal feature here is the BREAK command ending a look
 */
 void xbreak(){
-	if (DEBUG1) debugn(TBREAK);
+	if (DEBUG) debugn(TBREAK);
 	dropforstack();
 	findnext();
 	nexttoken();
@@ -2026,7 +2021,7 @@ void xbreak(){
 
 // next is implemented in program mode and not in interactive mode
 void xnext(){
-	if (DEBUG1) debugn(TNEXT); 
+	if (DEBUG) debugn(TNEXT); 
 	push(here);
 	popforstack();
 	// at this point xc is the variable, x the stop value and y the step
@@ -2057,14 +2052,14 @@ void xnext(){
 }
 
 void xreturn(){
-	if (DEBUG1) debugn(TRETURN); 
+	if (DEBUG) debugn(TRETURN); 
 	popgosubstack();
 	nexttoken();
 }
 
 void load() {
-	if (DEBUG1) debugn(TLOAD);
-#ifdef ARDUINO
+	if (DEBUG) debugn(TLOAD);
+#ifdef ARDUINOEEPROM
 	x=0;
 	if (EEPROM.read(x) == 0 || EEPROM.read(x) == 1) { // have we stored a program
 		x++;
@@ -2078,7 +2073,8 @@ void load() {
 		error(EEEPROM);
 	}
 	nexttoken();
-#else 
+#endif
+#ifndef ARDUINO
 	fd=fopen("file.bas", "r");
 	if (!fd) {
 		error(EFILE);
@@ -2098,8 +2094,8 @@ void load() {
 }
 
 void save() {
-	if (DEBUG1) debugn(TSAVE); 
-#ifdef ARDUINO
+	if (DEBUG) debugn(TSAVE); 
+#ifdef ARDUINOEEPROM
 	if (top+EHEADERSIZE < EEPROM.length()) {
 		x=0;
 		EEPROM.write(x++, 0); // EEROM per default is 255, 0 indicates that there is a program
@@ -2117,7 +2113,8 @@ void save() {
 		nexttoken();
 		return;
 	}
-#else 
+#endif
+#ifndef ARDUINO
 	fd=fopen("file.bas", "w");
 	if (!fd) {
 		error(EFILE);
@@ -2132,7 +2129,7 @@ void save() {
 }
 
 void rem() {
-	if (DEBUG1) debugn(TREM); 
+	if (DEBUG) debugn(TREM); 
 	while (token != LINENUMBER && token != EOL && here <= top)
 		nexttoken(); 
 }
@@ -2164,7 +2161,7 @@ void outputtoken() {
 }
 
 void list(){
-	if (DEBUG1) debugn(TLIST);
+	if (DEBUG) debugn(TLIST);
 	here=0;
 	gettoken();
 	while (here <= top) {
@@ -2178,7 +2175,7 @@ void list(){
 
 void run(){
 	char c;
-	if (DEBUG1) debugn(TRUN);
+	if (DEBUG) debugn(TRUN);
 	here=0;
 	if (st == SINT) st=SRUN;
 	nexttoken();
@@ -2247,7 +2244,8 @@ void poke(){
 	else {
 #ifndef ARDUINO
 		error(ERANGE);
-#else
+#endif
+#ifdef ARDUINOEEPROM
 		if (x < 0 && -x < EEPROM.length())
 			EEPROM.update(-x, y);
 		else {
@@ -2271,12 +2269,13 @@ void xset(){
 		x=pop();
 		y=pop();
 		switch (y) {
-#ifdef ARDUINO
+#ifdef ARDUINOEEPROM
 			// change the autorun/run flag of the EEPROM
 			// 255 for clear, 0 for prog, 1 for autorun
 			case 1: 
 				EEPROM[0]=x;
 				break;
+#endif
 #ifdef ARDUINOLCD
 			case 2:
 				switch (x) {
@@ -2304,7 +2303,6 @@ void xset(){
 				lcd.setCursor(0, x);
 				break;
 #endif
-#endif
 		}
 	}
 }
@@ -2324,7 +2322,7 @@ void xset(){
 */
 
 void statement(){
-	if (DEBUG1) debug("statement\n"); 
+	if (DEBUG) debug("statement\n"); 
 	while (token != EOL) {
 		switch(token){
 			case TLIST:
@@ -2431,16 +2429,16 @@ void setup() {
   xnew();		
 #ifdef ARDUINO
   Serial.begin(9600); 
+#endif
 #ifdef ARDUINOLCD
    lcd.begin(16, 2);  // the dimension of the lcd shield - hardcoded, ugly
 #endif
+#ifdef ARDUINOEEPROM
   if (EEPROM.read(0) == 1){ // autorun from the EEPROM
 	top=(unsigned char) EEPROM.read(1);
 	top+=((unsigned char) EEPROM.read(2))*256;
   	st=SERUN;
   } 
-#else 
-// to be done
 #endif
 }
 
