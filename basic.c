@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.42 2021/07/23 16:56:13 stefan Exp stefan $
+// $Id: basic.c,v 1.43 2021/07/24 08:52:44 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -15,7 +15,11 @@
 	ARDINOLCD includes the lcd code 
 */
 
+#ifdef PROGMEM
+#define ARDUINO
+#else
 #undef ARDUINO
+#endif
 #undef ARDUINOLCD
 #undef ARDUINOEEPROM
 
@@ -305,7 +309,7 @@ static char sbuffer[SBUFSIZE];
 
 static short vars[VARSIZE];
 
-static char mem[MEMSIZE];
+static signed char mem[MEMSIZE];
 static short himem=MEMSIZE;
 
 static struct {char var; short here; short to; short step;} forstack[FORDEPTH];
@@ -315,13 +319,13 @@ static short gosubstack[GOSUBDEPTH];
 static short gosubsp = 0;
 
 static short x, y;
-static char xc, yc;
+static signed char xc, yc;
 
 static char *ir;
-static char token;
-static char er;
+static signed char token;
+static signed char er;
 
-static char st; 
+static signed char st; 
 static unsigned short here, here2, here3; 
 static unsigned short top;
 
@@ -348,7 +352,7 @@ void delvar(char);
 void clrvars();
 
 // error handling
-void error(char);
+void error(signed char);
 
 // stack stuff
 void push(short);
@@ -357,7 +361,7 @@ void drop();
 void clearst();
 
 // get keyword from PROGMEM
-char* getkeyword(char);
+char* getkeyword(signed char);
 
 // mathematics
 short rnd(short);
@@ -490,7 +494,7 @@ void clrvars() {
 		Same for messages and errors
 */ 
 
-char* getkeyword(char t) {
+char* getkeyword(signed char t) {
 	if (t < BASEKEYWORD || t > BASEKEYWORD+NKEYWORDS) {
 		error(EUNKNOWN);
 		return 0;
@@ -504,7 +508,7 @@ char* getkeyword(char t) {
 }
 
 void printmessage(char i){
-	#ifndef ARDUINO
+#ifndef ARDUINO
 	outsc((char *)message[i]);
 #else
 	strcpy_P(sbuffer, (char*) pgm_read_word(&(message[i]))); 
@@ -522,7 +526,7 @@ void printmessage(char i){
 
 */ 
 
-void error(char e){
+void error(signed char e){
 	er=e;
 	if (e < 0) 
 		outputtoken();
@@ -538,7 +542,7 @@ void debug(char *c){
 	debugtoken();
 }
 
-void debugn(char t){
+void debugn(signed char t){
 	outsc(getkeyword(t)); outcr();
 }
 
@@ -1199,7 +1203,7 @@ void gettoken() {
 		case STRING:
 			x=(unsigned char)memread(here++);  // if we run interactive or from mem, pass back the mem location
 #ifndef ARDUINO
-			ir=&mem[here];
+			ir=(char *)&mem[here];
 			here+=x;
 #else 
 			if (st == SERUN) { // we run from the EEROM and cannot simply pass a point
@@ -1208,7 +1212,7 @@ void gettoken() {
 				}
 				ir=ibuffer;
 			} else {
-				ir=&mem[here];
+				ir=(char *)&mem[here];
 			}
 			here+=x;	
 #endif
