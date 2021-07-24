@@ -1887,7 +1887,7 @@ void xif(){
 				findline(x);
 		}
 	} else {
-		outsc("Error in if \n");
+		error(TIF);
 		clearst();
 		er=0;
 		return;
