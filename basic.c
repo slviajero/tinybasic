@@ -15,13 +15,28 @@
 	ARDINOLCD includes the lcd code 
 */
 
+
+#undef ESP8266
+
+// if PROGMEM is defined we can asssume we compile on 
+// the Arduino IDE 
 #ifdef PROGMEM
 #define ARDUINO
+#define ARDUINOPROGMEM
 #else
 #undef ARDUINO
 #endif
+
+// don's use PROGMEM on an ESP
+#ifdef ESP8266
+#define PROGMEM
+#undef ARDUINOPROGMEM
+#endif
+
+// ARDUINO extensions
 #undef ARDUINOLCD
 #undef ARDUINOEEPROM
+
 
 #ifdef ARDUINO
 #ifdef ARDUINOEEPROM
@@ -310,7 +325,7 @@ static char sbuffer[SBUFSIZE];
 static short vars[VARSIZE];
 
 static signed char mem[MEMSIZE];
-static short himem=MEMSIZE;
+static unsigned short himem=MEMSIZE;
 
 static struct {char var; short here; short to; short step;} forstack[FORDEPTH];
 static short forsp = 0;
@@ -498,7 +513,7 @@ char* getkeyword(signed char t) {
 		error(EUNKNOWN);
 		return 0;
 	} else 
-#ifndef ARDUINO
+#ifndef ARDUINOPROGMEM
 	return (char *) keyword[t-BASEKEYWORD];
 #else
 	strcpy_P(sbuffer, (char*) pgm_read_word(&(keyword[t-BASEKEYWORD]))); 
@@ -507,15 +522,13 @@ char* getkeyword(signed char t) {
 }
 
 void printmessage(char i){
-#ifndef ARDUINO
+#ifndef ARDUINOPROGMEM
 	outsc((char *)message[i]);
 #else
 	strcpy_P(sbuffer, (char*) pgm_read_word(&(message[i]))); 
 	outsc(sbuffer);
 #endif
 }
-
-
 
 /*
   Layer 0 - error handling
