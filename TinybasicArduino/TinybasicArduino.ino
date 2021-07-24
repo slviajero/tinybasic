@@ -705,7 +705,7 @@ void outch(char c) {
 #ifdef ARDUINO
 #ifdef ARDUINOLCD
 	if (od == OLCD) {
-		lcd.write(c);
+		if (c > 31) lcd.write(c);
 	} else 
 #endif
 		Serial.write(c);
@@ -1887,7 +1887,7 @@ void xif(){
 				findline(x);
 		}
 	} else {
-		outsc("Error in if \n");
+		error(TIF);
 		clearst();
 		er=0;
 		return;

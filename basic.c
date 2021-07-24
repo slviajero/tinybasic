@@ -38,7 +38,7 @@
 
 #define BUFSIZE 	72
 #define SBUFSIZE	9
-#define MEMSIZE  	8096
+#define MEMSIZE  	512
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -705,7 +705,7 @@ void outch(char c) {
 #ifdef ARDUINO
 #ifdef ARDUINOLCD
 	if (od == OLCD) {
-		lcd.write(c);
+		if (c > 31) lcd.write(c);
 	} else 
 #endif
 		Serial.write(c);
