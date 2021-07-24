@@ -154,7 +154,7 @@
 #define OLCD 1
 
 /*
-	All basic keywords
+	All BASIC keywords
 */
 
 const char sge[]   PROGMEM = "=>";
@@ -373,7 +373,6 @@ char inch();
 char checkch();
 void outcr();
 void outspc();
-void outtab();
 void outs(char*, short);
 void outsc(char*);
 void ins();
@@ -779,10 +778,6 @@ void outcr() {
 
 void outspc() {
 	outch(' ');
-}
-
-void outtab() {
-	outch('\t');
 }
 
 // output a string of length x at index ir - basic style
@@ -1547,7 +1542,7 @@ short peek(short x){
 }
 
 short xfre(short x) {
-	return MEMSIZE-top;
+	return himem-top;
 }
 
 void factor(){
