@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.43 2021/07/24 08:52:44 stefan Exp stefan $
+// $Id: basic.c,v 1.44 2021/07/24 18:21:20 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -37,13 +37,28 @@
 #undef ARDUINOLCD
 #undef ARDUINOEEPROM
 
+// SMALLness 
+// GOSUB costs 100 bytes of program memory
+// FORNEXTSTEP costs 850 bytes on an ARDUINO UNO
+// FUNCTIONS SQR and RND cost 166 bytes
+#define HASFORNEXT
+#define HASGOSUB
+#define HASFUNCTIONS
+#define HASDUMP
+#undef  USESPICOSERIAL
+
 
 #ifdef ARDUINO
+#include <avr/pgmspace.h>
 #ifdef ARDUINOEEPROM
 #include <EEPROM.h>
 #endif
-#include <avr/pgmspace.h>
+#ifdef ARDUINOLCD
 #include <LiquidCrystal.h>
+#endif
+#ifdef USESPICOSERIAL
+#include <PicoSerial.h>
+#endif
 #else 
 #define PROGMEM
 #include <stdio.h>
@@ -327,11 +342,15 @@ static short vars[VARSIZE];
 static signed char mem[MEMSIZE];
 static unsigned short himem=MEMSIZE;
 
+#ifdef HASFORNEXT
 static struct {char var; short here; short to; short step;} forstack[FORDEPTH];
 static short forsp = 0;
+#endif
 
+#ifdef HASGOSUB
 static short gosubstack[GOSUBDEPTH];
 static short gosubsp = 0;
+#endif
 
 static short x, y;
 static signed char xc, yc;
@@ -344,7 +363,9 @@ static signed char st;
 static unsigned short here, here2, here3; 
 static unsigned short top;
 
+#ifdef HASFUNCTIONS
 static unsigned int rd;
+#endif
 
 static char od;
 
@@ -436,12 +457,16 @@ void xif();
 void input();
 
 // helpers of gosub and for
+#ifdef HASFORNEXT
 void pushforstack();
 void popforstack();
 void dropforstack();
+#endif
+#ifdef HASGOSUB
 void pushgosubstack();
 void popgosubstack();
 void dropgosubstack();
+#endif
 
 // control commands LIST, RUN, NEW, CLR, SAVE, LOAD
 void clr();
@@ -549,14 +574,6 @@ void error(signed char e){
 	outcr();
 }
 
-void debug(char *c){
-	outsc(c); 
-	debugtoken();
-}
-
-void debugn(signed char t){
-	outsc(getkeyword(t)); outcr();
-}
 
 #ifdef DEBUG
 void debugtoken(){
@@ -569,12 +586,25 @@ void debugtoken(){
 		outcr();
 	}
 }
+
+void debug(char *c){
+	outsc(c); 
+	debugtoken();
+}
+
+void debugn(signed char t){
+	outsc(getkeyword(t)); outcr();
+}
 #endif
 
 void resetinterpreter(){ // the general cleanup function
 	clearst();
+#ifdef HASGOSUB
 	gosubsp=0;
+#endif
+#ifdef HASFORNEXT
 	forsp=0;
+#endif
 }
 
 
@@ -615,7 +645,7 @@ void clearst(){
 	Stack handling for gosub and for
 
 */
-
+#ifdef HASFORNEXT
 void pushforstack(){
 	if (forsp < FORDEPTH) {
 		forstack[forsp].var=xc;
@@ -650,12 +680,13 @@ void dropforstack(){
 		return;
 	} 
 }
+#endif
 
+#ifdef HASGOSUB
 void pushgosubstack(){
 	if (gosubsp < GOSUBDEPTH) {
 		gosubstack[gosubsp]=here;
 		gosubsp++;	
-		return;	
 	} else 
 		error(ESTACK);
 }
@@ -675,36 +706,9 @@ void dropgosubstack(){
 		gosubsp--;
 	} else {
 		error(ESTACK);
-		return;
 	} 
 }
-
-// very basic random number generator with constant seed.
-short rnd(short r) {
-	rd = (31421*rd + 6927) % 0x10000;
-	if (r>=0) 
-		return (rd*r)/0x10000;
-	else 
-		return (rd*r)/0x10000+1;
-}
-
-// a very simple approximate square root formula. 
-short sqr(short r){
-	short t=r;
-	short l=0;
-	while (t > 0) {
-		t>>=1;
-		l++;
-	}
-	l=l/2;
-	t=1;
-	t<<=l;
-	do {
-		l=t;
-		t=(t+r/t)/2;
-	} while (abs(t-l)>1);
-	return t;
-}
+#endif
 
 /* 
 
@@ -719,6 +723,31 @@ short sqr(short r){
 
 */
 
+// PicoSerial Code, read and buffer one entire string that become deaf
+// but still track 
+#ifdef USESPICOSERIAL
+volatile static char picochar;
+volatile static char picoa = FALSE;
+volatile static char* picob = NULL;
+static short picobsize = 0;
+volatile static short picoi = 0;
+
+void picogetchar(int c){
+	picochar=c;
+	if (picob && (! picoa) ) {
+		if (picochar != '\n' && picochar != '\r' && picoi<picobsize-1) {
+			picob[picoi++]=picochar;
+		} else {
+			picoa = TRUE;
+			picob[picoi]=0;
+			picoi=0;
+		}
+		picochar=0; // every buffered byte is deleted
+	}
+}
+#endif
+
+
 
 void outch(char c) {
 #ifdef ARDUINO
@@ -727,7 +756,11 @@ void outch(char c) {
 		if (c > 31) lcd.write(c);
 	} else 
 #endif
+#ifdef USESPICOSERIAL
+		PicoSerial.print(c);
+#else
 		Serial.write(c);
+#endif
 #else 
 	if (!fd)
 		putchar(c);
@@ -741,11 +774,15 @@ void outch(char c) {
 char inch(){
 	char c=0;
 #ifdef ARDUINO
+#ifdef USESPICOSERIAL
+	return picochar;
+#else
 	do 
 		if (Serial.available()) c=Serial.read();
 	while(c == 0); 
 	outch(c);
 	return c;
+#endif
 #else
 	if (!fd) {
 		do 
@@ -763,7 +800,11 @@ char inch(){
 // models here
 char checkch(){
 #ifdef ARDUINO
+#ifdef USESPICOSERIAL
+    return picochar;
+#else 
 	if (Serial.available()) return Serial.peek(); 
+#endif	
 #else 
 	/*
 	struct termios orgt, newt;
@@ -794,16 +835,26 @@ void outspc() {
 }
 
 // output a string of length x at index ir - basic style
-void outs(char *ir, short x){
-	for(int i=0; i<x; i++) outch(ir[i]);
+void outs(char *ir, short l){
+	for(int i=0; i<l; i++) outch(ir[i]);
 }
 
 // output a zero terminated string at ir - c style
-void outsc(char *ir){
-	while (*ir != 0) outch(*ir++);
+void outsc(char *c){
+	while (*c != 0) outch(*c++);
 }
 
 // reads a line from the keybord to the input buffer
+
+#ifdef USESPICOSERIAL
+void ins(){
+	picob=ibuffer;
+	picobsize=BUFSIZE;
+	picoa=FALSE;
+	while (! picoa);
+	outsc(ibuffer); outcr();
+}
+#else
 void ins(){
 	char c;
 	bi=ibuffer;
@@ -821,36 +872,54 @@ void ins(){
 		}
 	}
 }
-
-// prints a 16 bit number
-void outnumber(short x){
-	char c, co;
-	short d;
-	if (x<0) {
-		outch('-');
-		x=-x;
-	}
-	d=10000;
-	c=FALSE; // surpress leading 0s
-	while (d > 0){
-		co=x/d;
-		x=x%d;
-		if (co != 0 || d == 1 || c) {
-			co=co+48;
-			outch(co);
-			c=TRUE;
-		}
-		d=d/10;
-	}
-}
+#endif
 
 // reading a 16 bit number using the stack to collect bytes
+#ifdef USESPICOSERIAL
 char innumber(short *r){
 	char c;
-	char nd;
-	short s;
-	s=1;
-	nd=0;
+	char i = 0;
+	char nd = 0;
+	short s = 1;
+    // get the input string
+	picob=sbuffer;        
+	picobsize=SBUFSIZE;
+	picoa=FALSE;
+	while (! picoa);
+	outsc(sbuffer); outcr();
+	// parse it just like in the standard serial code 
+	c=sbuffer[i++];
+	if (c == '#') {
+		*r=0;
+		return c;
+	}	
+	if (c == '-') {
+		s=-1;
+		c=sbuffer[i++];
+	}
+	while (TRUE){
+		if (c <= '9' && c >='0' && nd<5) {
+			x=c-'0';
+			push(x);
+			nd++;
+		} 
+		if (c == 0)
+			break;
+		c=sbuffer[i++];
+	}
+	*r=0;
+	while(nd>0){
+		*r+=pop()*s;
+		s=s*10;
+		nd--;
+	}
+	return 1;
+}
+#else
+char innumber(short *r){
+	char c;
+	char nd = 0;
+	short s = 1;
 	c=inch();
 	if (c == '#') {
 		*r=0;
@@ -882,6 +951,31 @@ char innumber(short *r){
 	}
 	return 1;
 }
+#endif
+
+// prints a 16 bit number
+void outnumber(short x){
+	char c, co;
+	short d;
+	if (x<0) {
+		outch('-');
+		x=-x;
+	}
+	d=10000;
+	c=FALSE; // surpress leading 0s
+	while (d > 0){
+		co=x/d;
+		x=x%d;
+		if (co != 0 || d == 1 || c) {
+			co=co+48;
+			outch(co);
+			c=TRUE;
+		}
+		d=d/10;
+	}
+}
+
+
 
 /* 
 
@@ -1124,6 +1218,7 @@ char nomemory(short b){
 	if (top >= himem-b) return TRUE; else return FALSE;
 }
 
+#ifdef HASDUMP
 void dumpmem(int r) {
 	int j, i;	
 	int k=0;
@@ -1149,6 +1244,7 @@ void dumpmem(int r) {
 #endif
 	outnumber(top); outcr();
 }
+#endif
 
 void storetoken() {
 	short i=x;
@@ -1558,6 +1654,36 @@ short xfre(short x) {
 	return himem-top;
 }
 
+
+#ifdef HASFUNCTIONS
+// very basic random number generator with constant seed.
+short rnd(short r) {
+	rd = (31421*rd + 6927) % 0x10000;
+	if (r>=0) 
+		return (rd*r)/0x10000;
+	else 
+		return (rd*r)/0x10000+1;
+}
+
+// a very simple approximate square root formula. 
+short sqr(short r){
+	short t=r;
+	short l=0;
+	while (t > 0) {
+		t>>=1;
+		l++;
+	}
+	l=l/2;
+	t=1;
+	t<<=l;
+	do {
+		l=t;
+		t=(t+r/t)/2;
+	} while (abs(t-l)>1);
+	return t;
+}
+#endif
+
 void factor(){
 	if (DEBUG) debug("factor");
 	switch (token) {
@@ -1576,18 +1702,20 @@ void factor(){
 		case TABS: 
 			parsefunction(xabs);
 			break;
-		case TRND: 
-			parsefunction(rnd);
-			break;
 		case TSGN: 
 			parsefunction(xsgn);
 			break;
 		case TPEEK: 
 			parsefunction(peek);
 			break;
+#ifdef HASFUNCTIONS
+		case TRND: 
+			parsefunction(rnd);
+			break;	
 		case TSQR: 
 			parsefunction(sqr);
 			break;
+#endif
 		case TFRE: 
 			parsefunction(xfre);
 			break;
@@ -1602,6 +1730,13 @@ void factor(){
 	}
 }
 
+void parseoperator(void (*f)()) {
+	nexttoken();
+	f();
+	y=pop();
+	x=pop();
+}
+
 void term(){
 	if (DEBUG) debug("term"); 
 	factor();
@@ -1610,17 +1745,11 @@ nextfactor:
 	nexttoken();
 	if (DEBUG) debug("nexttoken");
 	if (token == '*'){
-		nexttoken();
-		factor();
-		y=pop();
-		x=pop();
+		parseoperator(factor);
 		push(x*y);
 		goto nextfactor;
 	} else if (token == '/'){
-		nexttoken();
-		factor();
-		y=pop();
-		x=pop();
+		parseoperator(factor);
 		if (y != 0)
 			push(x/y);
 		else {
@@ -1629,10 +1758,7 @@ nextfactor:
 		}
 		goto nextfactor;
 	} else if (token == '%'){
-		nexttoken();
-		factor();
-		y=pop();
-		x=pop();
+		parseoperator(factor);
 		if (y != 0)
 			push(x%y);
 		else {
@@ -1653,17 +1779,11 @@ void addexpression(){
 
 nextterm:
 	if (token == '+' ) { 
-		nexttoken();
-		term();
-		y=pop();
-		x=pop();
+		parseoperator(term);
 		push(x+y);
 		goto nextterm;
 	} else if (token == '-'){
-		nexttoken();
-		term();
-		y=pop();
-		x=pop();
+		parseoperator(term);
 		push(x-y);
 		goto nextterm;
 	}
@@ -1674,45 +1794,27 @@ void compexpression() {
 	addexpression();
 	switch (token){
 		case '=':
-			nexttoken();
-			compexpression();
-			y=pop();
-			x=pop();
+			parseoperator(compexpression);
 			push(x == y);
 			break;
 		case NOTEQUAL:
-			nexttoken();
-			compexpression();
-			y=pop();
-			x=pop();
+			parseoperator(compexpression);
 			push(x != y);
 			break;
 		case '>':
-			nexttoken();
-			compexpression();
-			y=pop();
-			x=pop();
+			parseoperator(compexpression);
 			push(x > y);
 			break;
 		case '<':
-			nexttoken();
-			compexpression();
-			y=pop();
-			x=pop();
+			parseoperator(compexpression);
 			push(x < y);
 			break;
 		case LESSEREQUAL:
-			nexttoken();
-			compexpression();
-			y=pop();
-			x=pop();
+			parseoperator(compexpression);
 			push(x <= y);
 			break;
 		case GREATEREQUAL:
-			nexttoken();
-			compexpression();
-			y=pop();
-			x=pop();
+			parseoperator(compexpression);
 			push(x >= y);
 			break;
 	}
@@ -1733,10 +1835,7 @@ void andexpression() {
 	if (DEBUG) debug("andexp");
 	notexpression();
 	if (token == TAND) {
-		nexttoken();
-		expression();
-		y=pop(); 
-		x=pop(); 
+		parseoperator(expression);
 		push(x && y);
 	} 
 }
@@ -1745,10 +1844,7 @@ void expression(){
 	if (DEBUG) debug("exp"); 
 	andexpression();
 	if (token == TOR) {
-		nexttoken();
-		expression();
-		y=pop(); 
-		x=pop(); 
+		parseoperator(expression);
 		push(x || y);
 	} 
 }
@@ -1777,6 +1873,7 @@ void parsetwoarguments() {
 		error(EARGS);
 		return;
 	} 
+	
 }
 
 void parseoneargument() {
@@ -1853,15 +1950,19 @@ void xgoto() {
 	nexttoken();
 	expression();
 	if (er == 0) {
+#ifdef HASGOSUB
 		if (t == TGOSUB) {
 			if (DEBUG) debugn(TGOSUB); 
 			pushgosubstack();
 		}
+#endif
 		x=pop();
 		findline(x);
+#ifdef HASGOSUB
 		if ( er != 0 && t == TGOSUB) {
 			dropgosubstack();
 		}
+#endif
 		nexttoken();
 	} else {
 		clearst();
@@ -1938,6 +2039,9 @@ nextvariable:
 	}
 }
 
+
+#ifdef HASFORNEXT
+// find the NEXT token
 void findnext(){
 	while (token != TNEXT && here < top) 
 		nexttoken(); 
@@ -2063,11 +2167,29 @@ void xnext(){
 	nexttoken();
 }
 
+#else
+void xfor(){
+	nexttoken();
+}
+void xbreak(){
+	nexttoken();
+}
+void xnext(){
+	nexttoken();
+}
+#endif
+
+#ifdef HASGOSUB
 void xreturn(){
 	if (DEBUG) debugn(TRETURN); 
 	popgosubstack();
 	nexttoken();
 }
+#else
+void xreturn(){
+	nexttoken();
+}
+#endif
 
 void load() {
 	if (DEBUG) debugn(TLOAD);
@@ -2361,7 +2483,12 @@ void statement(){
 			case VARIABLE:
 				assignment();
 				break;
+#ifdef HASGOSUB
+			case TRETURN:
+				xreturn();
+				break;
 			case TGOSUB:
+#endif
 			case TGOTO:
 				xgoto();	
 				break;
@@ -2377,6 +2504,7 @@ void statement(){
 			case TIF:
 				xif();
 				break;
+#ifdef HASFORNEXT
 			case TFOR:
 				xfor();
 				break;		
@@ -2386,16 +2514,16 @@ void statement(){
 			case TBREAK:
 				xbreak();
 				break;
-			case TRETURN:
-				xreturn();
-				break;
+#endif
 			case TINPUT:
 				input();
 				break;
+#ifdef HASDUMP
 			case TDUMP:
 				dumpmem(5);
 				nexttoken();
 				break;
+#endif
 			case TSAVE:
 				save();
 				break;
@@ -2438,19 +2566,23 @@ void statement(){
 // the setup routine - Arduino style
 void setup() {
 
-  xnew();		
+ 	xnew();		
 #ifdef ARDUINO
-  Serial.begin(9600); 
+#ifdef USESPICOSERIAL
+ 	(void) PicoSerial.begin(9600, picogetchar);
+#else 
+  	Serial.begin(9600); 
+#endif
 #endif
 #ifdef ARDUINOLCD
-   lcd.begin(16, 2);  // the dimension of the lcd shield - hardcoded, ugly
+   	lcd.begin(16, 2);  // the dimension of the lcd shield - hardcoded, ugly
 #endif
 #ifdef ARDUINOEEPROM
-  if (EEPROM.read(0) == 1){ // autorun from the EEPROM
-	top=(unsigned char) EEPROM.read(1);
-	top+=((unsigned char) EEPROM.read(2))*256;
-  	st=SERUN;
-  } 
+  	if (EEPROM.read(0) == 1){ // autorun from the EEPROM
+		top=(unsigned char) EEPROM.read(1);
+		top+=((unsigned char) EEPROM.read(2))*256;
+  		st=SERUN;
+  	} 
 #endif
 }
 
