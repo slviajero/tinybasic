@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.44 2021/07/24 18:21:20 stefan Exp stefan $
+// $Id: basic.c,v 1.45 2021/07/26 18:53:57 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -45,7 +45,7 @@
 #define HASGOSUB
 #define HASFUNCTIONS
 #define HASDUMP
-#undef  USESPICOSERIAL
+#define  USESPICOSERIAL
 
 
 #ifdef ARDUINO
@@ -170,11 +170,13 @@
 	SINT means interactive mode
 	SERUN means running directly from EEPROM
 	(enum would be the right way of doing this.)
+	BREAKCHAR is the character stopping the program on Ardunios
 */
 
 #define SINT 0
 #define SRUN 1
 #define SERUN 2
+#define BREAKCHAR '#'
 
 /* 
 	Arduino output models
@@ -411,7 +413,7 @@ void outcr();
 void outspc();
 void outs(char*, short);
 void outsc(char*);
-void ins();
+//void ins();
 void outnumber(short);
 char innumber(short*);
 
@@ -845,113 +847,68 @@ void outsc(char *c){
 }
 
 // reads a line from the keybord to the input buffer
+// the new ins - reads into a buffer the caller supplies
+// nb is the max size of the buffer
 
-#ifdef USESPICOSERIAL
-void ins(){
-	picob=ibuffer;
-	picobsize=BUFSIZE;
-	picoa=FALSE;
-	while (! picoa);
-	outsc(ibuffer); outcr();
-}
-#else
-void ins(){
+void ins(char *b, short nb) {
+#ifndef USESPICOSERIAL
 	char c;
-	bi=ibuffer;
-	while(TRUE) {
+	short i = 0;
+	while(i < nb-1) {
 		c=inch();
-		if (bi-ibuffer < BUFSIZE-1) {
-			if (c == '\n' || c == '\r') {
-				*bi=0x00;
-				break;
-			} else 
-				*bi++=c;
+		if (c == '\n' || c == '\r') {
+			b[i]=0x00;
+			break;
+		} else {
+			b[i++]=c;
 		} 
-		if (c == 0x08 && bi>ibuffer) {
-			bi--;
+		if (c == 0x08 && i>0) {
+			i--;
 		}
 	}
+}
+#else 
+	picob=b;
+	picobsize=nb;
+	picoa=FALSE;
+	while (! picoa);
+	outsc(b); outcr();
 }
 #endif
 
 // reading a 16 bit number using the stack to collect bytes
-#ifdef USESPICOSERIAL
-char innumber(short *r){
-	char c;
-	char i = 0;
-	char nd = 0;
-	short s = 1;
-    // get the input string
-	picob=sbuffer;        
-	picobsize=SBUFSIZE;
-	picoa=FALSE;
-	while (! picoa);
-	outsc(sbuffer); outcr();
-	// parse it just like in the standard serial code 
-	c=sbuffer[i++];
-	if (c == '#') {
-		*r=0;
-		return c;
-	}	
-	if (c == '-') {
-		s=-1;
-		c=sbuffer[i++];
-	}
-	while (TRUE){
-		if (c <= '9' && c >='0' && nd<5) {
-			x=c-'0';
-			push(x);
-			nd++;
-		} 
-		if (c == 0)
-			break;
-		c=sbuffer[i++];
-	}
+
+short getnumber(char *c, short *r) {
+	int nd = 0;
 	*r=0;
-	while(nd>0){
-		*r+=pop()*s;
-		s=s*10;
-		nd--;
+	while (*c >= '0' && *c <= '9' && *c != 0) {
+		*r=*r*10+*c++-'0';
+		nd++;
+		if (nd == 5) break;
 	}
-	return 1;
+	return nd;
 }
-#else
-char innumber(short *r){
-	char c;
-	char nd = 0;
-	short s = 1;
-	c=inch();
-	if (c == '#') {
-		*r=0;
-		return c;
-	}	
-	if (c == '-') {
-		s=-1;
-		c=inch();
-	}
-	while (TRUE){
-		if (c <= '9' && c >='0' && nd<5) {
-			x=c-'0';
-			push(x);
-			nd++;
-		} 
-		if (c == 0x08 && nd>0) {
-			x=pop();
-			nd--;
+
+char innumber(short *r) {
+	int i = 0;
+	int s = 1;
+	ins(sbuffer, SBUFSIZE);
+	while (i < SBUFSIZE) {
+		if (sbuffer[i] == ' ' || sbuffer[i] == '\t') i++;
+		if (sbuffer[i] == BREAKCHAR) return BREAKCHAR;
+		if (sbuffer[i] == 0) return 1;
+		if (sbuffer[i] == '-') {
+			s=-1;
+			i++;
 		}
-		if (c == '\n' || c == '\r')
-			break;
-		c=inch();
+		if (sbuffer[i] >= '0' && sbuffer[i] <= '9') {
+			(void) getnumber(&sbuffer[i], r);
+			*r*=s;
+			return 0;
+		}
 	}
-	*r=0;
-	while(nd>0){
-		*r+=pop()*s;
-		s=s*10;
-		nd--;
-	}
-	return 1;
+	return 0;
 }
-#endif
 
 // prints a 16 bit number
 void outnumber(short x){
@@ -974,8 +931,6 @@ void outnumber(short x){
 		d=d/10;
 	}
 }
-
-
 
 /* 
 
@@ -1030,12 +985,7 @@ void nexttoken() {
 
 	// unsigned numbers, value returned in x
 	if (*bi <='9' && *bi>= '0'){
-		x=*bi-'0';
-		bi++;
-		while(*bi <='9' && *bi>= '0'){
-			x=x*10+*bi-'0';
-			bi++;
-		}
+		bi+=getnumber(bi, &x);
 		token=NUMBER;
 		if (DEBUG) debugtoken();
 		return;
@@ -2558,7 +2508,7 @@ void statement(){
 				nexttoken();
 		}
 #ifdef ARDUINO
-		if (checkch() == '#') {st=SINT; xc=inch(); return;};  // on an Arduino entering "#" at runtime stops the program
+		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;};  // on an Arduino entering "#" at runtime stops the program
 #endif
 	}
 }
@@ -2591,7 +2541,7 @@ void loop() {
 
 	if (st != SERUN) {
 		printmessage(MREADY); outcr();
-    	ins();
+    	ins(ibuffer, BUFSIZE);
         
         bi=ibuffer;
 		nexttoken();
