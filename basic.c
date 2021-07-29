@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.45 2021/07/26 18:53:57 stefan Exp stefan $
+// $Id: basic.c,v 1.46 2021/07/29 19:19:52 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -96,50 +96,53 @@
 #define LINENUMBER   -126
 #define STRING   	 -125
 #define VARIABLE 	 -124
-#define GREATEREQUAL -123
-#define LESSEREQUAL  -122
-#define NOTEQUAL	 -121
-#define TIF     -120
-#define TTO     -119
-#define TNEW    -118
-#define TRUN    -117
-#define TLET    -116
-#define TFOR    -115
-#define TEND    -114
-#define TTHEN   -113
-#define TGOTO   -112
-#define TCONT   -111
-#define TNEXT   -110
-#define TSTEP   -109
-#define TPRINT  -108
-#define TINPUT  -107
-#define TGOSUB  -106
-#define TRETURN -105
-#define TLIST	-104
-#define TCLR	-103
-#define TNOT    -102
-#define TAND	-101
-#define TOR  	-100
-#define TABS 	-99
-#define TRND	-98
-#define TSGN	-97	
-#define TPEEK	-96
-#define TSQR	-95
-#define TFRE	-94
-#define TDUMP 	-93
-#define TBREAK  -92
-#define TSAVE   -91
-#define TLOAD   -90
-#define TREM 	-89
-#define TPINM	-88
-#define TDWRITE	-87
-#define TDREAD	-86
-#define TAWRITE	-85
-#define TAREAD   -84
-#define TDELAY   -83
-#define TPOKE	-82
-#define TGET    -81
-#define TSET    -80
+#define STRINGVAR 	 -123
+#define ARRAYVAR     -122
+#define GREATEREQUAL -121
+#define LESSEREQUAL  -120
+#define NOTEQUAL	 -119
+#define TIF     -118
+#define TTO     -117
+#define TNEW    -116
+#define TRUN    -115
+#define TLET    -114
+#define TFOR    -113
+#define TEND    -112
+#define TTHEN   -111
+#define TGOTO   -110
+#define TCONT   -109
+#define TNEXT   -108
+#define TSTEP   -107
+#define TPRINT  -106
+#define TINPUT  -105
+#define TGOSUB  -104
+#define TRETURN -103
+#define TLIST	-102
+#define TCLR	-101
+#define TNOT    -100
+#define TAND	-99
+#define TOR  	-98
+#define TABS 	-97
+#define TRND	-96
+#define TSGN	-95	
+#define TPEEK	-94
+#define TSQR	-93
+#define TFRE	-92
+#define TDUMP 	-91
+#define TBREAK  -90
+#define TSAVE   -89
+#define TLOAD   -88
+#define TREM 	-87
+#define TPINM	-86
+#define TDWRITE	-85
+#define TDREAD	-84
+#define TAWRITE	-83
+#define TAREAD  -82
+#define TDELAY  -81
+#define TPOKE	-80
+#define TGET    -79
+#define TSET    -78
+#define TDIM	-77
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
@@ -161,8 +164,8 @@
 
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	44
-#define BASEKEYWORD -123
+#define NKEYWORDS	45
+#define BASEKEYWORD -121
 
 /*
 	Interpreter states 
@@ -233,6 +236,7 @@ const char sdelay[]  PROGMEM = "DELAY";
 const char spoke[]   PROGMEM = "POKE";
 const char sget[]    PROGMEM = "GET";
 const char sset[]    PROGMEM = "SET";
+const char sdim[]    PROGMEM = "DIM";
 
 const char* const keyword[] PROGMEM = {
 	sge, sle, sne, sif, sto, snew, srun, slet,
@@ -241,7 +245,8 @@ const char* const keyword[] PROGMEM = {
  	slist, sclr, snot, sand, sor, sabs, srnd,
  	ssgn, speek, ssqr, sfre, sdump, sbreak,
  	ssave, sload, srem, spinm, sdwrite, sdread,
-    sawrite, saread, sdelay, spoke, sget, sset	
+    sawrite, saread, sdelay, spoke, sget, sset,
+    sdim
 };
 
 /*
@@ -345,7 +350,7 @@ static signed char mem[MEMSIZE];
 static unsigned short himem=MEMSIZE;
 
 #ifdef HASFORNEXT
-static struct {char var; short here; short to; short step;} forstack[FORDEPTH];
+static struct {char varx; char vary; short here; short to; short step;} forstack[FORDEPTH];
 static short forsp = 0;
 #endif
 
@@ -382,8 +387,8 @@ struct termios initialstate, newstate;
 
 // variable handling - interface between memory 
 // and variable storage
-short getvar(char);
-void setvar(char, short);
+short getvar(char, char);
+void setvar(char, char, short);
 char varname(char);
 void createvar(char);
 void delvar(char);
@@ -391,6 +396,7 @@ void clrvars();
 
 // error handling
 void error(signed char);
+void resetinterpreter();
 
 // stack stuff
 void push(short);
@@ -401,11 +407,17 @@ void clearst();
 // get keyword from PROGMEM
 char* getkeyword(signed char);
 
-// mathematics
+// mathematics and other functions
 short rnd(short);
 short sqr(short);
+short fre(short);
+short peek(short);
+short xabs(short);
+short xsgn(short);
+
 
 // input output
+void picogetchar(int);
 void outch(char);
 char inch();
 char checkch();
@@ -413,9 +425,10 @@ void outcr();
 void outspc();
 void outs(char*, short);
 void outsc(char*);
-//void ins();
+void ins(char*, short); 
 void outnumber(short);
 char innumber(short*);
+short getnumber(char*, short*);
 
 /* 	
 	Layer 1 function, provide data and do the heavy lifting 
@@ -426,6 +439,7 @@ char innumber(short*);
 void debugtoken();
 void whitespaces();
 void nexttoken();
+
 // storeing and retrieving programs
 char nomemory(short);
 void storetoken(); 
@@ -437,6 +451,7 @@ void moveblock(short, short, short);
 void zeroblock(short, short);
 void diag();
 void storeline();
+
 // expression evaluation
 void factor();
 void term();
@@ -451,33 +466,55 @@ void expression();
 	use the global variables 
 */
 
-void print();
+
+// basic commands of the core language set
+void xprint();
 void assignment();
 void xgoto();
-void end();
+void xend();
+void xcont();
 void xif();
-void input();
+void xinput();
+void xrem();
+void xpoke();
+void xget();
+void xset();
 
-// helpers of gosub and for
+
+// optional FOR NEXT loops
 #ifdef HASFORNEXT
+void xfor();
+void xnext();
+void xbreak();
 void pushforstack();
 void popforstack();
 void dropforstack();
 #endif
+// optional GOSUB commands
 #ifdef HASGOSUB
+void xreturn();
 void pushgosubstack();
 void popgosubstack();
 void dropgosubstack();
 #endif
 
-// control commands LIST, RUN, NEW, CLR, SAVE, LOAD
-void clr();
+// Arduino IO control
+void xdwrite();
+void xawrite();
+void xpinm();
+void xdelay();
+short dread(short);
+short aread(short);
+
+
+// control commands 
+void xclr();
+void xlist();
+void xrun();
+void xxnew();
+void xsave();
+void xload();
 void outputtoken();
-void list();
-void run();
-void xnew();
-void save();
-void load();
 
 // the statement loop
 void statement();
@@ -497,14 +534,16 @@ void statement();
 	the code.
  */
 
-short getvar(char c){
+short getvar(char c, char d){
+	if (DEBUG) { outsc("getvar "); outch(c); outch(d); outspc(); outnumber(vars[c-65]); outcr(); }
 	if (c >= 65 && c<=91)
 		return vars[c-65];
 	error(EVARIABLE);
 	return 0;
 }
 
-void setvar(char c, short v){
+void setvar(char c, char d, short v){
+	if (DEBUG) { outsc("setvar "); outch(c); outch(d); outspc(); outnumber(v); outcr(); }
 	if (c >= 65 && c<=91)
 		vars[c-65]=v;
 	else 
@@ -647,10 +686,12 @@ void clearst(){
 	Stack handling for gosub and for
 
 */
+
 #ifdef HASFORNEXT
 void pushforstack(){
 	if (forsp < FORDEPTH) {
-		forstack[forsp].var=xc;
+		forstack[forsp].varx=xc;
+		forstack[forsp].vary=yc;
 		forstack[forsp].here=here;
 		forstack[forsp].to=x;
 		forstack[forsp].step=y;
@@ -668,7 +709,8 @@ void popforstack(){
 		error(ESTACK);
 		return;
 	} 
-	xc=forstack[forsp].var;
+	xc=forstack[forsp].varx;
+	yc=forstack[forsp].vary;
 	here=forstack[forsp].here;
 	x=forstack[forsp].to;
 	y=forstack[forsp].step;
@@ -748,8 +790,6 @@ void picogetchar(int c){
 	}
 }
 #endif
-
-
 
 void outch(char c) {
 #ifdef ARDUINO
@@ -1119,17 +1159,32 @@ void nexttoken() {
 		}
 	}
 
-	// a variable has length 1 in this first version
-	// its literal value is returned in xc
+/*
+	a variable has length 1 in the first version
+	 its literal value is returned in xc
+	in addition to this, a number or $ is accepted as 
+	second character like in Apple 1 BASIC
+
+*/
 	if ( x == 1 ){
 		token=VARIABLE;
 		xc=*bi;
+		yc=0;
 		bi++;
+		if (*bi >= '0' && *bi <= '9') { 
+			yc=*bi;
+			bi++;
+		} else if (*bi == '$') {
+			token=STRINGVAR;
+			bi++;
+		}
 		if (DEBUG) debugtoken();
 		return;
 	}
 
-	token=UNKNOWN;
+// single letters are parsed and stored - not really good
+
+	token=*bi;
 	bi++;
 	if (DEBUG) debugtoken();
 	return;
@@ -1207,6 +1262,12 @@ void storetoken() {
 			mem[top++]=x/256;
 			return;
 		case VARIABLE:
+			if ( nomemory(3) ) goto memoryerror;
+			mem[top++]=token;
+			mem[top++]=xc;
+			mem[top++]=yc;
+			return;
+		case STRINGVAR:
 			if ( nomemory(2) ) goto memoryerror;
 			mem[top++]=token;
 			mem[top++]=xc;
@@ -1252,6 +1313,10 @@ void gettoken() {
 			x+=memread(here++)*256; 
 			break;
 		case VARIABLE:
+			xc=memread(here++);
+			yc=memread(here++);
+			break;
+		case STRINGVAR:
 			xc=memread(here++);
 			break;
 		case STRING:
@@ -1641,7 +1706,8 @@ void factor(){
 			push(x);
 			break;
 		case VARIABLE: 
-			push(getvar(xc));
+			if (DEBUG) { outsc("factor: "); outch(xc); outch(yc); outcr(); }
+			push(getvar(xc, yc));
 			break;
 		case '(':
 			nexttoken();
@@ -1807,7 +1873,7 @@ void expression(){
 */
 
 char termsymbol() {
-	return (token == ':' || token == LINENUMBER || token == EOL );
+	return (token == ':' || token == LINENUMBER || token == EOL);
 }
 
 void parsetwoarguments() {
@@ -1838,53 +1904,68 @@ void parseoneargument() {
 /*
    print 
 */ 
-void print(){
+void xprint(){
 	if (DEBUG) debugn(TPRINT); 
-	while (TRUE) {
+
+nextsymbol:
+	nexttoken();
+
+processsymbol:
+	if (termsymbol()) {
+		outcr();
 		nexttoken();
-		if (token == STRING) {
-			outs(ir, x);	
-			nexttoken();
-		} else if (token != ',') {
-			expression();
-			if (er == 0) {
-				outnumber(pop());
-			} else {
-				clearst();
-				er=0;
-				return ;
-			}
-		}
-		if (termsymbol()) {
-			outcr();
-			break;
-		}
+		return;
 	}
+	if (token == STRING) {
+		outs(ir, x);	
+		goto nextsymbol;
+	} 
+	if (token == STRINGVAR) {
+		goto nextsymbol;
+	}
+	if (token != ',' && token != ';' ) {
+		expression();
+		if (er == 0) {
+			outnumber(pop());
+		} else {
+			clearst();
+			er=0;
+			nexttoken();
+			return ;
+		}
+		goto processsymbol;
+	}
+	if (token == ',') {
+		outspc();
+	}
+	goto nextsymbol;
 }
 
 void xget(){
 	if (DEBUG) debugn(TGET); 
+
 	nexttoken();
-	if (token != VARIABLE) {
-		error(TGET);
-	} else {
-		if (checkch())
-			setvar(xc, inch());
+	if (token == VARIABLE) {
+		checkch();
+		setvar(xc, yc, inch());
 		nexttoken();
-	}	
+	} else 
+		error(TGET);
 }
 
 void assignment() {
 	if (DEBUG) debugn(TLET); 
 	push(xc);
+	push(yc);
 	nexttoken();
 	if ( token == '=') {
 		nexttoken();
 		expression();
 		if (er == 0) {
-			x=pop(); 
-			y=pop();
-			setvar(y,x);
+			x=pop();	
+			yc=pop();
+			xc=pop(); 
+			setvar(xc, yc ,x);
 		} else {
 			clearst();
 			er=0;
@@ -1897,6 +1978,7 @@ void assignment() {
 void xgoto() {
 	if (DEBUG) debugn(TGOTO); 
 	int t=token;
+
 	nexttoken();
 	expression();
 	if (er == 0) {
@@ -1921,11 +2003,11 @@ void xgoto() {
 	} 
 }
 
-void end(){
+void xend(){
 	st=SINT;
 }
 
-void cont(){
+void xcont(){
 	st=SRUN;
 	nexttoken();
 }
@@ -1957,9 +2039,11 @@ void xif(){
 }
 
 // input ["string",] variable [,variable]* 
-void input(){
+void xinput(){
 	if (DEBUG) debugn(TINPUT); 
 	nexttoken();
+
+nextstring:
 	if (token == STRING) {   		// [ "string" ,]
 		outs(ir, x);
 		nexttoken();
@@ -1974,18 +2058,18 @@ nextvariable:
 	if (token == VARIABLE) {   // variable [, variable]
 		outsc("? ");
 		if (innumber(&x) == '#') {
-			setvar(xc, 0);
+			setvar(xc, yc, 0);
 			st=SINT;
 			nexttoken();
 			return;
 		} else {
-			setvar(xc, x);
+			setvar(xc, yc, x);
 		}
 	} 
 	nexttoken();
 	if (token == ',') {
 		nexttoken();
-		goto nextvariable;
+		goto nextstring;
 	}
 }
 
@@ -2006,6 +2090,7 @@ void xfor(){
 		error(token);
 		return;
 	}
+	push(yc);
 	push(xc);
 	nexttoken();
 	if (token != '=') {
@@ -2019,9 +2104,10 @@ void xfor(){
 		drop();
 		return;
 	}
-	x=pop();
+	x=pop();	
 	xc=pop();
-	setvar(xc,x);
+	yc=pop();
+	setvar(xc, yc, x);
 	if (DEBUG) {  outch(xc); outspc(); outnumber(x); outcr();
 	}
 	push(xc);
@@ -2058,7 +2144,7 @@ void xfor(){
 	x=pop();
 	xc=pop();
 	if (st == SINT)
-		here=ibuffer-bi;
+		here=bi-ibuffer;
 	pushforstack();
 	if (er != 0){
 		return;
@@ -2067,7 +2153,7 @@ void xfor(){
 	this tests the condition and stops if it is fulfilled already from start 
 	there is an apocryphal feature her STEP 0 is legal triggers an infinite loop
 */
-	if ( (y > 0 && getvar(xc)>x) || (y < 0 && getvar(xc)<x ) ) { 
+	if ( (y > 0 && getvar(xc, yc)>x) || (y < 0 && getvar(xc, yc)<x ) ) { 
 		dropforstack();
 		findnext();
 		nexttoken();
@@ -2092,29 +2178,25 @@ void xnext(){
 	popforstack();
 	// at this point xc is the variable, x the stop value and y the step
 	// here is the point tp jump back
-	if (y == 0) {				// next loop - we branch to <here>
-		pushforstack();
-		drop();
-		nexttoken();
-		return;
-	} 
-	int t=getvar(xc)+y;
-	setvar(xc, t);
-	if (y > 0 && t <= x) {		// next loop - we branch to <here>
-		pushforstack();
-		drop();
-		nexttoken();
-		return;
-	}
-	if (y < 0 && t >= x) {		// next loop - we branch to <here>
-		pushforstack();
-		drop();
-		nexttoken();
-		return;
-	} 
+	if (y == 0) goto backtofor;
+	short t=getvar(xc, yc)+y;
+	setvar(xc, yc, t);
+	if (y > 0 && t <= x) goto backtofor;
+	if (y < 0 && t >= x) goto backtofor;
+
 	// last iteration completed
 	here=pop();
 	nexttoken();
+	return;
+
+backtofor:
+	pushforstack();
+	if (st == SINT)
+		bi=ibuffer+here;
+	drop();
+	nexttoken();
+	return;
+
 }
 
 #else
@@ -2141,8 +2223,9 @@ void xreturn(){
 }
 #endif
 
-void load() {
+void xload() {
 	if (DEBUG) debugn(TLOAD);
+#ifdef ARDUINO
 #ifdef ARDUINOEEPROM
 	x=0;
 	if (EEPROM.read(x) == 0 || EEPROM.read(x) == 1) { // have we stored a program
@@ -2157,8 +2240,10 @@ void load() {
 		error(EEEPROM);
 	}
 	nexttoken();
+#else 
+	nexttoken();
 #endif
-#ifndef ARDUINO
+#else 
 	fd=fopen("file.bas", "r");
 	if (!fd) {
 		error(EFILE);
@@ -2177,8 +2262,9 @@ void load() {
 #endif
 }
 
-void save() {
+void xsave() {
 	if (DEBUG) debugn(TSAVE); 
+#ifdef ARDUINO
 #ifdef ARDUINOEEPROM
 	if (top+EHEADERSIZE < EEPROM.length()) {
 		x=0;
@@ -2197,22 +2283,24 @@ void save() {
 		nexttoken();
 		return;
 	}
+#else 
+	nexttoken();
 #endif
-#ifndef ARDUINO
+#else 
 	fd=fopen("file.bas", "w");
 	if (!fd) {
 		error(EFILE);
 		nexttoken();
 		return;
 	} 
-	list();
+	xlist();
 	fclose(fd);
 	fd=0;
 	// no nexttoken here because list has already done this
 #endif
 }
 
-void rem() {
+void xrem() {
 	if (DEBUG) debugn(TREM); 
 	while (token != LINENUMBER && token != EOL && here <= top)
 		nexttoken(); 
@@ -2221,43 +2309,61 @@ void rem() {
 	control commands LIST, RUN, NEW, CLR
 */
 
-void clr() {
+void xclr() {
 	clrvars();
 	nexttoken();
 }
 
 void outputtoken() {
 	if (token == LINENUMBER) {
-		outcr(); outnumber(x); outspc();			
+		outnumber(x); outspc();			
 	} else if (token == NUMBER ){
 		outnumber(x); outspc();
 	} else if (token == VARIABLE){
-		outch(xc); outspc();
+		outch(xc); 
+		if (yc != 0) outch(yc);
+	} else if (token == STRINGVAR) {
+		outch(xc); outch('$');
 	} else if (token == STRING) {
 		outch('"'); outs(ir, x); outch('"');
 	} else if (token < -3) {
 		outsc(getkeyword(token)); outspc();
 	} else if (token >= 32) {
-		outch(token); outspc();
+		outch(token);
 	} else{
 		outch(token); outspc(); outnumber(token);
 	} 
 }
 
-void list(){
+void xlist(){
 	if (DEBUG) debugn(TLIST);
-	here=0;
+	nexttoken();
+	if (token == NUMBER) {
+		findline(x);
+		if (er != 0) {
+			nexttoken();
+			return;
+		} 
+		push(here-3);
+		nextline();
+		here2=here-3;
+		here=pop();
+	} else {
+		here=0;	
+		here2=top;
+	}
 	gettoken();
-	while (here <= top) {
+	while (here <= here2) {
 		outputtoken();
 		gettoken();
+		if (token == LINENUMBER) outcr();
 	}
-	outcr();
+	if (here2 == top) outcr(); // supress newlines in "list 50" - a little hack
 	nexttoken();
  }
 
 
-void run(){
+void xrun(){
 	char c;
 	if (DEBUG) debugn(TRUN);
 	here=0;
@@ -2319,7 +2425,7 @@ void xdelay(){
 	low level poke to the basic memory
 */
 
-void poke(){
+void xpoke(){
 	parsetwoarguments();
 	y=pop();
 	x=pop();
@@ -2410,19 +2516,19 @@ void statement(){
 	while (token != EOL) {
 		switch(token){
 			case TLIST:
-				list();
+				xlist();
 				break;
 			case TNEW:
 				xnew();
 				return;
 			case TCLR:
-				clr();
+				xclr();
 				break;
 			case TRUN:
-				run();
+				xrun();
 				return;		
 			case TPRINT:
-				print();
+				xprint();
 				break;
 			case TLET:
 				nexttoken();
@@ -2443,13 +2549,13 @@ void statement(){
 				xgoto();	
 				break;
 			case TEND:
-				end();
+				xend();
 				return;
 			case TCONT:
-				cont();
+				xcont();
 				break;
 			case TREM:
-				rem();
+				xrem();
 				break;
 			case TIF:
 				xif();
@@ -2466,7 +2572,7 @@ void statement(){
 				break;
 #endif
 			case TINPUT:
-				input();
+				xinput();
 				break;
 #ifdef HASDUMP
 			case TDUMP:
@@ -2475,10 +2581,10 @@ void statement(){
 				break;
 #endif
 			case TSAVE:
-				save();
+				xsave();
 				break;
 			case TLOAD:
-				load();
+				xload();
 				break;
 			case TDWRITE:
 				xdwrite();
@@ -2493,7 +2599,7 @@ void statement(){
 				xdelay();
 				break;		
 			case TPOKE:
-				poke();
+				xpoke();
 				break;
 			case TGET:
 				xget();
@@ -2553,7 +2659,7 @@ void loop() {
       		statement();   
     	}
 	} else {
-		run();
+		xrun();
 		// cleanup needed after autorun, top is the EEPROM top
     	top=0;
 	}
