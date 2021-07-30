@@ -18,12 +18,18 @@ See also:
 - https://en.wikipedia.org/wiki/Recursive_descent_parser
 - https://rosettacode.org/wiki/BNF_Grammar
 - https://en.wikipedia.org/wiki/Tiny_BASIC
+- https://github.com/slviajero/tinybasic/wiki/Unforgotten---Dr.-Wang's-BASIC
+- https://github.com/slviajero/tinybasic/wiki/The-original-Apple-1-BASIC-manual
 
 ## Language features in a nutshell 
 
 16bit arithmetic with a range -32768 to 32767 
 
-26 integer variable A-Z 
+26 integer variable A-Z as static variables.
+
+A single array @() exists and gives access to the entire fre memory. (See Dr. Wang BASIC in my Wiki).
+
+Dynamic variables and strings are in preparation right now.
 
 Expressions include basic arithmetic, conditions and logical operators AND, OR, NOT.
 
@@ -82,6 +88,8 @@ DWRITE, DREAD, AWRITE, AREAD, PINM, and DELAY are the Arduino I/O functions.
 POKE is added to access the basic memory. Like for peek, negative values access the EEPROM.
 
 SET is a general command changing internal interpreter settings: implemented so far is the command group 1 trigged by set 1, x. set 1, 1 sets a program saved in EEPROM to autorun on Arduino, set 1, 0 sets the program back to normal mode, set 1, 255 removes the program flag and makes it unloadable. The prototype LCD code uses set 2, x and set 3, x. More to come soon.
+
+For further information, please look at: https://github.com/slviajero/tinybasic/wiki
 
 ## Target machines and compilation
 

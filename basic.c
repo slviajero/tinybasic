@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.46 2021/07/29 19:19:52 stefan Exp stefan $
+// $Id: basic.c,v 1.48 2021/07/30 18:41:16 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -321,6 +321,8 @@ LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
 
 	x, y, xc, yc are two 16 bit and two 8 bit accumulators.
 
+	z is a mixed 16/8 bit accumulator
+
 	ir is a general index egister for string processing.
 
 	token contains the actually processes token.
@@ -362,6 +364,9 @@ static short gosubsp = 0;
 static short x, y;
 static signed char xc, yc;
 
+struct twobytes {char l; char h;};
+static union accu168 { short i; struct twobytes b; } z;
+
 static char *ir;
 static signed char token;
 static signed char er;
@@ -393,6 +398,8 @@ char varname(char);
 void createvar(char);
 void delvar(char);
 void clrvars();
+short getarray(char, char, short);
+void setarray(char, char, short, short);
 
 // error handling
 void error(signed char);
@@ -443,6 +450,7 @@ void nexttoken();
 // storeing and retrieving programs
 char nomemory(short);
 void storetoken(); 
+char memread(short);
 void gettoken();
 void firstline();
 void nextline();
@@ -470,6 +478,7 @@ void expression();
 // basic commands of the core language set
 void xprint();
 void assignment();
+void strassignment();
 void xgoto();
 void xend();
 void xcont();
@@ -565,6 +574,43 @@ void delvar(char c){
 void clrvars() {
 	for (char i=0; i<VARSIZE; i++) vars[i]=0;
 }
+
+short getshort(short m){
+	z.b.l=memread(m++);
+	z.b.h=memread(m);
+	return z.i;
+}
+
+void setshort(short m, short v){
+	z.i=v;
+	mem[m++]=z.b.l;
+	mem[m]=z.b.h;
+}
+
+
+short getarray(char c, char d, short i){
+
+	// currently only Dr. Wang's @ array implemented 
+	if (c == '@') {
+		if ( i > 0 && i < (himem-top)/2 )
+			return getshort(himem-2*i);
+		else 
+			error(ERANGE);
+	}
+	return 0;
+}
+
+void setarray(char c, char d, short i, short v){
+
+	// currently only Dr. Wang's @ array implemented 
+	if (c == '@') {
+		if ( i > 0 && i < (himem-top)/2 )
+			setshort(himem-2*i, v);
+		else
+			error(ERANGE);
+	}
+}
+
 
 /* 
 	Layer 0 - keyword handling - PROGMEM logic goes here
@@ -1055,6 +1101,15 @@ void nexttoken() {
 			return; 
 	}  
 
+	// Dr. Wangs BASIC had this array 
+	if (*bi == '@') {
+		token=ARRAYVAR;
+		xc=*bi++;
+		if (DEBUG) debugtoken();
+		return;
+	}
+
+
 	// relations
 	// single character relations are their own token
 	// >=, =<, =<, =>, <> ore tokenized
@@ -1178,9 +1233,13 @@ void nexttoken() {
 			token=STRINGVAR;
 			bi++;
 		}
+		if (token == VARIABLE && *bi == '(' ) { 
+			token=ARRAYVAR;
+		}	
 		if (DEBUG) debugtoken();
 		return;
 	}
+
 
 // single letters are parsed and stored - not really good
 
@@ -1261,6 +1320,7 @@ void storetoken() {
 			mem[top++]=x%256;
 			mem[top++]=x/256;
 			return;
+		case ARRAYVAR:
 		case VARIABLE:
 			if ( nomemory(3) ) goto memoryerror;
 			mem[top++]=token;
@@ -1312,6 +1372,7 @@ void gettoken() {
 			x=(unsigned char)memread(here++);
 			x+=memread(here++)*256; 
 			break;
+		case ARRAYVAR:
 		case VARIABLE:
 			xc=memread(here++);
 			yc=memread(here++);
@@ -1632,7 +1693,6 @@ void parsefunction(short (*f)(short)){
 		error(')');
 		return;
 	}
-	nexttoken();
 }
 
 short xabs(short x){
@@ -1706,8 +1766,28 @@ void factor(){
 			push(x);
 			break;
 		case VARIABLE: 
-			if (DEBUG) { outsc("factor: "); outch(xc); outch(yc); outcr(); }
 			push(getvar(xc, yc));
+			break;
+		case ARRAYVAR:
+			push(yc);
+			push(xc);
+			nexttoken();
+			if (token == '(') {
+				nexttoken();
+				expression();
+				if (token != ')') {
+					error(token);	
+					drop();
+					drop();
+					drop();
+					break;	
+				}		
+				x=pop();
+				xc=pop();
+				yc=pop();
+				if (DEBUG) { outsc("factor array recall: "); outch(xc); outch(yc); outspc(); outnumber(x); outcr(); }
+				push(getarray(xc, yc, x));
+			}
 			break;
 		case '(':
 			nexttoken();
@@ -1733,6 +1813,7 @@ void factor(){
 			break;
 #endif
 		case TFRE: 
+			if (DEBUG) outsc("Parsing function free \n");
 			parsefunction(xfre);
 			break;
 		case TAREAD: 
@@ -1865,6 +1946,17 @@ void expression(){
 	} 
 }
 
+
+/* 
+	stringexpression code to come here
+*/
+
+void strexpression()
+{	
+	push(0);
+	nexttoken();
+}
+
 /* 
 
 	The commands and their helpers
@@ -1955,17 +2047,59 @@ void xget(){
 
 void assignment() {
 	if (DEBUG) debugn(TLET); 
-	push(xc);
+	// evaluate the lefthand side of the equation
+	char t=token;
+	short i=0;
 	push(yc);
-	nexttoken();
+	push(xc);
+	switch (token) {
+		case VARIABLE:
+			nexttoken();
+			break;
+		case ARRAYVAR:
+			nexttoken();
+			if (token == '(') {
+				nexttoken();
+				expression();
+				if (token != ')') {
+					error(token);	
+					drop();
+					drop();
+					drop();
+					drop();
+					return;
+				}
+				nexttoken();		
+			} else {
+				error(token);
+				drop();
+				drop();
+				drop();
+				return;
+			}
+			i=pop();
+			break;
+		case STRINGVAR: 	// here comes the code for the string variable
+			drop();
+			drop();
+			return;
+	}
+	// here comes the code for the right hand side
 	if ( token == '=') {
 		nexttoken();
 		expression();
 		if (er == 0) {
-			x=pop();	
-			yc=pop();
-			xc=pop(); 
-			setvar(xc, yc ,x);
+			x=pop();
+			xc=pop();
+			yc=pop();		
+			switch (t) {
+				case VARIABLE:
+					setvar(xc, yc , x);
+					break;
+				case ARRAYVAR: 
+					setarray(xc, yc, i, x);
+					break;
+			}		
 		} else {
 			clearst();
 			er=0;
@@ -2038,13 +2172,13 @@ void xif(){
 	}
 }
 
-// input ["string",] variable [,variable]* 
+// input ["string",] variable [,["string",] variable]* 
 void xinput(){
 	if (DEBUG) debugn(TINPUT); 
 	nexttoken();
 
 nextstring:
-	if (token == STRING) {   		// [ "string" ,]
+	if (token == STRING) {   
 		outs(ir, x);
 		nexttoken();
 		if (token != ',') {
@@ -2055,7 +2189,7 @@ nextstring:
 	}
 
 nextvariable:
-	if (token == VARIABLE) {   // variable [, variable]
+	if (token == VARIABLE) {   
 		outsc("? ");
 		if (innumber(&x) == '#') {
 			setvar(xc, yc, 0);
@@ -2081,8 +2215,13 @@ void findnext(){
 		nexttoken(); 
 }
 
-// for is implemented only in program mode not in interactive mode
-// for variable = expression to expression [STEP expression]
+
+/*
+	for variable = expression to expression [STEP expression]
+	for stores the variable, the increment and the boudary on the 
+	for stack. Changing steps and boundaries during the execution 
+	of a loop has no effect 
+*/
 void xfor(){
 	if (DEBUG) debugn(TFOR);
 	nexttoken();
@@ -2171,13 +2310,11 @@ void xbreak(){
 	nexttoken();
 }
 
-// next is implemented in program mode and not in interactive mode
+
 void xnext(){
 	if (DEBUG) debugn(TNEXT); 
 	push(here);
 	popforstack();
-	// at this point xc is the variable, x the stop value and y the step
-	// here is the point tp jump back
 	if (y == 0) goto backtofor;
 	short t=getvar(xc, yc)+y;
 	setvar(xc, yc, t);
@@ -2189,6 +2326,7 @@ void xnext(){
 	nexttoken();
 	return;
 
+	// next iteration
 backtofor:
 	pushforstack();
 	if (st == SINT)
@@ -2257,8 +2395,9 @@ void xload() {
 		nexttoken();
 		if (token == NUMBER) storeline();
 	}
-	fclose(fd);
+	fclose(fd);	
 	fd=0;
+	nexttoken();
 #endif
 }
 
@@ -2319,8 +2458,8 @@ void outputtoken() {
 		outnumber(x); outspc();			
 	} else if (token == NUMBER ){
 		outnumber(x); outspc();
-	} else if (token == VARIABLE){
-		outch(xc); 
+	} else if (token == VARIABLE || token == ARRAYVAR){
+		outch(xc); outspc();
 		if (yc != 0) outch(yc);
 	} else if (token == STRINGVAR) {
 		outch(xc); outch('$');
@@ -2364,7 +2503,6 @@ void xlist(){
 
 
 void xrun(){
-	char c;
 	if (DEBUG) debugn(TRUN);
 	here=0;
 	if (st == SINT) st=SRUN;
@@ -2532,11 +2670,13 @@ void statement(){
 				break;
 			case TLET:
 				nexttoken();
-				if ( token != VARIABLE ) {
-					error(token);
+				if ((token != ARRAYVAR) && (token != STRINGVAR) && (token != VARIABLE)){
+					error(TLET);
 					break;
 				}
+			case ARRAYVAR:
 			case VARIABLE:
+			case STRINGVAR:			
 				assignment();
 				break;
 #ifdef HASGOSUB
