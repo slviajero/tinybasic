@@ -2050,6 +2050,7 @@ void assignment() {
 	// evaluate the lefthand side of the equation
 	char t=token;
 	short i=0;
+	char s = FALSE; // is this is pure string expression
 	push(yc);
 	push(xc);
 	switch (token) {
@@ -2066,6 +2067,30 @@ void assignment() {
 					drop();
 					drop();
 					drop();
+					return;
+				}
+				nexttoken();		
+			} else {
+				error(token);
+				drop();
+				drop();
+				return;
+			}
+			i=pop();
+			break;
+		case STRINGVAR: 	// here comes the code for the string variable
+			nexttoken();
+			if (token == '=') { 
+				s=TRUE; 
+				break; 
+			}
+			if (token == '(') {
+				nexttoken();
+				expression();
+				if (token != ')') {
+					error(token);	
+					drop();
+					drop();
 					drop();
 					return;
 				}
@@ -2074,20 +2099,18 @@ void assignment() {
 				error(token);
 				drop();
 				drop();
-				drop();
 				return;
 			}
 			i=pop();
 			break;
-		case STRINGVAR: 	// here comes the code for the string variable
-			drop();
-			drop();
-			return;
 	}
 	// here comes the code for the right hand side
 	if ( token == '=') {
 		nexttoken();
-		expression();
+		if (s) 
+			strexpression();
+		else
+			expression();
 		if (er == 0) {
 			x=pop();
 			xc=pop();
@@ -2099,14 +2122,17 @@ void assignment() {
 				case ARRAYVAR: 
 					setarray(xc, yc, i, x);
 					break;
+				case STRINGVAR:
+					break;
 			}		
 		} else {
 			clearst();
 			er=0;
 			return;
 		}
-	} else 
+	} else {
 		error(token);
+	}
 }
 
 void xgoto() {
