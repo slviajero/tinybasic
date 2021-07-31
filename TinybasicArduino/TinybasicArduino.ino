@@ -35,7 +35,7 @@
 
 // ARDUINO extensions
 #undef ARDUINOLCD
-#undef ARDUINOEEPROM
+#define ARDUINOEEPROM
 
 // SMALLness 
 // GOSUB costs 100 bytes of program memory
@@ -44,8 +44,8 @@
 #define HASFORNEXT
 #define HASGOSUB
 #define HASFUNCTIONS
-#define HASDUMP
-#undef  USESPICOSERIAL
+#undef HASDUMP
+#define  USESPICOSERIAL
 
 
 #ifdef ARDUINO
@@ -73,7 +73,7 @@
 
 #define BUFSIZE 	72
 #define SBUFSIZE	9
-#define MEMSIZE  	1024
+#define MEMSIZE  	640
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -400,6 +400,7 @@ void delvar(char);
 void clrvars();
 short getarray(char, char, short);
 void setarray(char, char, short, short);
+char getstringchar(char, short);
 
 // error handling
 void error(signed char);
@@ -609,6 +610,17 @@ void setarray(char c, char d, short i, short v){
 		else
 			error(ERANGE);
 	}
+}
+
+char getstringchar(char c, short i){
+
+	if (c == 'I') {
+		if ( i > 0 && i < SBUFSIZE )
+			return ibuffer[i];
+		else
+			error(ERANGE);
+	}
+	return 0;
 }
 
 
@@ -1760,6 +1772,7 @@ short sqr(short r){
 #endif
 
 void factor(){
+	char t=0;
 	if (DEBUG) debug("factor");
 	switch (token) {
 		case NUMBER: 
@@ -1767,6 +1780,30 @@ void factor(){
 			break;
 		case VARIABLE: 
 			push(getvar(xc, yc));
+			break;
+		case STRINGVAR:
+			push(xc);
+			nexttoken();
+			if (token == '(') {
+				nexttoken();
+				expression();
+				if (token != ')') {
+					error(token);	
+					drop();
+					drop();
+					push(0);
+					break;	
+				}
+				x=pop();
+				xc=pop();
+				push(getstringchar(xc, x));
+			} else {
+				error(token);
+				drop();
+				drop();
+				push(0);
+				break;			
+			}						
 			break;
 		case ARRAYVAR:
 			push(yc);
@@ -1780,13 +1817,20 @@ void factor(){
 					drop();
 					drop();
 					drop();
+					push(0);
 					break;	
 				}		
 				x=pop();
 				xc=pop();
 				yc=pop();
-				if (DEBUG) { outsc("factor array recall: "); outch(xc); outch(yc); outspc(); outnumber(x); outcr(); }
 				push(getarray(xc, yc, x));
+			} else {
+				error(token);
+				drop();
+				drop();
+				drop();
+				push(0);
+				break;
 			}
 			break;
 		case '(':
@@ -2050,6 +2094,7 @@ void assignment() {
 	// evaluate the lefthand side of the equation
 	char t=token;
 	short i=0;
+	char s = FALSE; // is this is pure string expression
 	push(yc);
 	push(xc);
 	switch (token) {
@@ -2066,6 +2111,30 @@ void assignment() {
 					drop();
 					drop();
 					drop();
+					return;
+				}
+				nexttoken();		
+			} else {
+				error(token);
+				drop();
+				drop();
+				return;
+			}
+			i=pop();
+			break;
+		case STRINGVAR: 	// here comes the code for the string variable
+			nexttoken();
+			if (token == '=') { 
+				s=TRUE; 
+				break; 
+			}
+			if (token == '(') {
+				nexttoken();
+				expression();
+				if (token != ')') {
+					error(token);	
+					drop();
+					drop();
 					drop();
 					return;
 				}
@@ -2074,20 +2143,18 @@ void assignment() {
 				error(token);
 				drop();
 				drop();
-				drop();
 				return;
 			}
 			i=pop();
 			break;
-		case STRINGVAR: 	// here comes the code for the string variable
-			drop();
-			drop();
-			return;
 	}
 	// here comes the code for the right hand side
 	if ( token == '=') {
 		nexttoken();
-		expression();
+		if (s) 
+			strexpression();
+		else
+			expression();
 		if (er == 0) {
 			x=pop();
 			xc=pop();
@@ -2099,14 +2166,17 @@ void assignment() {
 				case ARRAYVAR: 
 					setarray(xc, yc, i, x);
 					break;
+				case STRINGVAR:
+					break;
 			}		
 		} else {
 			clearst();
 			er=0;
 			return;
 		}
-	} else 
+	} else {
 		error(token);
+	}
 }
 
 void xgoto() {

@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.48 2021/07/30 18:41:16 stefan Exp stefan $
+// $Id: basic.c,v 1.49 2021/07/30 21:14:06 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -400,6 +400,7 @@ void delvar(char);
 void clrvars();
 short getarray(char, char, short);
 void setarray(char, char, short, short);
+char getstringchar(char, short);
 
 // error handling
 void error(signed char);
@@ -610,6 +611,30 @@ void setarray(char c, char d, short i, short v){
 			error(ERANGE);
 	}
 }
+
+char getstringchar(char c, short i){
+
+	// outsc("Calling a character from string variable :"); outch(c); outspc(); outnumber(i); outcr();
+	if (c == 'I') {
+		if ( i > 0 && i < BUFSIZE )
+			return ibuffer[i];
+		else
+			error(ERANGE);
+	}
+	return 0;
+}
+
+void setstringchar(char c, short i, char v){
+
+	// outsc("Setting a character in a string variable :"); outch(c); outspc(); outnumber(i); outspc(); outch(v); outcr();
+	if (c == 'I') {
+		if ( i > 0 && i < BUFSIZE )
+			ibuffer[i]=v;
+		else
+			error(ERANGE);
+	}
+}
+
 
 
 /* 
@@ -1379,6 +1404,7 @@ void gettoken() {
 			break;
 		case STRINGVAR:
 			xc=memread(here++);
+			yc=0;
 			break;
 		case STRING:
 			x=(unsigned char)memread(here++);  // if we run interactive or from mem, pass back the mem location
@@ -1760,6 +1786,7 @@ short sqr(short r){
 #endif
 
 void factor(){
+	char t=0;
 	if (DEBUG) debug("factor");
 	switch (token) {
 		case NUMBER: 
@@ -1768,7 +1795,9 @@ void factor(){
 		case VARIABLE: 
 			push(getvar(xc, yc));
 			break;
+		case STRINGVAR:
 		case ARRAYVAR:
+			t=token;
 			push(yc);
 			push(xc);
 			nexttoken();
@@ -1780,13 +1809,23 @@ void factor(){
 					drop();
 					drop();
 					drop();
+					push(0);
 					break;	
 				}		
 				x=pop();
 				xc=pop();
 				yc=pop();
-				if (DEBUG) { outsc("factor array recall: "); outch(xc); outch(yc); outspc(); outnumber(x); outcr(); }
-				push(getarray(xc, yc, x));
+				if (t == ARRAYVAR) 
+					push(getarray(xc, yc, x)); 
+				else 
+					push(getstringchar(xc, x));
+			} else {
+				error(token);
+				drop();
+				drop();
+				drop();
+				push(0);
+				break;
 			}
 			break;
 		case '(':
@@ -2057,30 +2096,10 @@ void assignment() {
 		case VARIABLE:
 			nexttoken();
 			break;
+		case STRINGVAR:
 		case ARRAYVAR:
 			nexttoken();
-			if (token == '(') {
-				nexttoken();
-				expression();
-				if (token != ')') {
-					error(token);	
-					drop();
-					drop();
-					drop();
-					return;
-				}
-				nexttoken();		
-			} else {
-				error(token);
-				drop();
-				drop();
-				return;
-			}
-			i=pop();
-			break;
-		case STRINGVAR: 	// here comes the code for the string variable
-			nexttoken();
-			if (token == '=') { 
+			if (token == '=' && t == STRINGVAR) { 
 				s=TRUE; 
 				break; 
 			}
@@ -2104,6 +2123,7 @@ void assignment() {
 			i=pop();
 			break;
 	}
+
 	// here comes the code for the right hand side
 	if ( token == '=') {
 		nexttoken();
@@ -2123,6 +2143,7 @@ void assignment() {
 					setarray(xc, yc, i, x);
 					break;
 				case STRINGVAR:
+					setstringchar(xc, i, x);
 					break;
 			}		
 		} else {
