@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.48 2021/07/30 18:41:16 stefan Exp stefan $
+// $Id: basic.c,v 1.49 2021/07/30 21:14:06 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -35,7 +35,7 @@
 
 // ARDUINO extensions
 #undef ARDUINOLCD
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 
 // SMALLness 
 // GOSUB costs 100 bytes of program memory
@@ -44,8 +44,8 @@
 #define HASFORNEXT
 #define HASGOSUB
 #define HASFUNCTIONS
-#undef HASDUMP
-#define  USESPICOSERIAL
+#define HASDUMP
+#undef  USESPICOSERIAL
 
 
 #ifdef ARDUINO
@@ -73,7 +73,7 @@
 
 #define BUFSIZE 	72
 #define SBUFSIZE	9
-#define MEMSIZE  	640
+#define MEMSIZE  	1024
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -401,6 +401,8 @@ void clrvars();
 short getarray(char, char, short);
 void setarray(char, char, short, short);
 char getstringchar(char, short);
+char* getstring(char);
+void setstring(char, char *, short);
 
 // error handling
 void error(signed char);
@@ -614,13 +616,40 @@ void setarray(char c, char d, short i, short v){
 
 char getstringchar(char c, short i){
 
+	// currently only the input buffer can be used as one static array 
+	// its is destroyed at input on an Arduino with pioserial
+	// outsc("Calling a character from string variable :"); outch(c); outspc(); outnumber(i); outcr();
 	if (c == 'I') {
-		if ( i > 0 && i < SBUFSIZE )
+		if ( i > 0 && i < BUFSIZE )
 			return ibuffer[i];
 		else
 			error(ERANGE);
 	}
 	return 0;
+}
+
+void setstringchar(char c, short i, char v){
+
+	// outsc("Setting a character in a string variable :"); outch(c); outspc(); outnumber(i); outspc(); outch(v); outcr();
+	if (c == 'I') {
+		if ( i > 0 && i < BUFSIZE )
+			ibuffer[i]=v;
+		else
+			error(ERANGE);
+	}
+}
+
+char* getstring(char c) {
+	return ibuffer+1;
+}
+
+short lenstring(char c){
+	return ibuffer[0];
+}
+
+void setstring(char c, char* s, short n) {
+	for (int i=1; i<=n; i++) { ibuffer[i]=s[i-1]; } 
+	ibuffer[0]=n;
 }
 
 
@@ -1391,6 +1420,7 @@ void gettoken() {
 			break;
 		case STRINGVAR:
 			xc=memread(here++);
+			yc=0;
 			break;
 		case STRING:
 			x=(unsigned char)memread(here++);  // if we run interactive or from mem, pass back the mem location
@@ -1782,30 +1812,8 @@ void factor(){
 			push(getvar(xc, yc));
 			break;
 		case STRINGVAR:
-			push(xc);
-			nexttoken();
-			if (token == '(') {
-				nexttoken();
-				expression();
-				if (token != ')') {
-					error(token);	
-					drop();
-					drop();
-					push(0);
-					break;	
-				}
-				x=pop();
-				xc=pop();
-				push(getstringchar(xc, x));
-			} else {
-				error(token);
-				drop();
-				drop();
-				push(0);
-				break;			
-			}						
-			break;
 		case ARRAYVAR:
+			t=token;
 			push(yc);
 			push(xc);
 			nexttoken();
@@ -1823,7 +1831,10 @@ void factor(){
 				x=pop();
 				xc=pop();
 				yc=pop();
-				push(getarray(xc, yc, x));
+				if (t == ARRAYVAR) 
+					push(getarray(xc, yc, x)); 
+				else 
+					push(getstringchar(xc, x));
 			} else {
 				error(token);
 				drop();
@@ -1992,12 +2003,15 @@ void expression(){
 
 
 /* 
-	stringexpression code to come here
+	stringexpression code to come here, currently using ir to pass the string result
 */
 
-void strexpression()
+void strexpression() 
 {	
-	push(0);
+	if (token == STRING) {
+		push(x);
+	} else 
+		push(0);
 	nexttoken();
 }
 
@@ -2057,8 +2071,13 @@ processsymbol:
 		goto nextsymbol;
 	} 
 	if (token == STRINGVAR) {
+		ir=getstring(xc);
+		x=lenstring(xc);
+		outs(ir, x);
 		goto nextsymbol;
 	}
+
+numerical:
 	if (token != ',' && token != ';' ) {
 		expression();
 		if (er == 0) {
@@ -2101,30 +2120,10 @@ void assignment() {
 		case VARIABLE:
 			nexttoken();
 			break;
+		case STRINGVAR:
 		case ARRAYVAR:
 			nexttoken();
-			if (token == '(') {
-				nexttoken();
-				expression();
-				if (token != ')') {
-					error(token);	
-					drop();
-					drop();
-					drop();
-					return;
-				}
-				nexttoken();		
-			} else {
-				error(token);
-				drop();
-				drop();
-				return;
-			}
-			i=pop();
-			break;
-		case STRINGVAR: 	// here comes the code for the string variable
-			nexttoken();
-			if (token == '=') { 
+			if (token == '=' && t == STRINGVAR) { 
 				s=TRUE; 
 				break; 
 			}
@@ -2148,6 +2147,7 @@ void assignment() {
 			i=pop();
 			break;
 	}
+
 	// here comes the code for the right hand side
 	if ( token == '=') {
 		nexttoken();
@@ -2155,6 +2155,8 @@ void assignment() {
 			strexpression();
 		else
 			expression();
+
+		// store it!
 		if (er == 0) {
 			x=pop();
 			xc=pop();
@@ -2167,6 +2169,10 @@ void assignment() {
 					setarray(xc, yc, i, x);
 					break;
 				case STRINGVAR:
+					if (s)
+						setstring(xc, ir, x);
+					else 
+						setstringchar(xc, i, x);
 					break;
 			}		
 		} else {

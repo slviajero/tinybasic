@@ -401,6 +401,8 @@ void clrvars();
 short getarray(char, char, short);
 void setarray(char, char, short, short);
 char getstringchar(char, short);
+char* getstring(char);
+void setstring(char, char *, short);
 
 // error handling
 void error(signed char);
@@ -614,6 +616,8 @@ void setarray(char c, char d, short i, short v){
 
 char getstringchar(char c, short i){
 
+	// currently only the input buffer can be used as one static array 
+	// its is destroyed at input on an Arduino with pioserial
 	// outsc("Calling a character from string variable :"); outch(c); outspc(); outnumber(i); outcr();
 	if (c == 'I') {
 		if ( i > 0 && i < BUFSIZE )
@@ -635,6 +639,18 @@ void setstringchar(char c, short i, char v){
 	}
 }
 
+char* getstring(char c) {
+	return ibuffer+1;
+}
+
+short lenstring(char c){
+	return ibuffer[0];
+}
+
+void setstring(char c, char* s, short n) {
+	for (int i=1; i<=n; i++) { ibuffer[i]=s[i-1]; } 
+	ibuffer[0]=n;
+}
 
 
 /* 
@@ -1987,12 +2003,15 @@ void expression(){
 
 
 /* 
-	stringexpression code to come here
+	stringexpression code to come here, currently using ir to pass the string result
 */
 
-void strexpression()
+void strexpression() 
 {	
-	push(0);
+	if (token == STRING) {
+		push(x);
+	} else 
+		push(0);
 	nexttoken();
 }
 
@@ -2052,8 +2071,13 @@ processsymbol:
 		goto nextsymbol;
 	} 
 	if (token == STRINGVAR) {
+		ir=getstring(xc);
+		x=lenstring(xc);
+		outs(ir, x);
 		goto nextsymbol;
 	}
+
+numerical:
 	if (token != ',' && token != ';' ) {
 		expression();
 		if (er == 0) {
@@ -2131,6 +2155,8 @@ void assignment() {
 			strexpression();
 		else
 			expression();
+
+		// store it!
 		if (er == 0) {
 			x=pop();
 			xc=pop();
@@ -2143,7 +2169,10 @@ void assignment() {
 					setarray(xc, yc, i, x);
 					break;
 				case STRINGVAR:
-					setstringchar(xc, i, x);
+					if (s)
+						setstring(xc, ir, x);
+					else 
+						setstringchar(xc, i, x);
 					break;
 			}		
 		} else {
