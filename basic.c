@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.50 2021/08/01 07:55:28 stefan Exp stefan $
+// $Id: basic.c,v 1.51 2021/08/01 18:09:38 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -74,7 +74,7 @@
 
 #define BUFSIZE 	72
 #define SBUFSIZE	9
-#define MEMSIZE  	1024
+#define MEMSIZE  	513
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -144,6 +144,7 @@
 #define TGET    -79
 #define TSET    -78
 #define TDIM	-77
+#define TLEN     -76
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
@@ -165,7 +166,7 @@
 
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	45
+#define NKEYWORDS	46
 #define BASEKEYWORD -121
 
 /*
@@ -238,6 +239,7 @@ const char spoke[]   PROGMEM = "POKE";
 const char sget[]    PROGMEM = "GET";
 const char sset[]    PROGMEM = "SET";
 const char sdim[]    PROGMEM = "DIM";
+const char slen[]    PROGMEM = "LEN";
 
 const char* const keyword[] PROGMEM = {
 	sge, sle, sne, sif, sto, snew, srun, slet,
@@ -247,7 +249,7 @@ const char* const keyword[] PROGMEM = {
  	ssgn, speek, ssqr, sfre, sdump, sbreak,
  	ssave, sload, srem, spinm, sdwrite, sdread,
     sawrite, saread, sdelay, spoke, sget, sset,
-    sdim
+    sdim, slen
 };
 
 /*
@@ -409,7 +411,7 @@ short getarray(char, char, short);
 void setarray(char, char, short, short);
 char getstringchar(char, short);
 char* getstring(char, short);
-void setstring(char, char *, short);
+void setstring(char, short, char *, short);
 
 // error handling
 void error(signed char);
@@ -665,17 +667,34 @@ short lenstring(char c){
 	return ibuffer[0];
 }
 
-void setstring(char c, char* s, short n) {
+void setstringlength(char c, short l) {
+	if ( c == 'A' ) {
+		mem[strpostion]=l;
+	} else 
+		*ibuffer=l;
+}
+
+void setstring(char c, short w, char* s, short n) {
 	char *b;
 	if ( c == 'A' ) {
 		b=(char *)&mem[strpostion];
 	} else {
 		b=ibuffer;
 	}
-	for (int i=1; i<=n; i++) { b[i]=s[i-1]; } 
-	b[0]=n; 
+	for (int i=0; i<n; i++) { b[i+w]=s[i]; } 
+	b[0]=w+n-1; 
 }
 
+void processstring(char c1, short w1, char c2, short w2, short n){
+	char *b1, *b2;
+	b1=getstring(c1, w1);
+	b2=getstring(c2, w2);
+	if (w1 <= w2) 
+		for (int i=0; i<n; i++) { b1[i]=b2[i]; }
+	else
+		for (int i=n-1; i>=0; i--) b1[i]=b2[i];  
+	setstringlength(c1, w1+n-1);
+}
 
 /* 
 	Layer 0 - keyword handling - PROGMEM logic goes here
@@ -1761,6 +1780,7 @@ void parsefunction(short (*f)(short)){
 	}
 }
 
+
 short xabs(short x){
 	if (x<0) x=-x;
 	return x;
@@ -1900,6 +1920,26 @@ void factor(){
 			break;
 		case TDREAD: 
 			parsefunction(dread);
+			break;
+		case TLEN: 
+			nexttoken();
+			if ( token != '(') {
+				push(0);
+				error('(');
+				break;
+			}
+			nexttoken();
+			if (token != STRINGVAR) {
+				push(0);
+				error('$');
+				break;
+			}
+			push(lenstring(xc));
+			nexttoken();
+			if (token != ')') {
+				error(')');
+				break;	
+			}
 			break;
 		default:
 			error(token);
@@ -2131,7 +2171,7 @@ void assignment() {
 	if (DEBUG) debugn(TLET); 
 	char t=token;  // remember the left hand side token until the end of the statement
 	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
-	short i=0;     // and also remember the index we are dealing with
+	short i=1;     // and also remember the index we are dealing with
 	char xcl, ycl; // to preserve the left hand side variable names
 	short b, e;
 
@@ -2160,15 +2200,19 @@ void assignment() {
 			}
 			break;
 		case STRINGVAR:
+			if (STRDEBUG) { outsc("The string variable "); outch(xc); outcr(); }
 			nexttoken();
 			if (token != '(') break;
+			nexttoken();
 			expression();
 			if (token != ')') {
 				error(token);	
 				drop();
 				return;			
 			}
+			nexttoken();
 			i=pop();
+			if (STRDEBUG) { outsc("Found the index "); outnumber(i); outcr(); }
 			break;
 	}
 
@@ -2198,7 +2242,7 @@ void assignment() {
 	} else if (token == '=' && t == STRINGVAR) {
 		nexttoken();
 		if (token == STRING) {
-			setstring(xcl, ir,  x);
+			setstring(xcl, 1, ir,  x);
 		} else if (token == STRINGVAR) {
 			push(xc);
 			nexttoken();
@@ -2223,7 +2267,10 @@ void assignment() {
 			}
 			xc=pop();
 			if (STRDEBUG) { outsc("String assignment code begin = "); outnumber(b); outsc(" end = "); outnumber(e); outcr(); }
-			setstring(xcl, getstring(xc, b), e-b+1);
+			if (STRDEBUG) { outsc("Inserted at "); outnumber(i); outcr(); }
+			// setstring(xcl, i, getstring(xc, b), e-b+1);
+			processstring(xcl, i , xc, b, e-b+1);
+
 			if (STRDEBUG) { outsc("Result after assignment string of length "); outnumber(lenstring(xcl)); outcr(); }
 		} else {
 			error(token);
