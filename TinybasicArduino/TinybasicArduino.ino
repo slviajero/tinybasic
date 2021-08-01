@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.49 2021/07/30 21:14:06 stefan Exp stefan $
+// $Id: basic.c,v 1.50 2021/08/01 07:55:28 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -34,8 +34,8 @@
 #endif
 
 // ARDUINO extensions
-#undef ARDUINOLCD
-#undef ARDUINOEEPROM
+#define ARDUINOLCD
+#define ARDUINOEEPROM
 
 // SMALLness 
 // GOSUB costs 100 bytes of program memory
@@ -46,7 +46,6 @@
 #define HASFUNCTIONS
 #define HASDUMP
 #undef  USESPICOSERIAL
-
 
 #ifdef ARDUINO
 #include <avr/pgmspace.h>
@@ -70,10 +69,11 @@
 #define FALSE 0
 
 #define DEBUG  0
+#define STRDEBUG 0
 
 #define BUFSIZE 	72
 #define SBUFSIZE	9
-#define MEMSIZE  	1024
+#define MEMSIZE  	512
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -349,7 +349,6 @@ static char sbuffer[SBUFSIZE];
 static short vars[VARSIZE];
 
 static signed char mem[MEMSIZE];
-static unsigned short himem=MEMSIZE;
 
 #ifdef HASFORNEXT
 static struct {char varx; char vary; short here; short to; short step;} forstack[FORDEPTH];
@@ -386,6 +385,13 @@ FILE* fd;
 struct termios initialstate, newstate;
 #endif
 
+// arrays and strings in BASIC mem
+static unsigned short arlength=20;
+static short arposition=MEMSIZE-20*2;
+static unsigned char strlength=40;
+static short strpostion=MEMSIZE-20-2-40;
+static unsigned short himem=MEMSIZE-20-2-40-1;
+
 /* 
 	Layer 0 functions 
 */
@@ -401,7 +407,7 @@ void clrvars();
 short getarray(char, char, short);
 void setarray(char, char, short, short);
 char getstringchar(char, short);
-char* getstring(char);
+char* getstring(char, short);
 void setstring(char, char *, short);
 
 // error handling
@@ -481,7 +487,6 @@ void expression();
 // basic commands of the core language set
 void xprint();
 void assignment();
-void strassignment();
 void xgoto();
 void xend();
 void xcont();
@@ -576,6 +581,10 @@ void delvar(char c){
 
 void clrvars() {
 	for (char i=0; i<VARSIZE; i++) vars[i]=0;
+	strpostion=himem;
+	strlength=0;
+	arposition=himem;
+	arlength=0;
 }
 
 short getshort(short m){
@@ -639,17 +648,31 @@ void setstringchar(char c, short i, char v){
 	}
 }
 
-char* getstring(char c) {
-	return ibuffer+1;
+char* getstring(char c, short b) {
+
+	if ( c == 'A' ) {
+		return (char *) &mem[strpostion+b];
+	} else 
+		return ibuffer+b;
 }
 
+
 short lenstring(char c){
+	if (c == 'A' ) {
+		return mem[strpostion];
+	}
 	return ibuffer[0];
 }
 
 void setstring(char c, char* s, short n) {
-	for (int i=1; i<=n; i++) { ibuffer[i]=s[i-1]; } 
-	ibuffer[0]=n;
+	char *b;
+	if ( c == 'A' ) {
+		b=(char *)&mem[strpostion];
+	} else {
+		b=ibuffer;
+	}
+	for (int i=1; i<=n; i++) { b[i]=s[i-1]; } 
+	b[0]=n; 
 }
 
 
@@ -1142,14 +1165,13 @@ void nexttoken() {
 			return; 
 	}  
 
-	// Dr. Wangs BASIC had this array 
+	// Dr. Wangs BASIC had this array we keep it for sentimental reasons
 	if (*bi == '@') {
 		token=ARRAYVAR;
 		xc=*bi++;
 		if (DEBUG) debugtoken();
 		return;
 	}
-
 
 	// relations
 	// single character relations are their own token
@@ -1272,6 +1294,7 @@ void nexttoken() {
 			bi++;
 		} else if (*bi == '$') {
 			token=STRINGVAR;
+			yc='$';
 			bi++;
 		}
 		if (token == VARIABLE && *bi == '(' ) { 
@@ -1420,7 +1443,7 @@ void gettoken() {
 			break;
 		case STRINGVAR:
 			xc=memread(here++);
-			yc=0;
+			yc='$'; 
 			break;
 		case STRING:
 			x=(unsigned char)memread(here++);  // if we run interactive or from mem, pass back the mem location
@@ -2003,19 +2026,6 @@ void expression(){
 
 
 /* 
-	stringexpression code to come here, currently using ir to pass the string result
-*/
-
-void strexpression() 
-{	
-	if (token == STRING) {
-		push(x);
-	} else 
-		push(0);
-	nexttoken();
-}
-
-/* 
 
 	The commands and their helpers
 		termsymbol and two argument parsers
@@ -2071,7 +2081,7 @@ processsymbol:
 		goto nextsymbol;
 	} 
 	if (token == STRINGVAR) {
-		ir=getstring(xc);
+		ir=getstring(xc, 1);
 		x=lenstring(xc);
 		outs(ir, x);
 		goto nextsymbol;
@@ -2108,71 +2118,75 @@ void xget(){
 		error(TGET);
 }
 
+
+/* 
+	the assignment code for scalar variables. Once arrays are included the code 
+	becomes a little more complex as we have to evaluate the lefthand side first 
+	to see where we have to store.
+
+*/
+
 void assignment() {
 	if (DEBUG) debugn(TLET); 
-	// evaluate the lefthand side of the equation
-	char t=token;
-	short i=0;
-	char s = FALSE; // is this is pure string expression
-	push(yc);
-	push(xc);
+	char t=token;  // remember the left hand side token until the end of the statement
+	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
+	short i=0;     // and also remember the index we are dealing with
+	char xcl, ycl; // to preserve the left hand side variable names
+	short b, e;
+
+	// this code evaluates the left hand side
+	ycl=yc;
+	xcl=xc;
 	switch (token) {
 		case VARIABLE:
 			nexttoken();
 			break;
-		case STRINGVAR:
 		case ARRAYVAR:
 			nexttoken();
-			if (token == '=' && t == STRINGVAR) { 
-				s=TRUE; 
-				break; 
-			}
 			if (token == '(') {
 				nexttoken();
 				expression();
 				if (token != ')') {
 					error(token);	
 					drop();
-					drop();
-					drop();
 					return;
 				}
+				i=pop();
 				nexttoken();		
 			} else {
 				error(token);
-				drop();
-				drop();
 				return;
+			}
+			break;
+		case STRINGVAR:
+			nexttoken();
+			if (token != '(') break;
+			expression();
+			if (token != ')') {
+				error(token);	
+				drop();
+				return;			
 			}
 			i=pop();
 			break;
 	}
 
+	if (STRDEBUG) { outsc("Found a string target "); outch(xcl); outcr(); }
 	// here comes the code for the right hand side
-	if ( token == '=') {
+	if ( token == '=' && t != STRINGVAR) {
 		nexttoken();
-		if (s) 
-			strexpression();
-		else
-			expression();
+		expression();
 
 		// store it!
 		if (er == 0) {
-			x=pop();
-			xc=pop();
-			yc=pop();		
 			switch (t) {
 				case VARIABLE:
-					setvar(xc, yc , x);
+					x=pop();
+					setvar(xcl, ycl , x);
 					break;
 				case ARRAYVAR: 
-					setarray(xc, yc, i, x);
-					break;
-				case STRINGVAR:
-					if (s)
-						setstring(xc, ir, x);
-					else 
-						setstringchar(xc, i, x);
+					x=pop();	
+					setarray(xcl, ycl, i, x);
 					break;
 			}		
 		} else {
@@ -2180,10 +2194,47 @@ void assignment() {
 			er=0;
 			return;
 		}
+	} else if (token == '=' && t == STRINGVAR) {
+		nexttoken();
+		if (token == STRING) {
+			setstring(xcl, ir,  x);
+		} else if (token == STRINGVAR) {
+			push(xc);
+			nexttoken();
+			b=1;
+			xc=pop();
+			e=lenstring(xc);
+			push(xc);
+			if (token == '(') {
+				nexttoken();
+				expression();
+				b=pop();
+				if (token == ',') {
+					nexttoken();
+					expression();
+					e=pop();
+				}
+				if (token != ')') {
+					error(token);
+					clearst();
+					return;
+				}  
+			}
+			xc=pop();
+			if (STRDEBUG) { outsc("String assignment code begin = "); outnumber(b); outsc(" end = "); outnumber(e); outcr(); }
+			setstring(xcl, getstring(xc, b), e-b+1);
+			if (STRDEBUG) { outsc("Result after assignment string of length "); outnumber(lenstring(xcl)); outcr(); }
+		} else {
+			error(token);
+			return;
+		}
+		nexttoken();
+// unknown assignment
 	} else {
 		error(token);
 	}
 }
+
 
 void xgoto() {
 	if (DEBUG) debugn(TGOTO); 
@@ -2750,9 +2801,9 @@ void statement(){
 					error(TLET);
 					break;
 				}
+			case STRINGVAR:
 			case ARRAYVAR:
-			case VARIABLE:
-			case STRINGVAR:			
+			case VARIABLE:		
 				assignment();
 				break;
 #ifdef HASGOSUB
