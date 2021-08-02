@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.51 2021/08/01 18:09:38 stefan Exp stefan $
+// $Id: basic.c,v 1.53 2021/08/02 19:28:59 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -388,6 +388,8 @@ FILE* fd;
 struct termios initialstate, newstate;
 #endif
 
+// this is the static string code as a testbed 
+// for the entire STRING and ARRAY logic
 // arrays and strings in BASIC mem
 static unsigned short arlength=20;
 static short arposition=MEMSIZE-20*2;
@@ -412,6 +414,7 @@ void setarray(char, char, short, short);
 char getstringchar(char, short);
 char* getstring(char, short);
 void setstring(char, short, char *, short);
+void parsesubstring();
 
 // error handling
 void error(signed char);
@@ -2106,29 +2109,31 @@ void parseoneargument() {
    print 
 */ 
 void xprint(){
-	if (DEBUG) debugn(TPRINT); 
 
-nextsymbol:
+	char semicolon = FALSE;
+	if (DEBUG) debugn(TPRINT); 
 	nexttoken();
 
 processsymbol:
 	if (termsymbol()) {
-		outcr();
+		if (! semicolon) outcr();
 		nexttoken();
 		return;
 	}
+	semicolon=FALSE;
 	if (token == STRING) {
 		outs(ir, x);	
-		goto nextsymbol;
+		nexttoken();
+		goto separators;
 	} 
 	if (token == STRINGVAR) {
-		ir=getstring(xc, 1);
-		x=lenstring(xc);
-		outs(ir, x);
-		goto nextsymbol;
+		parsesubstring();
+		x=pop();
+		y=pop();
+		ir=getstring(xc, y);
+		outs(ir, x-y+1);
+		goto separators;
 	}
-
-numerical:
 	if (token != ',' && token != ';' ) {
 		expression();
 		if (er == 0) {
@@ -2139,12 +2144,18 @@ numerical:
 			nexttoken();
 			return ;
 		}
-		goto processsymbol;
 	}
+
+separators:
 	if (token == ',') {
 		outspc();
+		nexttoken();
 	}
-	goto nextsymbol;
+	if (token == ';'){
+		semicolon=TRUE;
+		nexttoken();
+	}
+	goto processsymbol;
 }
 
 void xget(){
@@ -2166,6 +2177,42 @@ void xget(){
 	to see where we have to store.
 
 */
+void parsesubstring() {
+	char xc1;
+	short t1, t2;
+
+    xc1=xc;
+	nexttoken();
+	if (token == '(') {
+		nexttoken();
+		expression();
+		if (token == ',') {
+			nexttoken();
+			expression();
+		} else {
+			push(lenstring(xc1));
+		}
+		if (token != ')') {
+			error(token);
+			clearst();
+			return;
+		} 
+		nexttoken();
+	} else {
+		push(1);
+		push(lenstring(xc1));
+	}
+	if (STRDEBUG) {
+		outsc("In parsesubstring ");
+		t1=pop();
+		t2=pop();
+		push(t2);
+		push(t1);
+		outnumber(t1); outspc(); outnumber(t2);
+		outcr();
+	}
+}
+
 
 void assignment() {
 	if (DEBUG) debugn(TLET); 
@@ -2242,29 +2289,12 @@ void assignment() {
 	} else if (token == '=' && t == STRINGVAR) {
 		nexttoken();
 		if (token == STRING) {
-			setstring(xcl, 1, ir,  x);
+			setstring(xcl, i, ir,  x);
 		} else if (token == STRINGVAR) {
 			push(xc);
-			nexttoken();
-			b=1;
-			xc=pop();
-			e=lenstring(xc);
-			push(xc);
-			if (token == '(') {
-				nexttoken();
-				expression();
-				b=pop();
-				if (token == ',') {
-					nexttoken();
-					expression();
-					e=pop();
-				}
-				if (token != ')') {
-					error(token);
-					clearst();
-					return;
-				}  
-			}
+			parsesubstring();
+			e=pop();
+			b=pop();		
 			xc=pop();
 			if (STRDEBUG) { outsc("String assignment code begin = "); outnumber(b); outsc(" end = "); outnumber(e); outcr(); }
 			if (STRDEBUG) { outsc("Inserted at "); outnumber(i); outcr(); }
@@ -2282,7 +2312,6 @@ void assignment() {
 		error(token);
 	}
 }
-
 
 void xgoto() {
 	if (DEBUG) debugn(TGOTO); 
