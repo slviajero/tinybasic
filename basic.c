@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.53 2021/08/02 19:28:59 stefan Exp stefan $
+// $Id: basic.c,v 1.54 2021/08/03 20:10:09 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -74,7 +74,7 @@
 
 #define BUFSIZE 	72
 #define SBUFSIZE	9
-#define MEMSIZE  	513
+#define MEMSIZE  	1024
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -229,7 +229,7 @@ const char sbreak[]  PROGMEM = "BREAK";
 const char ssave[]   PROGMEM = "SAVE";
 const char sload[]   PROGMEM = "LOAD";
 const char srem[]    PROGMEM = "REM";
-const char spinm[]   PROGMEM = "PIMN";
+const char spinm[]   PROGMEM = "PINM";
 const char sdwrite[] PROGMEM = "DWRITE";
 const char sdread[]  PROGMEM = "DREAD";
 const char sawrite[] PROGMEM = "AWRITE";
@@ -411,10 +411,12 @@ void delvar(char);
 void clrvars();
 short getarray(char, char, short);
 void setarray(char, char, short, short);
-char getstringchar(char, short);
 char* getstring(char, short);
 void setstring(char, short, char *, short);
 void parsesubstring();
+short parsesubscripts();
+void parsenarguments(char);
+short parsearguments();
 
 // error handling
 void error(signed char);
@@ -629,20 +631,6 @@ void setarray(char c, char d, short i, short v){
 	}
 }
 
-char getstringchar(char c, short i){
-
-	// currently only the input buffer can be used as one static array 
-	// its is destroyed at input on an Arduino with pioserial
-	// outsc("Calling a character from string variable :"); outch(c); outspc(); outnumber(i); outcr();
-	if (c == 'I') {
-		if ( i > 0 && i < BUFSIZE )
-			return ibuffer[i];
-		else
-			error(ERANGE);
-	}
-	return 0;
-}
-
 void setstringchar(char c, short i, char v){
 
 	// outsc("Setting a character in a string variable :"); outch(c); outspc(); outnumber(i); outspc(); outch(v); outcr();
@@ -655,48 +643,72 @@ void setstringchar(char c, short i, char v){
 }
 
 char* getstring(char c, short b) {
-
-	if ( c == 'A' ) {
+	if ( c == 'A' )
 		return (char *) &mem[strpostion+b];
-	} else 
-		return ibuffer+b;
+	if ( c == '@' )
+			return ibuffer+b;
+	return ibuffer+b;
 }
 
 
+// test code based on static strings 
+short arraydim(char c) {
+		if (c == 'A' ) 
+			return 20;
+		if (c == '@')
+			return (himem-top)/2;
+		return 0;
+}
+
+short stringdim(char c) {
+		if (c == 'A' ) 
+			return 20;
+		if (c == '@')
+			return BUFSIZE-1;
+		return 0;
+}
+
 short lenstring(char c){
-	if (c == 'A' ) {
+	if (c == 'A' ) 
 		return mem[strpostion];
-	}
+	if (c == '@')
+		return ibuffer[0];
 	return ibuffer[0];
 }
 
 void setstringlength(char c, short l) {
-	if ( c == 'A' ) {
+	if (c == 'A')
 		mem[strpostion]=l;
-	} else 
+	if (c == '@')
 		*ibuffer=l;
 }
 
 void setstring(char c, short w, char* s, short n) {
 	char *b;
-	if ( c == 'A' ) {
+	if ( c == 'A' ) 
 		b=(char *)&mem[strpostion];
-	} else {
+	if ( c == '@')
 		b=ibuffer;
+	if ( (w+n-1) <= stringdim(c) ) {
+		for (int i=0; i<n; i++) { b[i+w]=s[i]; } 
+		b[0]=w+n-1; 	
 	}
-	for (int i=0; i<n; i++) { b[i+w]=s[i]; } 
-	b[0]=w+n-1; 
+	else 
+		error(ERANGE);
 }
 
 void processstring(char c1, short w1, char c2, short w2, short n){
 	char *b1, *b2;
 	b1=getstring(c1, w1);
 	b2=getstring(c2, w2);
-	if (w1 <= w2) 
-		for (int i=0; i<n; i++) { b1[i]=b2[i]; }
-	else
-		for (int i=n-1; i>=0; i--) b1[i]=b2[i];  
-	setstringlength(c1, w1+n-1);
+	if ((w1+n-1) <= stringdim(c1)) {
+		if (w1 <= w2) 
+			for (int i=0; i<n; i++) { b1[i]=b2[i]; }
+		else
+			for (int i=n-1; i>=0; i--) b1[i]=b2[i];  
+		setstringlength(c1, w1+n-1);
+	} else 
+		error(ERANGE);
 }
 
 /* 
@@ -746,6 +758,11 @@ void error(signed char e){
 	outspc();
 	printmessage(EGENERAL);
 	outcr();
+}
+
+void reseterror() {
+	er=0;
+	clearst();
 }
 
 
@@ -907,7 +924,7 @@ volatile static char picochar;
 volatile static char picoa = FALSE;
 volatile static char* picob = NULL;
 static short picobsize = 0;
-volatile static short picoi = 0;
+volatile static short picoi = 1;
 
 void picogetchar(int c){
 	picochar=c;
@@ -917,7 +934,8 @@ void picogetchar(int c){
 		} else {
 			picoa = TRUE;
 			picob[picoi]=0;
-			picoi=0;
+			picob[0]=picoi;
+			picoi=1;
 		}
 		picochar=0; // every buffered byte is deleted
 	}
@@ -1026,16 +1044,17 @@ void outsc(char *c){
 void ins(char *b, short nb) {
 #ifndef USESPICOSERIAL
 	char c;
-	short i = 0;
+	short i = 1;
 	while(i < nb-1) {
 		c=inch();
 		if (c == '\n' || c == '\r') {
 			b[i]=0x00;
+			b[0]=i;
 			break;
 		} else {
 			b[i++]=c;
 		} 
-		if (c == 0x08 && i>0) {
+		if (c == 0x08 && i>1) {
 			i--;
 		}
 	}
@@ -1045,7 +1064,7 @@ void ins(char *b, short nb) {
 	picobsize=nb;
 	picoa=FALSE;
 	while (! picoa);
-	outsc(b); outcr();
+	outsc(b+1); outcr();
 }
 #endif
 
@@ -1063,7 +1082,7 @@ short getnumber(char *c, short *r) {
 }
 
 char innumber(short *r) {
-	int i = 0;
+	int i = 1;
 	int s = 1;
 	ins(sbuffer, SBUFSIZE);
 	while (i < SBUFSIZE) {
@@ -1146,6 +1165,9 @@ void nexttoken() {
 		return;
 	}
 
+	// after change in buffer logic the first byte is reserved for the length
+	if (bi == ibuffer) bi++;
+
 	// remove whitespaces outside strings
 	whitespaces();
 
@@ -1192,6 +1214,10 @@ void nexttoken() {
 	if (*bi == '@') {
 		token=ARRAYVAR;
 		xc=*bi++;
+		if (*bi == '$') {
+			token=STRINGVAR;
+			bi++;
+		}
 		if (DEBUG) debugtoken();
 		return;
 	}
@@ -1765,24 +1791,118 @@ void delay(short t) {}
 
 */
 
-void parsefunction(short (*f)(short)){
+
+char termsymbol() {
+	return (token == ':' || token == LINENUMBER || token == EOL);
+}
+
+
+// parses a list of expression
+short parsearguments() {
+	char args=0;
+	if (termsymbol()) return args;
+
+nextexpression:
+	expression();
+	if (er != 0) { clearst(); return 0; }
+
+	args++;
+
+	if (token == ',') {
+		nexttoken();
+		goto nextexpression;
+	} else 
+		return args;
+}
+
+void parsenarguments(char n) {
+	char args=0;
 	nexttoken();
-	if ( token != '(') {
-		error('(');
+
+	args=parsearguments();
+	if (er != 0 ) return;
+
+	if (args == n) {
 		return;
 	}
+
+	error(EARGS);
+	clearst();
+}
+
+
+void parsefunction(short (*f)(short)){
+	char args;
+
 	nexttoken();
-	expression();
-	if (er == 0 && token == ')') {
+	args=parsesubscripts();
+	if (er != 0) return;
+
+	if (args == 1) {
 		x=pop();
 		x=f(x);
 		push(x);
 	} else {
-		error(')');
+		error(EARGS);
 		return;
 	}
 }
 
+
+void parseoperator(void (*f)()) {
+	nexttoken();
+	f();
+	y=pop();
+	x=pop();
+}
+
+short parsesubscripts() {
+	char args = 0;
+
+
+	if (token != '(') {return 0; }
+
+	nexttoken();
+	args=parsearguments();
+
+	if (er != 0) {return 0; }
+
+	if (token != ')') {error(EARGS); return 0; }
+
+	nexttoken();
+	return args;
+}
+
+void parsesubstring() {
+	char xc1;
+	short args;
+	short t1,t2;
+    xc1=xc;
+
+    nexttoken();
+    args=parsesubscripts();
+
+    if (er != 0) {return; }
+    switch(args) {
+		case 1:
+			push(lenstring(xc1));
+			break;
+		case 0: 
+			push(1);
+			push(lenstring(xc1));	
+			break;
+    }
+
+	if (STRDEBUG) {
+		outsc("In parsesubstring ");
+		t1=pop();
+		t2=pop();
+		push(t2);
+		push(t1);
+		outnumber(t1); outspc(); outnumber(t2);
+		outcr();
+	}
+}
 
 short xabs(short x){
 	if (x<0) x=-x;
@@ -1849,7 +1969,7 @@ short sqr(short r){
 #endif
 
 void factor(){
-	char t=0;
+	short args;
 	if (DEBUG) debug("factor");
 	switch (token) {
 		case NUMBER: 
@@ -1858,44 +1978,23 @@ void factor(){
 		case VARIABLE: 
 			push(getvar(xc, yc));
 			break;
-		case STRINGVAR:
 		case ARRAYVAR:
-			t=token;
 			push(yc);
 			push(xc);
 			nexttoken();
-			if (token == '(') {
-				nexttoken();
-				expression();
-				if (token != ')') {
-					error(token);	
-					drop();
-					drop();
-					drop();
-					push(0);
-					break;	
-				}		
-				x=pop();
-				xc=pop();
-				yc=pop();
-				if (t == ARRAYVAR) 
-					push(getarray(xc, yc, x)); 
-				else 
-					push(getstringchar(xc, x));
-			} else {
-				error(token);
-				drop();
-				drop();
-				drop();
-				push(0);
-				break;
-			}
+			args=parsesubscripts();
+			if (er != 0 ) return;
+			if (args != 1) { error(EARGS); return; }	
+			x=pop();
+			xc=pop();
+			yc=pop();
+			push(getarray(xc, yc, x)); 
 			break;
 		case '(':
 			nexttoken();
 			expression();
-			if (token != ')')
-				error(token);
+			if (er != 0 ) return;
+			if (token != ')') { error(EARGS); return; }
 			break;
 		case TABS: 
 			parsefunction(xabs);
@@ -1915,7 +2014,6 @@ void factor(){
 			break;
 #endif
 		case TFRE: 
-			if (DEBUG) outsc("Parsing function free \n");
 			parsefunction(xfre);
 			break;
 		case TAREAD: 
@@ -1945,44 +2043,42 @@ void factor(){
 			}
 			break;
 		default:
-			error(token);
+			error(EUNKNOWN);
+			return;
 	}
-}
-
-void parseoperator(void (*f)()) {
-	nexttoken();
-	f();
-	y=pop();
-	x=pop();
 }
 
 void term(){
 	if (DEBUG) debug("term"); 
 	factor();
+	if (er != 0) return;
 
 nextfactor:
 	nexttoken();
 	if (DEBUG) debug("nexttoken");
 	if (token == '*'){
 		parseoperator(factor);
+		if (er != 0) return;
 		push(x*y);
 		goto nextfactor;
 	} else if (token == '/'){
 		parseoperator(factor);
+		if (er != 0) return;
 		if (y != 0)
 			push(x/y);
 		else {
 			error(EDIVIDE);
-			push(0);	
+			return;	
 		}
 		goto nextfactor;
 	} else if (token == '%'){
 		parseoperator(factor);
+		if (er != 0) return;
 		if (y != 0)
 			push(x%y);
 		else {
 			error(EDIVIDE);
-			push(0);	
+			return;	
 		}
 		goto nextfactor;
 	} 
@@ -1992,6 +2088,7 @@ void addexpression(){
 	if (DEBUG) debug("addexp");
 	if (token != '+' && token != '-') {
 		term();
+		if (er != 0) return;
 	} else {
 		push(0);
 	}
@@ -1999,10 +2096,12 @@ void addexpression(){
 nextterm:
 	if (token == '+' ) { 
 		parseoperator(term);
+		if (er != 0) return;
 		push(x+y);
 		goto nextterm;
 	} else if (token == '-'){
 		parseoperator(term);
+		if (er != 0) return;
 		push(x-y);
 		goto nextterm;
 	}
@@ -2011,29 +2110,36 @@ nextterm:
 void compexpression() {
 	if (DEBUG) debug("compexp"); 
 	addexpression();
+	if (er != 0) return;
 	switch (token){
 		case '=':
 			parseoperator(compexpression);
+			if (er != 0) return;
 			push(x == y);
 			break;
 		case NOTEQUAL:
 			parseoperator(compexpression);
+			if (er != 0) return;
 			push(x != y);
 			break;
 		case '>':
 			parseoperator(compexpression);
+			if (er != 0) return;
 			push(x > y);
 			break;
 		case '<':
 			parseoperator(compexpression);
+			if (er != 0) return;
 			push(x < y);
 			break;
 		case LESSEREQUAL:
 			parseoperator(compexpression);
+			if (er != 0) return;
 			push(x <= y);
 			break;
 		case GREATEREQUAL:
 			parseoperator(compexpression);
+			if (er != 0) return;
 			push(x >= y);
 			break;
 	}
@@ -2044,6 +2150,7 @@ void notexpression() {
 	if (token == TNOT) {
 		nexttoken();
 		compexpression();
+		if (er != 0) return;
 		x=pop();
 		push(!x);
 	} else 
@@ -2053,8 +2160,10 @@ void notexpression() {
 void andexpression() {
 	if (DEBUG) debug("andexp");
 	notexpression();
+	if (er != 0) return;
 	if (token == TAND) {
 		parseoperator(expression);
+		if (er != 0) return;
 		push(x && y);
 	} 
 }
@@ -2062,10 +2171,13 @@ void andexpression() {
 void expression(){
 	if (DEBUG) debug("exp"); 
 	andexpression();
+	if (er != 0) return;
 	if (token == TOR) {
 		parseoperator(expression);
+		if (er != 0) return;
 		push(x || y);
 	} 
+	if (DEBUG) debug(" leaving exp"); 
 }
 
 
@@ -2076,34 +2188,6 @@ void expression(){
    
 */
 
-char termsymbol() {
-	return (token == ':' || token == LINENUMBER || token == EOL);
-}
-
-void parsetwoarguments() {
-	nexttoken();
-	expression();
-	if (token != ',' ) {
-		error(EARGS);
-		return;
-	} 
-	nexttoken();
-	expression();
-	if (!termsymbol()) {
-		error(EARGS);
-		return;
-	} 
-	
-}
-
-void parseoneargument() {
-	nexttoken();
-	expression();
-	if (!termsymbol()) {
-		error(EARGS);
-		return;
-	} 
-}
 
 /*
    print 
@@ -2177,41 +2261,6 @@ void xget(){
 	to see where we have to store.
 
 */
-void parsesubstring() {
-	char xc1;
-	short t1, t2;
-
-    xc1=xc;
-	nexttoken();
-	if (token == '(') {
-		nexttoken();
-		expression();
-		if (token == ',') {
-			nexttoken();
-			expression();
-		} else {
-			push(lenstring(xc1));
-		}
-		if (token != ')') {
-			error(token);
-			clearst();
-			return;
-		} 
-		nexttoken();
-	} else {
-		push(1);
-		push(lenstring(xc1));
-	}
-	if (STRDEBUG) {
-		outsc("In parsesubstring ");
-		t1=pop();
-		t2=pop();
-		push(t2);
-		push(t1);
-		outnumber(t1); outspc(); outnumber(t2);
-		outcr();
-	}
-}
 
 
 void assignment() {
@@ -2221,6 +2270,7 @@ void assignment() {
 	short i=1;     // and also remember the index we are dealing with
 	char xcl, ycl; // to preserve the left hand side variable names
 	short b, e;
+	short args;
 
 	// this code evaluates the left hand side
 	ycl=yc;
@@ -2231,61 +2281,49 @@ void assignment() {
 			break;
 		case ARRAYVAR:
 			nexttoken();
-			if (token == '(') {
-				nexttoken();
-				expression();
-				if (token != ')') {
-					error(token);	
-					drop();
-					return;
-				}
-				i=pop();
-				nexttoken();		
-			} else {
-				error(token);
+			args=parsesubscripts();
+			if (er != 0) {reseterror(); return; }
+			if (args != 1) {
+				error(EARGS);
+				clearst();
 				return;
 			}
+			i=pop();
 			break;
 		case STRINGVAR:
 			if (STRDEBUG) { outsc("The string variable "); outch(xc); outcr(); }
 			nexttoken();
-			if (token != '(') break;
-			nexttoken();
-			expression();
-			if (token != ')') {
-				error(token);	
-				drop();
-				return;			
+			args=parsesubscripts();
+			if (er != 0) {reseterror(); return; }
+			switch(args) {
+				case 0:
+					i=1;
+					break;
+				case 1:
+					i=pop();
+					break;
+				default:
+					error(EARGS);
+					clearst();
+					return;
 			}
-			nexttoken();
-			i=pop();
-			if (STRDEBUG) { outsc("Found the index "); outnumber(i); outcr(); }
-			break;
 	}
-
-	if (STRDEBUG) { outsc("Found a string target "); outch(xcl); outcr(); }
 	// here comes the code for the right hand side
 	if ( token == '=' && t != STRINGVAR) {
 		nexttoken();
 		expression();
+		if (er != 0 ) {reseterror(); return; }
 
-		// store it!
-		if (er == 0) {
-			switch (t) {
-				case VARIABLE:
-					x=pop();
-					setvar(xcl, ycl , x);
-					break;
-				case ARRAYVAR: 
-					x=pop();	
-					setarray(xcl, ycl, i, x);
-					break;
-			}		
-		} else {
-			clearst();
-			er=0;
-			return;
-		}
+		switch (t) {
+			case VARIABLE:
+				x=pop();
+				setvar(xcl, ycl , x);
+				break;
+			case ARRAYVAR: 
+				x=pop();	
+				setarray(xcl, ycl, i, x);
+				break;
+		}		
 	} else if (token == '=' && t == STRINGVAR) {
 		nexttoken();
 		if (token == STRING) {
@@ -2293,21 +2331,16 @@ void assignment() {
 		} else if (token == STRINGVAR) {
 			push(xc);
 			parsesubstring();
+			if (er != 0) { reseterror(); return; }
 			e=pop();
 			b=pop();		
 			xc=pop();
-			if (STRDEBUG) { outsc("String assignment code begin = "); outnumber(b); outsc(" end = "); outnumber(e); outcr(); }
-			if (STRDEBUG) { outsc("Inserted at "); outnumber(i); outcr(); }
-			// setstring(xcl, i, getstring(xc, b), e-b+1);
 			processstring(xcl, i , xc, b, e-b+1);
-
-			if (STRDEBUG) { outsc("Result after assignment string of length "); outnumber(lenstring(xcl)); outcr(); }
 		} else {
 			error(token);
 			return;
 		}
 		nexttoken();
-// unknown assignment
 	} else {
 		error(token);
 	}
@@ -2319,26 +2352,25 @@ void xgoto() {
 
 	nexttoken();
 	expression();
-	if (er == 0) {
+	if (er != 0) {reseterror(); return; }
+
 #ifdef HASGOSUB
-		if (t == TGOSUB) {
-			if (DEBUG) debugn(TGOSUB); 
-			pushgosubstack();
-		}
+	if (t == TGOSUB) pushgosubstack();
 #endif
-		x=pop();
-		findline(x);
+
+	x=pop();
+	findline(x);
+	if ( er != 0 ) {
+		error(ELINE);
 #ifdef HASGOSUB
-		if ( er != 0 && t == TGOSUB) {
-			dropgosubstack();
-		}
+		if (t == TGOSUB) dropgosubstack();
 #endif
-		nexttoken();
-	} else {
-		clearst();
-		er=0;
+		reseterror();
+		st=SINT;
 		return;
-	} 
+	}
+	nexttoken();
+
 }
 
 void xend(){
@@ -2378,6 +2410,9 @@ void xif(){
 
 // input ["string",] variable [,["string",] variable]* 
 void xinput(){
+	char t;
+	short args;
+
 	if (DEBUG) debugn(TINPUT); 
 	nexttoken();
 
@@ -2395,7 +2430,7 @@ nextstring:
 nextvariable:
 	if (token == VARIABLE) {   
 		outsc("? ");
-		if (innumber(&x) == '#') {
+		if (innumber(&x) == BREAKCHAR) {
 			setvar(xc, yc, 0);
 			st=SINT;
 			nexttoken();
@@ -2404,6 +2439,29 @@ nextvariable:
 			setvar(xc, yc, x);
 		}
 	} 
+	if (token == ARRAYVAR) {
+		nexttoken();
+		args=parsesubscripts();
+		if (args != 1) {
+			error(t);
+			return;
+		}
+		outsc("? ");
+		if (innumber(&x) == BREAKCHAR) {
+			setarray(xc, yc, pop(), 0);
+			st=SINT;
+			nexttoken();
+			return;
+		} else {
+			setarray(xc, yc, pop(), x);
+		}
+	}
+	if (token == STRINGVAR) {
+		ir=getstring(xc, 1); 
+		outsc("? ");
+		ins(ir-1, 20);  // only text code - here we needed the maximum length
+ 	}
+
 	nexttoken();
 	if (token == ',') {
 		nexttoken();
@@ -2592,7 +2650,7 @@ void xload() {
 		nexttoken();
 		return;
 	}
-	while (fgets(ibuffer, BUFSIZE, fd)) {
+	while (fgets(ibuffer+1, BUFSIZE, fd)) {
 		bi=ibuffer;
 		while(*bi != 0) { if (*bi == '\n') *bi=' '; bi++; };
 		bi=ibuffer;
@@ -2729,38 +2787,34 @@ void xnew(){
 */
 
 void xdwrite(){
-	parsetwoarguments();
-	if (er == 0) {
-		x=pop();
-		y=pop();
-		dwrite(y, x);	
-	}
+	parsenarguments(2);
+	if (er != 0) { reseterror(); return; }
+	x=pop();
+	y=pop();
+	dwrite(y, x);	
 }
 
 void xawrite(){
-	parsetwoarguments();
-	if (er == 0) {
-		x=pop();
-		y=pop();
-		awrite(y, x);
-	}
+	parsenarguments(2);
+	if (er != 0) { reseterror(); return; }
+	x=pop();
+	y=pop();
+	awrite(y, x);
 }
 
 void xpinm(){
-	parsetwoarguments();
-	if (er == 0) {
-		x=pop();
-		y=pop();
-		pinm(y, x);
-	}
+	parsenarguments(2);
+	if (er != 0) { reseterror(); return; }
+	x=pop();
+	y=pop();
+	pinm(y, x);	
 }
 
 void xdelay(){
-	parseoneargument();
-	if (er == 0) {
-		x=pop();
-		delay(x);	
-	}
+	parsenarguments(1);
+	if (er != 0) { reseterror(); return; }
+	x=pop();
+	delay(x);	
 }
 
 /* 
@@ -2768,7 +2822,8 @@ void xdelay(){
 */
 
 void xpoke(){
-	parsetwoarguments();
+	parsenarguments(2);
+	if (er != 0) { reseterror(); return; }
 	y=pop();
 	x=pop();
 	if (x >= 0 && x<MEMSIZE) 
@@ -2796,46 +2851,45 @@ void xpoke(){
 */
 
 void xset(){
-	parsetwoarguments();
-	if (er == 0) {
-		x=pop();
-		y=pop();
-		switch (y) {
+	parsenarguments(2);
+	if (er != 0) { reseterror(); return; }
+	x=pop();
+	y=pop();
+	switch (y) {
 #ifdef ARDUINOEEPROM
 			// change the autorun/run flag of the EEPROM
 			// 255 for clear, 0 for prog, 1 for autorun
-			case 1: 
-				EEPROM[0]=x;
-				break;
+		case 1: 
+			EEPROM[0]=x;
+			break;
 #endif
 #ifdef ARDUINOLCD
-			case 2:
-				switch (x) {
-					case 0:
-						od=OSERIAL;
-						break;
-					case 1: 
-						od=OLCD;
-						break;
-					case 2:
-						lcd.clear();
-						break;
-					case 3:
-						lcd.home();
-						break;
-					case 4:
-						lcd.blink();
-						break;
-					case 5: 
-						lcd.noBlink();
-						break;
-				}
-				break;
-			case 3:
-				lcd.setCursor(0, x);
-				break;
+		case 2:
+			switch (x) {
+				case 0:
+					od=OSERIAL;
+					break;
+				case 1: 
+					od=OLCD;
+					break;
+				case 2:
+					lcd.clear();
+					break;
+				case 3:
+					lcd.home();
+					break;
+				case 4:
+					lcd.blink();
+					break;
+				case 5: 
+					lcd.noBlink();
+					break;
+			}
+			break;
+		case 3:
+			lcd.setCursor(0, x);
+			break;
 #endif
-		}
 	}
 }
 
