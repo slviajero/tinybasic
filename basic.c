@@ -144,7 +144,8 @@
 #define TGET    -79
 #define TSET    -78
 #define TDIM	-77
-#define TLEN     -76
+#define TLEN    -76
+#define TTAB 	-75
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
@@ -166,7 +167,7 @@
 
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	46
+#define NKEYWORDS	47
 #define BASEKEYWORD -121
 
 /*
@@ -240,6 +241,7 @@ const char sget[]    PROGMEM = "GET";
 const char sset[]    PROGMEM = "SET";
 const char sdim[]    PROGMEM = "DIM";
 const char slen[]    PROGMEM = "LEN";
+const char stab[]    PROGMEM = "TAB";
 
 const char* const keyword[] PROGMEM = {
 	sge, sle, sne, sif, sto, snew, srun, slet,
@@ -249,7 +251,7 @@ const char* const keyword[] PROGMEM = {
  	ssgn, speek, ssqr, sfre, sdump, sbreak,
  	ssave, sload, srem, spinm, sdwrite, sdread,
     sawrite, saread, sdelay, spoke, sget, sset,
-    sdim, slen
+    sdim, slen, stab
 };
 
 /*
@@ -326,7 +328,7 @@ LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
 
 	z is a mixed 16/8 bit accumulator
 
-	ir is a general index egister for string processing.
+	ir, ir2 are general index registers for string processing.
 
 	token contains the actually processes token.
 
@@ -370,7 +372,7 @@ static signed char xc, yc;
 struct twobytes {char l; char h;};
 static union accu168 { short i; struct twobytes b; } z;
 
-static char *ir;
+static char *ir, *ir2;
 static signed char token;
 static signed char er, laster;
 static unsigned short thisline;
@@ -1521,9 +1523,7 @@ void findline(short l) {
 	here=0;
 	while (here < top) {
 		gettoken();
-		if (token == LINENUMBER && x == l) {
-			return;
-		}
+		if (token == LINENUMBER && x == l ) return;
 	}
 	error(ELINE);
 }
@@ -1905,8 +1905,15 @@ short peek(short x){
 	}
 }
 
+// the fre function 
 short xfre(short x) {
-	return himem-top;
+	if (x >=0 )
+		return himem-top;
+#ifdef ARDUINOEEPROM
+	return EEPROM.length();
+#else
+	return 0;
+#endif
 }
 
 
@@ -1939,6 +1946,58 @@ short sqr(short r){
 }
 #endif
 
+
+void stringvalue() {
+	char xcl;
+	if (token == STRING) {
+		ir2=ir;
+		push(x);
+		nexttoken();
+	} else if (token == STRINGVAR) {
+		xcl=xc;
+		parsesubstring();
+		if (er != 0) return;
+		y=pop();
+		x=pop();
+		ir2=getstring(xcl, x);
+		push(y-x+1);
+	} else {
+		error(EUNKNOWN);
+		return;
+	}
+}
+
+
+void strcompare(){
+	char *irl;
+	short xl;
+	char xcl;
+	char t;
+
+	stringvalue();
+	if (er != 0) return;
+	irl=ir2;
+	xl=pop();
+
+	if (token != '=' && token != NOTEQUAL) {error(EUNKNOWN); return; }
+	t=token;
+
+	nexttoken();
+	stringvalue();
+	x=pop();
+	if (er != 0) return;
+
+	if (x != xl) goto neq;
+	for (x=0; x < xl; x++) if ( irl[x] != ir2[x] ) goto neq;
+
+	if (t == '=') push(1); else push(0);
+	return;
+neq:
+	if (t == '=') push(0); else push(1);
+	return;
+}
+
+
 void factor(){
 	short args;
 	if (DEBUG) debug("factor");
@@ -1966,6 +2025,11 @@ void factor(){
 			expression();
 			if (er != 0 ) return;
 			if (token != ')') { error(EARGS); return; }
+			break;
+		case STRING:
+		case STRINGVAR:
+			strcompare();
+			if (er != 0 ) return;
 			break;
 		case TABS: 
 			parsefunction(xabs);
@@ -1996,21 +2060,15 @@ void factor(){
 		case TLEN: 
 			nexttoken();
 			if ( token != '(') {
-				push(0);
-				error('(');
-				break;
+				error(EARGS);
+				return;
 			}
 			nexttoken();
-			if (token != STRINGVAR) {
-				push(0);
-				error('$');
-				break;
-			}
-			push(lenstring(xc));
-			nexttoken();
+			stringvalue();
+			if (er != 0) return;
 			if (token != ')') {
-				error(')');
-				break;	
+				error(EARGS);
+				return;	
 			}
 			break;
 		default:
@@ -2176,19 +2234,16 @@ processsymbol:
 		return;
 	}
 	semicolon=FALSE;
-	if (token == STRING) {
-		outs(ir, x);	
-		nexttoken();
-		goto separators;
-	} 
-	if (token == STRINGVAR) {
-		parsesubstring();
-		x=pop();
-		y=pop();
-		ir=getstring(xc, y);
-		outs(ir, x-y+1);
+
+
+	if (token == STRING || token == STRINGVAR) {
+		stringvalue();
+		if (er != 0) return;
+ 		outs(ir2, pop());
 		goto separators;
 	}
+
+
 	if (token != ',' && token != ';' ) {
 		expression();
 		if (er == 0) {
@@ -2338,32 +2393,29 @@ void xgoto() {
 #endif
 		return;
 	}
+	if (st == SINT) st=SRUN;
 	nexttoken();
 
 }
 
-void xif(){
+void xif() {
 	if (DEBUG) debugn(TIF); 
 	nexttoken();
 	expression();
-	if (er == 0) {
-		x=pop();
-		if (DEBUG) { outnumber(x); outcr(); } 
-		if (! x) {// on condition false skip the entire line
-			do {
-				nexttoken();	
-			}
-			while (token != LINENUMBER && token !=EOL && here <= top);
+	if (er != 0 ) return;
+
+	x=pop();
+	if (DEBUG) { outnumber(x); outcr(); } 
+	if (! x) // on condition false skip the entire line
+		do nexttoken();	while (token != LINENUMBER && token !=EOL && here <= top);
+		
+	if (token == TTHEN) {
+		nexttoken();
+		if (token == NUMBER) {
+			findline(x);
+			if (er != 0) return;		
 		}
-		if (token == TTHEN) {
-			nexttoken();
-			if (token == NUMBER) 
-				findline(x);
-		}
-	} else {
-		error(UNKNOWN);
-		return;
-	}
+	} 
 }
 
 // input ["string",] variable [,["string",] variable]* 
@@ -2400,6 +2452,7 @@ nextvariable:
 	if (token == ARRAYVAR) {
 		nexttoken();
 		args=parsesubscripts();
+		if (er != 0 ) return;
 		if (args != 1) {
 			error(EARGS);
 			return;
@@ -2452,52 +2505,37 @@ void xfor(){
 	push(yc);
 	push(xc);
 	nexttoken();
-	if (token != '=') {
-		error(EUNKNOWN);
-		drop();
-		return;
+	if (token != '=') { 
+		error(EUNKNOWN); 
+		return; 
 	}
 	nexttoken();
 	expression();
-	if (er != 0) {
-		drop();
-		return;
-	}
+	if (er != 0) return;
 	x=pop();	
 	xc=pop();
 	yc=pop();
 	setvar(xc, yc, x);
-	if (DEBUG) {  outch(xc); outspc(); outnumber(x); outcr();
-	}
+	if (DEBUG) { outch(xc); outspc(); outnumber(x); outcr(); }
 	push(xc);
 	if (token != TTO){
-		drop();
 		error(EUNKNOWN);
 		return;
 	}
 	nexttoken();
 	expression();
-	if (er != 0) {
-		drop();
-		return;
-	}
+	if (er != 0) return;
+	
 	if (token == TSTEP) {
 		nexttoken();
 		expression();
-		if (er != 0) {
-			drop(); 
-			drop();
-			return;
-		}
+		if (er != 0) return;
 		y=pop();
 	} else 
 		y=1;
-	if (DEBUG) { debugtoken(); outnumber(y); outcr();
-	}
-	if (token != LINENUMBER && token != ':') {
+	if (DEBUG) { debugtoken(); outnumber(y); outcr(); }
+	if (! termsymbol()) {
 		error(UNKNOWN);
-		drop();
-		drop();
 		return;
 	}
 	x=pop();
@@ -2505,9 +2543,8 @@ void xfor(){
 	if (st == SINT)
 		here=bi-ibuffer;
 	pushforstack();
-	if (er != 0){
-		return;
-	}
+	if (er != 0) return;
+
 /*
 	this tests the condition and stops if it is fulfilled already from start 
 	there is an apocryphal feature her STEP 0 is legal triggers an infinite loop
@@ -2529,7 +2566,6 @@ void xbreak(){
 	findnext();
 	nexttoken();
 }
-
 
 void xnext(){
 	if (DEBUG) debugn(TNEXT); 
@@ -2695,36 +2731,54 @@ void outputtoken() {
 }
 
 void xlist(){
+	short b, e;
+	char oflag = FALSE;
 	if (DEBUG) debugn(TLIST);
 	nexttoken();
-	if (token == NUMBER) {
-		findline(x);
-		if (er != 0) {
-			nexttoken();
+	y=parsearguments();
+	if (er != 0) return;
+	switch (y) {
+		case 0: 
+			b=0;
+			e=32767;
+			break;
+		case 1: 
+			b=pop();
+			e=b;
+			break;
+		case 2: 
+			e=pop();
+			b=pop();
+			break;
+		default:
+			error(EARGS);
 			return;
-		} 
-		push(here-3);
-		nextline();
-		here2=here-3;
-		here=pop();
-	} else {
-		here=0;	
-		here2=top;
 	}
+
+	here=0;
 	gettoken();
-	while (here <= here2) {
-		outputtoken();
+	while (here <= top) {
+		if (token == LINENUMBER && x >= b) oflag=TRUE;
+		if (token == LINENUMBER && x >  e) oflag=FALSE;
+		if (oflag) outputtoken();
 		gettoken();
-		if (token == LINENUMBER) outcr();
+		if (token == LINENUMBER && oflag) outcr();
 	}
-	if (here2 == top) outcr(); // supress newlines in "list 50" - a little hack
+    if (e == 32767 || b != e) outcr(); // supress newlines in "list 50" - a little hack
 	nexttoken();
  }
 
 
 void xrun(){
 	if (DEBUG) debugn(TRUN);
-	here=0;
+	nexttoken();
+	y=parsearguments();
+	if (er != 0 || y > 1) { error(EARGS); return; }
+	if (y == 0 ) 
+		here=0;
+	else 
+		findline(pop());
+	if ( er != 0 ) { error(ELINE); return; }
 	if (st == SINT) st=SRUN;
 	nexttoken();
 	while (here < top && ( st == SRUN || st == SERUN)) {	
@@ -2854,6 +2908,23 @@ void xset(){
 	}
 }
 
+
+// the dimensioning of arrays and strings from Apple 1 BASIC
+
+void xdim(){
+
+}
+
+// the TAB spaces command of Apple 1 BASIC
+
+void xtab(){
+	parsenarguments(1);
+	if (er != 0) return;
+	x=pop();
+	while (x-- > 0) outspc();	
+}
+
+
 /* 
 
 	statement processes an entire basic statement until the end 
@@ -2917,6 +2988,7 @@ void statement(){
 			case TCONT:
 				st=SRUN; // EEROM code missing here
 				nexttoken();
+				debugtoken();
 				break;
 			case TREM:
 				xrem();
@@ -2970,6 +3042,12 @@ void statement(){
 				break;
 			case TSET:
 				xset();
+				break;
+			case TDIM:
+				xdim();
+				break;
+			case TTAB:
+				xtab();
 				break;
 			case UNKNOWN:
 				error(EUNKNOWN);
