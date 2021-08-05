@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.57 2021/08/05 05:23:07 stefan Exp stefan $
+// $Id: basic.c,v 1.58 2021/08/05 21:35:20 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -46,12 +46,12 @@
 */ 
 
 #undef ARDUINOLCD
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASFUNCTIONS
 #define HASDUMP
-#define USESPICOSERIAL
+#undef USESPICOSERIAL
 
 
 #ifdef ARDUINO
@@ -423,6 +423,9 @@ void  createstring(char, short);
 char* getstring(char, short);
 void  setstring(char, short, char *, short);
 
+short getshort(short);
+void  setshort(short, short);
+
 void  parsesubstring();
 short parsesubscripts();
 void  parsenarguments(char);
@@ -565,29 +568,30 @@ void statement();
  */
 
 
-void bmalloc(char t, char c, char d, short l) {
+unsigned short  bmalloc(char t, char c, char d, short l) {
 
 	unsigned short vsize;     // the length of the header
 	unsigned short b;
 
 	// how much space is needed
-	if ( t == VARIABLE ) vsize=2+2; 	
-	else if ( t == ARRAYVAR ) vsize=2*l+2+2;
-	else if ( t == STRINGVAR ) vsize=l+2+2;
-	else { error(EUNKNOWN); return; }
-	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return;}
+	if ( t == VARIABLE ) vsize=2+3; 	
+	else if ( t == ARRAYVAR ) vsize=2*l+2+3;
+	else if ( t == STRINGVAR ) vsize=l+2+3;
+	else { error(EUNKNOWN); return 0; }
+	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return 0;}
 
 	// here we would create the hash, currently simplified
 	// the hash is the first digit of the variable plus the token
 
-	// write the header
+	// write the header - inefficient !!
 	b=himem;
 	mem[b--]=c;
+	mem[b--]=d;
 	mem[b--]=t;
 
 	// for strings and arrays write the length
 	if (t == ARRAYVAR || t == STRINGVAR) {
-		z.i=vsize-4;
+		z.i=vsize-5;
 		mem[b--]=z.b.h;
 		mem[b--]=z.b.l;
 	}
@@ -596,6 +600,7 @@ void bmalloc(char t, char c, char d, short l) {
 	himem-=vsize;
 	nvars++;
 
+	return himem+1;
 }
 
 
@@ -605,13 +610,14 @@ void bmalloc(char t, char c, char d, short l) {
 unsigned short bfind(char t, char c, char d) {
 
 	short unsigned b = MEMSIZE-1;
-	char t1, c1;
+	char t1, c1, d1;
 	short i=0;
 
 nextitem:
 	if (i >= nvars) return 0;
 
 	c1=mem[b--];
+	d1=mem[b--];
 	t1=mem[b--];
 
 	if (t1 == STRINGVAR || t1 == ARRAYVAR) {
@@ -631,10 +637,8 @@ nextitem:
 }
 
 unsigned short blength (char t, char c, char d) {
-
 	if (! bfind(t, c, d)) return 0;
 	return z.i;
-
 }
 
 
@@ -643,24 +647,46 @@ void createvar(char c, char d){
 }
 
 short getvar(char c, char d){
+	unsigned short a;
+
 	if (DEBUG) { outsc("getvar "); outch(c); outch(d); outspc(); outnumber(vars[c-65]); outcr(); }
-	if (c >= 65 && c<=91)
-		return vars[c-65];
-	error(EVARIABLE);
-	return 0;
+
+	if (c >= 65 && c<=91 && d == 0)
+			return vars[c-65];
+
+	a=bfind(VARIABLE, c, d);
+	if ( a == 0) {
+		a=bmalloc(VARIABLE, c, d, 0);
+		if (er != 0) return 0;
+	} 
+
+	return getshort(a);
+
 }
 
 void setvar(char c, char d, short v){
+	unsigned short a;
+
 	if (DEBUG) { outsc("setvar "); outch(c); outch(d); outspc(); outnumber(v); outcr(); }
-	if (c >= 65 && c<=91)
+	if (c >= 65 && c<=91 && d == 0) {
 		vars[c-65]=v;
-	else 
-		error(EVARIABLE);
+		return;
+	}
+
+	a=bfind(VARIABLE, c, d);
+	if ( a == 0) {
+		a=bmalloc(VARIABLE, c, d, 0);
+		if (er != 0) return;
+	} 
+
+	setshort(a, v);
 }
 
 
 void clrvars() {
 	for (char i=0; i<VARSIZE; i++) vars[i]=0;
+	nvars=0;
+	himem=MEMSIZE-1;
 }
 
 short getshort(short m){
@@ -679,7 +705,7 @@ void setshort(short m, short v){
 void createarry(char c, char d, short i) {
 
 	if (bfind(ARRAYVAR, c, d)) { error(EVARIABLE); return; }
-	bmalloc(ARRAYVAR, c, d, i);
+	(void) bmalloc(ARRAYVAR, c, d, i);
 	if (er != 0) return;
 	if (DEBUG) { outsc("Created array "); outch(c); outspc(); outnumber(nvars); outcr(); }
 
@@ -771,7 +797,7 @@ void setarray(char c, char d, short i, short v){
 void createstring(char c, short i) {
 
 	if (bfind(STRINGVAR, c, '$')) { error(EVARIABLE); return; }
-	bmalloc(STRINGVAR, c, '$', i+1);
+	(void) bmalloc(STRINGVAR, c, '$', i+1);
 	if (er != 0) return;
 	if (DEBUG) { outsc("Created string "); outch(c); outspc(); outnumber(nvars); outcr(); }
 }
@@ -2427,14 +2453,12 @@ void expression(){
 	if (DEBUG) debug(" leaving exp"); 
 }
 
-
 /* 
 
 	The commands and their helpers
 		termsymbol and two argument parsers
    
 */
-
 
 /*
    print 
