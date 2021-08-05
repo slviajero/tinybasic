@@ -33,19 +33,25 @@
 #undef ARDUINOPROGMEM
 #endif
 
-// ARDUINO extensions
-#define ARDUINOLCD
-#define ARDUINOEEPROM
+/* 
+	SMALLness - Memory footprint of extensions
+	          FLASH	    RAM
+	EEPROM    834  		0
+	FOR       804  		34
+	LCD       712  		37
+	FUNCTIONS 176  		0
+	GOSUB     144  		10
+	DUMP 	  130  		0
+	PICO     -504 	-179
+*/ 
 
-// SMALLness 
-// GOSUB costs 100 bytes of program memory
-// FORNEXTSTEP costs 850 bytes on an ARDUINO UNO
-// FUNCTIONS SQR and RND cost 166 bytes
+#undef ARDUINOLCD
+#define ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASFUNCTIONS
 #define HASDUMP
-#define  USESPICOSERIAL
+#define USESPICOSERIAL
 
 
 #ifdef ARDUINO
@@ -336,6 +342,8 @@ LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
 	here2 and here3 are aux variable to make walking through
 	lines more efficient.
 
+	nvars is the number of vars the interpreter has stored.
+
 	rd is the random number storage.
 
 	od is the output model for an arduino
@@ -354,7 +362,7 @@ static char sbuffer[SBUFSIZE];
 static short vars[VARSIZE];
 
 static signed char mem[MEMSIZE];
-static unsigned short himem = MEMSIZE;
+static unsigned short himem = MEMSIZE-1;
 
 #ifdef HASFORNEXT
 static struct {char varx; char vary; short here; short to; short step;} forstack[FORDEPTH];
@@ -381,6 +389,8 @@ static signed char st;
 static unsigned short here, here2, here3; 
 static unsigned short top;
 
+static unsigned short nvars = 0; 
+
 #ifdef HASFUNCTIONS
 static unsigned int rd;
 #endif
@@ -394,23 +404,28 @@ struct termios initialstate, newstate;
 
 /* 
 	Layer 0 functions 
-*/
 
-// variable handling - interface between memory 
-// and variable storage
+	variable handling - interface between memory 
+ 	and variable storage
+
+*/
+void  clrvars();
+
+void  createvar(char, char);
 short getvar(char, char);
-void setvar(char, char, short);
-char varname(char);
-void createvar(char);
-void delvar(char);
-void clrvars();
+void  setvar(char, char, short);
+
+void  createarry(char, char, short);
 short getarray(char, char, short);
-void setarray(char, char, short, short);
+void  setarray(char, char, short, short);
+
+void  createstring(char, short);
 char* getstring(char, short);
-void setstring(char, short, char *, short);
-void parsesubstring();
+void  setstring(char, short, char *, short);
+
+void  parsesubstring();
 short parsesubscripts();
-void parsenarguments(char);
+void  parsenarguments(char);
 short parsearguments();
 
 // error handling
@@ -434,7 +449,6 @@ short fre(short);
 short peek(short);
 short xabs(short);
 short xsgn(short);
-
 
 // input output
 void picogetchar(int);
@@ -487,7 +501,6 @@ void expression();
 	use the global variables 
 */
 
-
 // basic commands of the core language set
 void xprint();
 void assignment();
@@ -498,7 +511,6 @@ void xrem();
 void xpoke();
 void xget();
 void xset();
-
 
 // optional FOR NEXT loops
 #ifdef HASFORNEXT
@@ -524,7 +536,6 @@ void xpinm();
 void xdelay();
 short dread(short);
 short aread(short);
-
 
 // control commands 
 void xclr();
@@ -553,6 +564,84 @@ void statement();
 	the code.
  */
 
+
+void bmalloc(char t, char c, char d, short l) {
+
+	unsigned short vsize;     // the length of the header
+	unsigned short b;
+
+	// how much space is needed
+	if ( t == VARIABLE ) vsize=2+2; 	
+	else if ( t == ARRAYVAR ) vsize=2*l+2+2;
+	else if ( t == STRINGVAR ) vsize=l+2+2;
+	else { error(EUNKNOWN); return; }
+	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return;}
+
+	// here we would create the hash, currently simplified
+	// the hash is the first digit of the variable plus the token
+
+	// write the header
+	b=himem;
+	mem[b--]=c;
+	mem[b--]=t;
+
+	// for strings and arrays write the length
+	if (t == ARRAYVAR || t == STRINGVAR) {
+		z.i=vsize-4;
+		mem[b--]=z.b.h;
+		mem[b--]=z.b.l;
+	}
+
+	// reserve space for the payload
+	himem-=vsize;
+	nvars++;
+
+}
+
+
+// bfind passes back the location of the object as result
+// the length of the object is in z.i as a side effect 
+
+unsigned short bfind(char t, char c, char d) {
+
+	short unsigned b = MEMSIZE-1;
+	char t1, c1;
+	short i=0;
+
+nextitem:
+	if (i >= nvars) return 0;
+
+	c1=mem[b--];
+	t1=mem[b--];
+
+	if (t1 == STRINGVAR || t1 == ARRAYVAR) {
+		z.b.h=mem[b--];
+		z.b.l=mem[b--];
+	} else 
+		z.i=2; 
+
+	b-=z.i;
+
+	if (c1 == c && t1 == t) {
+		return b+1;
+	}
+
+	i++;
+	goto nextitem;
+}
+
+unsigned short blength (char t, char c, char d) {
+
+	if (! bfind(t, c, d)) return 0;
+	return z.i;
+
+}
+
+
+void createvar(char c, char d){
+	return;
+}
+
 short getvar(char c, char d){
 	if (DEBUG) { outsc("getvar "); outch(c); outch(d); outspc(); outnumber(vars[c-65]); outcr(); }
 	if (c >= 65 && c<=91)
@@ -569,17 +658,6 @@ void setvar(char c, char d, short v){
 		error(EVARIABLE);
 }
 
-char varname(char c){
-	return c;
-}
-
-void createvar(char c){
-	return;
-}
-
-void delvar(char c){
-	return;
-}
 
 void clrvars() {
 	for (char i=0; i<VARSIZE; i++) vars[i]=0;
@@ -598,19 +676,62 @@ void setshort(short m, short v){
 }
 
 
+void createarry(char c, char d, short i) {
+
+	if (bfind(ARRAYVAR, c, d)) { error(EVARIABLE); return; }
+	bmalloc(ARRAYVAR, c, d, i);
+	if (er != 0) return;
+	if (DEBUG) { outsc("Created array "); outch(c); outspc(); outnumber(nvars); outcr(); }
+
+}
+
+
 short getarray(char c, char d, short i){
 
-	// currently only Dr. Wang's @ array implemented 
+	unsigned short a;
+
+	// Dr. Wang's famous rest of memory array
 	if (c == '@') {
 		if ( i > 0 && i < (himem-top)/2 )
 			return getshort(himem-2*i);
-		else 
+		else {
 			error(ERANGE);
+			return 0;
+		}
 	}
-	return 0;
+
+	// the EEPROM array in the same style;
+#ifdef ARDUINOEEPROM
+	if (c == '&') {
+		if ( i > 0 && i < EEPROM.length()/2  ) {
+			z.b.h=EEPROM.read(EEPROM.length() - (i-1)*2);
+			z.b.l=EEPROM.read(EEPROM.length() - (i-1)*2 + 1);
+			return z.i;		
+		} else {
+			error(ERANGE);
+			return 0;	
+		}
+	}
+#endif
+
+	// dynamically allocated arrays
+	a=bfind(ARRAYVAR, c, d);
+	if (a == 0) {
+		error(EVARIABLE);
+		return 0;
+	}
+
+	if ( (i < 1) || (i > z.i/2) ) {
+		error(ERANGE); return 0;
+	}
+
+	a=a+(i-1)*2;
+	return getshort(a);
 }
 
 void setarray(char c, char d, short i, short v){
+
+	unsigned short a;
 
 	// currently only Dr. Wang's @ array implemented 
 	if (c == '@') {
@@ -619,50 +740,137 @@ void setarray(char c, char d, short i, short v){
 		else
 			error(ERANGE);
 	}
+
+	// Dr. Wang's EEPROM analogon
+#ifdef ARDUINOEEPROM
+	if (c == '&') {
+		if ( i > 0 && i < EEPROM.length()/2 ) {
+			z.i=v;
+			EEPROM.update(EEPROM.length() - (i-1)*2, z.b.h);
+			EEPROM.update(EEPROM.length() - (i-1)*2 + 1, z.b.l);		
+		} else
+			error(ERANGE);
+	}
+#endif
+
+	// dynamically allocated arrays
+	a=bfind(ARRAYVAR, c, d);
+	if (a == 0) {
+		error(EVARIABLE);
+		return;
+	}
+
+	if ( (i < 1) || (i > z.i/2) ) {
+		error(ERANGE); return;
+	}
+
+	a=a+(i-1)*2;
+	setshort(a, v);
+}
+
+void createstring(char c, short i) {
+
+	if (bfind(STRINGVAR, c, '$')) { error(EVARIABLE); return; }
+	bmalloc(STRINGVAR, c, '$', i+1);
+	if (er != 0) return;
+	if (DEBUG) { outsc("Created string "); outch(c); outspc(); outnumber(nvars); outcr(); }
 }
 
 
-char* getstring(char c, short b) {
-	
+char* getstring(char c, short b) {	
+
+	unsigned short a;
+
+	// direct access to the input buffer
 	if ( c == '@' )
 			return ibuffer+b;
-	return ibuffer+b;
+
+	// dynamically allocated strings
+	a=bfind(STRINGVAR, c, '$');
+	if (er != 0) return 0;
+	if (a == 0) {
+		error(EVARIABLE);
+		return 0;
+	}
+
+	if ( (b < 1) || (b > z.i) ) {
+		error(ERANGE); return 0;
+	}
+
+	// outsc("a ="); outnumber(a); outcr();
+	// outsc("b ="); outnumber(b); outcr();
+	// x=mem[a]-b+1;
+	// outsc("x ="); outnumber(x); outcr();
+	a=a+b;
+	return (char *)&mem[a];
 }
 
 
 // test code based on static strings 
 short arraydim(char c) {
-
-		if (c == '@')
-			return (himem-top)/2;
-		return 0;
+	if (c == '@')
+		return (himem-top)/2;
+	return blength(ARRAYVAR, c, '$')/2;
 }
 
 short stringdim(char c) {
-
-		if (c == '@')
-			return BUFSIZE-1;
-		return 0;
+	if (c == '@')
+		return BUFSIZE-1;
+	return blength(STRINGVAR, c, '$')-1;
 }
 
 short lenstring(char c){
-
+	char* b;
 	if (c == '@')
 		return ibuffer[0];
-	return ibuffer[0];
+	
+	b=getstring(c, 1);
+	if (er != 0) return 0;
+	return b[-1];
 }
 
 void setstringlength(char c, short l) {
 
-	if (c == '@')
+	unsigned short a; 
+
+	if (c == '@') {
 		*ibuffer=l;
+		return;
+	}
+
+	a=bfind(STRINGVAR, c, '$');
+	if (er != 0) return;
+	if (a == 0) {
+		error(EVARIABLE);
+		return;
+	}
+
+	if (l < z.i-1)
+		mem[a]=l;
+	else
+		error(ERANGE);
+
 }
 
 void setstring(char c, short w, char* s, short n) {
 	char *b;
+	unsigned short a;
 
-	if ( c == '@')
+
+	if ( c == '@') {
 		b=ibuffer;
+	} else {
+		a=bfind(STRINGVAR, c, '$');
+		if (er != 0) return;
+		if (a == 0) {
+			error(EVARIABLE);
+			return;
+		}
+
+		b=(char *)&mem[a+1];
+
+	}
+
 	if ( (w+n-1) <= stringdim(c) ) {
 		for (int i=0; i<n; i++) { b[i+w]=s[i]; } 
 		b[0]=w+n-1; 	
@@ -670,7 +878,6 @@ void setstring(char c, short w, char* s, short n) {
 	else 
 		error(ERANGE);
 }
-
 
 /* 
 	Layer 0 - keyword handling - PROGMEM logic goes here
@@ -761,6 +968,13 @@ void debugn(signed char t){
 
 void resetinterpreter(){ // the general cleanup function
 	clearst();
+	himem=MEMSIZE-1;
+	top=0;
+	zeroblock(top,himem);
+	reseterror();
+	st=SINT;
+	thisline=0;
+	nvars=0;
 #ifdef HASGOSUB
 	gosubsp=0;
 #endif
@@ -1193,6 +1407,15 @@ void nexttoken() {
 		return;
 	}
 
+#ifdef ARDUINOEEPROM 
+	if (*bi == '&') {
+		token=ARRAYVAR;
+		xc=*bi++;
+		if (DEBUG) debugtoken();
+		return;
+	}
+#endif
+
 	// relations
 	// single character relations are their own token
 	// >=, =<, =<, =>, <> ore tokenized
@@ -1391,6 +1614,7 @@ void dumpmem(int r) {
 	}
 #endif
 	outnumber(top); outcr();
+	outnumber(himem); outcr();
 }
 #endif
 
@@ -1401,8 +1625,11 @@ void storetoken() {
 		case LINENUMBER:
 			if ( nomemory(3) ) goto memoryerror;
 			mem[top++]=token;	
-			mem[top++]=x%256;
-			mem[top++]=x/256;
+			z.i=x;
+			mem[top++]=z.b.l;
+			mem[top++]=z.b.h;
+			// mem[top++]=x%256;
+			// mem[top++]=x/256;
 			return;
 		case ARRAYVAR:
 		case VARIABLE:
@@ -1453,8 +1680,11 @@ void gettoken() {
 	switch (token) {
 		case NUMBER:
 		case LINENUMBER:		
-			x=(unsigned char)memread(here++);
-			x+=memread(here++)*256; 
+			// x=(unsigned char)memread(here++);
+			// x+=memread(here++)*256; 
+			z.b.l=memread(here++);
+			z.b.h=memread(here++);
+			x=z.i;
 			break;
 		case ARRAYVAR:
 		case VARIABLE:
@@ -2370,44 +2600,6 @@ void assignment() {
 
 		setstringlength(xcl, i+lensource-1);
 	} 
-
-
-/*
-void processstring(char c1, short w1, char c2, short w2, short n){
-	char *b1, *b2;
-	b1=getstring(c1, w1);
-	b2=getstring(c2, w2);
-	if ((w1+n-1) <= stringdim(c1)) {
-		if (w1 <= w2) 
-			for (int i=0; i<n; i++) { b1[i]=b2[i]; }
-		else
-			for (int i=n-1; i>=0; i--) b1[i]=b2[i];  
-		setstringlength(c1, w1+n-1);
-	} else 
-		error(ERANGE);
-}
-*/
-
-
-
-/*
-		if (token == STRING) {
-			setstring(xcl, i, ir,  x);
-		} else if (token == STRINGVAR) {
-			push(xc);
-			parsesubstring();
-			if (er != 0) return;
-			e=pop();
-			b=pop();		
-			xc=pop();
-			processstring(xcl, i , xc, b, e-b+1);
-		} else {
-			error(EUNKNOWN);
-			return;
-		}
-*/
-
-
 	nexttoken();
 
 }
@@ -2510,7 +2702,7 @@ nextvariable:
 	if (token == STRINGVAR) {
 		ir=getstring(xc, 1); 
 		outsc("? ");
-		ins(ir-1, 20);  // only text code - here we needed the maximum length
+		ins(ir-1, stringdim(xc));
  	}
 
 	nexttoken();
@@ -2829,12 +3021,7 @@ void xrun(){
 }
 
 void xnew(){
-	top=0;
-	zeroblock(0,himem);
 	resetinterpreter();
-	reseterror();
-	st=SINT;
-	thisline=0;
 }
 
 /* 
@@ -2952,7 +3139,34 @@ void xset(){
 // the dimensioning of arrays and strings from Apple 1 BASIC
 
 void xdim(){
+	char args, t; 
 
+	if (DEBUG) debugn(TDIM); 
+	nexttoken();
+
+nextvariable:
+	if (token == ARRAYVAR || token == STRINGVAR ){
+		
+		t=token;
+		nexttoken();
+
+		args=parsesubscripts();
+		if (er != 0) return;
+		if (args != 1) {error(EARGS); return; }
+		x=pop();
+		if (x<=0) {error(ERANGE); return; }
+		if (t == STRINGVAR) {
+			createstring(xc, x);
+		} else {
+			createarry(xc, yc, x);
+		}	
+	}
+
+	if (token == ',') {
+		nexttoken();
+		goto nextvariable;
+	}
+	nexttoken();
 }
 
 // the TAB spaces command of Apple 1 BASIC
@@ -3052,7 +3266,7 @@ void statement(){
 				break;
 #ifdef HASDUMP
 			case TDUMP:
-				dumpmem(5);
+				dumpmem(8);
 				nexttoken();
 				break;
 #endif
