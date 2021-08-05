@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.56 2021/08/04 06:04:25 stefan Exp stefan $
+// $Id: basic.c,v 1.57 2021/08/05 05:23:07 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -34,7 +34,7 @@
 #endif
 
 // ARDUINO extensions
-#undef ARDUINOLCD
+#define ARDUINOLCD
 #define ARDUINOEEPROM
 
 // SMALLness 
@@ -671,19 +671,6 @@ void setstring(char c, short w, char* s, short n) {
 		error(ERANGE);
 }
 
-void processstring(char c1, short w1, char c2, short w2, short n){
-	char *b1, *b2;
-	b1=getstring(c1, w1);
-	b2=getstring(c2, w2);
-	if ((w1+n-1) <= stringdim(c1)) {
-		if (w1 <= w2) 
-			for (int i=0; i<n; i++) { b1[i]=b2[i]; }
-		else
-			for (int i=n-1; i>=0; i--) b1[i]=b2[i];  
-		setstringlength(c1, w1+n-1);
-	} else 
-		error(ERANGE);
-}
 
 /* 
 	Layer 0 - keyword handling - PROGMEM logic goes here
@@ -1961,6 +1948,7 @@ void stringvalue() {
 		x=pop();
 		ir2=getstring(xcl, x);
 		push(y-x+1);
+		xc=xcl;
 	} else {
 		error(EUNKNOWN);
 		return;
@@ -2292,9 +2280,9 @@ void assignment() {
 	if (DEBUG) debugn(TLET); 
 	char t=token;  // remember the left hand side token until the end of the statement
 	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
-	short i=1;     // and also remember the index we are dealing with
 	char xcl, ycl; // to preserve the left hand side variable names
-	short b, e;
+	char i=1;      // and the beginning of the destination string  
+	short lensource;
 	short args;
 
 	// this code evaluates the left hand side
@@ -2333,8 +2321,18 @@ void assignment() {
 					return;
 			}
 	}
+
+
+	if (token != '=') {
+		error(EUNKNOWN);
+		return;
+	}
+
+
 	// here comes the code for the right hand side
-	if ( token == '=' && t != STRINGVAR) {
+
+
+	if (t != STRINGVAR) {
 		nexttoken();
 		expression();
 		if (er != 0 ) return;
@@ -2349,8 +2347,50 @@ void assignment() {
 				setarray(xcl, ycl, i, x);
 				break;
 		}		
-	} else if (token == '=' && t == STRINGVAR) {
+	} else if (t == STRINGVAR) {
 		nexttoken();
+		stringvalue(); 
+		// stringvalue is a nasty function with many side effects
+		// in ir2 and pop() we have the the adress and length of the source string, 
+		// xc is the name, y contains the end and x the beginning index 
+
+		lensource=pop();
+		if ((lenstring(xcl)+lensource-1) > stringdim(xcl)) { error(ERANGE); return; }
+
+		// the destination adress
+		ir=getstring(xcl, i);
+
+		// this code is needed to make sure we can copy one string to the same string 
+		// without overwriting stuff, we go either left to right or backwards
+
+		if (x > i) 
+			for (int j=0; j<lensource; j++) { ir[j]=ir2[j];}
+		else
+			for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
+
+		setstringlength(xcl, i+lensource-1);
+	} 
+
+
+/*
+void processstring(char c1, short w1, char c2, short w2, short n){
+	char *b1, *b2;
+	b1=getstring(c1, w1);
+	b2=getstring(c2, w2);
+	if ((w1+n-1) <= stringdim(c1)) {
+		if (w1 <= w2) 
+			for (int i=0; i<n; i++) { b1[i]=b2[i]; }
+		else
+			for (int i=n-1; i>=0; i--) b1[i]=b2[i];  
+		setstringlength(c1, w1+n-1);
+	} else 
+		error(ERANGE);
+}
+*/
+
+
+
+/*
 		if (token == STRING) {
 			setstring(xcl, i, ir,  x);
 		} else if (token == STRINGVAR) {
@@ -2365,11 +2405,11 @@ void assignment() {
 			error(EUNKNOWN);
 			return;
 		}
-		nexttoken();
-	} else {
-		error(EUNKNOWN);
-		return;
-	}
+*/
+
+
+	nexttoken();
+
 }
 
 void xgoto() {
