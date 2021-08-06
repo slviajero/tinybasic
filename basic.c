@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.60 2021/08/06 09:03:04 stefan Exp stefan $
+// $Id: basic.c,v 1.61 2021/08/06 18:34:11 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -39,7 +39,6 @@
 	EEPROM    834  		0
 	FOR       804  		34
 	LCD       712  		37
-	FUNCTIONS 176  		0
 	GOSUB     144  		10
 	DUMP 	  130  		0
 	PICO     -504 	-179
@@ -49,7 +48,6 @@
 #undef ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
-#define HASFUNCTIONS
 #define HASDUMP
 #undef USESPICOSERIAL
 
@@ -80,7 +78,7 @@
 
 #define BUFSIZE 	72
 #define SBUFSIZE	9
-#define MEMSIZE  	512
+#define MEMSIZE  	1024
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -105,75 +103,71 @@
 #define VARIABLE 	 -124
 #define STRINGVAR 	 -123
 #define ARRAYVAR     -122
+// multi character tokens - BASEKEYWORD (3)
 #define GREATEREQUAL -121
 #define LESSEREQUAL  -120
 #define NOTEQUAL	 -119
-#define TIF     -118
-#define TTO     -117
-#define TNEW    -116
-#define TRUN    -115
-#define TLET    -114
-#define TFOR    -113
-#define TEND    -112
-#define TTHEN   -111
-#define TGOTO   -110
-#define TCONT   -109
+// this is the Palo ALto Language Set (19)
+#define TPRINT  -118
+#define TLET    -117
+#define TINPUT  -116
+#define TGOTO   -115
+#define TGOSUB  -114
+#define TRETURN -113
+#define TIF     -112
+#define TFOR    -111
+#define TTO     -110
+#define TSTEP   -109
 #define TNEXT   -108
-#define TSTEP   -107
-#define TPRINT  -106
-#define TINPUT  -105
-#define TGOSUB  -104
-#define TRETURN -103
-#define TLIST	-102
-#define TCLR	-101
-#define TNOT    -100
-#define TAND	-99
-#define TOR  	-98
-#define TABS 	-97
-#define TRND	-96
+#define TSTOP    -107
+#define TLIST	-106
+#define TNEW    -105
+#define TRUN    -104
+#define TABS 	-103
+#define TRND	-102
+#define TSIZE   -101
+#define TREM 	-100
+// this is the Apple 1 language set in addition to Palo Alto (15)
+#define TNOT    -99
+#define TAND	-98
+#define TOR  	-97
+#define TLEN    -96
 #define TSGN	-95	
 #define TPEEK	-94
-#define TSQR	-93
-#define TFRE	-92
-#define TDUMP 	-91
-#define TBREAK  -90
-#define TSAVE   -89
-#define TLOAD   -88
-#define TREM 	-87
-#define TPINM	-86
-#define TDWRITE	-85
-#define TDREAD	-84
-#define TAWRITE	-83
-#define TAREAD  -82
-#define TDELAY  -81
-#define TPOKE	-80
-#define TGET    -79
-#define TSET    -78
-#define TDIM	-77
-#define TLEN    -76
-#define TTAB 	-75
+#define TDIM	-93
+#define TCLR	-92
+#define TSCR    -91
+#define TLOMEM  -90
+#define THIMEM  -89 
+#define TTAB 	-88
+#define TTHEN   -87
+#define TEND    -86
+#define TPOKE	-85
+// Stefan's tinybasic additions (9)
+#define TCONT   -84
+#define TSQR	-83
+#define TFRE	-82
+#define TDUMP 	-81
+#define TBREAK  -80
+#define TSAVE   -79
+#define TLOAD   -78
+#define TGET    -77
+#define TSET    -76
+// Arduino functions (6)
+#define TPINM	-75
+#define TDWRITE	-74
+#define TDREAD	-73
+#define TAWRITE	-72
+#define TAREAD  -71
+#define TDELAY  -70
+// currently unused constants
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
 
-// the messages and errors
-#define MREADY       0
-#define EGENERAL 	 1
-#define EOUTOFMEMORY 2
-#define ESTACK 		 3
-#define ELINE        4
-#define EUNKNOWN	 5
-#define EVARIABLE	 6
-#define EDIVIDE		 7
-#define ERANGE 		 8
-#define EFILE 		 9
-#define EFUN 		 10
-#define EARGS		 11
-#define EEEPROM		 12
-
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	47
+#define NKEYWORDS	3+19+15+9+6 
 #define BASEKEYWORD -121
 
 /*
@@ -204,60 +198,78 @@
 const char sge[]   PROGMEM = "=>";
 const char sle[]   PROGMEM = "<=";
 const char sne[]   PROGMEM = "<>";
-const char sif[]   PROGMEM = "IF";
-const char sto[]   PROGMEM = "TO";
-const char snew[]  PROGMEM = "NEW";
-const char srun[]  PROGMEM = "RUN";
-const char slet[]  PROGMEM = "LET";
-const char sfor[]  PROGMEM = "FOR";
-const char send[]  PROGMEM = "END";
-const char sthen[] PROGMEM = "THEN";
-const char sgoto[] PROGMEM = "GOTO";
-const char scont[] PROGMEM = "CONT";
-const char snext[] PROGMEM = "NEXT";
-const char sstep[]   PROGMEM = "STEP";
+// Palo Alto language set
 const char sprint[]  PROGMEM = "PRINT";
+const char slet[]    PROGMEM = "LET";
 const char sinput[]  PROGMEM = "INPUT";
+const char sgoto[]   PROGMEM = "GOTO";
 const char sgosub[]  PROGMEM = "GOSUB";
 const char sreturn[] PROGMEM = "RETURN";
+const char sif[]     PROGMEM = "IF";
+const char sfor[]    PROGMEM = "FOR";
+const char sto[]     PROGMEM = "TO";
+const char sstep[]   PROGMEM = "STEP";
+const char snext[]   PROGMEM = "NEXT";
+const char sstop[]   PROGMEM = "STOP";
 const char slist[]   PROGMEM = "LIST";
-const char sclr[]    PROGMEM = "CLR";
+const char snew[]    PROGMEM = "NEW";
+const char srun[]  	 PROGMEM = "RUN";
+const char sabs[]    PROGMEM = "ABS";
+const char srnd[]    PROGMEM = "RND";
+const char ssize[]   PROGMEM = "SIZE";
+const char srem[]    PROGMEM = "REM";
+// Apple 1 language set
 const char snot[]    PROGMEM = "NOT";
 const char sand[]    PROGMEM = "AND";
 const char sor[]     PROGMEM = "OR";
-const char sabs[]    PROGMEM = "ABS";
-const char srnd[]    PROGMEM = "RND";
+const char slen[]    PROGMEM = "LEN";
 const char ssgn[]    PROGMEM = "SGN";
 const char speek[]   PROGMEM = "PEEK";
+const char sdim[]    PROGMEM = "DIM";
+const char sclr[]    PROGMEM = "CLR";
+const char sscr[]    PROGMEM = "SCR";
+const char slomem[]  PROGMEM = "LOMEM";
+const char shimem[]  PROGMEM = "HIMEM";
+const char stab[]    PROGMEM = "TAB";
+const char sthen[]   PROGMEM = "THEN";
+const char send[]    PROGMEM = "END";
+const char spoke[]   PROGMEM = "POKE";
+// Stefan's tinybasic additions
+const char scont[]   PROGMEM = "CONT";
 const char ssqr[]    PROGMEM = "SQR";
 const char sfre[]    PROGMEM = "FRE";
 const char sdump[]   PROGMEM = "DUMP";
 const char sbreak[]  PROGMEM = "BREAK";
 const char ssave[]   PROGMEM = "SAVE";
 const char sload[]   PROGMEM = "LOAD";
-const char srem[]    PROGMEM = "REM";
+const char sget[]    PROGMEM = "GET";
+const char sset[]    PROGMEM = "SET";
+// Arduino functions
 const char spinm[]   PROGMEM = "PINM";
 const char sdwrite[] PROGMEM = "DWRITE";
 const char sdread[]  PROGMEM = "DREAD";
 const char sawrite[] PROGMEM = "AWRITE";
 const char saread[]  PROGMEM = "AREAD";
 const char sdelay[]  PROGMEM = "DELAY";
-const char spoke[]   PROGMEM = "POKE";
-const char sget[]    PROGMEM = "GET";
-const char sset[]    PROGMEM = "SET";
-const char sdim[]    PROGMEM = "DIM";
-const char slen[]    PROGMEM = "LEN";
-const char stab[]    PROGMEM = "TAB";
+
 
 const char* const keyword[] PROGMEM = {
-	sge, sle, sne, sif, sto, snew, srun, slet,
- 	sfor, send, sthen, sgoto, scont, snext,
- 	sstep, sprint, sinput, sgosub, sreturn,
- 	slist, sclr, snot, sand, sor, sabs, srnd,
- 	ssgn, speek, ssqr, sfre, sdump, sbreak,
- 	ssave, sload, srem, spinm, sdwrite, sdread,
-    sawrite, saread, sdelay, spoke, sget, sset,
-    sdim, slen, stab
+// Palo Alto BASIC
+	sge, sle, sne, sprint, slet, sinput, 
+	sgoto, sgosub, sreturn, sif, sfor, sto,
+	sstep, snext, sstop, slist, snew, srun,
+	sabs, srnd, ssize, srem,
+// Apple 1 BASIC additions
+	snot, sand, sor, slen, ssgn, speek, sdim,
+	sclr, sscr, slomem, shimem, stab, sthen, 
+	send, spoke,
+// Stefan's additions
+	scont, ssqr, sfre, sdump, sbreak, ssave,
+	sload, sget, sset, 
+// Arduino stuff
+    spinm, sdwrite, sdread, sawrite, saread, 
+    sdelay, 
+// the end 
 };
 
 /*
@@ -266,37 +278,57 @@ const char* const keyword[] PROGMEM = {
 
 // the messages and errors
 #define MREADY       0
-#define EGENERAL 	 1
-#define EOUTOFMEMORY 2
-#define ESTACK 		 3
-#define ELINE        4
-#define EUNKNOWN	 5
-#define EVARIABLE	 6
-#define EDIVIDE		 7
-#define ERANGE 		 8
-#define EFILE 		 9
-#define EFUN 		 10
-#define EARGS		 11
-#define EEEPROM		 12
+#define MPROMPT      1
+#define MGREET 		 2
+#define EGENERAL 	 3
+#define EUNKNOWN	 4
+#define ENUMBER      5 
+#define EDIVIDE		 6
+#define ELINE        7
+#define ERETURN      8
+#define ENEXT        9
+#define EGOSUB       10 
+#define EFOR         11
+#define EOUTOFMEMORY 12
+#define ESTACK 		 13
+#define EDIM         14
+#define ERANGE 		 15
+#define ESTRING      16
+#define EVARIABLE	 17
+#define EFILE 		 18
+#define EFUN 		 19
+#define EARGS		 20
+#define EEEPROM		 21
 
 const char mready[]    	PROGMEM = "Ready";
+const char mprompt[]	PROGMEM = "] ";
+const char mgreet[]		PROGMEM = "Stefan's tinybasic version 1.0";
 const char egeneral[]  	PROGMEM = "Error";
+const char eunknown[]  	PROGMEM = "Syntax";
+const char enumber[]	PROGMEM = "Number Range";
+const char edivide[]  	PROGMEM = "Division by Zero";
+const char eline[]  	PROGMEM = "Unknown Line";
+const char ereturn[]    PROGMEM = "Return";
+const char enext[]		PROGMEM = "Next";
+const char egosub[] 	PROGMEM = "Too many GOSUB";
+const char efor[]		PROGMEM = "Too many FOR";
 const char emem[]  	   	PROGMEM = "Memory";
 const char estack[]    	PROGMEM = "Stack";
-const char eline[]  	PROGMEM = "Line";
-const char eunknown[]  	PROGMEM = "Syntax";
-const char evariable[]  PROGMEM = "Variable";
-const char edivide[]  	PROGMEM = "Divide";
+const char edim[]		PROGMEM = "DIM";
 const char erange[]  	PROGMEM = "Range";
+const char estring[]	PROGMEM = "String";
+const char evariable[]  PROGMEM = "Variable";
 const char efile[]  	PROGMEM = "File";
 const char efun[] 	 	PROGMEM = "Function";
 const char eargs[]  	PROGMEM = "Args";
 const char eeeprom[]	PROGMEM = "EEPROM";
 
 const char* const message[] PROGMEM = {
-	mready, egeneral, emem, estack, eline,
-	eunknown, evariable, edivide, erange,
-	efile, efun, eargs, eeeprom
+	mready, mprompt, mgreet,egeneral, eunknown,
+	enumber, edivide, eline, ereturn, enext,
+	egosub, efor, emem, estack, edim, erange,
+	estring, evariable, efile, efun, eargs, 
+	eeeprom
 };
 
 
@@ -395,9 +427,7 @@ static unsigned short nvars = 0;
 
 static char form = 0;
 
-#ifdef HASFUNCTIONS
 static unsigned int rd;
-#endif
 
 static char od;
 
@@ -438,7 +468,6 @@ short parsearguments();
 // error handling
 void error(signed char);
 void reseterror();
-void resetinterpreter();
 
 // stack stuff
 void push(short);
@@ -997,22 +1026,7 @@ void debugn(signed char t){
 }
 #endif
 
-void resetinterpreter(){ // the general cleanup function
-	clearst();
-	himem=MEMSIZE-1;
-	top=0;
-	zeroblock(top,himem);
-	reseterror();
-	st=SINT;
-	thisline=0;
-	nvars=0;
-#ifdef HASGOSUB
-	gosubsp=0;
-#endif
-#ifdef HASFORNEXT
-	forsp=0;
-#endif
-}
+
 
 
 /*
@@ -1092,33 +1106,6 @@ void dropforstack(){
 }
 #endif
 
-#ifdef HASGOSUB
-void pushgosubstack(){
-	if (gosubsp < GOSUBDEPTH) {
-		gosubstack[gosubsp]=here;
-		gosubsp++;	
-	} else 
-		error(ESTACK);
-}
-
-void popgosubstack(){
-	if (gosubsp>0) {
-		gosubsp--;
-	} else {
-		error(ESTACK);
-		return;
-	} 
-	here=gosubstack[gosubsp];
-}
-
-void dropgosubstack(){
-	if (gosubsp>0) {
-		gosubsp--;
-	} else {
-		error(ESTACK);
-	} 
-}
-#endif
 
 /* 
 
@@ -1506,7 +1493,7 @@ void nexttoken() {
 	// isolate a word, bi points to the beginning, x is the length of the word
 	// ir points to the end of the word after isolating
 
-	if (DEBUG) printmessage(EVARIABLE);
+	// if (DEBUG) printmessage(EVARIABLE);
 	x=0;
 	ir=bi;
 	while (-1) {
@@ -1627,68 +1614,6 @@ char nomemory(short b){
 	if (top >= himem-b) return TRUE; else return FALSE;
 }
 
-#ifdef HASDUMP
-void xdump() {
-	if (DEBUG) debugn(TDUMP);
-	nexttoken();
-	y=parsearguments();
-	if (er != 0) return;
-	switch (y) {
-		case 0: 
-			x=0;
-			y=MEMSIZE-1;
-			break;
-		case 1: 
-			x=pop();
-			y=MEMSIZE-1;
-			break;
-		case 2: 
-			y=pop();
-			x=pop();
-			break;
-		default:
-			error(EARGS);
-			return;
-	}
-
-	form=5;
-	dumpmem(y/8+1, x);
-	form=0;
-	nexttoken();
-}
-
-void dumpmem(unsigned short r, unsigned short b) {
-	unsigned short j, i;	
-	unsigned short k=b;
-	i=r;
-	while (i>0) {
-		for (j=0; j<8; j++) {
-			outnumber(mem[k++]); outspc();
-			if (k > MEMSIZE-1) break;
-		}
-		outcr();
-		i--;
-		if (k > MEMSIZE-1) break;
-	}
-#ifdef ARDUINOEEPROM
-	printmessage(EEEPROM); outcr();
-	i=r;
-	k=0;
-	while (i>0) {
-		for (j=0; j<8; j++) {
-			outnumber(EEPROM[k++]); outspc();
-			if (k > EEPROM.length()) break;
-		}
-		outcr();
-		i--;
-		if (k > EEPROM.length()) break;	
-	}
-#endif
-	outsc("top: "); outnumber(top); outcr();
-	outsc("himem: "); outnumber(himem); outcr();
-}
-#endif
-
 void storetoken() {
 	short i=x;
 	switch (token) {
@@ -1747,6 +1672,14 @@ char memread(short i){
 
 
 void gettoken() {
+
+	// if we have reached the end of the program, EOL is always returned
+	// we don't rely on mem having a trailing EOL
+	if (here > top) {
+		token=EOL;
+		return;
+	}
+
 	token=memread(here++);
 	switch (token) {
 		case NUMBER:
@@ -2205,7 +2138,6 @@ short xfre(short x) {
 }
 
 
-#ifdef HASFUNCTIONS
 // very basic random number generator with constant seed.
 short rnd(short r) {
 	rd = (31421*rd + 6927) % 0x10000;
@@ -2232,7 +2164,6 @@ short sqr(short r){
 	} while (abs(t-l)>1);
 	return t;
 }
-#endif
 
 
 void stringvalue() {
@@ -2315,36 +2246,23 @@ void factor(){
 			if (er != 0 ) return;
 			if (token != ')') { error(EARGS); return; }
 			break;
-		case STRING:
-		case STRINGVAR:
-			strcompare();
-			if (er != 0 ) return;
-			break;
+
+// Palo Alto BASIC functions
 		case TABS: 
 			parsefunction(xabs);
 			break;
+		case TRND: 
+			parsefunction(rnd);
+			break;
+		case TSIZE:
+			push(himem-top);
+			break;
+// Apple 1 BASIC functions
 		case TSGN: 
 			parsefunction(xsgn);
 			break;
 		case TPEEK: 
 			parsefunction(peek);
-			break;
-#ifdef HASFUNCTIONS
-		case TRND: 
-			parsefunction(rnd);
-			break;	
-		case TSQR: 
-			parsefunction(sqr);
-			break;
-#endif
-		case TFRE: 
-			parsefunction(xfre);
-			break;
-		case TAREAD: 
-			parsefunction(aread);
-			break;
-		case TDREAD: 
-			parsefunction(dread);
 			break;
 		case TLEN: 
 			nexttoken();
@@ -2359,6 +2277,32 @@ void factor(){
 				error(EARGS);
 				return;	
 			}
+			break;
+		case TLOMEM:
+			push(0);
+			break;
+		case THIMEM:
+			push(himem);
+			break;
+// Apple 1 string compare code
+		case STRING:
+		case STRINGVAR:
+			strcompare();
+			if (er != 0 ) return;
+			break;
+//  Stefan's tinybasic additions
+		case TSQR: 
+			parsefunction(sqr);
+			break;
+		case TFRE: 
+			parsefunction(xfre);
+			break;
+// Arduino I/O
+		case TAREAD: 
+			parsefunction(aread);
+			break;
+		case TDREAD: 
+			parsefunction(dread);
 			break;
 		default:
 			error(EUNKNOWN);
@@ -2499,15 +2443,18 @@ void expression(){
 }
 
 /* 
-
 	The commands and their helpers
-		termsymbol and two argument parsers
-   
+    
+    Palo Alto BASIC languge set - print, let, input, goto, gosub, return,
+    	if, for, to, next, step, (break), stop (end), list, new, run, rem
+    	break is not Palo ALto but fits here, end is identical to stop.
+
 */
 
 /*
    print 
 */ 
+
 void xprint(){
 
 	char semicolon = FALSE;
@@ -2532,7 +2479,7 @@ processsymbol:
 		goto separators;
 	}
 
-	// Palo Alot BASIC formatting stuff
+	// Palo Alto BASIC formatting stuff - tolerant code
 	if (token == '#') {
 		nexttoken();
 		if (token == NUMBER) {
@@ -2543,14 +2490,8 @@ processsymbol:
 
 	if (token != ',' && token != ';' ) {
 		expression();
-		if (er == 0) {
-			outnumber(pop());
-		} else {
-			clearst();
-			er=0;
-			nexttoken();
-			return ;
-		}
+		if (er != 0) return;
+		outnumber(pop());
 	}
 
 separators:
@@ -2565,23 +2506,9 @@ separators:
 	goto processsymbol;
 }
 
-void xget(){
-	if (DEBUG) debugn(TGET); 
-
-	nexttoken();
-	if (token == VARIABLE) {
-		checkch();
-		setvar(xc, yc, inch());
-		nexttoken();
-	} else 
-		error(EUNKNOWN);
-}
-
-
 /* 
-	the assignment code for scalar variables. Once arrays are included the code 
-	becomes a little more complex as we have to evaluate the lefthand side first 
-	to see where we have to store.
+	
+	assigment code for various lefthand and righthand side. 
 
 */
 
@@ -2631,16 +2558,13 @@ void assignment() {
 			}
 	}
 
-
+	// the assignment part
 	if (token != '=') {
 		error(EUNKNOWN);
 		return;
 	}
 
-
 	// here comes the code for the right hand side
-
-
 	if (t != STRINGVAR) {
 		nexttoken();
 		expression();
@@ -2678,58 +2602,16 @@ void assignment() {
 			for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
 
 		setstringlength(xcl, i+lensource-1);
-	} 
-	nexttoken();
 
-}
-
-void xgoto() {
-	if (DEBUG) debugn(TGOTO); 
-	int t=token;
-
-	nexttoken();
-	expression();
-	if (er != 0) return;
-
-#ifdef HASGOSUB
-	if (t == TGOSUB) pushgosubstack();
-#endif
-
-	x=pop();
-	findline(x);
-	if ( er != 0 ) {
-		error(ELINE);
-#ifdef HASGOSUB
-		if (t == TGOSUB) dropgosubstack();
-#endif
-		return;
-	}
-	if (st == SINT) st=SRUN;
-	nexttoken();
-
-}
-
-void xif() {
-	if (DEBUG) debugn(TIF); 
-	nexttoken();
-	expression();
-	if (er != 0 ) return;
-
-	x=pop();
-	if (DEBUG) { outnumber(x); outcr(); } 
-	if (! x) // on condition false skip the entire line
-		do nexttoken();	while (token != LINENUMBER && token !=EOL && here <= top);
-		
-	if (token == TTHEN) {
-		nexttoken();
-		if (token == NUMBER) {
-			findline(x);
-			if (er != 0) return;		
-		}
+		//nexttoken();
 	} 
 }
 
-// input ["string",] variable [,["string",] variable]* 
+/*
+	input ["string",] variable [,["string",] variable]* 
+
+*/
+
 void xinput(){
 	char t;
 	short args;
@@ -2760,6 +2642,7 @@ nextvariable:
 			setvar(xc, yc, x);
 		}
 	} 
+
 	if (token == ARRAYVAR) {
 		nexttoken();
 		args=parsesubscripts();
@@ -2778,6 +2661,7 @@ nextvariable:
 			setarray(xc, yc, pop(), x);
 		}
 	}
+
 	if (token == STRINGVAR) {
 		ir=getstring(xc, 1); 
 		outsc("? ");
@@ -2791,9 +2675,112 @@ nextvariable:
 	}
 }
 
+/*
+
+	goto, gosub, return and its helpers
+
+*/
+
+#ifdef HASGOSUB
+void pushgosubstack(){
+	if (gosubsp < GOSUBDEPTH) {
+		gosubstack[gosubsp]=here;
+		gosubsp++;	
+	} else 
+		error(EGOSUB);
+}
+
+void popgosubstack(){
+	if (gosubsp>0) {
+		gosubsp--;
+	} else {
+		error(ERETURN);
+		return;
+	} 
+	here=gosubstack[gosubsp];
+}
+
+void dropgosubstack(){
+	if (gosubsp>0) {
+		gosubsp--;
+	} else {
+		error(ESTACK);
+	} 
+}
+#endif
+
+void xgoto() {
+	if (DEBUG) debugn(TGOTO); 
+	int t=token;
+
+	nexttoken();
+	expression();
+	if (er != 0) return;
+
+#ifdef HASGOSUB
+	if (t == TGOSUB) pushgosubstack();
+	if (er != 0) return;
+#endif
+
+	x=pop();
+	findline(x);
+	if ( er != 0 ) {
+		error(ELINE);
+#ifdef HASGOSUB
+		if (t == TGOSUB) dropgosubstack();
+#endif
+		return;
+	}
+	if (st == SINT) st=SRUN;
+	nexttoken();
+}
+
+void xreturn(){
+	if (DEBUG) debugn(TRETURN); 
+#ifdef HASGOSUB
+	popgosubstack();
+	if (er != 0) return;
+#endif
+	nexttoken();
+}
+
+
+/* 
+
+	if and then
+
+*/
+
+
+void xif() {
+	if (DEBUG) debugn(TIF); 
+	nexttoken();
+	expression();
+	if (er != 0 ) return;
+
+	x=pop();
+	if (DEBUG) { outnumber(x); outcr(); } 
+	if (! x) // on condition false skip the entire line
+		do nexttoken();	while (token != LINENUMBER && token !=EOL && here <= top);
+		
+	if (token == TTHEN) {
+		nexttoken();
+		if (token == NUMBER) {
+			findline(x);
+			if (er != 0) return;		
+		}
+	} 
+}
+
+/* 
+
+	for, next and the apocryphal break
+
+*/ 
 
 #ifdef HASFORNEXT
-// find the NEXT token
+
+// find the NEXT token or the end of the program
 void findnext(){
 	while (token != TNEXT && here < top) 
 		nexttoken(); 
@@ -2806,6 +2793,7 @@ void findnext(){
 	for stack. Changing steps and boundaries during the execution 
 	of a loop has no effect 
 */
+
 void xfor(){
 	if (DEBUG) debugn(TFOR);
 	nexttoken();
@@ -2836,7 +2824,7 @@ void xfor(){
 	nexttoken();
 	expression();
 	if (er != 0) return;
-	
+
 	if (token == TSTEP) {
 		nexttoken();
 		expression();
@@ -2916,109 +2904,11 @@ void xnext(){
 }
 #endif
 
-#ifdef HASGOSUB
-void xreturn(){
-	if (DEBUG) debugn(TRETURN); 
-	popgosubstack();
-	nexttoken();
-}
-#else
-void xreturn(){
-	nexttoken();
-}
-#endif
-
-void xload() {
-	if (DEBUG) debugn(TLOAD);
-#ifdef ARDUINO
-#ifdef ARDUINOEEPROM
-	x=0;
-	if (EEPROM.read(x) == 0 || EEPROM.read(x) == 1) { // have we stored a program
-		x++;
-		top=(unsigned char) EEPROM.read(x++);
-		top+=((unsigned char) EEPROM.read(x++))*256;
-		while (x < top+EHEADERSIZE){
-			mem[x-EHEADERSIZE]=EEPROM.read(x);
-			x++;
-		}
-	} else { // no valid program data is stored 
-		error(EEEPROM);
-	}
-	nexttoken();
-#else 
-	nexttoken();
-#endif
-#else 
-	fd=fopen("file.bas", "r");
-	if (!fd) {
-		error(EFILE);
-		nexttoken();
-		return;
-	}
-	while (fgets(ibuffer+1, BUFSIZE, fd)) {
-		bi=ibuffer;
-		while(*bi != 0) { if (*bi == '\n') *bi=' '; bi++; };
-		bi=ibuffer;
-		nexttoken();
-		if (token == NUMBER) storeline();
-	}
-	fclose(fd);	
-	fd=0;
-	nexttoken();
-#endif
-}
-
-void xsave() {
-	if (DEBUG) debugn(TSAVE); 
-#ifdef ARDUINO
-#ifdef ARDUINOEEPROM
-	if (top+EHEADERSIZE < EEPROM.length()) {
-		x=0;
-		EEPROM.write(x++, 0); // EEROM per default is 255, 0 indicates that there is a program
-		EEPROM.write(x++, top%256);
-		EEPROM.write(x++, top/256);
-		while (x < top+EHEADERSIZE){
-			EEPROM.update(x, mem[x-EHEADERSIZE]);
-			x++;
-		}
-		EEPROM.write(x++,0);
-		nexttoken();
-	} else {
-		error(EOUTOFMEMORY);
-		er=0;
-		nexttoken();
-		return;
-	}
-#else 
-	nexttoken();
-#endif
-#else 
-	fd=fopen("file.bas", "w");
-	if (!fd) {
-		error(EFILE);
-		nexttoken();
-		return;
-	} 
-	xlist();
-	fclose(fd);
-	fd=0;
-	// no nexttoken here because list has already done this
-#endif
-}
-
-void xrem() {
-	if (DEBUG) debugn(TREM); 
-	while (token != LINENUMBER && token != EOL && here <= top)
-		nexttoken(); 
-}
 /* 
-	control commands LIST, RUN, NEW, CLR
-*/
+	
+	list - this is also used in save
 
-void xclr() {
-	clrvars();
-	nexttoken();
-}
+*/
 
 void outputtoken() {
 	if (token == LINENUMBER) {
@@ -3040,6 +2930,7 @@ void outputtoken() {
 		outch(token); outspc(); outnumber(token);
 	} 
 }
+
 
 void xlist(){
 	short b, e;
@@ -3084,7 +2975,8 @@ void xrun(){
 	if (DEBUG) debugn(TRUN);
 	nexttoken();
 	y=parsearguments();
-	if (er != 0 || y > 1) { error(EARGS); return; }
+	if (er != 0 ) return;
+	if (y > 1) { error(EARGS); return; }
 	if (y == 0 ) 
 		here=0;
 	else 
@@ -3101,47 +2993,100 @@ void xrun(){
 	thisline = 0;
 }
 
-void xnew(){
-	resetinterpreter();
+
+
+void xnew(){ // the general cleanup function
+	clearst();
+	himem=MEMSIZE-1;
+	top=0;
+	zeroblock(top,himem);
+	reseterror();
+	st=SINT;
+	thisline=0;
+	nvars=0;
+#ifdef HASGOSUB
+	gosubsp=0;
+#endif
+#ifdef HASFORNEXT
+	forsp=0;
+#endif
+}
+
+
+void xrem() {
+	if (DEBUG) debugn(TREM); 
+	while (token != LINENUMBER && token != EOL && here <= top)
+		nexttoken(); 
 }
 
 /* 
-	The arduino io functions.
+
+	The Apple 1 BASIC additions
+
 */
 
-void xdwrite(){
-	parsenarguments(2);
-	if (er != 0) return; 
-	x=pop();
-	y=pop();
-	dwrite(y, x);	
-}
 
-void xawrite(){
-	parsenarguments(2);
-	if (er != 0) return; 
-	x=pop();
-	y=pop();
-	awrite(y, x);
-}
+/* 
 
-void xpinm(){
-	parsenarguments(2);
-	if (er != 0) return; 
-	x=pop();
-	y=pop();
-	pinm(y, x);	
-}
+	clearing variable space
 
-void xdelay(){
-	parsenarguments(1);
-	if (er != 0) return;
-	x=pop();
-	delay(x);	
+*/
+
+
+void xclr() {
+	clrvars();
+#ifdef HASGOSUB
+	gosubsp=0;
+#endif
+#ifdef HASFORNEXT
+	forsp=0;
+#endif
+	nexttoken();
 }
 
 /* 
+
+	the dimensioning of arrays and strings from Apple 1 BASIC
+
+*/
+
+
+void xdim(){
+	char args, t; 
+
+	if (DEBUG) debugn(TDIM); 
+	nexttoken();
+
+nextvariable:
+	if (token == ARRAYVAR || token == STRINGVAR ){
+		
+		t=token;
+		nexttoken();
+
+		args=parsesubscripts();
+		if (er != 0) return;
+		if (args != 1) {error(EARGS); return; }
+		x=pop();
+		if (x<=0) {error(ERANGE); return; }
+		if (t == STRINGVAR) {
+			createstring(xc, x);
+		} else {
+			createarry(xc, yc, x);
+		}	
+	}
+
+	if (token == ',') {
+		nexttoken();
+		goto nextvariable;
+	}
+	nexttoken();
+}
+
+
+/* 
+	
 	low level poke to the basic memory
+
 */
 
 void xpoke(){
@@ -3164,6 +3109,190 @@ void xpoke(){
 #endif	
 	}
 }
+
+/*
+
+	the TAB spaces command of Apple 1 BASIC
+
+*/
+
+void xtab(){
+	parsenarguments(1);
+	if (er != 0) return;
+	x=pop();
+	while (x-- > 0) outspc();	
+}
+
+/*
+
+	Stefan's additions 
+
+*/
+
+#ifdef HASDUMP
+void xdump() {
+	if (DEBUG) debugn(TDUMP);
+	nexttoken();
+	y=parsearguments();
+	if (er != 0) return;
+	switch (y) {
+		case 0: 
+			x=0;
+			y=MEMSIZE-1;
+			break;
+		case 1: 
+			x=pop();
+			y=MEMSIZE-1;
+			break;
+		case 2: 
+			y=pop();
+			x=pop();
+			break;
+		default:
+			error(EARGS);
+			return;
+	}
+
+	form=5;
+	dumpmem(y/8+1, x);
+	form=0;
+	nexttoken();
+}
+
+void dumpmem(unsigned short r, unsigned short b) {
+	unsigned short j, i;	
+	unsigned short k=b;
+	i=r;
+	while (i>0) {
+		for (j=0; j<8; j++) {
+			outnumber(mem[k++]); outspc();
+			if (k > MEMSIZE-1) break;
+		}
+		outcr();
+		i--;
+		if (k > MEMSIZE-1) break;
+	}
+#ifdef ARDUINOEEPROM
+	printmessage(EEEPROM); outcr();
+	i=r;
+	k=0;
+	while (i>0) {
+		for (j=0; j<8; j++) {
+			outnumber(EEPROM[k++]); outspc();
+			if (k > EEPROM.length()) break;
+		}
+		outcr();
+		i--;
+		if (k > EEPROM.length()) break;	
+	}
+#endif
+	outsc("top: "); outnumber(top); outcr();
+	outsc("himem: "); outnumber(himem); outcr();
+}
+#endif
+
+void xsave() {
+	if (DEBUG) debugn(TSAVE); 
+#ifdef ARDUINO
+#ifdef ARDUINOEEPROM
+	if (top+EHEADERSIZE < EEPROM.length()) {
+		x=0;
+		EEPROM.write(x++, 0); // EEROM per default is 255, 0 indicates that there is a program
+		EEPROM.write(x++, top%256);
+		EEPROM.write(x++, top/256);
+		while (x < top+EHEADERSIZE){
+			EEPROM.update(x, mem[x-EHEADERSIZE]);
+			x++;
+		}
+		EEPROM.write(x++,0);
+		nexttoken();
+	} else {
+		error(EOUTOFMEMORY);
+		er=0;
+		nexttoken();
+		return;
+	}
+#else 
+	nexttoken();
+#endif
+#else 
+	fd=fopen("file.bas", "w");
+	if (!fd) {
+		error(EFILE);
+		nexttoken();
+		return;
+	} 
+	xlist();
+	fclose(fd);
+	fd=0;
+	// no nexttoken here because list has already done this
+#endif
+}
+
+void xload() {
+	if (DEBUG) debugn(TLOAD);
+#ifdef ARDUINO
+#ifdef ARDUINOEEPROM
+	x=0;
+	if (EEPROM.read(x) == 0 || EEPROM.read(x) == 1) { // have we stored a program
+		x++;
+		top=(unsigned char) EEPROM.read(x++);
+		top+=((unsigned char) EEPROM.read(x++))*256;
+		while (x < top+EHEADERSIZE){
+			mem[x-EHEADERSIZE]=EEPROM.read(x);
+			x++;
+		}
+	} else { // no valid program data is stored 
+		error(EEEPROM);
+	}
+	nexttoken();
+#else 
+	nexttoken();
+#endif
+#else 
+	fd=fopen("file.bas", "r");
+	if (!fd) {
+		error(EFILE);
+		nexttoken();
+		return;
+	}
+	while (fgets(ibuffer+1, BUFSIZE, fd)) {
+		bi=ibuffer;
+		while(*bi != 0) { if (*bi == '\n') *bi=' '; bi++; };
+		bi=ibuffer;
+		nexttoken();
+		if (token == NUMBER) storeline();
+	}
+	fclose(fd);	
+	fd=0;
+	nexttoken();
+#endif
+}
+
+/*
+
+	get just one character from input
+
+*/
+
+
+void xget(){
+	if (DEBUG) debugn(TGET); 
+
+	nexttoken();
+	if (token == VARIABLE) {
+		checkch();
+		setvar(xc, yc, inch());
+		nexttoken();
+	} else if (token == STRINGVAR) {
+		// need to implement string left value
+		error(EUNKNOWN);
+	} else {
+		error(EUNKNOWN);
+	}
+
+}
+
 
 /* 
 	the set command itself is also apocryphal it is a low level
@@ -3217,48 +3346,43 @@ void xset(){
 }
 
 
-// the dimensioning of arrays and strings from Apple 1 BASIC
 
-void xdim(){
-	char args, t; 
+/*
 
-	if (DEBUG) debugn(TDIM); 
-	nexttoken();
+	The arduino io functions.
 
-nextvariable:
-	if (token == ARRAYVAR || token == STRINGVAR ){
-		
-		t=token;
-		nexttoken();
+*/
 
-		args=parsesubscripts();
-		if (er != 0) return;
-		if (args != 1) {error(EARGS); return; }
-		x=pop();
-		if (x<=0) {error(ERANGE); return; }
-		if (t == STRINGVAR) {
-			createstring(xc, x);
-		} else {
-			createarry(xc, yc, x);
-		}	
-	}
-
-	if (token == ',') {
-		nexttoken();
-		goto nextvariable;
-	}
-	nexttoken();
+void xdwrite(){
+	parsenarguments(2);
+	if (er != 0) return; 
+	x=pop();
+	y=pop();
+	dwrite(y, x);	
 }
 
-// the TAB spaces command of Apple 1 BASIC
+void xawrite(){
+	parsenarguments(2);
+	if (er != 0) return; 
+	x=pop();
+	y=pop();
+	awrite(y, x);
+}
 
-void xtab(){
+void xpinm(){
+	parsenarguments(2);
+	if (er != 0) return; 
+	x=pop();
+	y=pop();
+	pinm(y, x);	
+}
+
+void xdelay(){
 	parsenarguments(1);
 	if (er != 0) return;
 	x=pop();
-	while (x-- > 0) outspc();	
+	delay(x);	
 }
-
 
 /* 
 
@@ -3275,25 +3399,15 @@ void xtab(){
 */
 
 void statement(){
-	if (DEBUG) debug("statement\n"); 
+	if (DEBUG) debug("Statement loop \n"); 
 	while (token != EOL) {
 		switch(token){
 			case LINENUMBER:
-				thisline=x;
+				thisline=x;		
+				if (DEBUG) outputtoken();
 				nexttoken();
 				break;
-			case TLIST:
-				xlist();
-				break;
-			case TNEW:
-				xnew();
-				return;
-			case TCLR:
-				xclr();
-				break;
-			case TRUN:
-				xrun();
-				return;		
+// Palo Alto BASIC language set + BREAK
 			case TPRINT:
 				xprint();
 				break;
@@ -3308,6 +3422,9 @@ void statement(){
 			case VARIABLE:		
 				assignment();
 				break;
+			case TINPUT:
+				xinput();
+				break;
 #ifdef HASGOSUB
 			case TRETURN:
 				xreturn();
@@ -3316,17 +3433,6 @@ void statement(){
 #endif
 			case TGOTO:
 				xgoto();	
-				break;
-			case TEND:
-				st=SINT;
-				return;
-			case TCONT:
-				st=SRUN; // EEROM code missing here
-				nexttoken();
-				debugtoken();
-				break;
-			case TREM:
-				xrem();
 				break;
 			case TIF:
 				xif();
@@ -3342,8 +3448,41 @@ void statement(){
 				xbreak();
 				break;
 #endif
-			case TINPUT:
-				xinput();
+			case TSTOP:
+			case TEND:
+				st=SINT;
+				return;
+			case TLIST:
+				xlist();
+				break;
+			case TSCR:
+			case TNEW:
+				xnew();
+				return;
+			case TRUN:
+				xrun();
+				return;	
+			case TREM:
+				xrem();
+				break;
+// Apple 1 language set 
+			case TDIM:
+				xdim();
+				break;
+			case TCLR:
+				xclr();
+				break;
+			case TTAB:
+				xtab();
+				break;	
+			case TPOKE:
+				xpoke();
+				break;
+// Stefan's tinybasic additions
+			case TCONT:
+				st=SRUN; // EEROM code missing here
+				nexttoken();
+				debugtoken();
 				break;
 #ifdef HASDUMP
 			case TDUMP:
@@ -3356,6 +3495,13 @@ void statement(){
 			case TLOAD:
 				xload();
 				break;
+			case TGET:
+				xget();
+				break;
+			case TSET:
+				xset();
+				break;
+// Arduino IO
 			case TDWRITE:
 				xdwrite();
 				break;	
@@ -3368,25 +3514,10 @@ void statement(){
 			case TDELAY:
 				xdelay();
 				break;		
-			case TPOKE:
-				xpoke();
-				break;
-			case TGET:
-				xget();
-				break;
-			case TSET:
-				xset();
-				break;
-			case TDIM:
-				xdim();
-				break;
-			case TTAB:
-				xtab();
-				break;
 			case UNKNOWN:
 				error(EUNKNOWN);
 				return;
-			default:
+			default: // very tolerant - tokens are just skipped 
 				nexttoken();
 		}
 #ifdef ARDUINO
