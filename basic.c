@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.58 2021/08/05 21:35:20 stefan Exp stefan $
+// $Id: basic.c,v 1.60 2021/08/06 09:03:04 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -344,6 +344,8 @@ LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
 
 	nvars is the number of vars the interpreter has stored.
 
+	form is used for number formation Palo Alto BASIC style.
+
 	rd is the random number storage.
 
 	od is the output model for an arduino
@@ -390,6 +392,8 @@ static unsigned short here, here2, here3;
 static unsigned short top;
 
 static unsigned short nvars = 0; 
+
+static char form = 0;
 
 #ifdef HASFUNCTIONS
 static unsigned int rd;
@@ -479,6 +483,7 @@ void nexttoken();
 
 // storeing and retrieving programs
 char nomemory(short);
+void dumpmem(unsigned short, unsigned short);
 void storetoken(); 
 char memread(short);
 void gettoken();
@@ -1317,8 +1322,10 @@ char innumber(short *r) {
 void outnumber(short x){
 	char c, co;
 	short d;
+	char i=1;
 	if (x<0) {
 		outch('-');
+		i++;
 		x=-x;
 	}
 	d=10000;
@@ -1329,10 +1336,15 @@ void outnumber(short x){
 		if (co != 0 || d == 1 || c) {
 			co=co+48;
 			outch(co);
+			i++;
 			c=TRUE;
 		}
 		d=d/10;
 	}
+
+	// number formats in Palo Alto style
+	while (i < form) {outspc(); i++; };
+
 }
 
 /* 
@@ -1616,16 +1628,47 @@ char nomemory(short b){
 }
 
 #ifdef HASDUMP
-void dumpmem(int r) {
-	int j, i;	
-	int k=0;
+void xdump() {
+	if (DEBUG) debugn(TDUMP);
+	nexttoken();
+	y=parsearguments();
+	if (er != 0) return;
+	switch (y) {
+		case 0: 
+			x=0;
+			y=MEMSIZE-1;
+			break;
+		case 1: 
+			x=pop();
+			y=MEMSIZE-1;
+			break;
+		case 2: 
+			y=pop();
+			x=pop();
+			break;
+		default:
+			error(EARGS);
+			return;
+	}
+
+	form=5;
+	dumpmem(y/8+1, x);
+	form=0;
+	nexttoken();
+}
+
+void dumpmem(unsigned short r, unsigned short b) {
+	unsigned short j, i;	
+	unsigned short k=b;
 	i=r;
 	while (i>0) {
 		for (j=0; j<8; j++) {
 			outnumber(mem[k++]); outspc();
+			if (k > MEMSIZE-1) break;
 		}
 		outcr();
 		i--;
+		if (k > MEMSIZE-1) break;
 	}
 #ifdef ARDUINOEEPROM
 	printmessage(EEEPROM); outcr();
@@ -1634,13 +1677,15 @@ void dumpmem(int r) {
 	while (i>0) {
 		for (j=0; j<8; j++) {
 			outnumber(EEPROM[k++]); outspc();
+			if (k > EEPROM.length()) break;
 		}
 		outcr();
 		i--;
+		if (k > EEPROM.length()) break;	
 	}
 #endif
-	outnumber(top); outcr();
-	outnumber(himem); outcr();
+	outsc("top: "); outnumber(top); outcr();
+	outsc("himem: "); outnumber(himem); outcr();
 }
 #endif
 
@@ -2466,6 +2511,8 @@ void expression(){
 void xprint(){
 
 	char semicolon = FALSE;
+	form=0;
+
 	if (DEBUG) debugn(TPRINT); 
 	nexttoken();
 
@@ -2485,6 +2532,14 @@ processsymbol:
 		goto separators;
 	}
 
+	// Palo Alot BASIC formatting stuff
+	if (token == '#') {
+		nexttoken();
+		if (token == NUMBER) {
+			form=x;
+			nexttoken();
+		}
+	}
 
 	if (token != ',' && token != ';' ) {
 		expression();
@@ -3036,6 +3091,8 @@ void xrun(){
 		findline(pop());
 	if ( er != 0 ) { error(ELINE); return; }
 	if (st == SINT) st=SRUN;
+
+	xclr();
 	nexttoken();
 	while (here < top && ( st == SRUN || st == SERUN)) {	
 		statement();
@@ -3290,8 +3347,7 @@ void statement(){
 				break;
 #ifdef HASDUMP
 			case TDUMP:
-				dumpmem(8);
-				nexttoken();
+				xdump();
 				break;
 #endif
 			case TSAVE:
