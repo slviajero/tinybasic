@@ -45,11 +45,11 @@
 */ 
 
 #undef ARDUINOLCD
-#undef ARDUINOEEPROM
+#define ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
-#undef USESPICOSERIAL
+#define USESPICOSERIAL
 
 #ifdef ARDUINOEEPROM
 #include <EEPROM.h>
