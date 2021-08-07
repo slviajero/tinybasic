@@ -3129,7 +3129,6 @@ void xrun(){
 	if (st == SINT) st=SRUN;
 
 	xclr();
-	nexttoken();
 	while (here < top && ( st == SRUN || st == SERUN)) {	
 		statement();
 	}

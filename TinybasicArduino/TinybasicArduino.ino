@@ -45,11 +45,11 @@
 */ 
 
 #undef ARDUINOLCD
-#undef ARDUINOEEPROM
+#define ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
-#undef USESPICOSERIAL
+#define USESPICOSERIAL
 
 #ifdef ARDUINOEEPROM
 #include <EEPROM.h>
@@ -3129,7 +3129,6 @@ void xrun(){
 	if (st == SINT) st=SRUN;
 
 	xclr();
-	nexttoken();
 	while (here < top && ( st == SRUN || st == SERUN)) {	
 		statement();
 	}
