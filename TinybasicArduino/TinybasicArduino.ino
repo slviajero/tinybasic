@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.61 2021/08/06 18:34:11 stefan Exp stefan $
+// $Id: basic.c,v 1.63 2021/08/07 08:01:40 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -78,7 +78,7 @@
 
 #define BUFSIZE 	72
 #define SBUFSIZE	9
-#define MEMSIZE         480 	
+#define MEMSIZE  	1024
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -417,7 +417,6 @@ static union accu168 { short i; struct twobytes b; } z;
 static char *ir, *ir2;
 static signed char token;
 static signed char er, laster;
-static unsigned short thisline;
 
 static signed char st; 
 static unsigned short here, here2, here3; 
@@ -514,13 +513,14 @@ void nexttoken();
 char nomemory(short);
 void dumpmem(unsigned short, unsigned short);
 void storetoken(); 
-char memread(short);
+char memread(unsigned short);
 void gettoken();
 void firstline();
 void nextline();
-void findline(short);
-void moveblock(short, short, short);
-void zeroblock(short, short);
+void findline(unsigned short);
+unsigned short myline(unsigned short);
+void moveblock(unsigned short, unsigned short, unsigned short);
+void zeroblock(unsigned short, unsigned short);
 void diag();
 void storeline();
 
@@ -985,8 +985,8 @@ void printmessage(char i){
 
 void error(signed char e){
 	er=e;
-	if (thisline > 0) {
-		outnumber(thisline);
+	if (st != SINT) {
+		outnumber(myline(here));
 		outch(':');
 		outspc();
 	}
@@ -1658,7 +1658,7 @@ memoryerror:
 } 
 
 
-char memread(short i){
+char memread(unsigned short i){
 #ifndef ARDUINOEEPROM
 	return mem[i];
 #else 
@@ -1740,13 +1740,36 @@ void nextline() {
 	}
 }
 
-void findline(short l) {
+// find a line
+void findline(unsigned short l) {
 	here=0;
 	while (here < top) {
 		gettoken();
 		if (token == LINENUMBER && x == l ) return;
 	}
 	error(ELINE);
+}
+
+// finds the line of a location
+unsigned short myline(unsigned short h) {
+	unsigned short l=0; 
+	unsigned short l1=0;
+	push(here);
+	here=0;
+	gettoken();
+	while (here < top) {
+		if (token == LINENUMBER) {
+			l1=l;
+			l=x;
+		}
+		if (here >= h) { break; }
+		gettoken();
+	}
+	here=pop();
+	if (token == LINENUMBER)
+		return l1;
+	else 
+		return l;
 }
 
 /*
@@ -1756,7 +1779,7 @@ void findline(short l) {
 
 */
 
-void moveblock(short b, short l, short d){
+void moveblock(unsigned short b, unsigned short l, unsigned short d){
 	short i;
 
 	if (d+l > himem) {
@@ -1775,7 +1798,7 @@ void moveblock(short b, short l, short d){
 			mem[d+i]=mem[b+i]; 
 }
 
-void zeroblock(short b, short l){
+void zeroblock(unsigned short b, unsigned short l){
 	short i;
 
 	if (b+l > himem) {
@@ -1995,8 +2018,7 @@ void delay(short t) {}
 */
 
 char termsymbol() {
-	if (token == LINENUMBER) { thisline=x; return TRUE; }
-	return (token == ':' || token == EOL);
+	return ( token == LINENUMBER ||  token == ':' || token == EOL);
 }
 
 // parses a list of expression
@@ -2166,7 +2188,7 @@ short sqr(short r){
 }
 
 
-void stringvalue() {
+char stringvalue() {
 	char xcl;
 	if (token == STRING) {
 		ir2=ir;
@@ -2175,35 +2197,50 @@ void stringvalue() {
 	} else if (token == STRINGVAR) {
 		xcl=xc;
 		parsesubstring();
-		if (er != 0) return;
+		if (er != 0) return FALSE;
 		y=pop();
 		x=pop();
 		ir2=getstring(xcl, x);
 		push(y-x+1);
 		xc=xcl;
 	} else {
-		error(EUNKNOWN);
-		return;
+		return FALSE;
 	}
+	return TRUE;
 }
 
+/* 
 
-void strcompare(){
+	numerical evaluation of a string expression
+
+*/
+
+void streval(){
 	char *irl;
 	short xl;
 	char xcl;
 	char t;
 
-	stringvalue();
+	if ( ! stringvalue()) {
+		error(EUNKNOWN);
+		return;
+	} 
 	if (er != 0) return;
 	irl=ir2;
 	xl=pop();
 
-	if (token != '=' && token != NOTEQUAL) {error(EUNKNOWN); return; }
-	t=token;
+	if (token != '=' && token != NOTEQUAL) {
+		push(irl[1]);
+		return; 
+	}
 
+	t=token;
 	nexttoken();
-	stringvalue();
+
+	if (! stringvalue() ){
+		error(EUNKNOWN);
+		return;
+	} 
 	x=pop();
 	if (er != 0) return;
 
@@ -2271,7 +2308,10 @@ void factor(){
 				return;
 			}
 			nexttoken();
-			stringvalue();
+			if (! stringvalue()) {
+				error(EUNKNOWN);
+				return;
+			}
 			if (er != 0) return;
 			if (token != ')') {
 				error(EARGS);
@@ -2287,7 +2327,7 @@ void factor(){
 // Apple 1 string compare code
 		case STRING:
 		case STRINGVAR:
-			strcompare();
+			streval();
 			if (er != 0 ) return;
 			break;
 //  Stefan's tinybasic additions
@@ -2472,8 +2512,7 @@ processsymbol:
 	semicolon=FALSE;
 
 
-	if (token == STRING || token == STRINGVAR) {
-		stringvalue();
+	if (stringvalue()) {
 		if (er != 0) return;
  		outs(ir2, pop());
 		goto separators;
@@ -2514,7 +2553,7 @@ separators:
 
 void assignment() {
 	if (DEBUG) debugn(TLET); 
-	char t=token;  // remember the left hand side token until the end of the statement
+	char t=token;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
 	char xcl, ycl; // to preserve the left hand side variable names
 	char i=1;      // and the beginning of the destination string  
@@ -2563,8 +2602,69 @@ void assignment() {
 		error(EUNKNOWN);
 		return;
 	}
+	nexttoken();
 
 	// here comes the code for the right hand side
+	// rewritten 
+
+	// stringvalue is a nasty function with many side effects
+	// in ir2 and pop() we have the the adress and length of the source string, 
+	// xc is the name, y contains the end and x the beginning index 
+
+	if (! stringvalue () ) {
+		if (er != 0 ) return;
+
+		expression();
+		if (er != 0 ) return;
+
+		switch (t) {
+			case VARIABLE:
+				x=pop();
+				setvar(xcl, ycl , x);
+				break;
+			case ARRAYVAR: 
+				x=pop();	
+				setarray(xcl, ycl, i, x);
+				break;
+			case STRINGVAR:
+				ir=getstring(xcl, i);
+				if (er != 0) return;
+				ir[0]=pop();
+				if (lenstring(xcl) < i && i < stringdim(xcl)) setstringlength(xcl, i);
+				break;
+		}		
+	} else {
+
+		switch (t) {
+			case VARIABLE:
+				setvar(xcl, ycl , ir2[0]);
+				break;
+			case ARRAYVAR: 
+				x=pop();	
+				setarray(xcl, ycl, i, ir2[0]);
+				break;
+			case STRINGVAR:
+				lensource=pop();
+				if ((lenstring(xcl)+lensource-1) > stringdim(xcl)) { error(ERANGE); return; }
+
+				// the destination adress
+				ir=getstring(xcl, i);
+
+				// this code is needed to make sure we can copy one string to the same string 
+				// without overwriting stuff, we go either left to right or backwards
+
+				if (x > i) 
+					for (int j=0; j<lensource; j++) { ir[j]=ir2[j];}
+				else
+					for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
+				setstringlength(xcl, i+lensource-1);
+		}
+
+		//nexttoken();
+	} 
+
+/*	the original
+
 	if (t != STRINGVAR) {
 		nexttoken();
 		expression();
@@ -2605,6 +2705,11 @@ void assignment() {
 
 		//nexttoken();
 	} 
+
+
+*/
+
+
 }
 
 /*
@@ -2846,7 +2951,7 @@ void xfor(){
 
 /*
 	this tests the condition and stops if it is fulfilled already from start 
-	there is an apocryphal feature her STEP 0 is legal triggers an infinite loop
+	there is an apocryphal feature here: STEP 0 is legal triggers an infinite loop
 */
 	if ( (y > 0 && getvar(xc, yc)>x) || (y < 0 && getvar(xc, yc)<x ) ) { 
 		dropforstack();
@@ -2990,7 +3095,6 @@ void xrun(){
 		statement();
 	}
 	st=SINT;
-	thisline = 0;
 }
 
 
@@ -3002,7 +3106,6 @@ void xnew(){ // the general cleanup function
 	zeroblock(top,himem);
 	reseterror();
 	st=SINT;
-	thisline=0;
 	nvars=0;
 #ifdef HASGOSUB
 	gosubsp=0;
@@ -3403,8 +3506,6 @@ void statement(){
 	while (token != EOL) {
 		switch(token){
 			case LINENUMBER:
-				thisline=x;		
-				if (DEBUG) outputtoken();
 				nexttoken();
 				break;
 // Palo Alto BASIC language set + BREAK
@@ -3517,8 +3618,11 @@ void statement(){
 			case UNKNOWN:
 				error(EUNKNOWN);
 				return;
-			default: // very tolerant - tokens are just skipped 
+			case ':':
 				nexttoken();
+				break;
+			// default: // very tolerant - tokens are just skipped 
+				// nexttoken();
 		}
 #ifdef ARDUINO
 		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;};  // on an Arduino entering "#" at runtime stops the program
