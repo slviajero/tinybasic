@@ -51,12 +51,19 @@
 #define HASDUMP
 #undef USESPICOSERIAL
 
+#ifdef ARDUINOEEPROM
+#include <EEPROM.h>
+unsigned short elength() { return EEPROM.length(); }
+void eupdate(unsigned short i, short c) { EEPROM.update(i, c); }
+short eread(unsigned short i) { return EEPROM.read(i); }
+#else
+unsigned short elength() { return 0; }
+void eupdate(unsigned short i, short c) { return; }
+short eread(unsigned short i) { return 0; }
+#endif
 
 #ifdef ARDUINO
 #include <avr/pgmspace.h>
-#ifdef ARDUINOEEPROM
-#include <EEPROM.h>
-#endif
 #ifdef ARDUINOLCD
 #include <LiquidCrystal.h>
 #endif
@@ -305,7 +312,7 @@ const char mprompt[]	PROGMEM = "] ";
 const char mgreet[]		PROGMEM = "Stefan's tinybasic version 1.0";
 const char egeneral[]  	PROGMEM = "Error";
 const char eunknown[]  	PROGMEM = "Syntax";
-const char enumber[]	PROGMEM = "Number Range";
+const char enumber[]	PROGMEM = "Number";
 const char edivide[]  	PROGMEM = "Division by Zero";
 const char eline[]  	PROGMEM = "Unknown Line";
 const char ereturn[]    PROGMEM = "Return";
@@ -763,9 +770,9 @@ short getarray(char c, char d, short i){
 	// the EEPROM array in the same style;
 #ifdef ARDUINOEEPROM
 	if (c == '&') {
-		if ( i > 0 && i < EEPROM.length()/2  ) {
-			z.b.h=EEPROM.read(EEPROM.length() - (i-1)*2);
-			z.b.l=EEPROM.read(EEPROM.length() - (i-1)*2 + 1);
+		if ( i > 0 && i < elength()/2  ) {
+			z.b.h=eread(elength() - (i-1)*2);
+			z.b.l=eread(elength() - (i-1)*2 + 1);
 			return z.i;		
 		} else {
 			error(ERANGE);
@@ -795,21 +802,27 @@ void setarray(char c, char d, short i, short v){
 
 	// currently only Dr. Wang's @ array implemented 
 	if (c == '@') {
-		if ( i > 0 && i < (himem-top)/2 )
+		if ( i > 0 && i < (himem-top)/2 ) {
 			setshort(himem-2*i, v);
-		else
+			return;		
+		} else {
 			error(ERANGE);
+			return;
+		}
 	}
 
 	// Dr. Wang's EEPROM analogon
 #ifdef ARDUINOEEPROM
 	if (c == '&') {
-		if ( i > 0 && i < EEPROM.length()/2 ) {
+		if ( i > 0 && i < elength()/2 ) {
 			z.i=v;
-			EEPROM.update(EEPROM.length() - (i-1)*2, z.b.h);
-			EEPROM.update(EEPROM.length() - (i-1)*2 + 1, z.b.l);		
-		} else
+			eupdate(elength() - (i-1)*2, z.b.h);
+			eupdate(elength() - (i-1)*2 + 1, z.b.l);
+			return;
+		} else {
 			error(ERANGE);
+			return;			
+		}
 	}
 #endif
 
@@ -1025,9 +1038,6 @@ void debugn(signed char t){
 	outsc(getkeyword(t)); outcr();
 }
 #endif
-
-
-
 
 /*
 	Arithmetic and runtime operations are mostly done
@@ -1287,6 +1297,8 @@ short getnumber(char *c, short *r) {
 char innumber(short *r) {
 	int i = 1;
 	int s = 1;
+
+again:
 	ins(sbuffer, SBUFSIZE);
 	while (i < SBUFSIZE) {
 		if (sbuffer[i] == ' ' || sbuffer[i] == '\t') i++;
@@ -1300,6 +1312,15 @@ char innumber(short *r) {
 			(void) getnumber(&sbuffer[i], r);
 			*r*=s;
 			return 0;
+		} else {
+			printmessage(ENUMBER); 
+			outspc(); 
+			printmessage(EGENERAL);
+			outcr();
+			*r=0;
+			s=1;
+			i=1;
+			goto again;
 		}
 	}
 	return 0;
@@ -1557,6 +1578,7 @@ void nexttoken() {
 		xc=*bi;
 		yc=0;
 		bi++;
+		whitespaces();
 		if (*bi >= '0' && *bi <= '9') { 
 			yc=*bi;
 			bi++;
@@ -1565,6 +1587,7 @@ void nexttoken() {
 			yc='$';
 			bi++;
 		}
+		whitespaces();
 		if (token == VARIABLE && *bi == '(' ) { 
 			token=ARRAYVAR;
 		}	
@@ -1665,7 +1688,7 @@ char memread(unsigned short i){
 	if (st != SERUN) {
 		return mem[i];
 	} else {
-		return EEPROM[i+EHEADERSIZE];
+		return eread(i+EHEADERSIZE);
 	}
 #endif
 }
@@ -2070,6 +2093,7 @@ void parsefunction(short (*f)(short)){
 		error(EARGS);
 		return;
 	}
+
 }
 
 
@@ -2088,12 +2112,12 @@ short parsesubscripts() {
 
 	nexttoken();
 	args=parsearguments();
-
 	if (er != 0) {return 0; }
 
 	if (token != ')') {error(EARGS); return 0; }
 
-	nexttoken();
+	//nexttoken();
+
 	return args;
 }
 
@@ -2101,17 +2125,22 @@ void parsesubstring() {
 	char xc1;
 	short args;
 	short t1,t2;
+	short unsigned h1; // remember the here
     xc1=xc;
 
+    h1=here;
     nexttoken();
     args=parsesubscripts();
 
     if (er != 0) {return; }
     switch(args) {
+    	case 2: 
+    		break;
 		case 1:
 			push(lenstring(xc1));
 			break;
 		case 0: 
+			here=h1; // rewind one token 
 			push(1);
 			push(lenstring(xc1));	
 			break;
@@ -2138,8 +2167,8 @@ short peek(short x){
 		error(ERANGE);
 		return 0;
 #else
-		if (x < 0 && -x < EEPROM.length())
-			return EEPROM.read(-x);
+		if (x < 0 && -x < elength())
+			return eread(-x);
 		else {
 			error(ERANGE);
 			return 0;
@@ -2152,11 +2181,7 @@ short peek(short x){
 short xfre(short x) {
 	if (x >=0 )
 		return himem-top;
-#ifdef ARDUINOEEPROM
-	return EEPROM.length();
-#else
-	return 0;
-#endif
+	return elength();
 }
 
 
@@ -2193,7 +2218,6 @@ char stringvalue() {
 	if (token == STRING) {
 		ir2=ir;
 		push(x);
-		nexttoken();
 	} else if (token == STRINGVAR) {
 		xcl=xc;
 		parsesubstring();
@@ -2220,6 +2244,7 @@ void streval(){
 	short xl;
 	char xcl;
 	char t;
+	unsigned short h1;
 
 	if ( ! stringvalue()) {
 		error(EUNKNOWN);
@@ -2229,7 +2254,10 @@ void streval(){
 	irl=ir2;
 	xl=pop();
 
+	h1=here;
+	nexttoken();
 	if (token != '=' && token != NOTEQUAL) {
+		here=h1;
 		push(irl[1]);
 		return; 
 	}
@@ -2313,6 +2341,7 @@ void factor(){
 				return;
 			}
 			if (er != 0) return;
+			nexttoken();
 			if (token != ')') {
 				error(EARGS);
 				return;	
@@ -2328,6 +2357,7 @@ void factor(){
 		case STRING:
 		case STRINGVAR:
 			streval();
+			//debugtoken(); outsc("after streval in factor"); outcr();
 			if (er != 0 ) return;
 			break;
 //  Stefan's tinybasic additions
@@ -2504,6 +2534,7 @@ void xprint(){
 	nexttoken();
 
 processsymbol:
+
 	if (termsymbol()) {
 		if (! semicolon) outcr();
 		nexttoken();
@@ -2511,10 +2542,10 @@ processsymbol:
 	}
 	semicolon=FALSE;
 
-
 	if (stringvalue()) {
 		if (er != 0) return;
  		outs(ir2, pop());
+ 		nexttoken();
 		goto separators;
 	}
 
@@ -2570,6 +2601,7 @@ void assignment() {
 		case ARRAYVAR:
 			nexttoken();
 			args=parsesubscripts();
+			nexttoken();
 			if (er != 0) return;
 			if (args != 1) {
 				error(EARGS);
@@ -2588,6 +2620,7 @@ void assignment() {
 					i=1;
 					break;
 				case 1:
+					nexttoken();
 					i=pop();
 					break;
 				default:
@@ -2595,8 +2628,13 @@ void assignment() {
 					clearst();
 					return;
 			}
+			break;
+		default:
+			error(EUNKNOWN);
+			return;
 	}
 
+	
 	// the assignment part
 	if (token != '=') {
 		error(EUNKNOWN);
@@ -2636,14 +2674,13 @@ void assignment() {
 	} else {
 
 		switch (t) {
-			case VARIABLE:
+			case VARIABLE: // a scalar variable gets assigned the first string character 
 				setvar(xcl, ycl , ir2[0]);
 				break;
-			case ARRAYVAR: 
-				x=pop();	
+			case ARRAYVAR: 	
 				setarray(xcl, ycl, i, ir2[0]);
 				break;
-			case STRINGVAR:
+			case STRINGVAR: // a string gets assigned a substring - copy algorithm
 				lensource=pop();
 				if ((lenstring(xcl)+lensource-1) > stringdim(xcl)) { error(ERANGE); return; }
 
@@ -2660,7 +2697,7 @@ void assignment() {
 				setstringlength(xcl, i+lensource-1);
 		}
 
-		//nexttoken();
+		nexttoken();
 	} 
 
 /*	the original
@@ -2749,6 +2786,7 @@ nextvariable:
 	} 
 
 	if (token == ARRAYVAR) {
+
 		nexttoken();
 		args=parsesubscripts();
 		if (er != 0 ) return;
@@ -2756,6 +2794,7 @@ nextvariable:
 			error(EARGS);
 			return;
 		}
+
 		outsc("? ");
 		if (innumber(&x) == BREAKCHAR) {
 			setarray(xc, yc, pop(), 0);
@@ -3204,8 +3243,8 @@ void xpoke(){
 		error(ERANGE);
 #endif
 #ifdef ARDUINOEEPROM
-		if (x < 0 && -x < EEPROM.length())
-			EEPROM.update(-x, y);
+		if (x < 0 && -x < elength())
+			eupdate(-x, y);
 		else {
 			error(ERANGE);
 		}
@@ -3281,12 +3320,12 @@ void dumpmem(unsigned short r, unsigned short b) {
 	k=0;
 	while (i>0) {
 		for (j=0; j<8; j++) {
-			outnumber(EEPROM[k++]); outspc();
-			if (k > EEPROM.length()) break;
+			outnumber(eread(k++)); outspc();
+			if (k > elength()) break;
 		}
 		outcr();
 		i--;
-		if (k > EEPROM.length()) break;	
+		if (k > elength()) break;	
 	}
 #endif
 	outsc("top: "); outnumber(top); outcr();
@@ -3298,16 +3337,16 @@ void xsave() {
 	if (DEBUG) debugn(TSAVE); 
 #ifdef ARDUINO
 #ifdef ARDUINOEEPROM
-	if (top+EHEADERSIZE < EEPROM.length()) {
+	if (top+EHEADERSIZE < elength()) {
 		x=0;
-		EEPROM.write(x++, 0); // EEROM per default is 255, 0 indicates that there is a program
-		EEPROM.write(x++, top%256);
-		EEPROM.write(x++, top/256);
+		eupdate(x++, 0); // EEROM per default is 255, 0 indicates that there is a program
+		eupdate(x++, top%256);
+		eupdate(x++, top/256);
 		while (x < top+EHEADERSIZE){
-			EEPROM.update(x, mem[x-EHEADERSIZE]);
+			eupdate(x, mem[x-EHEADERSIZE]);
 			x++;
 		}
-		EEPROM.write(x++,0);
+		eupdate(x++,0);
 		nexttoken();
 	} else {
 		error(EOUTOFMEMORY);
@@ -3337,12 +3376,12 @@ void xload() {
 #ifdef ARDUINO
 #ifdef ARDUINOEEPROM
 	x=0;
-	if (EEPROM.read(x) == 0 || EEPROM.read(x) == 1) { // have we stored a program
+	if (eread(x) == 0 || eread(x) == 1) { // have we stored a program
 		x++;
-		top=(unsigned char) EEPROM.read(x++);
-		top+=((unsigned char) EEPROM.read(x++))*256;
+		top=(unsigned char) eread(x++);
+		top+=((unsigned char) eread(x++))*256;
 		while (x < top+EHEADERSIZE){
-			mem[x-EHEADERSIZE]=EEPROM.read(x);
+			mem[x-EHEADERSIZE]=eread(x);
 			x++;
 		}
 	} else { // no valid program data is stored 
@@ -3415,7 +3454,7 @@ void xset(){
 			// change the autorun/run flag of the EEPROM
 			// 255 for clear, 0 for prog, 1 for autorun
 		case 1: 
-			EEPROM[0]=x;
+			eupdate(0, x);
 			break;
 #endif
 #ifdef ARDUINOLCD
@@ -3646,9 +3685,9 @@ void setup() {
    	lcd.begin(16, 2);  // the dimension of the lcd shield - hardcoded, ugly
 #endif
 #ifdef ARDUINOEEPROM
-  	if (EEPROM.read(0) == 1){ // autorun from the EEPROM
-		top=(unsigned char) EEPROM.read(1);
-		top+=((unsigned char) EEPROM.read(2))*256;
+  	if (eread(0) == 1){ // autorun from the EEPROM
+		top=(unsigned char) eread(1);
+		top+=((unsigned char) eread(2))*256;
   		st=SERUN;
   	} 
 #endif
