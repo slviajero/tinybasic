@@ -3194,7 +3194,7 @@ void xclr() {
 
 
 void xdim(){
-	char args, t; 
+	char args, t, xcl, ycl; 
 
 	if (DEBUG) debugn(TDIM); 
 	nexttoken();
@@ -3203,6 +3203,9 @@ nextvariable:
 	if (token == ARRAYVAR || token == STRINGVAR ){
 		
 		t=token;
+		xcl=xc;
+		ycl=yc;
+
 		nexttoken();
 
 		args=parsesubscripts();
@@ -3211,9 +3214,9 @@ nextvariable:
 		x=pop();
 		if (x<=0) {error(ERANGE); return; }
 		if (t == STRINGVAR) {
-			createstring(xc, x);
+			createstring(xcl, x);
 		} else {
-			createarry(xc, yc, x);
+			createarry(xcl, ycl, x);
 		}	
 	}
 
