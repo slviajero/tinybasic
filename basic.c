@@ -3625,8 +3625,8 @@ void statement(){
 			case ':':
 				nexttoken();
 				break;
-			//default: // very tolerant - tokens are just skipped 
-			//	nexttoken();
+			default: // very tolerant - tokens are just skipped 
+				nexttoken();
 		}
 #ifdef ARDUINO
 		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;};  // on an Arduino entering "#" at runtime stops the program
