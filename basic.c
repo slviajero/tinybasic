@@ -459,9 +459,9 @@ void  createarry(char, char, short);
 short getarray(char, char, short);
 void  setarray(char, char, short, short);
 
-void  createstring(char, short);
-char* getstring(char, short);
-void  setstring(char, short, char *, short);
+void  createstring(char, char, short);
+char* getstring(char, char, short);
+void  setstring(char, char, short, char *, short);
 
 short getshort(short);
 void  setshort(short, short);
@@ -609,7 +609,7 @@ void statement();
  */
 
 
-unsigned short  bmalloc(char t, char c, char d, short l) {
+unsigned short bmalloc(char t, char c, char d, short l) {
 
 	unsigned short vsize;     // the length of the header
 	unsigned short b;
@@ -624,7 +624,7 @@ unsigned short  bmalloc(char t, char c, char d, short l) {
 	// here we would create the hash, currently simplified
 	// the hash is the first digit of the variable plus the token
 
-	// write the header - inefficient !!
+	// write the header - inefficient - 3 bytes for a hash
 	b=himem;
 	mem[b--]=c;
 	mem[b--]=d;
@@ -669,7 +669,7 @@ nextitem:
 
 	b-=z.i;
 
-	if (c1 == c && t1 == t) {
+	if (c1 == c && d1 == d && t1 == t) {
 		return b+1;
 	}
 
@@ -683,6 +683,7 @@ unsigned short blength (char t, char c, char d) {
 }
 
 
+// ununsed so far 
 void createvar(char c, char d){
 	return;
 }
@@ -841,25 +842,25 @@ void setarray(char c, char d, short i, short v){
 	setshort(a, v);
 }
 
-void createstring(char c, short i) {
+void createstring(char c, char d, short i) {
 
-	if (bfind(STRINGVAR, c, '$')) { error(EVARIABLE); return; }
-	(void) bmalloc(STRINGVAR, c, '$', i+1);
+	if (bfind(STRINGVAR, c, d)) { error(EVARIABLE); return; }
+	(void) bmalloc(STRINGVAR, c, d, i+1);
 	if (er != 0) return;
 	if (DEBUG) { outsc("Created string "); outch(c); outspc(); outnumber(nvars); outcr(); }
 }
 
 
-char* getstring(char c, short b) {	
+char* getstring(char c, char d, short b) {	
 
 	unsigned short a;
 
 	// direct access to the input buffer
-	if ( c == '@' )
+	if ( c == '@')
 			return ibuffer+b;
 
 	// dynamically allocated strings
-	a=bfind(STRINGVAR, c, '$');
+	a=bfind(STRINGVAR, c, d);
 	if (er != 0) return 0;
 	if (a == 0) {
 		error(EVARIABLE);
@@ -886,23 +887,23 @@ short arraydim(char c) {
 	return blength(ARRAYVAR, c, '$')/2;
 }
 
-short stringdim(char c) {
+short stringdim(char c, char d) {
 	if (c == '@')
 		return BUFSIZE-1;
-	return blength(STRINGVAR, c, '$')-1;
+	return blength(STRINGVAR, c, d)-1;
 }
 
-short lenstring(char c){
+short lenstring(char c, char d){
 	char* b;
 	if (c == '@')
 		return ibuffer[0];
 	
-	b=getstring(c, 1);
+	b=getstring(c, d, 1);
 	if (er != 0) return 0;
 	return b[-1];
 }
 
-void setstringlength(char c, short l) {
+void setstringlength(char c, char d, short l) {
 
 	unsigned short a; 
 
@@ -911,7 +912,7 @@ void setstringlength(char c, short l) {
 		return;
 	}
 
-	a=bfind(STRINGVAR, c, '$');
+	a=bfind(STRINGVAR, c, d);
 	if (er != 0) return;
 	if (a == 0) {
 		error(EVARIABLE);
@@ -925,7 +926,7 @@ void setstringlength(char c, short l) {
 
 }
 
-void setstring(char c, short w, char* s, short n) {
+void setstring(char c, char d, short w, char* s, short n) {
 	char *b;
 	unsigned short a;
 
@@ -933,7 +934,7 @@ void setstring(char c, short w, char* s, short n) {
 	if ( c == '@') {
 		b=ibuffer;
 	} else {
-		a=bfind(STRINGVAR, c, '$');
+		a=bfind(STRINGVAR, c, d);
 		if (er != 0) return;
 		if (a == 0) {
 			error(EVARIABLE);
@@ -944,7 +945,7 @@ void setstring(char c, short w, char* s, short n) {
 
 	}
 
-	if ( (w+n-1) <= stringdim(c) ) {
+	if ( (w+n-1) <= stringdim(c, d) ) {
 		for (int i=0; i<n; i++) { b[i+w]=s[i]; } 
 		b[0]=w+n-1; 	
 	}
@@ -1582,7 +1583,9 @@ void nexttoken() {
 		if (*bi >= '0' && *bi <= '9') { 
 			yc=*bi;
 			bi++;
-		} else if (*bi == '$') {
+		} 
+		whitespaces();
+		if (*bi == '$') {
 			token=STRINGVAR;
 			yc='$';
 			bi++;
@@ -2122,11 +2125,12 @@ short parsesubscripts() {
 }
 
 void parsesubstring() {
-	char xc1;
+	char xc1, yc1; 
 	short args;
 	short t1,t2;
 	short unsigned h1; // remember the here
     xc1=xc;
+    yc1=yc;
 
     h1=here;
     nexttoken();
@@ -2137,12 +2141,12 @@ void parsesubstring() {
     	case 2: 
     		break;
 		case 1:
-			push(lenstring(xc1));
+			push(lenstring(xc1, yc1));
 			break;
 		case 0: 
 			here=h1; // rewind one token 
 			push(1);
-			push(lenstring(xc1));	
+			push(lenstring(xc1, yc1));	
 			break;
     }
 }
@@ -2215,18 +2219,21 @@ short sqr(short r){
 
 char stringvalue() {
 	char xcl;
+	char ycl;
 	if (token == STRING) {
 		ir2=ir;
 		push(x);
 	} else if (token == STRINGVAR) {
 		xcl=xc;
+		ycl=yc;
 		parsesubstring();
 		if (er != 0) return FALSE;
 		y=pop();
 		x=pop();
-		ir2=getstring(xcl, x);
+		ir2=getstring(xcl, ycl, x);
 		push(y-x+1);
 		xc=xcl;
+		yc=ycl;
 	} else {
 		return FALSE;
 	}
@@ -2665,10 +2672,10 @@ void assignment() {
 				setarray(xcl, ycl, i, x);
 				break;
 			case STRINGVAR:
-				ir=getstring(xcl, i);
+				ir=getstring(xcl, ycl, i);
 				if (er != 0) return;
 				ir[0]=pop();
-				if (lenstring(xcl) < i && i < stringdim(xcl)) setstringlength(xcl, i);
+				if (lenstring(xcl, ycl) < i && i < stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
 				break;
 		}		
 	} else {
@@ -2682,10 +2689,10 @@ void assignment() {
 				break;
 			case STRINGVAR: // a string gets assigned a substring - copy algorithm
 				lensource=pop();
-				if ((lenstring(xcl)+lensource-1) > stringdim(xcl)) { error(ERANGE); return; }
+				if ((lenstring(xcl, ycl)+lensource-1) > stringdim(xcl, ycl)) { error(ERANGE); return; }
 
 				// the destination adress
-				ir=getstring(xcl, i);
+				ir=getstring(xcl, ycl, i);
 
 				// this code is needed to make sure we can copy one string to the same string 
 				// without overwriting stuff, we go either left to right or backwards
@@ -2694,58 +2701,11 @@ void assignment() {
 					for (int j=0; j<lensource; j++) { ir[j]=ir2[j];}
 				else
 					for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
-				setstringlength(xcl, i+lensource-1);
+				setstringlength(xcl, ycl, i+lensource-1);
 		}
 
 		nexttoken();
 	} 
-
-/*	the original
-
-	if (t != STRINGVAR) {
-		nexttoken();
-		expression();
-		if (er != 0 ) return;
-
-		switch (t) {
-			case VARIABLE:
-				x=pop();
-				setvar(xcl, ycl , x);
-				break;
-			case ARRAYVAR: 
-				x=pop();	
-				setarray(xcl, ycl, i, x);
-				break;
-		}		
-	} else if (t == STRINGVAR) {
-		nexttoken();
-		stringvalue(); 
-		// stringvalue is a nasty function with many side effects
-		// in ir2 and pop() we have the the adress and length of the source string, 
-		// xc is the name, y contains the end and x the beginning index 
-
-		lensource=pop();
-		if ((lenstring(xcl)+lensource-1) > stringdim(xcl)) { error(ERANGE); return; }
-
-		// the destination adress
-		ir=getstring(xcl, i);
-
-		// this code is needed to make sure we can copy one string to the same string 
-		// without overwriting stuff, we go either left to right or backwards
-
-		if (x > i) 
-			for (int j=0; j<lensource; j++) { ir[j]=ir2[j];}
-		else
-			for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
-
-		setstringlength(xcl, i+lensource-1);
-
-		//nexttoken();
-	} 
-
-
-*/
-
 
 }
 
@@ -2807,9 +2767,9 @@ nextvariable:
 	}
 
 	if (token == STRINGVAR) {
-		ir=getstring(xc, 1); 
+		ir=getstring(xc, yc, 1); 
 		outsc("? ");
-		ins(ir-1, stringdim(xc));
+		ins(ir-1, stringdim(xc, yc));
  	}
 
 	nexttoken();
@@ -3213,10 +3173,13 @@ nextvariable:
 		x=pop();
 		if (x<=0) {error(ERANGE); return; }
 		if (t == STRINGVAR) {
-			createstring(xcl, x);
+			createstring(xcl, ycl, x);
 		} else {
 			createarry(xcl, ycl, x);
 		}	
+	} else {
+		error(EUNKNOWN);
+		return;
 	}
 
 	if (token == ',') {
@@ -3662,8 +3625,8 @@ void statement(){
 			case ':':
 				nexttoken();
 				break;
-			// default: // very tolerant - tokens are just skipped 
-				// nexttoken();
+			//default: // very tolerant - tokens are just skipped 
+			//	nexttoken();
 		}
 #ifdef ARDUINO
 		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;};  // on an Arduino entering "#" at runtime stops the program
