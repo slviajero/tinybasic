@@ -1,16 +1,16 @@
-# tinybasic
+# Stefan's Tinybasic
 
 ## The idea
 
 My attempt to create a small basic interpreter from scratch using frugal programming techniques and minimal memory. The project was inspired by Steve Wozniak's statement that the Apple 1 basic interpreter was the biggest challenge in his professional life. Bill Gates also had started his career and hir fortune by writing a basic interpreter for the Altair microcomputer. 
 
-The program is written in C but only putchar and getchar are used from the libraries. All other code is done by hand. The C stack is not used for arithemtic or runtime pruposes to keep it minimal. The interpreter uses a set of global variables, an own stack and a static memory and variable array to emulate the low memory environment of the early microcomputers. 
+The program is written in C but only putchar and getchar are used from the libraries. All other code is done by hand. The C stack is not used for arithmetic to keep it minimal. The interpreter uses a set of global variables, an own stack and a static memory and variable array to emulate the low memory environment of the early microcomputers. 
 
 Arithmetic is 16 bit. The full set of logical expresssions with NOT, AND, OR is implemented C style. Conditions are part of the arithemtic and not separate like in many basic dialects. This makes the call stack of the recursive descent deeper but simplifies other code. To reduce the memory footprint of this part of the runtime code no arguments are passed in the C functions. Instead, an own multi purpose 16 bit stack is added. 
 
 Memory access is strictly 16bit and 8bit. For memory, stack and variable access, array logic is used and not C pointers. This allows all pointers to be short integers which can be stored on the arithmetic stack if needed. 
 
-The interpreted can be compliled with standard gcc on almost any architecture or in the Arduino IDE (set the ARDUINO definition for this).
+The interpreted can be compliled with standard gcc on almost any architecture or in the Arduino IDE without changes. 
 
 Look at the WIKI https://github.com/slviajero/tinybasic/wiki for more information.
 
@@ -23,70 +23,24 @@ See also:
 
 ## Language features in a nutshell 
 
-16bit arithmetic with a range -32768 to 32767 
+The intepreter is compatible with two of the 1976 early basic dialects. It implements the full language set of Dr. Wang's Palo Alto Tinybasic from the December 1976 edition of Dr. Dobbs (https://github.com/slviajero/tinybasic/wiki/Unforgotten---Dr.-Wang's-BASIC). This is a remarkably complete little language with many useful features. 
 
-26 integer variable A-Z as static variables.
+The interpreter also implements the specification of Apple Integer BASIC with was sold for the Apple 1 computer (https://github.com/slviajero/tinybasic/wiki/The-original-Apple-1-BASIC-manual).
 
-A single array @() exists and gives access to the entire fre memory. (See Dr. Wang BASIC in my Wiki).
+I have never worked with a computer running any of the two BASIC dialects. All the implementation has been done from the manuals cited above. 
 
-Dynamic variables and strings are in preparation right now.
-
-Expressions include basic arithmetic, conditions and logical operators AND, OR, NOT.
-
-Conditions work C style as part of the expression evaluation with 0 as FALSE and all other values as TRUE.
-
-Functions ABS, SGN, SQR, RND, FRE, PEEK are implemented. 
-
-SQR is an approximate square root. It is exact for perfect squares.
-
-RND is a 16 bit constant seed random number generator which always delivers the same sequence.
-
-FRE takes a dummy argument and has the value of the rest of the core basic memory.
-
-PEEK access to memory works in a standard way. On an arduino, negative values of the argument access the EEPROM.
-
-Basic statements are PRINT, INPUT, LET, IF THEN, GOTO, FOR TO STEP - NEXT - BREAK, GOSUB - RETURN.
-
-PRINT is pretty standard, printed objects are concatenated without spaces.
-
-INPUT is standard with one string and a variable list. Entering # as first character of input end the program (Arduino and Unix).
-
-LET is standard and can be ommited. 
-
-IF THEN is standard, THEN allows a line number or a statement as an argument.
-
-GOTO expects an expression, evaluates it and then jumps to the line number. This is similar to the old small basic variants.
-
-FOR TO STEP NEXT is implemented with a maximum nesting size of 4. STEP 0 is legal and generates an infinite loop.
-
-BREAK is "apocryphal" and not generally found in basic. It can be used to abort a FOR loop in the middle, clearing the stack.
-
-GOSUB, RETURN work in a standard way but GOSUB accepts expressions like GOTO (it is the same function).
-
-Program control statements include RUN, CLR, NEW, LIST, DUMP, SAVE, LOAD. 
-
-RUN starts the program. It has no argument. Running programs on an Arduino can be interrupted using #. This is not implemented on Unix. 
-
-CLR sets all variable to zero.
-
-NEW sets all variables to zero and deletes the entire program.
-
-LIST doesn't allow an argument - only full listing is supported.
-
-DUMP prints the initial section of the memory as a decimal dump.
-
-END ends a program and preserves the interpreter state completely. It is more like STOP in standard basic. STOP is not implemented.
-
-CONT restarts the program where it ended, using only the here variable. 
-
-REM is a comment but behaves different than in other BASICs. It requires one string argument. This is because the tokenizer will try to tokenize every command and the only way to store characters in a program is to convert them into the internal string format.
-
-SAVE on the arduino writes a program to the EEPROM, LOAD reloads it. An EEPROM autorun feature is added (see SET). On other platforms a file "file.bas" is read or written for an ASCII output of the program. This is rudimentary and not well tested. Move the test file "euler9.bas" to "file.bas" to try it out.
- 
-DWRITE, DREAD, AWRITE, AREAD, PINM, and DELAY are the Arduino I/O functions.
-
-POKE is added to access the basic memory. Like for peek, negative values access the EEPROM.
-
-SET is a general command changing internal interpreter settings: implemented so far is the command group 1 trigged by set 1, x. set 1, 1 sets a program saved in EEPROM to autorun on Arduino, set 1, 0 sets the program back to normal mode, set 1, 255 removes the program flag and makes it unloadable. The prototype LCD code uses set 2, x and set 3, x. More to come soon.
+In addition to this a few (hopefully) useful things have been added by myself. As the main target hardware is Arduino microcontrollers, I added EEPROM access, EEPROM program storage and autorun, control of digital and analog I/O as well as the delay function.
 
 For further information, please look at: https://github.com/slviajero/tinybasic/wiki
+
+## Files in this archive 
+
+basic.c is the program source. It can be compiled directly with gcc. No header is needed or supplied.
+
+TinybasicArduino/TinybasicArduino.ino is an exact copy of basic.c, nothing needs to be added or adapted.
+
+monitor.py is a little serial monitor to interact with the running BASIC interpreter on the Arduino. It allows very simple loading of files into the Arduino and saving of output to a file on a computer. arduinoterm is a wrapper of monitor.py.
+
+The various programs with the extension .bas are test files for the interpreter. 
+
+
