@@ -25,11 +25,11 @@ See also:
 
 The intepreter is compatible with two of the 1976 early basic dialects. It implements the full language set of Dr. Wang's Palo Alto Tinybasic from the December 1976 edition of Dr. Dobbs (https://github.com/slviajero/tinybasic/wiki/Unforgotten---Dr.-Wang's-BASIC). This is a remarkably complete little language with many useful features. 
 
-The interpreter also implements the specification of Apple Integer BASIC with was sold for the Apple 1 computer (https://github.com/slviajero/tinybasic/wiki/The-original-Apple-1-BASIC-manual).
+The interpreter also implements the specification of Apple Integer BASIC sold for the Apple 1 computer (https://github.com/slviajero/tinybasic/wiki/The-original-Apple-1-BASIC-manual). It should be fully Apple 1 compatible.
 
-I have never worked with a computer running any of the two BASIC dialects. All the implementation has been done from the manuals cited above. 
+I have never worked with a computer running any of the two BASIC dialects. All the implementation has been done from the manuals cited above.
 
-In addition to this a few (hopefully) useful things have been added by myself. As the main target hardware is Arduino microcontrollers, I added EEPROM access, EEPROM program storage and autorun, control of digital and analog I/O as well as the delay function.
+A few things have been added by myself. As the main target hardware is Arduino microcontrollers, I added EEPROM access, EEPROM program storage and autorun, control of digital and analog I/O as well as the delay function.
 
 For further information, please look at: https://github.com/slviajero/tinybasic/wiki
 
