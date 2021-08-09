@@ -1587,7 +1587,6 @@ void nexttoken() {
 		whitespaces();
 		if (*bi == '$') {
 			token=STRINGVAR;
-			yc='$';
 			bi++;
 		}
 		whitespaces();
@@ -1655,15 +1654,11 @@ void storetoken() {
 			return;
 		case ARRAYVAR:
 		case VARIABLE:
+		case STRINGVAR:
 			if ( nomemory(3) ) goto memoryerror;
 			mem[top++]=token;
 			mem[top++]=xc;
 			mem[top++]=yc;
-			return;
-		case STRINGVAR:
-			if ( nomemory(2) ) goto memoryerror;
-			mem[top++]=token;
-			mem[top++]=xc;
 			return;
 		case STRING:
 			if ( nomemory(x+2) ) goto memoryerror;
@@ -1718,12 +1713,9 @@ void gettoken() {
 			break;
 		case ARRAYVAR:
 		case VARIABLE:
-			xc=memread(here++);
-			yc=memread(here++);
-			break;
 		case STRINGVAR:
 			xc=memread(here++);
-			yc='$'; 
+			yc=memread(here++);
 			break;
 		case STRING:
 			x=(unsigned char)memread(here++);  // if we run interactive or from mem, pass back the mem location
@@ -2971,9 +2963,31 @@ void xbreak(){
 }
 
 void xnext(){
+	char xcl=0;
+	char ycl;
 	if (DEBUG) debugn(TNEXT); 
+
+	nexttoken();
+	if (termsymbol()) goto plainnext;
+	if (token == VARIABLE) {
+		xcl=xc;
+		ycl=yc;
+		nexttoken();
+		if (! termsymbol()) {
+			error(EUNKNOWN);
+			return;
+		}
+	}
+
+plainnext:
 	push(here);
 	popforstack();
+	if (xcl) {
+		if (xcl != xc || ycl != yc ) {
+			error(EUNKNOWN);
+			return;
+		} 
+	}
 	if (y == 0) goto backtofor;
 	short t=getvar(xc, yc)+y;
 	setvar(xc, yc, t);
@@ -3015,24 +3029,39 @@ void xnext(){
 */
 
 void outputtoken() {
-	if (token == LINENUMBER) {
-		outnumber(x); outspc();			
-	} else if (token == NUMBER ){
-		outnumber(x); outspc();
-	} else if (token == VARIABLE || token == ARRAYVAR){
-		outch(xc); outspc();
-		if (yc != 0) outch(yc);
-	} else if (token == STRINGVAR) {
-		outch(xc); outch('$');
-	} else if (token == STRING) {
-		outch('"'); outs(ir, x); outch('"');
-	} else if (token < -3) {
-		outsc(getkeyword(token)); outspc();
-	} else if (token >= 32) {
-		outch(token);
-	} else{
-		outch(token); outspc(); outnumber(token);
-	} 
+
+	switch (token) {
+		case NUMBER:
+		case LINENUMBER: 
+			outnumber(x);
+			outspc();
+			break;
+		case ARRAYVAR:
+		case STRINGVAR:
+		case VARIABLE:
+			outch(xc); 
+			if (yc != 0) outch(yc);
+			if (token == STRINGVAR) outch('$');
+			outspc();
+			break;
+		case STRING:
+			outch('"'); 
+			outs(ir, x); 
+			outch('"');
+			break;
+		default:
+			if (token < -3) {
+				outsc(getkeyword(token)); 
+				outspc();
+				return;
+			}	
+			if (token >= 32) {
+				outch(token);
+				return;
+			} 
+			outch(token); outspc(); outnumber(token);
+	}
+
 }
 
 
