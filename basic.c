@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.64 2021/08/09 18:45:02 stefan Exp stefan $
+// $Id: basic.c,v 1.65 2021/08/10 04:03:08 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -1272,7 +1272,7 @@ void ins(char *b, short nb) {
 		c=inch();
 		if (c == '\n' || c == '\r') {
 			b[i]=0x00;
-			b[0]=i;
+			b[0]=i-1;
 			break;
 		} else {
 			b[i++]=c;
@@ -2726,7 +2726,7 @@ nextstring:
 	if (token == STRING) {   
 		outs(ir, x);
 		nexttoken();
-		if (token != ',') {
+		if (token != ',' && token != ';') {
 			error(EUNKNOWN);
 			return;
 		} else 
@@ -2774,7 +2774,7 @@ nextvariable:
  	}
 
 	nexttoken();
-	if (token == ',') {
+	if (token == ',' || token == ';') {
 		nexttoken();
 		goto nextstring;
 	}
@@ -3237,8 +3237,9 @@ nextvariable:
 		error(EUNKNOWN);
 		return;
 	}
+	nexttoken();
 
-	if (token == ',') {
+	if (token == ',') {	
 		nexttoken();
 		goto nextvariable;
 	}
