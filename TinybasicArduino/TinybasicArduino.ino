@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.63 2021/08/07 08:01:40 stefan Exp stefan $
+// $Id: basic.c,v 1.65 2021/08/10 04:03:08 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -80,12 +80,14 @@ short eread(unsigned short i) { return 0; }
 #define TRUE  1
 #define FALSE 0
 
+// debug mode switches 
 #define DEBUG  0
 #define STRDEBUG 0
 
+// various buffer sizes
 #define BUFSIZE 	72
 #define SBUFSIZE	9
-#define MEMSIZE  	1024
+#define MEMSIZE  	1024	
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -93,6 +95,10 @@ short eread(unsigned short i) { return 0; }
 
 // definitions on EEROM handling in the Arduino
 #define EHEADERSIZE 3
+#define EDUMMYSIZE 0
+
+// not yet used - added to implement different number types
+#define NUMSIZE 2
 
 /*
 
@@ -436,6 +442,8 @@ static char form = 0;
 static unsigned int rd;
 
 static char od;
+
+static char fnc; 
 
 #ifndef ARDUINO
 FILE* fd;
@@ -1015,6 +1023,7 @@ void reseterror() {
 	laster=er;
 	er=0;
 	clearst();
+	fnc=0;
 	st=SINT;
 }
 
@@ -1263,7 +1272,7 @@ void ins(char *b, short nb) {
 		c=inch();
 		if (c == '\n' || c == '\r') {
 			b[i]=0x00;
-			b[0]=i;
+			b[0]=i-1;
 			break;
 		} else {
 			b[i++]=c;
@@ -2717,7 +2726,7 @@ nextstring:
 	if (token == STRING) {   
 		outs(ir, x);
 		nexttoken();
-		if (token != ',') {
+		if (token != ',' && token != ';') {
 			error(EUNKNOWN);
 			return;
 		} else 
@@ -2765,7 +2774,7 @@ nextvariable:
  	}
 
 	nexttoken();
-	if (token == ',') {
+	if (token == ',' || token == ';') {
 		nexttoken();
 		goto nextstring;
 	}
@@ -2878,8 +2887,18 @@ void xif() {
 
 // find the NEXT token or the end of the program
 void findnext(){
-	while (token != TNEXT && here < top) 
+	while (TRUE) {
+	    if (token == TNEXT) {
+	    	if (fnc == 0) return;
+	    	else fnc--;
+	    }
+	    if (token == TFOR) fnc++;
+	    if (here >= top) {
+	    	error(TFOR);
+	    	return;
+	    }
 		nexttoken(); 
+	}
 }
 
 
@@ -3035,7 +3054,7 @@ void outputtoken() {
 		case LINENUMBER: 
 			outnumber(x);
 			outspc();
-			break;
+			return;
 		case ARRAYVAR:
 		case STRINGVAR:
 		case VARIABLE:
@@ -3043,12 +3062,12 @@ void outputtoken() {
 			if (yc != 0) outch(yc);
 			if (token == STRINGVAR) outch('$');
 			outspc();
-			break;
+			return;
 		case STRING:
 			outch('"'); 
 			outs(ir, x); 
 			outch('"');
-			break;
+			return;
 		default:
 			if (token < -3) {
 				outsc(getkeyword(token)); 
@@ -3106,18 +3125,25 @@ void xlist(){
 
 void xrun(){
 	if (DEBUG) debugn(TRUN);
+	if (token == TCONT) {
+		st=SRUN;
+		nexttoken();
+		goto statementloop;
+	} 
 	nexttoken();
 	y=parsearguments();
 	if (er != 0 ) return;
 	if (y > 1) { error(EARGS); return; }
-	if (y == 0 ) 
+	if (y == 0) 
 		here=0;
-	else 
+	else
 		findline(pop());
 	if ( er != 0 ) { error(ELINE); return; }
 	if (st == SINT) st=SRUN;
 
 	xclr();
+
+statementloop:
 	while (here < top && ( st == SRUN || st == SERUN)) {	
 		statement();
 	}
@@ -3134,6 +3160,7 @@ void xnew(){ // the general cleanup function
 	reseterror();
 	st=SINT;
 	nvars=0;
+	fnc=0;
 #ifdef HASGOSUB
 	gosubsp=0;
 #endif
@@ -3210,8 +3237,9 @@ nextvariable:
 		error(EUNKNOWN);
 		return;
 	}
+	nexttoken();
 
-	if (token == ',') {
+	if (token == ',') {	
 		nexttoken();
 		goto nextvariable;
 	}
@@ -3394,7 +3422,7 @@ void xload() {
 	}
 	while (fgets(ibuffer+1, BUFSIZE, fd)) {
 		bi=ibuffer;
-		while(*bi != 0) { if (*bi == '\n') *bi=' '; bi++; };
+		while(*bi != 0) { if (*bi == '\n' || *bi == '\r') *bi=' '; bi++; };
 		bi=ibuffer;
 		nexttoken();
 		if (token == NUMBER) storeline();
@@ -3593,6 +3621,7 @@ void statement(){
 			case TNEW:
 				xnew();
 				return;
+			case TCONT:
 			case TRUN:
 				xrun();
 				return;	
@@ -3613,11 +3642,6 @@ void statement(){
 				xpoke();
 				break;
 // Stefan's tinybasic additions
-			case TCONT:
-				st=SRUN; // EEROM code missing here
-				nexttoken();
-				debugtoken();
-				break;
 #ifdef HASDUMP
 			case TDUMP:
 				xdump();
