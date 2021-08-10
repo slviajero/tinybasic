@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.65 2021/08/10 04:03:08 stefan Exp stefan $
+// $Id: basic.c,v 1.66 2021/08/10 04:08:49 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -2130,10 +2130,14 @@ void parsesubstring() {
 	short args;
 	short t1,t2;
 	short unsigned h1; // remember the here
+	char * bi1;
     xc1=xc;
     yc1=yc;
 
-    h1=here;
+    if (st == SINT) // this is a hack - we rewind a token !
+    	bi1=bi;
+    else 
+    	h1=here; 
     nexttoken();
     args=parsesubscripts();
 
@@ -2145,7 +2149,10 @@ void parsesubstring() {
 			push(lenstring(xc1, yc1));
 			break;
 		case 0: 
-			here=h1; // rewind one token 
+			if ( st == SINT) // this is a hack - we rewind a token !
+				bi=bi1;
+			else 
+				here=h1; 
 			push(1);
 			push(lenstring(xc1, yc1));	
 			break;
