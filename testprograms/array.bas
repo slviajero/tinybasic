@@ -1,0 +1,17 @@
+10 DIM B(10)
+20 DIM A (8 )
+30 A (2 )=10 
+40 PRINT #4, A (2 ), "=10"
+50 FOR I =1 TO 10 
+60 B (I )=I *I 
+70 NEXT 
+80 FOR J =1 TO 10 
+90 PRINT #3, J ,B (J ), " = ", J*J
+100 NEXT 
+120 FOR I =1 TO 10 
+130 @ (I )=I *I 
+140 NEXT 
+150 FOR J =1 TO 10 
+160 PRINT J ,@ (J )
+170 NEXT 
+180 END

@@ -1,0 +1,18 @@
+5 REM $ID :PRIMES .BAS ,V 1.2 2021 /4 /14 20 :0 :38 PI EXP PI$
+10 INPUT N 
+20 DIM P (N ):P (1 )=2 :P (2 )=3 :I =2 
+30 IF I =N THEN 110 
+40 K =P (I )
+45 K =K +2 
+50 L =SQR (K )
+60 J =1 
+65 D =P (J )
+70 M =K %D 
+80 IF M =0 THEN 45 
+85 IF D <L THEN J =J +1 :GOTO 65 
+90 I =I +1 :P (I )=K 
+100 GOTO 30 
+110 FOR J =1 TO N 
+120 PRINT J ," ",P (J )
+130 NEXT 
+
