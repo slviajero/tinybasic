@@ -319,7 +319,7 @@ const char* const keyword[] PROGMEM = {
 
 const char mready[]    	PROGMEM = "Ready";
 const char mprompt[]	PROGMEM = "] ";
-const char mgreet[]		PROGMEM = "Stefan's tinybasic version 1.0";
+const char mgreet[]		PROGMEM = "Stefan's tinybasic version 1.1";
 const char egeneral[]  	PROGMEM = "Error";
 const char eunknown[]  	PROGMEM = "Syntax";
 const char enumber[]	PROGMEM = "Number";
@@ -3698,6 +3698,7 @@ void statement(){
 // the setup routine - Arduino style
 void setup() {
 
+	printmessage(MGREET); outcr();
  	xnew();		
 #ifdef ARDUINO
 #ifdef USESPICOSERIAL
@@ -3722,7 +3723,8 @@ void setup() {
 void loop() {
 
 	if (st != SERUN) {
-		printmessage(MREADY); outcr();
+		// printmessage(MREADY); outcr();
+		printmessage(MPROMPT);
     	ins(ibuffer, BUFSIZE);
         
         bi=ibuffer;

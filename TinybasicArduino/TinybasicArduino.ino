@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.65 2021/08/10 04:03:08 stefan Exp stefan $
+// $Id: basic.c,v 1.66 2021/08/10 04:08:49 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -11,30 +11,14 @@
 */
 
 /* 
-	Defines the target - ARDUINO compiles for ARDUINO
-	ARDINOLCD includes the lcd code 
+	Defines the target - for any Arduino or a Mac nothing 
+	has to be set here. Define ESP8266 for these systems.
 */
-
-
 #undef ESP8266
-
-// if PROGMEM is defined we can asssume we compile on 
-// the Arduino IDE 
-#ifdef PROGMEM
-#define ARDUINO
-#define ARDUINOPROGMEM
-#else
-#undef ARDUINO
-#endif
-
-// don's use PROGMEM on an ESP
-#ifdef ESP8266
-#define PROGMEM
-#undef ARDUINOPROGMEM
-#endif
 
 /* 
 	SMALLness - Memory footprint of extensions
+	
 	          FLASH	    RAM
 	EEPROM    834  		0
 	FOR       804  		34
@@ -42,6 +26,9 @@
 	GOSUB     144  		10
 	DUMP 	  130  		0
 	PICO     -504 	-179
+
+	The extension flags control features and code size
+
 */ 
 
 #undef ARDUINOLCD
@@ -50,6 +37,23 @@
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
+
+
+/* 
+ 	if PROGMEM is defined we can asssume we compile on 
+ 	the Arduino IDE. Dun't change anything here.
+
+*/
+#ifdef PROGMEM
+#define ARDUINO
+#define ARDUINOPROGMEM
+#else
+#undef ARDUINO
+#endif
+#ifdef ESP8266
+#define PROGMEM
+#undef ARDUINOPROGMEM
+#endif
 
 #ifdef ARDUINOEEPROM
 #include <EEPROM.h>
@@ -87,7 +91,7 @@ short eread(unsigned short i) { return 0; }
 // various buffer sizes
 #define BUFSIZE 	72
 #define SBUFSIZE	9
-#define MEMSIZE  	1024	
+#define MEMSIZE  	1024
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -120,7 +124,7 @@ short eread(unsigned short i) { return 0; }
 #define GREATEREQUAL -121
 #define LESSEREQUAL  -120
 #define NOTEQUAL	 -119
-// this is the Palo ALto Language Set (19)
+// this is the Palo Alto Language Set (19)
 #define TPRINT  -118
 #define TLET    -117
 #define TINPUT  -116
@@ -315,7 +319,7 @@ const char* const keyword[] PROGMEM = {
 
 const char mready[]    	PROGMEM = "Ready";
 const char mprompt[]	PROGMEM = "] ";
-const char mgreet[]		PROGMEM = "Stefan's tinybasic version 1.0";
+const char mgreet[]		PROGMEM = "Stefan's tinybasic version 1.1";
 const char egeneral[]  	PROGMEM = "Error";
 const char eunknown[]  	PROGMEM = "Syntax";
 const char enumber[]	PROGMEM = "Number";
@@ -447,7 +451,7 @@ static char fnc;
 
 #ifndef ARDUINO
 FILE* fd;
-struct termios initialstate, newstate;
+
 #endif
 
 /* 
@@ -1222,22 +1226,7 @@ char checkch(){
 	if (Serial.available()) return Serial.peek(); 
 #endif	
 #else 
-	/*
-	struct termios orgt, newt;
-	char ic;
-	tcgetattr(0,&orgt);
-  	newt = orgt;
-  	newt.c_lflag &= ~ICANON;
-  	newt.c_lflag &= ~ECHO;
-  	newt.c_lflag &= ~ISIG;
-  	newt.c_cc[VMIN] = 0;
-  	newt.c_cc[VTIME] = 0;
-	tcsetattr(0, TCSANOW, &newt);
-	ic=getchar();
-	tcsetattr(0, TCSANOW, &orgt);
-	if (ic != -1) { outsc("Got character "); outnumber(ic); outcr(); }
-	return (ic == c);
-	*/
+// code for non blocking I/O on non Arduino platforms
 #endif
 	return 0;
 }
@@ -1566,11 +1555,12 @@ void nexttoken() {
 		}
 		if (xc == 0)
 			continue;
-		if ( *(bi+xc) < 'A' || *(bi+x) > 'Z' ) {
+		if ( *(bi+xc) < 'A' || *(bi+xc) > 'Z' ) {
 			bi+=xc;
 			if (DEBUG) debugtoken();
 			return;
 		} else {
+			bi+=xc;
 			token=UNKNOWN;
 			return;
 		}
@@ -2130,10 +2120,14 @@ void parsesubstring() {
 	short args;
 	short t1,t2;
 	short unsigned h1; // remember the here
+	char * bi1;
     xc1=xc;
     yc1=yc;
 
-    h1=here;
+    if (st == SINT) // this is a hack - we rewind a token !
+    	bi1=bi;
+    else 
+    	h1=here; 
     nexttoken();
     args=parsesubscripts();
 
@@ -2145,7 +2139,10 @@ void parsesubstring() {
 			push(lenstring(xc1, yc1));
 			break;
 		case 0: 
-			here=h1; // rewind one token 
+			if ( st == SINT) // this is a hack - we rewind a token !
+				bi=bi1;
+			else 
+				here=h1; 
 			push(1);
 			push(lenstring(xc1, yc1));	
 			break;
@@ -3362,8 +3359,9 @@ void xsave() {
 	if (top+EHEADERSIZE < elength()) {
 		x=0;
 		eupdate(x++, 0); // EEROM per default is 255, 0 indicates that there is a program
-		eupdate(x++, top%256);
-		eupdate(x++, top/256);
+		z.i=top;
+		eupdate(x++, z.b.l);
+		eupdate(x++, z.b.h);
 		while (x < top+EHEADERSIZE){
 			eupdate(x, mem[x-EHEADERSIZE]);
 			x++;
@@ -3395,13 +3393,15 @@ void xsave() {
 
 void xload() {
 	if (DEBUG) debugn(TLOAD);
+
 #ifdef ARDUINO
 #ifdef ARDUINOEEPROM
 	x=0;
 	if (eread(x) == 0 || eread(x) == 1) { // have we stored a program
 		x++;
-		top=(unsigned char) eread(x++);
-		top+=((unsigned char) eread(x++))*256;
+		z.b.l=eread(x++);
+		z.b.h=eread(x++);
+		top=z.i;
 		while (x < top+EHEADERSIZE){
 			mem[x-EHEADERSIZE]=eread(x);
 			x++;
@@ -3414,22 +3414,30 @@ void xload() {
 	nexttoken();
 #endif
 #else 
+/*
+	Load code on the Mac
+*/
+
 	fd=fopen("file.bas", "r");
 	if (!fd) {
 		error(EFILE);
 		nexttoken();
 		return;
 	}
+
 	while (fgets(ibuffer+1, BUFSIZE, fd)) {
 		bi=ibuffer;
 		while(*bi != 0) { if (*bi == '\n' || *bi == '\r') *bi=' '; bi++; };
 		bi=ibuffer;
 		nexttoken();
 		if (token == NUMBER) storeline();
+		if (er != 0 ) break;
 	}
 	fclose(fd);	
 	fd=0;
+	if (er != 0) return;
 	nexttoken();
+
 #endif
 }
 
@@ -3454,7 +3462,6 @@ void xget(){
 	} else {
 		error(EUNKNOWN);
 	}
-
 }
 
 
@@ -3691,6 +3698,7 @@ void statement(){
 // the setup routine - Arduino style
 void setup() {
 
+	printmessage(MGREET); outcr();
  	xnew();		
 #ifdef ARDUINO
 #ifdef USESPICOSERIAL
@@ -3715,7 +3723,8 @@ void setup() {
 void loop() {
 
 	if (st != SERUN) {
-		printmessage(MREADY); outcr();
+		// printmessage(MREADY); outcr();
+		printmessage(MPROMPT);
     	ins(ibuffer, BUFSIZE);
         
         bi=ibuffer;
