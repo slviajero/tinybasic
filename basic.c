@@ -90,7 +90,7 @@ short eread(unsigned short i) { return 0; }
 
 // various buffer sizes
 #define BUFSIZE 	92
-#define SBUFSIZE	9
+#define SBUFSIZE	16
 #define MEMSIZE  	4096
 #define VARSIZE		26
 #define STACKSIZE 	15
@@ -294,7 +294,7 @@ const char* const keyword[] PROGMEM = {
 */
 
 // the messages and errors
-#define MREADY       0
+#define MFILE        0
 #define MPROMPT      1
 #define MGREET 		 2
 #define EGENERAL 	 3
@@ -317,18 +317,18 @@ const char* const keyword[] PROGMEM = {
 #define EARGS		 20
 #define EEEPROM		 21
 
-const char mready[]    	PROGMEM = "Ready";
+const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "] ";
-const char mgreet[]		PROGMEM = "Stefan's tinybasic version 1.1";
+const char mgreet[]		PROGMEM = "Tinybasic 1.1";
 const char egeneral[]  	PROGMEM = "Error";
 const char eunknown[]  	PROGMEM = "Syntax";
 const char enumber[]	PROGMEM = "Number";
-const char edivide[]  	PROGMEM = "Division by Zero";
+const char edivide[]  	PROGMEM = "Div by 0";
 const char eline[]  	PROGMEM = "Unknown Line";
 const char ereturn[]    PROGMEM = "Return";
 const char enext[]		PROGMEM = "Next";
-const char egosub[] 	PROGMEM = "Too many GOSUB";
-const char efor[]		PROGMEM = "Too many FOR";
+const char egosub[] 	PROGMEM = "GOSUB";
+const char efor[]		PROGMEM = "FOR";
 const char emem[]  	   	PROGMEM = "Memory";
 const char estack[]    	PROGMEM = "Stack";
 const char edim[]		PROGMEM = "DIM";
@@ -341,7 +341,7 @@ const char eargs[]  	PROGMEM = "Args";
 const char eeeprom[]	PROGMEM = "EEPROM";
 
 const char* const message[] PROGMEM = {
-	mready, mprompt, mgreet,egeneral, eunknown,
+	mfile, mprompt, mgreet,egeneral, eunknown,
 	enumber, edivide, eline, ereturn, enext,
 	egosub, efor, emem, estack, edim, erange,
 	estring, evariable, efile, efun, eargs, 
@@ -405,10 +405,10 @@ LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
 static short stack[STACKSIZE];
 static unsigned short sp=0; 
 
+static char sbuffer[SBUFSIZE];
+
 static char ibuffer[BUFSIZE] = "\0";
 static char *bi;
-
-static char sbuffer[SBUFSIZE];
 
 static short vars[VARSIZE];
 
@@ -986,13 +986,17 @@ char* getkeyword(signed char t) {
 #endif
 }
 
-void printmessage(char i){
+char * getmessage(char i) {
 #ifndef ARDUINOPROGMEM
-	outsc((char *)message[i]);
+	return (char *) message[i];
 #else
 	strcpy_P(sbuffer, (char*) pgm_read_word(&(message[i]))); 
-	outsc(sbuffer);
+	return sbuffer;
 #endif
+}
+
+void printmessage(char i){
+	outsc((char *)getmessage(i));
 }
 
 /*
@@ -3352,7 +3356,23 @@ void dumpmem(unsigned short r, unsigned short b) {
 }
 #endif
 
+char * getfilename() {
+	nexttoken();
+	if (token == STRING && x > 0 && x < SBUFSIZE) {
+		sbuffer[x--]=0;
+		while (x >= 0) { sbuffer[x]=ir[x]; x--; }
+		return sbuffer;
+	} else if (termsymbol()) {
+		return getmessage(MFILE);
+	} else {
+		error(EUNKNOWN);
+		return NULL;
+	}
+}
+
+
 void xsave() {
+	char * filename;
 	if (DEBUG) debugn(TSAVE); 
 #ifdef ARDUINO
 #ifdef ARDUINOEEPROM
@@ -3378,7 +3398,11 @@ void xsave() {
 	nexttoken();
 #endif
 #else 
-	fd=fopen("file.bas", "w");
+
+	filename=getfilename();
+	if (er != 0 || filename == NULL) return; 
+
+	fd=fopen(filename, "w");
 	if (!fd) {
 		error(EFILE);
 		nexttoken();
@@ -3392,6 +3416,7 @@ void xsave() {
 }
 
 void xload() {
+	char * filename;
 	if (DEBUG) debugn(TLOAD);
 
 #ifdef ARDUINO
@@ -3418,7 +3443,10 @@ void xload() {
 	Load code on the Mac
 */
 
-	fd=fopen("file.bas", "r");
+	filename=getfilename();
+	if (er != 0 || filename == NULL) return; 
+
+	fd=fopen(filename, "r");
 	if (!fd) {
 		error(EFILE);
 		nexttoken();
@@ -3435,7 +3463,7 @@ void xload() {
 	}
 	fclose(fd);	
 	fd=0;
-	if (er != 0) return;
+
 	nexttoken();
 
 #endif
