@@ -429,7 +429,7 @@ struct twobytes {char l; char h;};
 static union accu168 { short i; struct twobytes b; } z;
 
 static char *ir, *ir2;
-static signed char token, lasttoken;
+static signed char token;
 static signed char er;
 
 static signed char st; 
@@ -783,9 +783,9 @@ short getarray(char c, char d, short i){
 	// the EEPROM array in the same style;
 #ifdef ARDUINOEEPROM
 	if (c == '&') {
-		if ( i > 0 && i < elength()/2  ) {
-			z.b.h=eread(elength() - (i-1)*2);
-			z.b.l=eread(elength() - (i-1)*2 + 1);
+		if ( i > 0 && i <= elength()/2  ) {
+			z.b.h=eread(elength() - i*2);
+			z.b.l=eread(elength() - i*2 + 1);
 			return z.i;		
 		} else {
 			error(ERANGE);
@@ -829,10 +829,10 @@ void setarray(char c, char d, short i, short v){
 	// Dr. Wang's EEPROM analogon
 #ifdef ARDUINOEEPROM
 	if (c == '&') {
-		if ( i > 0 && i < elength()/2 ) {
+		if ( i > 0 && i <= elength()/2 ) {
 			z.i=v;
-			eupdate(elength() - (i-1)*2, z.b.h);
-			eupdate(elength() - (i-1)*2 + 1, z.b.l);
+			eupdate(elength() - i*2, z.b.h);
+			eupdate(elength() - i*2 + 1, z.b.l);
 			return;
 		} else {
 			error(ERANGE);
@@ -1436,9 +1436,6 @@ void whitespaces(){
 
 void nexttoken() {
 
-	// remember the token before
-	lasttoken=token;
-
 	// RUN mode vs. INT mode
 	if (st == SRUN || st == SERUN) {
 		gettoken();
@@ -1698,8 +1695,6 @@ void storetoken() {
 			z.i=x;
 			mem[top++]=z.b.l;
 			mem[top++]=z.b.h;
-			// mem[top++]=x%256;
-			// mem[top++]=x/256;
 			return;
 		case ARRAYVAR:
 		case VARIABLE:
@@ -1754,8 +1749,6 @@ void gettoken() {
 	switch (token) {
 		case NUMBER:
 		case LINENUMBER:		
-			// x=(unsigned char)memread(here++);
-			// x+=memread(here++)*256; 
 			z.b.l=memread(here++);
 			z.b.h=memread(here++);
 			x=z.i;
@@ -2210,18 +2203,11 @@ short xsgn(short x){
 short peek(short x){
 	if (x >= 0 && x<MEMSIZE) 
 		return mem[x];
+	else if (x < 0 && -x < elength())
+		return eread(-x);
 	else {
-#ifndef ARDUINOEEPROM
 		error(ERANGE);
 		return 0;
-#else
-		if (x < 0 && -x < elength())
-			return eread(-x);
-		else {
-			error(ERANGE);
-			return 0;
-		}
-#endif
 	}
 }
 
@@ -3297,17 +3283,10 @@ void xpoke(){
 	x=pop();
 	if (x >= 0 && x<MEMSIZE) 
 		mem[x]=y;
-	else {
-#ifndef ARDUINO
-		error(ERANGE);
-#endif
-#ifdef ARDUINOEEPROM
-		if (x < 0 && -x < elength())
+	else if (x < 0 && -x < elength())
 			eupdate(-x, y);
-		else {
-			error(ERANGE);
-		}
-#endif	
+	else {
+		error(ERANGE);
 	}
 }
 
@@ -3414,7 +3393,7 @@ void xsave() {
 #ifdef ARDUINOEEPROM
 	if (top+EHEADERSIZE < elength()) {
 		x=0;
-		eupdate(x++, 0); // EEROM per default is 255, 0 indicates that there is a program
+		eupdate(x++, 0); // EEPROM per default is 255, 0 indicates that there is a program
 		z.i=top;
 		eupdate(x++, z.b.l);
 		eupdate(x++, z.b.h);
