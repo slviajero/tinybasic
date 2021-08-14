@@ -429,8 +429,8 @@ struct twobytes {char l; char h;};
 static union accu168 { short i; struct twobytes b; } z;
 
 static char *ir, *ir2;
-static signed char token;
-static signed char er, laster;
+static signed char token, lasttoken;
+static signed char er;
 
 static signed char st; 
 static unsigned short here; 
@@ -993,6 +993,9 @@ char* getkeyword(signed char t) {
 }
 
 char * getmessage(char i) {
+
+	if (i >= NKEYWORDS) return NULL;
+
 #ifndef ARDUINOPROGMEM
 	return (char *) message[i];
 #else
@@ -1034,7 +1037,6 @@ void error(signed char e){
 }
 
 void reseterror() {
-	laster=er;
 	er=0;
 	clearst();
 	fnc=0;
@@ -1433,6 +1435,9 @@ void whitespaces(){
 }
 
 void nexttoken() {
+
+	// remember the token before
+	lasttoken=token;
 
 	// RUN mode vs. INT mode
 	if (st == SRUN || st == SERUN) {
@@ -3082,6 +3087,8 @@ void outputtoken() {
 
 	switch (token) {
 		case NUMBER:
+			outnumber(x);
+			return;
 		case LINENUMBER: 
 			outnumber(x);
 			outspc();
@@ -3092,7 +3099,6 @@ void outputtoken() {
 			outch(xc); 
 			if (yc != 0) outch(yc);
 			if (token == STRINGVAR) outch('$');
-			outspc();
 			return;
 		case STRING:
 			outch('"'); 
@@ -3101,8 +3107,9 @@ void outputtoken() {
 			return;
 		default:
 			if (token < -3) {
+				if (token == TTHEN || token == TTO || token == TSTEP) outspc();
 				outsc(getkeyword(token)); 
-				outspc();
+				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) outspc();
 				return;
 			}	
 			if (token >= 32) {
@@ -3149,6 +3156,7 @@ void xlist(){
 		gettoken();
 		if (token == LINENUMBER && oflag) outcr();
 	}
+	if (here == top && oflag) outputtoken();
     if (e == 32767 || b != e) outcr(); // supress newlines in "list 50" - a little hack
 	nexttoken();
  }
