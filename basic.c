@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.66 2021/08/10 04:08:49 stefan Exp stefan $
+// $Id: basic.c,v 1.67 2021/08/14 06:31:49 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -86,7 +86,6 @@ short eread(unsigned short i) { return 0; }
 
 // debug mode switches 
 #define DEBUG  0
-#define STRDEBUG 0
 
 // various buffer sizes
 #define BUFSIZE 	92
@@ -388,8 +387,6 @@ LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
 	token contains the actually processes token.
 
 	st, here and top are the interpreter runtime controls.
-	here2 and here3 are aux variable to make walking through
-	lines more efficient.
 
 	nvars is the number of vars the interpreter has stored.
 
@@ -436,7 +433,7 @@ static signed char token;
 static signed char er, laster;
 
 static signed char st; 
-static unsigned short here, here2, here3; 
+static unsigned short here; 
 static unsigned short top;
 
 static unsigned short nvars = 0; 
@@ -703,7 +700,7 @@ void createvar(char c, char d){
 short getvar(char c, char d){
 	unsigned short a;
 
-	if (DEBUG) { outsc("getvar "); outch(c); outch(d); outspc(); outnumber(vars[c-65]); outcr(); }
+	if (DEBUG) { outsc("* getvar "); outch(c); outch(d); outspc(); outcr(); }
 
 	if (c >= 65 && c<=91 && d == 0)
 			return vars[c-65];
@@ -721,7 +718,7 @@ short getvar(char c, char d){
 void setvar(char c, char d, short v){
 	unsigned short a;
 
-	if (DEBUG) { outsc("setvar "); outch(c); outch(d); outspc(); outnumber(v); outcr(); }
+	if (DEBUG) { outsc("* setvar "); outch(c); outch(d); outspc(); outnumber(v); outcr(); }
 	if (c >= 65 && c<=91 && d == 0) {
 		vars[c-65]=v;
 		return;
@@ -761,7 +758,7 @@ void createarry(char c, char d, short i) {
 	if (bfind(ARRAYVAR, c, d)) { error(EVARIABLE); return; }
 	(void) bmalloc(ARRAYVAR, c, d, i);
 	if (er != 0) return;
-	if (DEBUG) { outsc("Created array "); outch(c); outspc(); outnumber(nvars); outcr(); }
+	if (DEBUG) { outsc("* created array "); outch(c); outspc(); outnumber(nvars); outcr(); }
 
 }
 
@@ -770,8 +767,11 @@ short getarray(char c, char d, short i){
 
 	unsigned short a;
 
+	if (DEBUG) { outsc("* get array "); outch(c); outspc(); outnumber(i); outcr(); }
+
 	// Dr. Wang's famous rest of memory array
 	if (c == '@') {
+
 		if ( i > 0 && i < (himem-top)/2 )
 			return getshort(himem-2*i);
 		else {
@@ -812,6 +812,8 @@ short getarray(char c, char d, short i){
 void setarray(char c, char d, short i, short v){
 
 	unsigned short a;
+
+		if (DEBUG) { outsc("* set array "); outch(c); outspc(); outnumber(i); outspc(); outnumber(v); outcr(); }
 
 	// currently only Dr. Wang's @ array implemented 
 	if (c == '@') {
@@ -859,13 +861,15 @@ void createstring(char c, char d, short i) {
 	if (bfind(STRINGVAR, c, d)) { error(EVARIABLE); return; }
 	(void) bmalloc(STRINGVAR, c, d, i+1);
 	if (er != 0) return;
-	if (DEBUG) { outsc("Created string "); outch(c); outspc(); outnumber(nvars); outcr(); }
+	if (DEBUG) { outsc("Created string "); outch(c); outch(d); outspc(); outnumber(nvars); outcr(); }
 }
 
 
 char* getstring(char c, char d, short b) {	
 
 	unsigned short a;
+
+	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
 
 	// direct access to the input buffer
 	if ( c == '@')
@@ -941,6 +945,8 @@ void setstringlength(char c, char d, short l) {
 void setstring(char c, char d, short w, char* s, short n) {
 	char *b;
 	unsigned short a;
+
+	if (DEBUG) { outsc("* set string "); outch(c); outch(d); outspc(); outnumber(w); outcr(); }
 
 
 	if ( c == '@') {
@@ -1037,24 +1043,56 @@ void reseterror() {
 
 #ifdef DEBUG
 void debugtoken(){
-	outsc("Token: ");
-	if (token != EOL) {
-		outputtoken();
-		outcr();
-	} else {
-		outsc("EOL");
-		outcr();
+	outsc("* token: ");
+	switch(token) {
+		case LINENUMBER: 
+			outsc("LINE ");
+			outputtoken();
+			outcr();
+			break;
+		case NUMBER:
+			outsc("NUMBER ");
+			outputtoken();
+			outcr();
+			break;
+		case VARIABLE:
+			outsc("VARIABLE ");
+			outputtoken();
+			outcr();
+			break;	
+		case ARRAYVAR:
+			outsc("ARRAYVAR ");
+			outputtoken();
+			outcr();
+			break;		
+		case STRING:
+			outsc("STRING ");
+			outputtoken();
+			outcr();
+			break;
+		case STRINGVAR:
+			outsc("STRINGVAR ");
+			outputtoken();
+			outcr();
+			break;
+		case EOL: 
+			outsc("EOL");
+			outcr();
+			break;	
+		default:
+			outputtoken();
+			outcr();	
 	}
 }
 
 void debug(char *c){
+	outch('*');
+	outspc();
 	outsc(c); 
 	debugtoken();
 }
 
-void debugn(signed char t){
-	outsc(getkeyword(t)); outcr();
-}
+
 #endif
 
 /*
@@ -1063,13 +1101,15 @@ void debugn(signed char t){
 */
 
 void push(short t){
+	if (DEBUG) {outsc("** push sp= "); outnumber(sp); outcr(); }
 	if (sp == STACKSIZE)
-		error(EOUTOFMEMORY);
+		error(ESTACK);
 	else
 		stack[sp++]=t;
 }
 
 short pop(){
+	if (DEBUG) {outsc("** pop sp= "); outnumber(sp); outcr(); }
 	if (sp == 0) {
 		error(ESTACK);
 		return 0;
@@ -1079,6 +1119,7 @@ short pop(){
 }
 
 void drop() {
+	if (DEBUG) {outsc("** drop sp= "); outnumber(sp); outcr(); }
 	if (sp == 0)
 		error(ESTACK);
 	else
@@ -1699,7 +1740,7 @@ void gettoken() {
 
 	// if we have reached the end of the program, EOL is always returned
 	// we don't rely on mem having a trailing EOL
-	if (here > top) {
+	if (here >= top) {
 		token=EOL;
 		return;
 	}
@@ -1775,7 +1816,8 @@ void findline(unsigned short l) {
 unsigned short myline(unsigned short h) {
 	unsigned short l=0; 
 	unsigned short l1=0;
-	push(here);
+	unsigned short here2;
+	here2=here;
 	here=0;
 	gettoken();
 	while (here < top) {
@@ -1786,7 +1828,7 @@ unsigned short myline(unsigned short h) {
 		if (here >= h) { break; }
 		gettoken();
 	}
-	here=pop();
+	here=here2;
 	if (token == LINENUMBER)
 		return l1;
 	else 
@@ -1843,16 +1885,16 @@ void zeroblock(unsigned short b, unsigned short l){
 	stage 4: copy to the right place 
 
 	Very fragile code. 
+
+	zeroblock statements commented out after EOL code was fixed
 	
 */
 
 #ifdef DEBUG
 void diag(){
-	outsc("top, here, here2, here3, y and x\n");
+	outsc("top, here, y and x\n");
 	outnumber(top); outspc();
 	outnumber(here); outspc();
-	outnumber(here2); outspc();
-	outnumber(here3); outspc();
 	outnumber(y); outspc();	
 	outnumber(x); outspc();		
 	outcr();
@@ -1862,6 +1904,7 @@ void diag(){
 void storeline() {
 	short linelength;
 	short newline; 
+	unsigned short here2, here3; 
 
 	// zero is an illegal line number
 	if (x == 0) {
@@ -1885,7 +1928,7 @@ void storeline() {
 			drop();
 			top=newline;
 			here=0;
-			zeroblock(top, himem-top);
+			//zeroblock(top, himem-top);
 			return;
 		}
 		nexttoken();
@@ -1900,7 +1943,7 @@ void storeline() {
 */
 
 	if (linelength == 3) {  		
-		zeroblock(here, linelength);
+		//zeroblock(here, linelength);
 		top-=3;
 		y=x;					
 		findline(y);
@@ -1914,9 +1957,9 @@ void storeline() {
 		if (x != 0) {						
 			moveblock(here, top-here, y);	
 			top=top-(here-y);
-			zeroblock(top, here-y);
+			//zeroblock(top, here-y);
 		} else {
-			zeroblock(y, top-y);
+			//zeroblock(y, top-y);
 			top=y;
 		}
 		return;
@@ -1955,7 +1998,7 @@ void storeline() {
 				here2-=3;
 				here-=3;
 				moveblock(here2, linelength, here);
-				zeroblock(here+linelength, top-here-linelength);
+				//zeroblock(here+linelength, top-here-linelength);
 				top=here+linelength;
 			}
 			return;
@@ -1972,17 +2015,17 @@ void storeline() {
 			if (linelength == y) {     // no change in line legth
 				moveblock(top-linelength, linelength, here2);
 				top=top-linelength;
-				zeroblock(top, linelength);
+				//zeroblock(top, linelength);
 			} else if (linelength > y) { // the new line is longer than the old one
 				moveblock(here, top-here, here+linelength-y);
 				here=here+linelength-y;
 				top=top+linelength-y;
 				moveblock(top-linelength, linelength, here2);
-				zeroblock(top-linelength, linelength);
+				//zeroblock(top-linelength, linelength);
 				top=top-linelength;
 			} else {					// the new line is short than the old one
 				moveblock(top-linelength, linelength, here2);
-				zeroblock(top-linelength, linelength);
+				//zeroblock(top-linelength, linelength);
 				top=top-linelength;
 				moveblock(here, top-here, here2+linelength);
 				top=top-y+linelength;
@@ -1992,7 +2035,7 @@ void storeline() {
 			here=pop();
 			moveblock(here, top-here, here+linelength);
 			moveblock(top, linelength, here);
-			zeroblock(top, linelength);
+			//zeroblock(top, linelength);
 		}
 	}
 }
@@ -2105,17 +2148,11 @@ void parseoperator(void (*f)()) {
 short parsesubscripts() {
 	char args = 0;
 
-
 	if (token != '(') {return 0; }
-
 	nexttoken();
 	args=parsearguments();
 	if (er != 0) {return 0; }
-
 	if (token != ')') {error(EARGS); return 0; }
-
-	//nexttoken();
-
 	return args;
 }
 
@@ -2294,7 +2331,7 @@ neq:
 
 void factor(){
 	short args;
-	if (DEBUG) debug("factor");
+	if (DEBUG) debug("factor\n");
 	switch (token) {
 		case NUMBER: 
 			push(x);
@@ -2390,13 +2427,13 @@ void factor(){
 }
 
 void term(){
-	if (DEBUG) debug("term"); 
+	if (DEBUG) debug("term\n"); 
 	factor();
 	if (er != 0) return;
 
 nextfactor:
 	nexttoken();
-	if (DEBUG) debug("nexttoken");
+	if (DEBUG) debug("in term\n");
 	if (token == '*'){
 		parseoperator(factor);
 		if (er != 0) return;
@@ -2426,7 +2463,7 @@ nextfactor:
 }
 
 void addexpression(){
-	if (DEBUG) debug("addexp");
+	if (DEBUG) debug("addexp\n");
 	if (token != '+' && token != '-') {
 		term();
 		if (er != 0) return;
@@ -2449,7 +2486,7 @@ nextterm:
 }
 
 void compexpression() {
-	if (DEBUG) debug("compexp"); 
+	if (DEBUG) debug("compexp\n"); 
 	addexpression();
 	if (er != 0) return;
 	switch (token){
@@ -2487,7 +2524,7 @@ void compexpression() {
 }
 
 void notexpression() {
-	if (DEBUG) debug("notexp");
+	if (DEBUG) debug("notexp\n");
 	if (token == TNOT) {
 		nexttoken();
 		compexpression();
@@ -2499,7 +2536,7 @@ void notexpression() {
 }
 
 void andexpression() {
-	if (DEBUG) debug("andexp");
+	if (DEBUG) debug("andexp\n");
 	notexpression();
 	if (er != 0) return;
 	if (token == TAND) {
@@ -2510,15 +2547,14 @@ void andexpression() {
 }
 
 void expression(){
-	if (DEBUG) debug("exp"); 
+	if (DEBUG) debug("exp\n"); 
 	andexpression();
 	if (er != 0) return;
 	if (token == TOR) {
 		parseoperator(expression);
 		if (er != 0) return;
 		push(x || y);
-	} 
-	if (DEBUG) debug(" leaving exp"); 
+	}  
 }
 
 /* 
@@ -2535,11 +2571,9 @@ void expression(){
 */ 
 
 void xprint(){
-
 	char semicolon = FALSE;
 	form=0;
 
-	if (DEBUG) debugn(TPRINT); 
 	nexttoken();
 
 processsymbol:
@@ -2592,7 +2626,6 @@ separators:
 */
 
 void assignment() {
-	if (DEBUG) debugn(TLET); 
 	char t=token;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
 	char xcl, ycl; // to preserve the left hand side variable names
@@ -2620,7 +2653,6 @@ void assignment() {
 			i=pop();
 			break;
 		case STRINGVAR:
-			if (STRDEBUG) { outsc("The string variable "); outch(xc); outcr(); }
 			nexttoken();
 			args=parsesubscripts();
 			if (er != 0) return;
@@ -2685,9 +2717,11 @@ void assignment() {
 		switch (t) {
 			case VARIABLE: // a scalar variable gets assigned the first string character 
 				setvar(xcl, ycl , ir2[0]);
+				drop();
 				break;
 			case ARRAYVAR: 	
 				setarray(xcl, ycl, i, ir2[0]);
+				drop();
 				break;
 			case STRINGVAR: // a string gets assigned a substring - copy algorithm
 				lensource=pop();
@@ -2720,7 +2754,6 @@ void xinput(){
 	char t;
 	short args;
 
-	if (DEBUG) debugn(TINPUT); 
 	nexttoken();
 
 nextstring:
@@ -2816,7 +2849,6 @@ void dropgosubstack(){
 #endif
 
 void xgoto() {
-	if (DEBUG) debugn(TGOTO); 
 	int t=token;
 
 	nexttoken();
@@ -2841,8 +2873,7 @@ void xgoto() {
 	nexttoken();
 }
 
-void xreturn(){
-	if (DEBUG) debugn(TRETURN); 
+void xreturn(){ 
 #ifdef HASGOSUB
 	popgosubstack();
 	if (er != 0) return;
@@ -2859,7 +2890,7 @@ void xreturn(){
 
 
 void xif() {
-	if (DEBUG) debugn(TIF); 
+	
 	nexttoken();
 	expression();
 	if (er != 0 ) return;
@@ -2911,7 +2942,7 @@ void findnext(){
 */
 
 void xfor(){
-	if (DEBUG) debugn(TFOR);
+	
 	nexttoken();
 	if (token != VARIABLE) {
 		error(EUNKNOWN);
@@ -2974,9 +3005,9 @@ void xfor(){
 
 /*
 	an apocryphal feature here is the BREAK command ending a look
+	doesn't work well for nested loops - to be tested carefully
 */
 void xbreak(){
-	if (DEBUG) debugn(TBREAK);
 	dropforstack();
 	findnext();
 	nexttoken();
@@ -2985,7 +3016,6 @@ void xbreak(){
 void xnext(){
 	char xcl=0;
 	char ycl;
-	if (DEBUG) debugn(TNEXT); 
 
 	nexttoken();
 	if (termsymbol()) goto plainnext;
@@ -3088,7 +3118,7 @@ void outputtoken() {
 void xlist(){
 	short b, e;
 	char oflag = FALSE;
-	if (DEBUG) debugn(TLIST);
+
 	nexttoken();
 	y=parsearguments();
 	if (er != 0) return;
@@ -3112,7 +3142,7 @@ void xlist(){
 
 	here=0;
 	gettoken();
-	while (here <= top) {
+	while (here < top) {
 		if (token == LINENUMBER && x >= b) oflag=TRUE;
 		if (token == LINENUMBER && x >  e) oflag=FALSE;
 		if (oflag) outputtoken();
@@ -3125,7 +3155,6 @@ void xlist(){
 
 
 void xrun(){
-	if (DEBUG) debugn(TRUN);
 	if (token == TCONT) {
 		st=SRUN;
 		nexttoken();
@@ -3172,7 +3201,7 @@ void xnew(){ // the general cleanup function
 
 
 void xrem() {
-	if (DEBUG) debugn(TREM); 
+	
 	while (token != LINENUMBER && token != EOL && here <= top)
 		nexttoken(); 
 }
@@ -3212,7 +3241,6 @@ void xclr() {
 void xdim(){
 	char args, t, xcl, ycl; 
 
-	if (DEBUG) debugn(TDIM); 
 	nexttoken();
 
 nextvariable:
@@ -3296,7 +3324,7 @@ void xtab(){
 
 #ifdef HASDUMP
 void xdump() {
-	if (DEBUG) debugn(TDUMP);
+	
 	nexttoken();
 	y=parsearguments();
 	if (er != 0) return;
@@ -3373,7 +3401,7 @@ char * getfilename() {
 
 void xsave() {
 	char * filename;
-	if (DEBUG) debugn(TSAVE); 
+
 #ifdef ARDUINO
 #ifdef ARDUINOEEPROM
 	if (top+EHEADERSIZE < elength()) {
@@ -3417,7 +3445,6 @@ void xsave() {
 
 void xload() {
 	char * filename;
-	if (DEBUG) debugn(TLOAD);
 
 #ifdef ARDUINO
 #ifdef ARDUINOEEPROM
@@ -3464,7 +3491,7 @@ void xload() {
 	fclose(fd);	
 	fd=0;
 
-	nexttoken();
+	// nexttoken();
 
 #endif
 }
@@ -3477,8 +3504,6 @@ void xload() {
 
 
 void xget(){
-	if (DEBUG) debugn(TGET); 
-
 	nexttoken();
 	if (token == VARIABLE) {
 		checkch();
@@ -3598,7 +3623,7 @@ void xdelay(){
 */
 
 void statement(){
-	if (DEBUG) debug("Statement loop \n"); 
+	if (DEBUG) debug("statement \n"); 
 	while (token != EOL) {
 		switch(token){
 			case LINENUMBER:
@@ -3646,14 +3671,14 @@ void statement(){
 				break;
 #endif
 			case TSTOP:
-			case TEND:
+			case TEND: // return here because new input is needed
 				st=SINT;
 				return;
 			case TLIST:
 				xlist();
 				break;
 			case TSCR:
-			case TNEW:
+			case TNEW: // return here because new input is needed
 				xnew();
 				return;
 			case TCONT:
@@ -3685,9 +3710,9 @@ void statement(){
 			case TSAVE:
 				xsave();
 				break;
-			case TLOAD:
+			case TLOAD: // return here because new input is needed
 				xload();
-				break;
+				return;
 			case TGET:
 				xget();
 				break;
@@ -3716,6 +3741,7 @@ void statement(){
 			default: // very tolerant - tokens are just skipped 
 				nexttoken();
 		}
+		// clearst(); // brutalinsky - fix potential memory leaks
 #ifdef ARDUINO
 		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;};  // on an Arduino entering "#" at runtime stops the program
 #endif
