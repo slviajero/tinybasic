@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.67 2021/08/14 06:31:49 stefan Exp stefan $
+// $Id: basic.c,v 1.68 2021/08/15 05:49:45 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -32,11 +32,28 @@
 */ 
 
 #undef ARDUINOLCD
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
+
+/*
+
+	Controls for Arduino peripheral use
+
+*/
+
+#define ARDUINOPS2
+
+
+
+#ifdef ARDUINOPS2
+#include <PS2Keyboard.h>
+const int PS2DataPin = 3;
+const int PS2IRQpin =  2;
+PS2Keyboard keyboard;
+#endif
 
 
 /* 
@@ -784,8 +801,8 @@ short getarray(char c, char d, short i){
 #ifdef ARDUINOEEPROM
 	if (c == '&') {
 		if ( i > 0 && i <= elength()/2  ) {
-			z.b.h=eread(elength() - (i)*2);
-			z.b.l=eread(elength() - (i)*2 + 1);
+			z.b.h=eread(elength() - i*2);
+			z.b.l=eread(elength() - i*2 + 1);
 			return z.i;		
 		} else {
 			error(ERANGE);
@@ -1241,6 +1258,7 @@ void outch(char c) {
 char inch(){
 	char c=0;
 #ifdef ARDUINO
+#ifndef ARDUINOPS2
 #ifdef USESPICOSERIAL
 	return picochar;
 #else
@@ -1250,6 +1268,14 @@ char inch(){
 	outch(c);
 	return c;
 #endif
+#else 
+	do 
+		if (keyboard.available()) c=keyboard.read();
+	while(c == 0); 
+	outch(c); 
+  if (c == 13) outch('\n');
+	return c;
+#endif	
 #else
 	if (!fd) {
 		do 
@@ -1267,11 +1293,15 @@ char inch(){
 // models here
 char checkch(){
 #ifdef ARDUINO
+#ifndef ARDUINOPS2
 #ifdef USESPICOSERIAL
     return picochar;
 #else 
 	if (Serial.available()) return Serial.peek(); 
 #endif	
+#else 
+	if (keyboard.available()) return keyboard.read();
+#endif
 #else 
 // code for non blocking I/O on non Arduino platforms
 #endif
@@ -1296,7 +1326,7 @@ void outsc(char *c){
 	while (*c != 0) outch(*c++);
 }
 
-// reads a line from the keybord to the input buffer
+// reads a line from the keyboard to the input buffer
 // the new ins - reads into a buffer the caller supplies
 // nb is the max size of the buffer
 
@@ -3746,6 +3776,9 @@ void setup() {
  	(void) PicoSerial.begin(9600, picogetchar);
 #else 
   	Serial.begin(9600); 
+#endif
+#ifdef ARDUINOPS2
+keyboard.begin(PS2DataPin, PS2IRQpin);
 #endif
 #endif
 #ifdef ARDUINOLCD
