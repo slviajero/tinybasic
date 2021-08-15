@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.68 2021/08/15 05:49:45 stefan Exp stefan $
+// $Id: basic.c,v 1.69 2021/08/15 06:22:24 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -32,35 +32,27 @@
 */ 
 
 #undef ARDUINOLCD
+#define ARDUINOPS2
+#undef ARDUINOTFT
 #undef ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
 
-/*
-
-	Controls for Arduino peripheral use
-
-*/
-
-#define ARDUINOPS2
-
-
-
-#ifdef ARDUINOPS2
-#include <PS2Keyboard.h>
-const int PS2DataPin = 3;
-const int PS2IRQpin =  2;
-PS2Keyboard keyboard;
-#endif
-
-
 /* 
  	if PROGMEM is defined we can asssume we compile on 
  	the Arduino IDE. Dun't change anything here.
 
 */
+
+#ifdef ARDUINOPS2
+#include <PS2Keyboard.h>
+#endif
+
+
+
+
 #ifdef PROGMEM
 #define ARDUINO
 #define ARDUINOPROGMEM
@@ -83,6 +75,7 @@ void eupdate(unsigned short i, short c) { return; }
 short eread(unsigned short i) { return 0; }
 #endif
 
+
 #ifdef ARDUINO
 #include <avr/pgmspace.h>
 #ifdef ARDUINOLCD
@@ -91,12 +84,46 @@ short eread(unsigned short i) { return 0; }
 #ifdef USESPICOSERIAL
 #include <PicoSerial.h>
 #endif
+
 #else 
 #define PROGMEM
 #include <stdio.h>
 #include <stdlib.h>
 #include <termios.h>
 #endif
+
+const int serial_baudrate = 9600;
+
+// global variables for the keyboard
+
+#ifdef ARDUINOPS2
+const int PS2DataPin = 3;
+const int PS2IRQpin =  2;
+PS2Keyboard keyboard;
+#endif
+
+// global variables for the LCD
+
+#ifdef ARDUINOLCD
+const int lcd_rows = 2
+const int lcd_columns = 16
+const int pin_RS = 8; 
+const int pin_EN = 9; 
+const int pin_d4 = 4; 
+const int pin_d5 = 5; 
+const int pin_d6 = 6; 
+const int pin_d7 = 7; 
+const int pin_BL = 10; 
+LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
+#endif
+
+// global variables for a TFT
+
+#ifdef ARDUINOTFT
+#endif
+
+
+// general definitions
 
 #define TRUE  1
 #define FALSE 0
@@ -218,11 +245,15 @@ short eread(unsigned short i) { return 0; }
 #define BREAKCHAR '#'
 
 /* 
-	Arduino output models
+	Arduino input and output models
 */
 
 #define OSERIAL 0
 #define OLCD 1
+#define OTFT 2
+
+#define ISERIAL 0
+#define IKEYBOAD 1
 
 /*
 	All BASIC keywords
@@ -365,21 +396,6 @@ const char* const message[] PROGMEM = {
 };
 
 
-/* 
-	The Arduino LCD shield code
-*/ 
-
-#ifdef ARDUINOLCD
-const int pin_RS = 8; 
-const int pin_EN = 9; 
-const int pin_d4 = 4; 
-const int pin_d5 = 5; 
-const int pin_d6 = 6; 
-const int pin_d7 = 7; 
-const int pin_BL = 10; 
-LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
-#endif
-
 /*
 	The basic interpreter is implemented as a stack machine
 	with global variable for the interpreter state, the memory
@@ -411,7 +427,8 @@ LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
 
 	rd is the random number storage.
 
-	od is the output model for an arduino
+	id and od are the input and output model for an arduino
+		they are set to serial by default
 
 	fd is the filedescriptor for save/load
 
@@ -459,7 +476,8 @@ static char form = 0;
 
 static unsigned int rd;
 
-static char od;
+static char id = ISERIAL;
+static char od = OSERIAL;
 
 static char fnc; 
 
@@ -519,15 +537,19 @@ short xabs(short);
 short xsgn(short);
 
 // input output
+// these are the platfrom depended lowlevel functions
+void ioinit();
 void picogetchar(int);
 void outch(char);
 char inch();
 char checkch();
+void ins(char*, short); 
+// from here on the functions only use the functions above
+// there should be no platform depended code here
 void outcr();
 void outspc();
 void outs(char*, short);
 void outsc(char*);
-void ins(char*, short); 
 void outnumber(short);
 char innumber(short*);
 short getnumber(char*, short*);
@@ -1199,14 +1221,221 @@ void dropforstack(){
 
 	Input and output functions.
 
-	The interpreter is implemented to use only putchar 
+	On Mac/Linux the interpreter is implemented to use only putchar 
 	and getchar.
 
 	These functions need to be provided by the stdio lib 
 	or by any other routine like a serial terminal or keyboard 
 	interface of an arduino.
+ 
+ 	ioinit(): called at setup to initialize what ever io is needed
+ 	outch(): prints one ascii character 
+ 	inch(): gets one character (and waits for it)
+ 	checkch(): checks for one character (non blocking)
+ 	ins(): reads an entire line (uses inch except for pioserial)
+
+ 	For picoserial blocking I/O makes little sense. We read directly
+ 	into the input buffer through the interrupt routine. 
+
+ 	In addition the this a few "device driver functions" are also 
+ 	included to simplify keyboard, LCD and TFT code 
 
 */
+
+// device driver code
+#ifdef ARDUINOLCD
+void lwrite(char c) {lcd.write(c);}
+void lbegin() {lcd.begin(lcd_columns, lcd_rows);}
+#else 
+void lwrite(char c) {}
+void lbegin() {}
+#endif
+
+#ifndef ARDUINO
+/* 
+	this is C standard library stuff, we branch to file input/output
+	if there is a valid file descriptor in fd.
+*/
+void ioinit() {
+	return;
+}
+
+
+void outch(char c) { 
+	if (!fd)
+		putchar(c);
+	else 
+		fputc(c, fd);
+}
+
+char inch(){
+	if (!fd) {
+   		return getchar(); 
+	} else 
+		return fgetc(fd);
+}
+
+char checkch(){
+	return 0;
+}
+
+
+void ins(char *b, short nb) {
+	char c;
+	short i = 1;
+	while(i < nb-1) {
+		c=inch();
+		if (c == '\n' || c == '\r') {
+			b[i]=0x00;
+			b[0]=i-1;
+			break;
+		} else {
+			b[i++]=c;
+		} 
+		if (c == 0x08 && i>1) {
+			i--;
+		}
+	}
+}
+
+#else 
+#ifndef USESPICOSERIAL
+/*
+
+	This is standard Arduino code Serial code. 
+	In inch() we wait for input by looping. 
+	LCD output is controlled by the flag od.
+  Keyboard input is controlled by the flag id.
+
+*/ 
+
+void ioinit() {
+	Serial.begin(serial_baudrate);
+   	lbegin();  // the dimension of the lcd shield - hardcoded, ugly
+#ifdef ARDUINOPS2
+	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
+#endif
+}
+
+
+void outch(char c) {
+	if (od == OLCD) {
+		if (c > 31) lwrite(c);
+	} else 
+		Serial.write(c);
+}
+
+char inch(){
+	char c=0;
+	if (id == ISERIAL) {
+		do 
+			if (Serial.available()) c=Serial.read();
+		while(c == 0); 
+		outch(c);
+		return c;
+	}
+#ifdef ARDUINOPS2	
+	if (id == IKEYBOAD) {
+
+		do 
+			if (keyboard.available()) c=keyboard.read();
+		while(c == 0);	
+		outch(c);
+		if (c == 13) outch('\n');
+		return c;
+	}
+#endif
+}
+
+char checkch(){
+	if (Serial.available() && id == ISERIAL) return Serial.peek(); 
+#ifdef ARDUINOPS2
+	if (keyboard.available() && id == IKEYBOAD) return keyboard.read();
+#endif
+}
+
+void ins(char *b, short nb) {
+	char c;
+	short i = 1;
+	while(i < nb-1) {
+		c=inch();
+		if (c == '\n' || c == '\r') {
+			b[i]=0x00;
+			b[0]=i-1;
+			break;
+		} else {
+			b[i++]=c;
+		} 
+		if (c == 0x08 && i>1) {
+			i--;
+		}
+	}
+}
+
+#else 
+/*
+
+	Picoserial allows to define an own input buffer and an 
+	interrupt function. This is used to fill the input buffer 
+	directly on read. Write is standard like in the Serial code.
+
+*/ 
+
+
+volatile static char picochar;
+volatile static char picoa = FALSE;
+volatile static char* picob = NULL;
+static short picobsize = 0;
+volatile static short picoi = 1;
+
+void ioinit() {
+	(void) PicoSerial.begin(serial_baudrate, picogetchar);
+   	lbegin(16, 2);  // the dimension of the lcd shield - hardcoded, ugly
+}
+
+void picogetchar(int c){
+	picochar=c;
+	if (picob && (! picoa) ) {
+		if (picochar != '\n' && picochar != '\r' && picoi<picobsize-1) {
+			picob[picoi++]=picochar;
+		} else {
+			picoa = TRUE;
+			picob[picoi]=0;
+			picob[0]=picoi;
+			picoi=1;
+		}
+		picochar=0; // every buffered byte is deleted
+	}
+}
+
+void outch(char c) {
+	if (od == OLCD) {
+		if (c > 31) lwrite(c);
+	} else 
+		PicoSerial.print(c);
+}
+
+char inch(){
+	return picochar;
+}
+
+char checkch(){
+    return picochar;
+}
+
+void ins(char *b, short nb) {
+	picob=b;
+	picobsize=nb;
+	picoa=FALSE;
+	while (! picoa);
+	outsc(b+1); outcr();
+}
+#endif
+#endif
+
+
+/*
+
 
 // PicoSerial Code, read and buffer one entire string that become deaf
 // but still track 
@@ -1272,8 +1501,8 @@ char inch(){
 	do 
 		if (keyboard.available()) c=keyboard.read();
 	while(c == 0); 
-	outch(c); 
-  if (c == 13) outch('\n');
+	outch(c);
+	if (c == 13) outch('\n');
 	return c;
 #endif	
 #else
@@ -1308,23 +1537,6 @@ char checkch(){
 	return 0;
 }
 
-void outcr() {
-	outch('\n');
-} 
-
-void outspc() {
-	outch(' ');
-}
-
-// output a string of length x at index ir - basic style
-void outs(char *ir, short l){
-	for(int i=0; i<l; i++) outch(ir[i]);
-}
-
-// output a zero terminated string at ir - c style
-void outsc(char *c){
-	while (*c != 0) outch(*c++);
-}
 
 // reads a line from the keyboard to the input buffer
 // the new ins - reads into a buffer the caller supplies
@@ -1356,6 +1568,28 @@ void ins(char *b, short nb) {
 	outsc(b+1); outcr();
 }
 #endif
+
+*/
+
+
+void outcr() {
+	outch('\n');
+} 
+
+void outspc() {
+	outch(' ');
+}
+
+// output a string of length x at index ir - basic style
+void outs(char *ir, short l){
+	for(int i=0; i<l; i++) outch(ir[i]);
+}
+
+// output a zero terminated string at ir - c style
+void outsc(char *c){
+	while (*c != 0) outch(*c++);
+}
+
 
 // reading a 16 bit number using the stack to collect bytes
 
@@ -3583,6 +3817,19 @@ void xset(){
 			lcd.setCursor(0, x);
 			break;
 #endif
+#ifdef ARDUINOPS2
+		case 4:
+			switch(x) {
+				case 0: 
+					id=ISERIAL;
+					break;
+				case 1:
+					id=IKEYBOAD;
+					break;
+			}
+			break;
+
+#endif
 	}
 }
 
@@ -3769,21 +4016,10 @@ void statement(){
 // the setup routine - Arduino style
 void setup() {
 
+	ioinit();
 	printmessage(MGREET); outcr();
  	xnew();		
-#ifdef ARDUINO
-#ifdef USESPICOSERIAL
- 	(void) PicoSerial.begin(9600, picogetchar);
-#else 
-  	Serial.begin(9600); 
-#endif
-#ifdef ARDUINOPS2
-keyboard.begin(PS2DataPin, PS2IRQpin);
-#endif
-#endif
-#ifdef ARDUINOLCD
-   	lcd.begin(16, 2);  // the dimension of the lcd shield - hardcoded, ugly
-#endif
+
 #ifdef ARDUINOEEPROM
   	if (eread(0) == 1){ // autorun from the EEPROM
 		top=(unsigned char) eread(1);
