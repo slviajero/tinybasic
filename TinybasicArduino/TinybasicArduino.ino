@@ -32,33 +32,30 @@
 */ 
 
 #undef ARDUINOLCD
-#define ARDUINOPS2
+#undef ARDUINOPS2
 #undef ARDUINOTFT
 #undef ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
-#undef USESPICOSERIAL
+#define USESPICOSERIAL
+
+#ifdef ARDUINOPS2
+#include <PS2Keyboard.h>
+#endif
 
 /* 
  	if PROGMEM is defined we can asssume we compile on 
  	the Arduino IDE. Dun't change anything here.
 
 */
-
-#ifdef ARDUINOPS2
-#include <PS2Keyboard.h>
-#endif
-
-
-
-
 #ifdef PROGMEM
 #define ARDUINO
 #define ARDUINOPROGMEM
 #else
 #undef ARDUINO
 #endif
+
 #ifdef ESP8266
 #define PROGMEM
 #undef ARDUINOPROGMEM
@@ -84,7 +81,6 @@ short eread(unsigned short i) { return 0; }
 #ifdef USESPICOSERIAL
 #include <PicoSerial.h>
 #endif
-
 #else 
 #define PROGMEM
 #include <stdio.h>
@@ -134,7 +130,7 @@ LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
 // various buffer sizes
 #define BUFSIZE 	92
 #define SBUFSIZE	16
-#define MEMSIZE  	1024
+#define MEMSIZE  	512
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -459,7 +455,7 @@ static short gosubsp = 0;
 static short x, y;
 static signed char xc, yc;
 
-struct twobytes {char l; char h;};
+struct twobytes {signed char l; signed char h;};
 static union accu168 { short i; struct twobytes b; } z;
 
 static char *ir, *ir2;
@@ -657,10 +653,13 @@ void statement();
  */
 
 
-unsigned short bmalloc(char t, char c, char d, short l) {
+unsigned short bmalloc(signed char t, char c, char d, short l) {
 
 	unsigned short vsize;     // the length of the header
 	unsigned short b;
+
+
+    if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
 
 	// how much space is needed
 	if ( t == VARIABLE ) vsize=2+3; 	
@@ -696,10 +695,11 @@ unsigned short bmalloc(char t, char c, char d, short l) {
 // bfind passes back the location of the object as result
 // the length of the object is in z.i as a side effect 
 
-unsigned short bfind(char t, char c, char d) {
+unsigned short bfind(signed char t, char c, char d) {
 
 	short unsigned b = MEMSIZE-1;
-	char t1, c1, d1;
+	signed char t1;
+	char c1, d1;
 	short i=0;
 
 nextitem:
@@ -725,7 +725,7 @@ nextitem:
 	goto nextitem;
 }
 
-unsigned short blength (char t, char c, char d) {
+unsigned short blength (signed char t, char c, char d) {
 	if (! bfind(t, c, d)) return 0;
 	return z.i;
 }
@@ -905,7 +905,6 @@ void createstring(char c, char d, short i) {
 
 
 char* getstring(char c, char d, short b) {	
-
 	unsigned short a;
 
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
@@ -1305,7 +1304,7 @@ void ins(char *b, short nb) {
 	This is standard Arduino code Serial code. 
 	In inch() we wait for input by looping. 
 	LCD output is controlled by the flag od.
-  Keyboard input is controlled by the flag id.
+	Keyboard code here is totally beta
 
 */ 
 
@@ -1390,7 +1389,7 @@ volatile static short picoi = 1;
 
 void ioinit() {
 	(void) PicoSerial.begin(serial_baudrate, picogetchar);
-   	lbegin(16, 2);  // the dimension of the lcd shield - hardcoded, ugly
+   	lbegin();  // the dimension of the lcd shield - hardcoded, ugly
 }
 
 void picogetchar(int c){
@@ -2544,7 +2543,7 @@ void streval(){
 	char *irl;
 	short xl;
 	char xcl;
-	char t;
+	signed char t;
 	unsigned short h1;
 
 	if ( ! stringvalue()) {
@@ -2881,10 +2880,10 @@ separators:
 */
 
 void assignment() {
-	char t=token;  // remember the left hand side token until the end of the statement, type of the lhs
+	signed char t=token;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
 	char xcl, ycl; // to preserve the left hand side variable names
-	char i=1;      // and the beginning of the destination string  
+	short i=1;      // and the beginning of the destination string  
 	short lensource;
 	short args;
 
@@ -3006,7 +3005,6 @@ void assignment() {
 */
 
 void xinput(){
-	char t;
 	short args;
 
 	nexttoken();
@@ -3271,6 +3269,7 @@ void xbreak(){
 void xnext(){
 	char xcl=0;
 	char ycl;
+	short t;
 
 	nexttoken();
 	if (termsymbol()) goto plainnext;
@@ -3294,7 +3293,7 @@ plainnext:
 		} 
 	}
 	if (y == 0) goto backtofor;
-	short t=getvar(xc, yc)+y;
+	t=getvar(xc, yc)+y;
 	setvar(xc, yc, t);
 	if (y > 0 && t <= x) goto backtofor;
 	if (y < 0 && t >= x) goto backtofor;
@@ -3497,7 +3496,8 @@ void xclr() {
 
 
 void xdim(){
-	char args, t, xcl, ycl; 
+	char args, xcl, ycl; 
+	signed char t;
 
 	nexttoken();
 
@@ -3597,7 +3597,7 @@ void xdump() {
 			return;
 	}
 
-	form=5;
+	form=6;
 	dumpmem(y/8+1, x);
 	form=0;
 	nexttoken();
@@ -3605,11 +3605,15 @@ void xdump() {
 
 void dumpmem(unsigned short r, unsigned short b) {
 	unsigned short j, i;	
-	unsigned short k=b;
+	unsigned short k;
+
+	k=b;
 	i=r;
 	while (i>0) {
+		outnumber(k); outspc();
 		for (j=0; j<8; j++) {
 			outnumber(mem[k++]); outspc();
+			delay(1); // slow down a little here for low serial baudrates
 			if (k > MEMSIZE-1) break;
 		}
 		outcr();
