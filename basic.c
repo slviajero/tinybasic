@@ -101,16 +101,20 @@ PS2Keyboard keyboard;
 // global variables for the LCD
 
 #ifdef ARDUINOLCD
-const int lcd_rows = 2
-const int lcd_columns = 16
+const int lcd_rows = 4;
+const int lcd_columns = 20;
 const int pin_RS = 8; 
 const int pin_EN = 9; 
-const int pin_d4 = 4; 
-const int pin_d5 = 5; 
-const int pin_d6 = 6; 
-const int pin_d7 = 7; 
-const int pin_BL = 10; 
+const int pin_d4 = 10; 
+const int pin_d5 = 11; 
+const int pin_d6 = 12; 
+const int pin_d7 = 13; 
+//const int pin_BL = 10; 
 LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
+
+char lcdbuffer[lcd_rows][lcd_columns];
+char lcdmyrow = 0;
+char lcdmycol = 0;
 #endif
 
 // global variables for a TFT
@@ -1241,13 +1245,88 @@ void dropforstack(){
 
 */
 
-// device driver code
+// device driver code -rudimentary
 #ifdef ARDUINOLCD
-void lwrite(char c) {lcd.write(c);}
-void lbegin() {lcd.begin(lcd_columns, lcd_rows);}
+void lcdscroll(){
+	short r,c;
+	short i;
+
+  	for (r=1; r<lcd_rows; r++)
+    	for (c=0; c<lcd_columns; c++)
+      		lcdbuffer[r-1][c]=lcdbuffer[r][c];
+
+   for (c=0; c<lcd_columns; c++) lcdbuffer[lcd_rows-1][c]=0;
+
+   lcd.clear();
+   lcd.home();
+
+	for (r=0; r<lcd_rows-1; r++) {
+   		lcd.setCursor(0, r);
+    	for (c=0; c<lcd_columns; c++) {
+      		if (lcdbuffer[r][c] >= 32) {
+        		lcd.write(lcdbuffer[r][c]);
+      		}
+    	}
+   }
+   lcdmyrow=lcd_rows-1;
+   return;
+}
+
+void lcdclear() {
+	short r,c;
+	for (r=0; r<lcd_rows; r++)
+		for (c=0; c<lcd_columns; c++)
+      		lcdbuffer[r][c]=0;
+	lcd.clear();
+  	lcd.home();
+  	lcdmyrow=0;
+  	lcdmycol=0;
+  	return;
+}
+
+void lcdwrite(char c) {
+	short ic;
+  	ic= (short) c;
+  
+  	if (c == 10) {
+    	lcdmyrow=(lcdmyrow + 1);
+    	if (lcdmyrow >= lcd_rows) {
+      		lcdscroll(); 
+    	}
+    	lcdmycol=0;
+    	lcd.setCursor(lcdmycol, lcdmyrow);
+    	return;
+  	}
+  	if (c == 127) {
+    	if (lcdmycol > 0) {
+      		lcdmycol--;
+      		lcdbuffer[lcdmyrow][lcdmycol]=0;
+      		lcd.setCursor(lcdmycol, lcdmyrow);
+      		lcd.write(" ");
+      		lcd.setCursor(lcdmycol, lcdmyrow);
+      		return;
+    	}
+  	}
+	if (c < 32) return; 
+
+	lcd.write(c);
+	lcdbuffer[lcdmyrow][lcdmycol++]=c;
+	if (lcdmycol == lcd_columns) {
+		lcdmycol=0;
+		lcdmyrow=(lcdmyrow + 1);
+    	if (lcdmyrow >= lcd_rows) {
+      		lcdscroll(); 
+    	}
+		lcd.setCursor(lcdmycol, lcdmyrow);
+	}
+}
+
+void lcdbegin() {
+	lcd.begin(lcd_columns, lcd_rows);
+}
 #else 
-void lwrite(char c) {}
-void lbegin() {}
+void lcdwrite(char c) {}
+void lcdbegin() {}
 #endif
 
 #ifndef ARDUINO
@@ -1268,8 +1347,9 @@ void outch(char c) {
 }
 
 char inch(){
+	char c;
 	if (!fd) {
-   		return getchar(); 
+   		return getchar();; 
 	} else 
 		return fgetc(fd);
 }
@@ -1291,9 +1371,7 @@ void ins(char *b, short nb) {
 		} else {
 			b[i++]=c;
 		} 
-		if (c == 0x08 && i>1) {
-			i--;
-		}
+
 	}
 }
 
@@ -1310,7 +1388,7 @@ void ins(char *b, short nb) {
 
 void ioinit() {
 	Serial.begin(serial_baudrate);
-   	lbegin();  // the dimension of the lcd shield - hardcoded, ugly
+   	lcdbegin();  // the dimension of the lcd shield - hardcoded, ugly
 #ifdef ARDUINOPS2
 	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
 #endif
@@ -1319,10 +1397,11 @@ void ioinit() {
 
 void outch(char c) {
 	if (od == OLCD) {
-		if (c > 31) lwrite(c);
+		lcdwrite(c);
 	} else 
 		Serial.write(c);
 }
+
 
 char inch(){
 	char c=0;
@@ -1330,17 +1409,14 @@ char inch(){
 		do 
 			if (Serial.available()) c=Serial.read();
 		while(c == 0); 
-		outch(c);
 		return c;
 	}
 #ifdef ARDUINOPS2	
 	if (id == IKEYBOAD) {
-
 		do 
 			if (keyboard.available()) c=keyboard.read();
 		while(c == 0);	
-		outch(c);
-		if (c == 13) outch('\n');
+    if (c == 13) c=10;
 		return c;
 	}
 #endif
@@ -1354,21 +1430,21 @@ char checkch(){
 }
 
 void ins(char *b, short nb) {
-	char c;
-	short i = 1;
-	while(i < nb-1) {
-		c=inch();
-		if (c == '\n' || c == '\r') {
-			b[i]=0x00;
-			b[0]=i-1;
-			break;
-		} else {
-			b[i++]=c;
-		} 
-		if (c == 0x08 && i>1) {
-			i--;
-		}
-	}
+  	char c;
+  	short i = 1;
+  	while(i < nb-1) {
+    	c=inch();
+    	outch(c);
+    	if (c == '\n' || c == '\r') {
+      		b[i]=0x00;
+      		b[0]=i-1;
+      		break;
+    	} else if (c == 127 && i>1) {
+      		i--;
+    	} else {
+      		b[i++]=c;
+    	} 
+  	}
 }
 
 #else 
@@ -1389,7 +1465,7 @@ volatile static short picoi = 1;
 
 void ioinit() {
 	(void) PicoSerial.begin(serial_baudrate, picogetchar);
-   	lbegin(16, 2);  // the dimension of the lcd shield - hardcoded, ugly
+   	lcdbegin();  // the dimension of the lcd shield - hardcoded, ugly
 }
 
 void picogetchar(int c){
@@ -1409,7 +1485,7 @@ void picogetchar(int c){
 
 void outch(char c) {
 	if (od == OLCD) {
-		if (c > 31) lwrite(c);
+		lcdwrite(c);
 	} else 
 		PicoSerial.print(c);
 }
@@ -3805,9 +3881,14 @@ void xset(){
 					break;
 				case 2:
 					lcd.clear();
+          			lcd.home();
+          			lcdmycol=0;
+          			lcdmyrow=0;
 					break;
 				case 3:
 					lcd.home();
+          			lcdmycol=0;
+          			lcdmyrow=0;
 					break;
 				case 4:
 					lcd.blink();
