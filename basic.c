@@ -23,6 +23,7 @@
 	EEPROM    834  		0
 	FOR       804  		34
 	LCD       712  		37
+	PS2       1930      128
 	GOSUB     144  		10
 	DUMP 	  130  		0
 	PICO     -504 	-179
@@ -33,6 +34,7 @@
 
 #undef ARDUINOLCD
 #undef ARDUINOPS2
+#undef STANDALONE
 #undef ARDUINOTFT
 #undef ARDUINOEEPROM
 #define HASFORNEXT
@@ -253,7 +255,7 @@ char lcdmycol = 0;
 #define OTFT 2
 
 #define ISERIAL 0
-#define IKEYBOAD 1
+#define IKEYBOARD 1
 
 /*
 	All BASIC keywords
@@ -366,7 +368,7 @@ const char* const keyword[] PROGMEM = {
 
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "] ";
-const char mgreet[]		PROGMEM = "Tinybasic 1.1";
+const char mgreet[]		PROGMEM = "Basic 1.1";
 const char egeneral[]  	PROGMEM = "Error";
 const char eunknown[]  	PROGMEM = "Syntax";
 const char enumber[]	PROGMEM = "Number";
@@ -430,6 +432,8 @@ const char* const message[] PROGMEM = {
 	id and od are the input and output model for an arduino
 		they are set to serial by default
 
+	fnc counts the depth of for - next loop nesting
+
 	fd is the filedescriptor for save/load
 
 */
@@ -476,14 +480,18 @@ static char form = 0;
 
 static unsigned int rd;
 
+#ifndef STANDALONE
 static char id = ISERIAL;
 static char od = OSERIAL;
+#else 
+static char id = IKEYBOARD;
+static char od = OLCD;
+#endif
 
 static char fnc; 
 
 #ifndef ARDUINO
 FILE* fd;
-
 #endif
 
 /* 
@@ -858,7 +866,7 @@ void setarray(char c, char d, short i, short v){
 
 		if (DEBUG) { outsc("* set array "); outch(c); outspc(); outnumber(i); outspc(); outnumber(v); outcr(); }
 
-	// currently only Dr. Wang's @ array implemented 
+	//  Dr. Wang's @ Palo Alto BASIC array
 	if (c == '@') {
 		if ( i > 0 && i < (himem-top)/2 ) {
 			setshort(himem-2*i, v);
@@ -936,12 +944,13 @@ char* getstring(char c, char d, short b) {
 	a=a+b;
 	return (char *)&mem[a];
 }
-
-
-// test code based on static strings 
+ 
+ // this function is currently not used 
 short arraydim(char c) {
 	if (c == '@')
 		return (himem-top)/2;
+	if (c == '&')
+		return elength()/2;
 	return blength(ARRAYVAR, c, '$')/2;
 }
 
@@ -1034,7 +1043,7 @@ char* getkeyword(signed char t) {
 #endif
 }
 
-char * getmessage(char i) {
+char* getmessage(char i) {
 
 	if (i >= NKEYWORDS) return NULL;
 
@@ -1245,7 +1254,11 @@ void dropforstack(){
 
 */
 
-// device driver code -rudimentary
+/* 
+	 device driver code - emulates a lcd_columns * lcd_rows 
+	 very dumb ascii terminal
+*/
+
 #ifdef ARDUINOLCD
 void lcdscroll(){
 	short r,c;
@@ -1285,29 +1298,56 @@ void lcdclear() {
 }
 
 void lcdwrite(char c) {
-	short ic;
-  	ic= (short) c;
-  
-  	if (c == 10) {
-    	lcdmyrow=(lcdmyrow + 1);
-    	if (lcdmyrow >= lcd_rows) {
-      		lcdscroll(); 
-    	}
-    	lcdmycol=0;
-    	lcd.setCursor(lcdmycol, lcdmyrow);
-    	return;
+
+	// the special characters the LCD need to know
+  	switch(c) {
+    	case 02: // STX is used for Home
+    		lcd.home();
+    		lcdmyrow=0;
+    		lcdmycol=0;
+    		break;
+    	case 8: // back one character
+    		if (lcdmycol > 0) lcdmycol--;
+    		break;
+    	case 9: // forward one character 
+    		if (lcdmycol < lcd_columns) lcdmycol++;
+    		break;
+  		case 10: // this is LF Unix style doing also a CR
+    		lcdmyrow=(lcdmyrow + 1);
+    		if (lcdmyrow >= lcd_rows) {
+      			lcdscroll(); 
+    		}
+    		lcdmycol=0;
+    		break;
+    	case 11: // one char down 
+    		lcdmyrow=(lcdmyrow+1) % lcd_rows;
+    		break;
+    	case 12: // form feed is clear screen
+    		lcdclear();
+    		return;
+    	case 13: // classical carriage return 
+    		lcdmycol=0;
+    		break;
+    	case 14:
+    		lcd.cursor();
+    		return; 
+    	case 15:
+    		lcd.noCursor();
+    		return;
+    	case 127: // delete
+    		if (lcdmycol > 0) {
+      			lcdmycol--;
+      			lcdbuffer[lcdmyrow][lcdmycol]=0;
+      			lcd.setCursor(lcdmycol, lcdmyrow);
+      			lcd.write(" ");
+      			lcd.setCursor(lcdmycol, lcdmyrow);
+      			return;
+    		}
   	}
-  	if (c == 127) {
-    	if (lcdmycol > 0) {
-      		lcdmycol--;
-      		lcdbuffer[lcdmyrow][lcdmycol]=0;
-      		lcd.setCursor(lcdmycol, lcdmyrow);
-      		lcd.write(" ");
-      		lcd.setCursor(lcdmycol, lcdmyrow);
-      		return;
-    	}
-  	}
-	if (c < 32) return; 
+
+
+  	lcd.setCursor(lcdmycol, lcdmyrow);
+	if (c < 32 ) return; 
 
 	lcd.write(c);
 	lcdbuffer[lcdmyrow][lcdmycol++]=c;
@@ -1412,7 +1452,7 @@ char inch(){
 		return c;
 	}
 #ifdef ARDUINOPS2	
-	if (id == IKEYBOAD) {
+	if (id == IKEYBOARD) {
 		do 
 			if (keyboard.available()) c=keyboard.read();
 		while(c == 0);	
@@ -1425,7 +1465,7 @@ char inch(){
 char checkch(){
 	if (Serial.available() && id == ISERIAL) return Serial.peek(); 
 #ifdef ARDUINOPS2
-	if (keyboard.available() && id == IKEYBOAD) return keyboard.read();
+	if (keyboard.available() && id == IKEYBOARD) return keyboard.read();
 #endif
 }
 
@@ -2538,12 +2578,13 @@ short xsgn(short x){
 	return x;
 }
 
-// on an arduino, negative values of peek lead to the EEPROM
+// on an arduino, negative values of peek address 
+// the EEPROM range -1 .. -1024 on an UNO
 short peek(short x){
 	if (x >= 0 && x<MEMSIZE) 
 		return mem[x];
 	else if (x < 0 && -x < elength())
-		return eread(-x);
+		return eread(-x+1);
 	else {
 		error(ERANGE);
 		return 0;
@@ -2562,9 +2603,9 @@ short xfre(short x) {
 short rnd(short r) {
 	rd = (31421*rd + 6927) % 0x10000;
 	if (r>=0) 
-		return (rd*r)/0x10000;
+		return ((long)rd*r)/0x10000;
 	else 
-		return (rd*r)/0x10000+1;
+		return ((long)rd*r)/0x10000+1;
 }
 
 // a very simple approximate square root formula. 
@@ -3624,7 +3665,7 @@ void xpoke(){
 	if (x >= 0 && x<MEMSIZE) 
 		mem[x]=y;
 	else if (x < 0 && -x < elength())
-			eupdate(-x, y);
+			eupdate(-x+1, y);
 	else {
 		error(ERANGE);
 	}
@@ -3909,7 +3950,7 @@ void xset(){
 					id=ISERIAL;
 					break;
 				case 1:
-					id=IKEYBOAD;
+					id=IKEYBOARD;
 					break;
 			}
 			break;
