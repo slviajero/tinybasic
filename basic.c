@@ -11,12 +11,24 @@
 */
 
 /* 
-	Defines the target - for any Arduino or a Mac nothing 
-	has to be set here. Define ESP8266 for these systems.
-*/
-#undef ESP8266
+	Defines the target.
+		- for any Arduino with serial I/O or a Mac nothing has 
+			to be set here. The default settings are correct
+			for Arduino boards including MK.
+		- for ESP8266 boards define this macro (#define ESP8266)
+		- ARDUINOLCD actives the LCD code, LCDSHIELD automatically 
+			defines the right settings for the classical shield modules
+		- ARDUINOPS2 activates the PS2 code. Default pins are 2 and 3.
+			If you use other pins the respective changes have to be made 
+			below. 
+		- _if_ LCD and PS2 are both activated STANDALONE cause the Arduino
+			to start with keyboard and lcd as standard devices.
+		- ARDUINOTFT is not yet implemented
+		- ARDUINOEEPROM includes the EEPROM access code
+		- HAS* activates or deactives features of the interpreter
+		- activating Picoserial is not compatible with keyboard code
 
-/* 
+
 	SMALLness - Memory footprint of extensions
 	
 	          FLASH	    RAM
@@ -28,11 +40,13 @@
 	DUMP 	  130  		0
 	PICO     -504 	-179
 
-	The extension flags control features and code size
+	The extension flags control features and code size.
 
 */ 
 
+#undef ESP8266
 #undef ARDUINOLCD
+#undef LCDSHIELD
 #undef ARDUINOPS2
 #undef STANDALONE
 #undef ARDUINOTFT
@@ -41,6 +55,11 @@
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
+
+/* 
+
+	Don't change the definitions here unless you must
+*/ 
 
 #ifdef ARDUINOPS2
 #include <PS2Keyboard.h>
@@ -103,6 +122,19 @@ PS2Keyboard keyboard;
 // global variables for the LCD
 
 #ifdef ARDUINOLCD
+#ifdef LCDSHIELD
+// LCD shield pins to Arduino
+const int lcd_rows = 2;
+const int lcd_columns = 16;
+const int pin_RS = 8; 
+const int pin_EN = 9; 
+const int pin_d4 = 4; 
+const int pin_d5 = 5; 
+const int pin_d6 = 6; 
+const int pin_d7 = 7; 
+const int pin_BL = 10; 
+#else 
+// set your pins here
 const int lcd_rows = 4;
 const int lcd_columns = 20;
 const int pin_RS = 8; 
@@ -111,9 +143,8 @@ const int pin_d4 = 10;
 const int pin_d5 = 11; 
 const int pin_d6 = 12; 
 const int pin_d7 = 13; 
-//const int pin_BL = 10; 
+#endif
 LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
-
 char lcdbuffer[lcd_rows][lcd_columns];
 char lcdmyrow = 0;
 char lcdmycol = 0;
@@ -214,14 +245,15 @@ char lcdmycol = 0;
 #define TSAVE   -79
 #define TLOAD   -78
 #define TGET    -77
-#define TSET    -76
+#define TPUT    -76
+#define TSET    -75
 // Arduino functions (6)
-#define TPINM	-75
-#define TDWRITE	-74
-#define TDREAD	-73
-#define TAWRITE	-72
-#define TAREAD  -71
-#define TDELAY  -70
+#define TPINM	-74
+#define TDWRITE	-73
+#define TDREAD	-72
+#define TAWRITE	-71
+#define TAREAD  -70
+#define TDELAY  -69
 // currently unused constants
 #define TERROR  -3
 #define UNKNOWN -2
@@ -229,7 +261,7 @@ char lcdmycol = 0;
 
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+15+9+6 
+#define NKEYWORDS	3+19+15+10+6 
 #define BASEKEYWORD -121
 
 /*
@@ -309,6 +341,7 @@ const char sbreak[]  PROGMEM = "BREAK";
 const char ssave[]   PROGMEM = "SAVE";
 const char sload[]   PROGMEM = "LOAD";
 const char sget[]    PROGMEM = "GET";
+const char sput[]    PROGMEM = "PUT";
 const char sset[]    PROGMEM = "SET";
 // Arduino functions
 const char spinm[]   PROGMEM = "PINM";
@@ -331,7 +364,7 @@ const char* const keyword[] PROGMEM = {
 	send, spoke,
 // Stefan's additions
 	scont, ssqr, sfre, sdump, sbreak, ssave,
-	sload, sget, sset, 
+	sload, sget, sput, sset, 
 // Arduino stuff
     spinm, sdwrite, sdread, sawrite, saread, 
     sdelay, 
@@ -610,6 +643,7 @@ void xinput();
 void xrem();
 void xpoke();
 void xget();
+void xput();
 void xset();
 
 // optional FOR NEXT loops
@@ -1395,7 +1429,7 @@ char inch(){
 }
 
 char checkch(){
-	return 0;
+	return 1;
 }
 
 
@@ -3870,7 +3904,7 @@ void xload() {
 
 /*
 
-	get just one character from input
+	get just one character from input or send one 
 
 */
 
@@ -3878,8 +3912,9 @@ void xload() {
 void xget(){
 	nexttoken();
 	if (token == VARIABLE) {
-		checkch();
-		setvar(xc, yc, inch());
+		if (checkch()) setvar(xc, yc, inch()); else setvar(xc, yc, 0);
+		//checkch();
+		//setvar(xc, yc, inch());
 		nexttoken();
 	} else if (token == STRINGVAR) {
 		// need to implement string left value
@@ -3888,6 +3923,14 @@ void xget(){
 		error(EUNKNOWN);
 	}
 }
+
+void xput(){
+	parsenarguments(1);
+	if (er != 0) return;
+	x=pop();
+	outch(x);
+}
+
 
 
 /* 
@@ -3903,62 +3946,20 @@ void xset(){
 	if (er != 0) return;
 	x=pop();
 	y=pop();
-	switch (y) {
-#ifdef ARDUINOEEPROM
-			// change the autorun/run flag of the EEPROM
-			// 255 for clear, 0 for prog, 1 for autorun
-		case 1: 
+	switch (y) {		
+		case 1: // autorun/run flag of the EEPROM 255 for clear, 0 for prog, 1 for autorun
 			eupdate(0, x);
 			break;
-#endif
-#ifdef ARDUINOLCD
-		case 2:
-			switch (x) {
-				case 0:
-					od=OSERIAL;
-					break;
-				case 1: 
-					od=OLCD;
-					break;
-				case 2:
-					lcd.clear();
-          			lcd.home();
-          			lcdmycol=0;
-          			lcdmyrow=0;
-					break;
-				case 3:
-					lcd.home();
-          			lcdmycol=0;
-          			lcdmyrow=0;
-					break;
-				case 4:
-					lcd.blink();
-					break;
-				case 5: 
-					lcd.noBlink();
-					break;
-			}
+		case 2: // serial = 0, LCD = 1 
+			if (x<0 || x>1) {error(ERANGE); return; }
+			od=x;
 			break;
-		case 3:
-			lcd.setCursor(0, x);
+		case 4: // serial = 0, keyboard = 1 
+			if (x<0 || x>1) {error(ERANGE); return; }
+			id=x;
 			break;
-#endif
-#ifdef ARDUINOPS2
-		case 4:
-			switch(x) {
-				case 0: 
-					id=ISERIAL;
-					break;
-				case 1:
-					id=IKEYBOARD;
-					break;
-			}
-			break;
-
-#endif
 	}
 }
-
 
 
 /*
@@ -4106,6 +4107,9 @@ void statement(){
 			case TGET:
 				xget();
 				break;
+			case TPUT:
+				xput();
+				break;			
 			case TSET:
 				xset();
 				break;
