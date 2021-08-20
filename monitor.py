@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# $Id: monitor.py,v 1.4 2021/08/08 17:33:53 stefan Exp stefan $
+# $Id: monitor.py,v 1.6 2021/08/20 19:59:44 stefan Exp stefan $
 #
 # Arduino Monitor V0.1 for Stefan's tinybasic. 
 #
@@ -16,6 +16,12 @@
 #         file to remove the "list" and "Ready"
 # <cntrl> D ends the monitor 
 # 
+# Set the port here 
+#
+#port = '/dev/cu.usbserial-1420'
+port = '/dev/cu.usbmodem14201'
+#port = '/dev/cu.usbserial-0001'
+#port = '/dev/ttyUSB0'
 
 import sys
 import serial
@@ -23,9 +29,9 @@ import threading
 from time import sleep
 import readchar
 
-port = '/dev/cu.usbserial-1420'
-#port = '/dev/ttyUSB0'
-ser = serial.Serial(port, 9600, timeout = None, xonxoff = False)
+# timeout is needed to terminate properly
+
+ser = serial.Serial(port, 9600, timeout = 0.3, xonxoff = True)
 
 #
 # The upload function
@@ -52,10 +58,13 @@ def loadfile():
 #
 def readfunction():
 	while cont:
-		ch = ser.read(1)
+		ch = ser.read()
 		chp = ch.decode('utf-8')
 		if ( chp == "\n"):
 			sys.stdout.write("\r");
+		if ( chp == "\r"):
+			sys.stdout.write("\r");
+			sys.stdout.write("\n");
 		sys.stdout.write(chp)
 		sys.stdout.flush()
 		if (saveflag):
@@ -73,7 +82,6 @@ while cont:
 	chp = ch.encode('utf-8')
 	if (chp == b'\x04'):
 		cont = False
-		ser.write(chp)
 	elif (chp == b'\x0c'):
 		loadfile()	
 	elif (chp == b'\x13'):
