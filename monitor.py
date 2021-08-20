@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# $Id: monitor.py,v 1.6 2021/08/20 19:59:44 stefan Exp stefan $
+# $Id: monitor.py,v 1.7 2021/08/20 20:06:23 stefan Exp stefan $
 #
 # Arduino Monitor V0.1 for Stefan's tinybasic. 
 #
@@ -86,10 +86,10 @@ while cont:
 		loadfile()	
 	elif (chp == b'\x13'):
 		if (not saveflag):
-			saveflag = True
 			print("Save on")
 			fn = input("Save to file: ")
 			f2 = open(fn, "w")
+			saveflag = True
 		else:
 			saveflag = False
 			print("Save off")
