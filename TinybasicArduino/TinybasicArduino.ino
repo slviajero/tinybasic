@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.69 2021/08/15 06:22:24 stefan Exp stefan $
+// $Id: basic.c,v 1.70 2021/08/21 05:14:44 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -401,7 +401,7 @@ const char* const keyword[] PROGMEM = {
 
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "] ";
-const char mgreet[]		PROGMEM = "Basic 1.1";
+const char mgreet[]    PROGMEM = "Stefan's Basic 1.2"; // buffer overrun here - harmless
 const char egeneral[]  	PROGMEM = "Error";
 const char eunknown[]  	PROGMEM = "Syntax";
 const char enumber[]	PROGMEM = "Number";
@@ -1462,7 +1462,7 @@ void ins(char *b, short nb) {
 
 void ioinit() {
 	Serial.begin(serial_baudrate);
-   	lcdbegin();  // the dimension of the lcd shield - hardcoded, ugly
+   	lcdbegin(); 
 #ifdef ARDUINOPS2
 	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
 #endif
@@ -1539,15 +1539,15 @@ volatile static short picoi = 1;
 
 void ioinit() {
 	(void) PicoSerial.begin(serial_baudrate, picogetchar);
-   	lcdbegin();  // the dimension of the lcd shield - hardcoded, ugly
+   	lcdbegin();  
 }
 
 void picogetchar(int c){
-	
 	if (picob && (! picoa) ) {
     picochar=c;
 		if (picochar != '\n' && picochar != '\r' && picoi<picobsize-1) {
 			picob[picoi++]=picochar;
+			outch(picochar);
 		} else {
 			picoa = TRUE;
 			picob[picoi]=0;
@@ -1568,10 +1568,10 @@ void outch(char c) {
 }
 
 char inch(){
-  char c;
-  c=picochar;
-  picochar=0;
-  return c;
+	char c;
+	c=picochar;
+	picochar=0;
+	return c;
 }
 
 char checkch(){
@@ -1583,7 +1583,8 @@ void ins(char *b, short nb) {
 	picobsize=nb;
 	picoa=FALSE;
 	while (! picoa);
-	outsc(b+1); outcr();
+	//outsc(b+1); 
+	outcr();
 }
 #endif
 #endif

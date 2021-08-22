@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.69 2021/08/15 06:22:24 stefan Exp stefan $
+// $Id: basic.c,v 1.70 2021/08/21 05:14:44 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -401,7 +401,7 @@ const char* const keyword[] PROGMEM = {
 
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "] ";
-const char mgreet[]		PROGMEM = "Basic 1.1";
+const char mgreet[]		PROGMEM = "Stefan's Basic 1.2"; // buffer overrun here - harmless
 const char egeneral[]  	PROGMEM = "Error";
 const char eunknown[]  	PROGMEM = "Syntax";
 const char enumber[]	PROGMEM = "Number";
@@ -1462,7 +1462,7 @@ void ins(char *b, short nb) {
 
 void ioinit() {
 	Serial.begin(serial_baudrate);
-   	lcdbegin();  // the dimension of the lcd shield - hardcoded, ugly
+   	lcdbegin(); 
 #ifdef ARDUINOPS2
 	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
 #endif
@@ -1539,14 +1539,15 @@ volatile static short picoi = 1;
 
 void ioinit() {
 	(void) PicoSerial.begin(serial_baudrate, picogetchar);
-   	lcdbegin();  // the dimension of the lcd shield - hardcoded, ugly
+   	lcdbegin();  
 }
 
 void picogetchar(int c){
-	picochar=c;
 	if (picob && (! picoa) ) {
+    picochar=c;
 		if (picochar != '\n' && picochar != '\r' && picoi<picobsize-1) {
 			picob[picoi++]=picochar;
+			outch(picochar);
 		} else {
 			picoa = TRUE;
 			picob[picoi]=0;
@@ -1554,6 +1555,8 @@ void picogetchar(int c){
 			picoi=1;
 		}
 		picochar=0; // every buffered byte is deleted
+	} else {
+    if (c != 10) picochar=c;
 	}
 }
 
@@ -1565,161 +1568,26 @@ void outch(char c) {
 }
 
 char inch(){
-	return picochar;
-}
-
-char checkch(){
-    return picochar;
-}
-
-void ins(char *b, short nb) {
-	picob=b;
-	picobsize=nb;
-	picoa=FALSE;
-	while (! picoa);
-	outsc(b+1); outcr();
-}
-#endif
-#endif
-
-
-/*
-
-
-// PicoSerial Code, read and buffer one entire string that become deaf
-// but still track 
-#ifdef USESPICOSERIAL
-volatile static char picochar;
-volatile static char picoa = FALSE;
-volatile static char* picob = NULL;
-static short picobsize = 0;
-volatile static short picoi = 1;
-
-void picogetchar(int c){
-	picochar=c;
-	if (picob && (! picoa) ) {
-		if (picochar != '\n' && picochar != '\r' && picoi<picobsize-1) {
-			picob[picoi++]=picochar;
-		} else {
-			picoa = TRUE;
-			picob[picoi]=0;
-			picob[0]=picoi;
-			picoi=1;
-		}
-		picochar=0; // every buffered byte is deleted
-	}
-}
-#endif
-
-void outch(char c) {
-#ifdef ARDUINO
-#ifdef ARDUINOLCD
-	if (od == OLCD) {
-		if (c > 31) lcd.write(c);
-	} else 
-#endif
-#ifdef USESPICOSERIAL
-		PicoSerial.print(c);
-#else
-		Serial.write(c);
-#endif
-#else 
-	if (!fd)
-		putchar(c);
-	else 
-		fputc(c, fd);
-#endif
-}
-
-// blocking input - the loop around getchar is 
-// unneccessary in the blocking I/O model
-char inch(){
-	char c=0;
-#ifdef ARDUINO
-#ifndef ARDUINOPS2
-#ifdef USESPICOSERIAL
-	return picochar;
-#else
-	do 
-		if (Serial.available()) c=Serial.read();
-	while(c == 0); 
-	outch(c);
-	return c;
-#endif
-#else 
-	do 
-		if (keyboard.available()) c=keyboard.read();
-	while(c == 0); 
-	outch(c);
-	if (c == 13) outch('\n');
-	return c;
-#endif	
-#else
-	if (!fd) {
-		do 
-   			c=getchar();
-  		while(c == 0); 
-		return c;
-	} else 
-		return fgetc(fd);
-#endif
-}
-
-// this is the non blocking io function needed to 
-// interrupt a running program and for GET, 
-// typically an ARDUINO code can add other keyboard 
-// models here
-char checkch(){
-#ifdef ARDUINO
-#ifndef ARDUINOPS2
-#ifdef USESPICOSERIAL
-    return picochar;
-#else 
-	if (Serial.available()) return Serial.peek(); 
-#endif	
-#else 
-	if (keyboard.available()) return keyboard.read();
-#endif
-#else 
-// code for non blocking I/O on non Arduino platforms
-#endif
-	return 0;
-}
-
-
-// reads a line from the keyboard to the input buffer
-// the new ins - reads into a buffer the caller supplies
-// nb is the max size of the buffer
-
-void ins(char *b, short nb) {
-#ifndef USESPICOSERIAL
 	char c;
-	short i = 1;
-	while(i < nb-1) {
-		c=inch();
-		if (c == '\n' || c == '\r') {
-			b[i]=0x00;
-			b[0]=i-1;
-			break;
-		} else {
-			b[i++]=c;
-		} 
-		if (c == 0x08 && i>1) {
-			i--;
-		}
-	}
+	c=picochar;
+	picochar=0;
+	return c;
 }
-#else 
+
+char checkch(){
+    return picochar;
+}
+
+void ins(char *b, short nb) {
 	picob=b;
 	picobsize=nb;
 	picoa=FALSE;
 	while (! picoa);
-	outsc(b+1); outcr();
+	//outsc(b+1); 
+	outcr();
 }
 #endif
-
-*/
-
+#endif
 
 void outcr() {
 	outch('\n');
