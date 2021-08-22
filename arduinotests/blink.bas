@@ -1,0 +1,12 @@
+
+100 REM "The blink program"
+110 REM "Illustrates the BASICs"
+120 PINM 13, 0 : REM "Sets PIN 13 to OUTPUT"
+130 DWRITE 13, 1
+140 DELAY 1000
+150 DWRITE 13, 0
+160 DELAY 1000
+170 GET A
+180 IF A = 32 then 200 : REM "Space to end"
+190 GOTO 130
+200 END
