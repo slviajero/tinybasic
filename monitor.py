@@ -19,7 +19,8 @@
 # Set the port here 
 #
 #port = '/dev/cu.usbserial-1420'
-port = '/dev/cu.usbmodem14201'
+#port = '/dev/cu.usbmodem14201'
+port = '/dev/cu.usbmodem14101'
 #port = '/dev/cu.usbserial-0001'
 #port = '/dev/ttyUSB0'
 
@@ -65,6 +66,8 @@ def readfunction():
 		if ( chp == "\r"):
 			sys.stdout.write("\r");
 			sys.stdout.write("\n");
+		if ( chp == "\x7f" ):
+			sys.stdout.write("\b")
 		sys.stdout.write(chp)
 		sys.stdout.flush()
 		if (saveflag):
