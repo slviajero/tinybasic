@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.70 2021/08/21 05:14:44 stefan Exp stefan $
+// $Id: basic.c,v 1.71 2021/08/24 09:59:42 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -27,6 +27,7 @@
 		- ARDUINOEEPROM includes the EEPROM access code
 		- HAS* activates or deactives features of the interpreter
 		- activating Picoserial is not compatible with keyboard code
+			Picoserial doesn't work on MEGA
 
 
 	SMALLness - Memory footprint of extensions
@@ -46,7 +47,7 @@
 
 #undef ESP8266
 #define ARDUINOLCD
-#define LCDSHIELD
+#undef LCDSHIELD
 #undef ARDUINOPS2
 #undef STANDALONE
 #undef ARDUINOTFT
@@ -54,22 +55,17 @@
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
-#define USESPICOSERIAL
+#undef USESPICOSERIAL
+#define MEMSIZE 4096
 
-/* 
-
-	Don't change the definitions here unless you must
-*/ 
-
+	
+// Don't change the definitions here unless you must
 #ifdef ARDUINOPS2
 #include <PS2Keyboard.h>
 #endif
 
-/* 
- 	if PROGMEM is defined we can asssume we compile on 
- 	the Arduino IDE. Dun't change anything here.
-
-*/
+// if PROGMEM is defined we can asssume we compile on 
+// the Arduino IDE. Dun't change anything here.
 #ifdef PROGMEM
 #define ARDUINO
 #define ARDUINOPROGMEM
@@ -109,10 +105,10 @@ short eread(unsigned short i) { return 0; }
 #include <termios.h>
 #endif
 
+// Arduino default serial baudrate
 const int serial_baudrate = 9600;
 
 // global variables for the keyboard
-
 #ifdef ARDUINOPS2
 const int PS2DataPin = 3;
 const int PS2IRQpin =  2;
@@ -120,7 +116,6 @@ PS2Keyboard keyboard;
 #endif
 
 // global variables for the LCD
-
 #ifdef ARDUINOLCD
 #ifdef LCDSHIELD
 // LCD shield pins to Arduino
@@ -151,13 +146,10 @@ char lcdmycol = 0;
 #endif
 
 // global variables for a TFT
-
 #ifdef ARDUINOTFT
 #endif
 
-
 // general definitions
-
 #define TRUE  1
 #define FALSE 0
 
@@ -167,7 +159,6 @@ char lcdmycol = 0;
 // various buffer sizes
 #define BUFSIZE 	92
 #define SBUFSIZE	16
-#define MEMSIZE  	1024
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -401,7 +392,7 @@ const char* const keyword[] PROGMEM = {
 
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "] ";
-const char mgreet[]    PROGMEM = "Stefan's Basic 1.2"; // buffer overrun here - harmless
+const char mgreet[]		PROGMEM = "Stefan's Basic 1.2"; // buffer overrun here - harmless
 const char egeneral[]  	PROGMEM = "Error";
 const char eunknown[]  	PROGMEM = "Syntax";
 const char enumber[]	PROGMEM = "Number";
@@ -491,6 +482,7 @@ static short forsp = 0;
 #ifdef HASGOSUB
 static short gosubstack[GOSUBDEPTH];
 static short gosubsp = 0;
+static char fnc; 
 #endif
 
 static short x, y;
@@ -521,8 +513,6 @@ static char id = IKEYBOARD;
 static char od = OLCD;
 #endif
 
-static char fnc; 
-
 #ifndef ARDUINO
 FILE* fd;
 #endif
@@ -530,35 +520,52 @@ FILE* fd;
 /* 
 	Layer 0 functions 
 
-	variable handling - interface between memory 
+	variable and memory handling - interface between memory 
  	and variable storage
 
 */
+
+// heap management 
+unsigned short bmalloc(signed char, char, char, short);
+unsigned short bfind(signed char, char, char);
+unsigned short blength (signed char, char, char);
 void  clrvars();
 
+// normal variables
 void  createvar(char, char);
 short getvar(char, char);
 void  setvar(char, char, short);
 
+// low level memory access packing 16 bit into 2 8 bit objexts
+short getshort(short);
+void  setshort(short, short);
+
+// array handling
 void  createarry(char, char, short);
 short getarray(char, char, short);
 void  setarray(char, char, short, short);
 
+// string handling 
 void  createstring(char, char, short);
 char* getstring(char, char, short);
 void  setstring(char, char, short, char *, short);
 
-short getshort(short);
-void  setshort(short, short);
+// access memory dimensions and for strings also the actual length
+short arraydim(char);
+short stringdim(char, char);
+short lenstring(char, char);
+void setstringlength(char, char, short);
 
-void  parsesubstring();
-short parsesubscripts();
-void  parsenarguments(char);
-short parsearguments();
+// get keyword from PROGMEM
+char* getkeyword(signed char);
+char* getmessage(char);
+void printmessage(char);
 
 // error handling
 void error(signed char);
 void reseterror();
+void debugtoken();
+void debug(char*);
 
 // stack stuff
 void push(short);
@@ -566,16 +573,13 @@ short pop();
 void drop();
 void clearst();
 
-// get keyword from PROGMEM
-char* getkeyword(signed char);
 
-// mathematics and other functions
-short rnd(short);
-short sqr(short);
-short fre(short);
-short peek(short);
-short xabs(short);
-short xsgn(short);
+// Arduino I/O
+void lcdscroll();
+void lcdclear();
+void lcdwrite(char);
+void lcdbegin();
+
 
 // input output
 // these are the platfrom depended lowlevel functions
@@ -585,15 +589,16 @@ void outch(char);
 char inch();
 char checkch();
 void ins(char*, short); 
+
 // from here on the functions only use the functions above
 // there should be no platform depended code here
 void outcr();
 void outspc();
 void outs(char*, short);
 void outsc(char*);
-void outnumber(short);
 char innumber(short*);
 short getnumber(char*, short*);
+void outnumber(short);
 
 /* 	
 	Layer 1 function, provide data and do the heavy lifting 
@@ -601,8 +606,8 @@ short getnumber(char*, short*);
 */
 
 // lexical analysis
-void debugtoken();
 void whitespaces();
+void debugtoken();
 void nexttoken();
 
 // storeing and retrieving programs
@@ -620,7 +625,30 @@ void zeroblock(unsigned short, unsigned short);
 void diag();
 void storeline();
 
-// expression evaluation
+// read arguments from the token stream.
+char termsymbol();
+void  parsesubstring();
+short parsesubscripts();
+void  parsenarguments(char);
+short parsearguments();
+
+// mathematics and other functions
+short rnd(short);
+short sqr(short);
+short fre(short);
+short peek(short);
+short xabs(short);
+short xsgn(short);
+
+// ARDUINO i/O functions
+short dread(short);
+short aread(short);
+
+// string values
+char stringvalue();
+void streval();
+
+// expression evaluation 
 void factor();
 void term();
 void addexpression();
@@ -637,53 +665,65 @@ void expression();
 // basic commands of the core language set
 void xprint();
 void assignment();
-void xgoto();
-void xif();
 void xinput();
-void xrem();
-void xpoke();
-void xget();
-void xput();
-void xset();
+void xgoto();
+void xreturn();
+void xif();
 
 // optional FOR NEXT loops
 #ifdef HASFORNEXT
+void findnext();
 void xfor();
 void xnext();
 void xbreak();
 void pushforstack();
 void popforstack();
 void dropforstack();
+void clrforstack();
 #endif
+
 // optional GOSUB commands
 #ifdef HASGOSUB
 void xreturn();
 void pushgosubstack();
 void popgosubstack();
 void dropgosubstack();
+void clrgosubstack();
 #endif
+
+// control commands and misc
+void outputtoken();
+void xlist();
+void xrun();
+void xnew();
+void xrem();
+void xclr();
+void xdim();
+void xpoke();
+void xtab();
+void xdump();
+void dumpmem(unsigned short, unsigned short);
+
+// file access 
+char* getfilename();
+void xsave();
+void xload();
+
+// low level I/O in BASIC
+void xget();
+void xput();
+void xset();
 
 // Arduino IO control
 void xdwrite();
 void xawrite();
 void xpinm();
 void xdelay();
-short dread(short);
-short aread(short);
-
-// control commands 
-void xclr();
-void xlist();
-void xrun();
-void xxnew();
-void xsave();
-void xload();
-void outputtoken();
 
 // the statement loop
 void statement();
 
-/* 
+/*
 	Layer 0 function - variable handling.
 
 	These function access variables, 
@@ -698,7 +738,9 @@ void statement();
 	the code.
  */
 
-
+// allocate a junk of memory for a variable on the heap
+// every objects is identified by name (c,d) and type t
+// 3 bytes are used here but 2 would be enough
 unsigned short bmalloc(signed char t, char c, char d, short l) {
 
 	unsigned short vsize;     // the length of the header
@@ -740,7 +782,6 @@ unsigned short bmalloc(signed char t, char c, char d, short l) {
 
 // bfind passes back the location of the object as result
 // the length of the object is in z.i as a side effect 
-
 unsigned short bfind(signed char t, char c, char d) {
 
 	short unsigned b = MEMSIZE-1;
@@ -771,13 +812,14 @@ nextitem:
 	goto nextitem;
 }
 
+// the length of an object
 unsigned short blength (signed char t, char c, char d) {
 	if (! bfind(t, c, d)) return 0;
 	return z.i;
 }
 
 
-// ununsed so far 
+// ununsed so far, simple variables are created on the fly
 void createvar(char c, char d){
 	return;
 }
@@ -970,11 +1012,7 @@ char* getstring(char c, char d, short b) {
 	if ( (b < 1) || (b > z.i) ) {
 		error(ERANGE); return 0;
 	}
-
-	// outsc("a ="); outnumber(a); outcr();
-	// outsc("b ="); outnumber(b); outcr();
-	// x=mem[a]-b+1;
-	// outsc("x ="); outnumber(x); outcr();
+	
 	a=a+b;
 	return (char *)&mem[a];
 }
@@ -1119,12 +1157,13 @@ void error(signed char e){
 	printmessage(EGENERAL);
 	outcr();
 	clearst();
+	clrforstack();
+	clrgosubstack();
 }
 
 void reseterror() {
 	er=0;
-	clearst();
-	fnc=0;
+	here=0;
 	st=SINT;
 }
 
@@ -1234,7 +1273,7 @@ void pushforstack(){
 		forsp++;	
 		return;	
 	} else 
-		error(ESTACK);
+		error(EFOR);
 }
 
 
@@ -1242,7 +1281,7 @@ void popforstack(){
 	if (forsp>0) {
 		forsp--;
 	} else {
-		error(ESTACK);
+		error(EFOR);
 		return;
 	} 
 	xc=forstack[forsp].varx;
@@ -1256,9 +1295,14 @@ void dropforstack(){
 	if (forsp>0) {
 		forsp--;
 	} else {
-		error(ESTACK);
+		error(EFOR);
 		return;
 	} 
+}
+
+void clrforstack() {
+	forsp=0;
+	fnc=0;
 }
 #endif
 
@@ -1522,6 +1566,7 @@ void ins(char *b, short nb) {
 }
 
 #else 
+
 /*
 
 	Picoserial allows to define an own input buffer and an 
@@ -1529,7 +1574,6 @@ void ins(char *b, short nb) {
 	directly on read. Write is standard like in the Serial code.
 
 */ 
-
 
 volatile static char picochar;
 volatile static char picoa = FALSE;
@@ -1544,7 +1588,7 @@ void ioinit() {
 
 void picogetchar(int c){
 	if (picob && (! picoa) ) {
-    picochar=c;
+    	picochar=c;
 		if (picochar != '\n' && picochar != '\r' && picoi<picobsize-1) {
 			picob[picoi++]=picochar;
 			outch(picochar);
@@ -1556,7 +1600,7 @@ void picogetchar(int c){
 		}
 		picochar=0; // every buffered byte is deleted
 	} else {
-    if (c != 10) picochar=c;
+    	if (c != 10) picochar=c;
 	}
 }
 
@@ -1589,145 +1633,6 @@ void ins(char *b, short nb) {
 #endif
 #endif
 
-
-/*
-
-
-// PicoSerial Code, read and buffer one entire string that become deaf
-// but still track 
-#ifdef USESPICOSERIAL
-volatile static char picochar;
-volatile static char picoa = FALSE;
-volatile static char* picob = NULL;
-static short picobsize = 0;
-volatile static short picoi = 1;
-
-void picogetchar(int c){
-	picochar=c;
-	if (picob && (! picoa) ) {
-		if (picochar != '\n' && picochar != '\r' && picoi<picobsize-1) {
-			picob[picoi++]=picochar;
-		} else {
-			picoa = TRUE;
-			picob[picoi]=0;
-			picob[0]=picoi;
-			picoi=1;
-		}
-		picochar=0; // every buffered byte is deleted
-	}
-}
-#endif
-
-void outch(char c) {
-#ifdef ARDUINO
-#ifdef ARDUINOLCD
-	if (od == OLCD) {
-		if (c > 31) lcd.write(c);
-	} else 
-#endif
-#ifdef USESPICOSERIAL
-		PicoSerial.print(c);
-#else
-		Serial.write(c);
-#endif
-#else 
-	if (!fd)
-		putchar(c);
-	else 
-		fputc(c, fd);
-#endif
-}
-
-// blocking input - the loop around getchar is 
-// unneccessary in the blocking I/O model
-char inch(){
-	char c=0;
-#ifdef ARDUINO
-#ifndef ARDUINOPS2
-#ifdef USESPICOSERIAL
-	return picochar;
-#else
-	do 
-		if (Serial.available()) c=Serial.read();
-	while(c == 0); 
-	outch(c);
-	return c;
-#endif
-#else 
-	do 
-		if (keyboard.available()) c=keyboard.read();
-	while(c == 0); 
-	outch(c);
-	if (c == 13) outch('\n');
-	return c;
-#endif	
-#else
-	if (!fd) {
-		do 
-   			c=getchar();
-  		while(c == 0); 
-		return c;
-	} else 
-		return fgetc(fd);
-#endif
-}
-
-// this is the non blocking io function needed to 
-// interrupt a running program and for GET, 
-// typically an ARDUINO code can add other keyboard 
-// models here
-char checkch(){
-#ifdef ARDUINO
-#ifndef ARDUINOPS2
-#ifdef USESPICOSERIAL
-    return picochar;
-#else 
-	if (Serial.available()) return Serial.peek(); 
-#endif	
-#else 
-	if (keyboard.available()) return keyboard.read();
-#endif
-#else 
-// code for non blocking I/O on non Arduino platforms
-#endif
-	return 0;
-}
-
-
-// reads a line from the keyboard to the input buffer
-// the new ins - reads into a buffer the caller supplies
-// nb is the max size of the buffer
-
-void ins(char *b, short nb) {
-#ifndef USESPICOSERIAL
-	char c;
-	short i = 1;
-	while(i < nb-1) {
-		c=inch();
-		if (c == '\n' || c == '\r') {
-			b[i]=0x00;
-			b[0]=i-1;
-			break;
-		} else {
-			b[i++]=c;
-		} 
-		if (c == 0x08 && i>1) {
-			i--;
-		}
-	}
-}
-#else 
-	picob=b;
-	picobsize=nb;
-	picoa=FALSE;
-	while (! picoa);
-	outsc(b+1); outcr();
-}
-#endif
-
-*/
-
-
 void outcr() {
 	outch('\n');
 } 
@@ -1747,8 +1652,7 @@ void outsc(char *c){
 }
 
 
-// reading a 16 bit number using the stack to collect bytes
-
+// reading a 16 bit number from a char bufer 
 short getnumber(char *c, short *r) {
 	int nd = 0;
 	*r=0;
@@ -1760,6 +1664,7 @@ short getnumber(char *c, short *r) {
 	return nd;
 }
 
+// use sbuffer as a char buffer to get a number input 
 char innumber(short *r) {
 	int i = 1;
 	int s = 1;
@@ -2105,12 +2010,13 @@ char nomemory(short b){
 	if (top >= himem-b) return TRUE; else return FALSE;
 }
 
+// store a token - check free memory before changing anything
 void storetoken() {
 	short i=x;
 	switch (token) {
 		case NUMBER:
 		case LINENUMBER:
-			if ( nomemory(3) ) goto memoryerror;
+			if ( nomemory(3) ) break;
 			mem[top++]=token;	
 			z.i=x;
 			mem[top++]=z.b.l;
@@ -2119,13 +2025,13 @@ void storetoken() {
 		case ARRAYVAR:
 		case VARIABLE:
 		case STRINGVAR:
-			if ( nomemory(3) ) goto memoryerror;
+			if ( nomemory(3) ) break;
 			mem[top++]=token;
 			mem[top++]=xc;
 			mem[top++]=yc;
 			return;
 		case STRING:
-			if ( nomemory(x+2) ) goto memoryerror;
+			if ( nomemory(x+2) ) break;
 			mem[top++]=token;
 			mem[top++]=i;
 			while (i > 0) {
@@ -2134,12 +2040,11 @@ void storetoken() {
 			}
 			return;
 		default:
-			if ( nomemory(1) ) goto memoryerror;
+			if ( nomemory(1) ) break;
 			mem[top++]=token;
 			return;
 	}
-memoryerror:
-	er=EOUTOFMEMORY;
+	error(EOUTOFMEMORY);
 } 
 
 
@@ -2261,7 +2166,7 @@ unsigned short myline(unsigned short h) {
 */
 
 void moveblock(unsigned short b, unsigned short l, unsigned short d){
-	short i;
+	unsigned short i;
 
 	if (d+l > himem) {
 		error(EOUTOFMEMORY);
@@ -2280,7 +2185,7 @@ void moveblock(unsigned short b, unsigned short l, unsigned short d){
 }
 
 void zeroblock(unsigned short b, unsigned short l){
-	short i;
+	unsigned short i;
 
 	if (b+l > himem) {
 		error(EOUTOFMEMORY);
@@ -2341,12 +2246,9 @@ void storeline() {
 	token=LINENUMBER;
 	do {
 		storetoken();
-		if (er == EOUTOFMEMORY) {
-			printmessage(EOUTOFMEMORY); outcr();
-			drop();
+		if (er != 0 ) {
 			top=newline;
 			here=0;
-			//zeroblock(top, himem-top);
 			return;
 		}
 		nexttoken();
@@ -2361,23 +2263,17 @@ void storeline() {
 */
 
 	if (linelength == 3) {  		
-		//zeroblock(here, linelength);
 		top-=3;
 		y=x;					
 		findline(y);
-		if (er == ELINE) {
-			printmessage(ELINE); outcr();
-			return;
-		}		
+		if (er != 0) return;	
 		y=here-3;							
 		nextline();			
 		here-=3;
 		if (x != 0) {						
 			moveblock(here, top-here, y);	
 			top=top-(here-y);
-			//zeroblock(top, here-y);
 		} else {
-			//zeroblock(y, top-y);
 			top=y;
 		}
 		return;
@@ -2416,7 +2312,6 @@ void storeline() {
 				here2-=3;
 				here-=3;
 				moveblock(here2, linelength, here);
-				//zeroblock(here+linelength, top-here-linelength);
 				top=here+linelength;
 			}
 			return;
@@ -2433,17 +2328,14 @@ void storeline() {
 			if (linelength == y) {     // no change in line legth
 				moveblock(top-linelength, linelength, here2);
 				top=top-linelength;
-				//zeroblock(top, linelength);
 			} else if (linelength > y) { // the new line is longer than the old one
 				moveblock(here, top-here, here+linelength-y);
 				here=here+linelength-y;
 				top=top+linelength-y;
 				moveblock(top-linelength, linelength, here2);
-				//zeroblock(top-linelength, linelength);
 				top=top-linelength;
 			} else {					// the new line is short than the old one
 				moveblock(top-linelength, linelength, here2);
-				//zeroblock(top-linelength, linelength);
 				top=top-linelength;
 				moveblock(here, top-here, here2+linelength);
 				top=top-y+linelength;
@@ -2453,7 +2345,6 @@ void storeline() {
 			here=pop();
 			moveblock(here, top-here, here+linelength);
 			moveblock(top, linelength, here);
-			//zeroblock(top, linelength);
 		}
 	}
 }
@@ -2531,9 +2422,7 @@ void parsenarguments(char n) {
 	if (args == n) {
 		return;
 	}
-
 	error(EARGS);
-	clearst();
 }
 
 
@@ -2559,6 +2448,7 @@ void parsefunction(short (*f)(short)){
 void parseoperator(void (*f)()) {
 	nexttoken();
 	f();
+	if (er !=0 ) return;
 	y=pop();
 	x=pop();
 }
@@ -2621,11 +2511,14 @@ short xsgn(short x){
 
 // on an arduino, negative values of peek address 
 // the EEPROM range -1 .. -1024 on an UNO
-short peek(short x){
-	if (x >= 0 && x<MEMSIZE) 
+short peek(short a){
+	unsigned short amax;
+	if (MEMSIZE > 32767) amax=32767; else amax=MEMSIZE;
+
+	if (a >= 0 && a<amax) 
 		return mem[x];
-	else if (x < 0 && -x < elength())
-		return eread(-x+1);
+	else if (a < 0 && -a < elength())
+		return eread(-a+1);
 	else {
 		error(ERANGE);
 		return 0;
@@ -3059,7 +2952,6 @@ void assignment() {
 			if (er != 0) return;
 			if (args != 1) {
 				error(EARGS);
-				clearst();
 				return;
 			}
 			i=pop();
@@ -3078,7 +2970,6 @@ void assignment() {
 					break;
 				default:
 					error(EARGS);
-					clearst();
 					return;
 			}
 			break;
@@ -3254,8 +3145,12 @@ void dropgosubstack(){
 	if (gosubsp>0) {
 		gosubsp--;
 	} else {
-		error(ESTACK);
+		error(EGOSUB);
 	} 
+}
+
+void clrgosubstack() {
+	gosubsp=0;
 }
 #endif
 
@@ -3273,13 +3168,7 @@ void xgoto() {
 
 	x=pop();
 	findline(x);
-	if ( er != 0 ) {
-		error(ELINE);
-#ifdef HASGOSUB
-		if (t == TGOSUB) dropgosubstack();
-#endif
-		return;
-	}
+	if ( er != 0 ) return;
 	if (st == SINT) st=SRUN;
 	nexttoken();
 }
@@ -3534,7 +3423,7 @@ void xlist(){
 	char oflag = FALSE;
 
 	nexttoken();
-	y=parsearguments();
+ 	y=parsearguments();
 	if (er != 0) return;
 	switch (y) {
 		case 0: 
@@ -3553,6 +3442,8 @@ void xlist(){
 			error(EARGS);
 			return;
 	}
+
+	if ( top == 0 ) { nexttoken(); return; }
 
 	here=0;
 	gettoken();
@@ -3583,13 +3474,13 @@ void xrun(){
 		here=0;
 	else
 		findline(pop());
-	if ( er != 0 ) { error(ELINE); return; }
+	if ( er != 0 ) return;
 	if (st == SINT) st=SRUN;
 
 	xclr();
 
 statementloop:
-	while (here < top && ( st == SRUN || st == SERUN)) {	
+	while ( (here < top) && (st == SRUN || st == SERUN) && ! er) {	
 		statement();
 	}
 	st=SINT;
@@ -3605,20 +3496,18 @@ void xnew(){ // the general cleanup function
 	reseterror();
 	st=SINT;
 	nvars=0;
-	fnc=0;
+
 #ifdef HASGOSUB
-	gosubsp=0;
+	clrgosubstack();
 #endif
 #ifdef HASFORNEXT
-	forsp=0;
+	clrforstack();
 #endif
 }
 
 
 void xrem() {
-	
-	while (token != LINENUMBER && token != EOL && here <= top)
-		nexttoken(); 
+	while (token != LINENUMBER && token != EOL && here <= top) nexttoken(); 
 }
 
 /* 
@@ -3634,14 +3523,13 @@ void xrem() {
 
 */
 
-
 void xclr() {
 	clrvars();
 #ifdef HASGOSUB
-	gosubsp=0;
+	clrgosubstack();
 #endif
 #ifdef HASFORNEXT
-	forsp=0;
+	clrforstack();
 #endif
 	nexttoken();
 }
@@ -3651,7 +3539,6 @@ void xclr() {
 	the dimensioning of arrays and strings from Apple 1 BASIC
 
 */
-
 
 void xdim(){
 	char args, xcl, ycl; 
@@ -3699,14 +3586,16 @@ nextvariable:
 */
 
 void xpoke(){
+	unsigned short a, amax;
+	if (MEMSIZE > 32767) amax=32767; else amax=MEMSIZE;
 	parsenarguments(2);
 	if (er != 0) return;
 	y=pop();
-	x=pop();
-	if (x >= 0 && x<MEMSIZE) 
-		mem[x]=y;
-	else if (x < 0 && -x < elength())
-			eupdate(-x+1, y);
+	a=pop();
+	if (a >= 0 && a<amax) 
+		mem[a]=y;
+	else if (a < 0 && -a < elength())
+			eupdate(-a+1, y);
 	else {
 		error(ERANGE);
 	}
@@ -3733,6 +3622,7 @@ void xtab(){
 
 #ifdef HASDUMP
 void xdump() {
+	unsigned short a;
 	
 	nexttoken();
 	y=parsearguments();
@@ -3740,15 +3630,15 @@ void xdump() {
 	switch (y) {
 		case 0: 
 			x=0;
-			y=MEMSIZE-1;
+			a=MEMSIZE-1;
 			break;
 		case 1: 
 			x=pop();
-			y=MEMSIZE-1;
+			a=MEMSIZE-1;
 			break;
 		case 2: 
 			y=pop();
-			x=pop();
+			a=pop();
 			break;
 		default:
 			error(EARGS);
@@ -3756,7 +3646,7 @@ void xdump() {
 	}
 
 	form=6;
-	dumpmem(y/8+1, x);
+	dumpmem(a/8+1, x);
 	form=0;
 	nexttoken();
 }
@@ -3862,7 +3752,7 @@ void xload() {
 #ifdef ARDUINO
 #ifdef ARDUINOEEPROM
 	x=0;
-	if (eread(x) == 0 || eread(x) == 1) { // have we stored a program
+	if (eread(x) == 0 || eread(x) == 1) { // have we stored a program?
 		x++;
 		z.b.l=eread(x++);
 		z.b.h=eread(x++);
@@ -3910,26 +3800,26 @@ void xload() {
 }
 
 /*
-
 	get just one character from input or send one 
-
 */
-
 
 void xget(){
 	nexttoken();
 	if (token == VARIABLE) {
 		if (checkch()) setvar(xc, yc, inch()); else setvar(xc, yc, 0);
-		//checkch();
-		//setvar(xc, yc, inch());
-		nexttoken();
 	} else if (token == STRINGVAR) {
 		// need to implement string left value
 		error(EUNKNOWN);
 	} else {
 		error(EUNKNOWN);
 	}
+	nexttoken();
+
 }
+
+/*
+	PUT writes one character to the default output stream
+*/
 
 void xput(){
 	parsenarguments(1);
@@ -3937,8 +3827,6 @@ void xput(){
 	x=pop();
 	outch(x);
 }
-
-
 
 /* 
 	the set command itself is also apocryphal it is a low level
@@ -4142,11 +4030,10 @@ void statement(){
 			default: // very tolerant - tokens are just skipped 
 				nexttoken();
 		}
-		// clearst(); // brutalinsky - fix potential memory leaks
 #ifdef ARDUINO
 		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;};  // on an Arduino entering "#" at runtime stops the program
 #endif
-		if (er) { reseterror(); return;}
+		if (er) return;
 	}
 }
 
@@ -4170,19 +4057,23 @@ void setup() {
 void loop() {
 
 	if (st != SERUN) {
-		// printmessage(MREADY); outcr();
+
 		printmessage(MPROMPT);
     	ins(ibuffer, BUFSIZE);
         
         bi=ibuffer;
 		nexttoken();
 
-    	if (token == NUMBER)
-      		storeline();
-    	else {
+    	if (token == NUMBER) {
+         	storeline();		
+    	} else {
       		st=SINT;
       		statement();   
     	}
+
+    	// here, at last, all errors need to be catched
+    	if (er) reseterror();
+
 	} else {
 		xrun();
 		// cleanup needed after autorun, top is the EEPROM top
