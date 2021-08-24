@@ -1012,7 +1012,7 @@ char* getstring(char c, char d, short b) {
 	if ( (b < 1) || (b > z.i) ) {
 		error(ERANGE); return 0;
 	}
-	
+
 	a=a+b;
 	return (char *)&mem[a];
 }
@@ -1043,7 +1043,6 @@ short lenstring(char c, char d){
 }
 
 void setstringlength(char c, char d, short l) {
-
 	unsigned short a; 
 
 	if (c == '@') {
@@ -1217,8 +1216,6 @@ void debug(char *c){
 	outsc(c); 
 	debugtoken();
 }
-
-
 #endif
 
 /*
@@ -3028,10 +3025,12 @@ void assignment() {
 				break;
 			case STRINGVAR: // a string gets assigned a substring - copy algorithm
 				lensource=pop();
-				if ((lenstring(xcl, ycl)+lensource-1) > stringdim(xcl, ycl)) { error(ERANGE); return; }
 
 				// the destination adress
 				ir=getstring(xcl, ycl, i);
+				if (er != 0) return;
+
+				if ((lenstring(xcl, ycl)+lensource-1) > stringdim(xcl, ycl)) { error(ERANGE); return; }
 
 				// this code is needed to make sure we can copy one string to the same string 
 				// without overwriting stuff, we go either left to right or backwards
