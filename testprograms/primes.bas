@@ -1,18 +1,23 @@
-5 REM $ID :PRIMES .BAS ,V 1.2 2021 /4 /14 20 :0 :38 PI EXP PI$
-10 INPUT N 
-20 DIM P (N ):P (1 )=2 :P (2 )=3 :I =2 
-30 IF I =N THEN 110 
-40 K =P (I )
-45 K =K +2 
-50 L =SQR (K )
-60 J =1 
-65 D =P (J )
-70 M =K %D 
-80 IF M =0 THEN 45 
-85 IF D <L THEN J =J +1 :GOTO 65 
-90 I =I +1 :P (I )=K 
-100 GOTO 30 
-110 FOR J =1 TO N 
-120 PRINT J ," ",P (J )
-130 NEXT 
-
+100 REM "$Id :"
+110 REM "Calculate the first N prime numbers"
+120 REM "and output them!"
+200 CLR 
+210 INPUT N 
+220 IF N=0 THEN 400
+230 DIM P (N ):P (1 )=2 :P (2 )=3 :I =2 
+240 IF I =N THEN 360
+250 K =P (I )
+260 K =K +2 
+270 L =SQR (K )
+280 J =1 
+290 D =P (J )
+310 M =K %D 
+320 IF M =0 THEN 260
+330 IF D <L THEN J =J +1 :GOTO 290 
+340 I =I +1 :P (I )=K 
+350 GOTO 240 
+360 FOR J =1 TO N 
+370 PRINT J ," ",P (J )
+380 NEXT 
+390 GOTO 200
+400 END
