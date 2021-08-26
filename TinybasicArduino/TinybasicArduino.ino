@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.71 2021/08/24 09:59:42 stefan Exp stefan $
+// $Id: basic.c,v 1.72 2021/08/24 19:38:31 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -47,16 +47,16 @@
 
 #undef ESP8266
 #define ARDUINOLCD
-#undef LCDSHIELD
+#define LCDSHIELD
 #undef ARDUINOPS2
 #undef STANDALONE
 #undef ARDUINOTFT
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
-#define MEMSIZE 4096
+#define MEMSIZE 1024
 
 	
 // Don't change the definitions here unless you must
@@ -78,17 +78,6 @@
 #undef ARDUINOPROGMEM
 #endif
 
-#ifdef ARDUINOEEPROM
-#include <EEPROM.h>
-unsigned short elength() { return EEPROM.length(); }
-void eupdate(unsigned short i, short c) { EEPROM.update(i, c); }
-short eread(unsigned short i) { return EEPROM.read(i); }
-#else
-unsigned short elength() { return 0; }
-void eupdate(unsigned short i, short c) { return; }
-short eread(unsigned short i) { return 0; }
-#endif
-
 
 #ifdef ARDUINO
 #include <avr/pgmspace.h>
@@ -103,51 +92,11 @@ short eread(unsigned short i) { return 0; }
 #include <stdio.h>
 #include <stdlib.h>
 #include <termios.h>
+#include <time.h>
 #endif
 
 // Arduino default serial baudrate
 const int serial_baudrate = 9600;
-
-// global variables for the keyboard
-#ifdef ARDUINOPS2
-const int PS2DataPin = 3;
-const int PS2IRQpin =  2;
-PS2Keyboard keyboard;
-#endif
-
-// global variables for the LCD
-#ifdef ARDUINOLCD
-#ifdef LCDSHIELD
-// LCD shield pins to Arduino
-const int lcd_rows = 2;
-const int lcd_columns = 16;
-const int pin_RS = 8; 
-const int pin_EN = 9; 
-const int pin_d4 = 4; 
-const int pin_d5 = 5; 
-const int pin_d6 = 6; 
-const int pin_d7 = 7; 
-const int pin_BL = 10; 
-#else 
-// set your pins here
-const int lcd_rows = 4;
-const int lcd_columns = 20;
-const int pin_RS = 8; 
-const int pin_EN = 9; 
-const int pin_d4 = 10; 
-const int pin_d5 = 11; 
-const int pin_d6 = 12; 
-const int pin_d7 = 13; 
-#endif
-LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
-char lcdbuffer[lcd_rows][lcd_columns];
-char lcdmyrow = 0;
-char lcdmycol = 0;
-#endif
-
-// global variables for a TFT
-#ifdef ARDUINOTFT
-#endif
 
 // general definitions
 #define TRUE  1
@@ -245,6 +194,9 @@ char lcdmycol = 0;
 #define TAWRITE	-71
 #define TAREAD  -70
 #define TDELAY  -69
+#define TMILLIS  -68
+#define TTONE   -67
+#define TPULSEIN  -66
 // currently unused constants
 #define TERROR  -3
 #define UNKNOWN -2
@@ -252,7 +204,7 @@ char lcdmycol = 0;
 
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+15+10+6 
+#define NKEYWORDS	3+19+15+10+9 
 #define BASEKEYWORD -121
 
 /*
@@ -341,6 +293,9 @@ const char sdread[]  PROGMEM = "DREAD";
 const char sawrite[] PROGMEM = "AWRITE";
 const char saread[]  PROGMEM = "AREAD";
 const char sdelay[]  PROGMEM = "DELAY";
+const char smillis[]  PROGMEM = "MILLIS";
+const char stone[]    PROGMEM = "ATONE";
+const char splusein[] PROGMEM = "PULSEIN";	
 
 
 const char* const keyword[] PROGMEM = {
@@ -358,7 +313,7 @@ const char* const keyword[] PROGMEM = {
 	sload, sget, sput, sset, 
 // Arduino stuff
     spinm, sdwrite, sdread, sawrite, saread, 
-    sdelay, 
+    sdelay, smillis, stone, splusein
 // the end 
 };
 
@@ -515,6 +470,106 @@ static char od = OLCD;
 
 #ifndef ARDUINO
 FILE* fd;
+#endif
+
+/*
+	Arduino definitions and code
+*/
+
+// EEPROM
+#ifdef ARDUINOEEPROM
+#include <EEPROM.h>
+unsigned short elength() { return EEPROM.length(); }
+void eupdate(unsigned short i, short c) { EEPROM.update(i, c); }
+short eread(unsigned short i) { return EEPROM.read(i); }
+#else
+unsigned short elength() { return 0; }
+void eupdate(unsigned short i, short c) { return; }
+short eread(unsigned short i) { return 0; }
+#endif
+
+// global variables for the keyboard
+#ifdef ARDUINOPS2
+const int PS2DataPin = 3;
+const int PS2IRQpin =  2;
+PS2Keyboard keyboard;
+#endif
+
+// global variables for the LCD
+#ifdef ARDUINOLCD
+#ifdef LCDSHIELD
+// LCD shield pins to Arduino
+const int lcd_rows = 2;
+const int lcd_columns = 16;
+const int pin_RS = 8; 
+const int pin_EN = 9; 
+const int pin_d4 = 4; 
+const int pin_d5 = 5; 
+const int pin_d6 = 6; 
+const int pin_d7 = 7; 
+const int pin_BL = 10; 
+#else 
+// set your pins here
+const int lcd_rows = 4;
+const int lcd_columns = 20;
+const int pin_RS = 8; 
+const int pin_EN = 9; 
+const int pin_d4 = 10; 
+const int pin_d5 = 11; 
+const int pin_d6 = 12; 
+const int pin_d7 = 13; 
+#endif
+LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
+char lcdbuffer[lcd_rows][lcd_columns];
+char lcdmyrow = 0;
+char lcdmycol = 0;
+#endif
+
+// global variables for a TFT
+#ifdef ARDUINOTFT
+#endif
+
+// the wrappers of the arduino io functions
+#ifdef ARDUINO
+short aread(short p){ return analogRead(p); }
+short dread(short p){ return digitalRead(p); }
+void awrite(short p, short v){
+	if (v >= 0 && v<256) analogWrite(p, v);
+	else error(ERANGE);
+}
+void dwrite(short p, short v){
+	if (v == 0) digitalWrite(p, LOW);
+	else if (v == 1) digitalWrite(p, HIGH);
+	else error(ERANGE);
+}
+void pinm(short p, short m){
+	if ( m == 0 ) pinMode(p, OUTPUT);
+	else if (m == 1) pinMode(p, INPUT);
+	else if (m == 2) pinMode(p, INPUT_PULLUP);
+	else error(ERANGE); 
+}
+short bmillis(short d) {
+	short m;
+	m=(short) (millis()/d % 32768);
+	return m; 
+};
+#else
+short aread(short p){ return 0; }
+short dread(short p){ return 0; }
+void awrite(short p, short v){}
+void dwrite(short p, short v){}
+void pinm(short p, short m){}
+void delay(short t) {}
+struct timespec start_time;
+short bmillis(short d) {
+	struct timespec ts;
+	unsigned long dt;
+	short m;
+	timespec_get(&ts, TIME_UTC);
+	dt=(ts.tv_sec-start_time.tv_sec)*1000+(ts.tv_nsec-start_time.tv_nsec)/10000000;
+	m=(short) ( dt/d % 32768);
+	return ( (short) m ); 
+};
 #endif
 
 /* 
@@ -719,6 +774,7 @@ void xdwrite();
 void xawrite();
 void xpinm();
 void xdelay();
+void xtone();
 
 // the statement loop
 void statement();
@@ -2163,8 +2219,9 @@ unsigned short myline(unsigned short h) {
 */
 
 void moveblock(unsigned short b, unsigned short l, unsigned short d){
-	unsigned short i;
+	short i;
 
+	//outsc("** Moving block: "); outnumber(b); outspc(); outnumber(l); outspc(); outnumber(d); outcr();
 	if (d+l > himem) {
 		error(EOUTOFMEMORY);
 		return;
@@ -2179,6 +2236,8 @@ void moveblock(unsigned short b, unsigned short l, unsigned short d){
 	else 
 		for (i=0; i<l; i++) 
 			mem[d+i]=mem[b+i]; 
+
+	//outsc("** Done moving /n");
 }
 
 void zeroblock(unsigned short b, unsigned short l){
@@ -2346,36 +2405,7 @@ void storeline() {
 	}
 }
 
-/* 
-	Intermezzo the wrappers of the arduino io functions
-*/ 
 
-#ifdef ARDUINO
-short aread(short p){ return analogRead(p); }
-short dread(short p){ return digitalRead(p); }
-void awrite(short p, short v){
-	if (v >= 0 && v<256) analogWrite(p, v);
-	else error(ERANGE);
-}
-void dwrite(short p, short v){
-	if (v == 0) digitalWrite(p, LOW);
-	else if (v == 1) digitalWrite(p, HIGH);
-	else error(ERANGE);
-}
-void pinm(short p, short m){
-	if ( m == 0 ) pinMode(p, OUTPUT);
-	else if (m == 1) pinMode(p, INPUT);
-	else if (m == 2) pinMode(p, INPUT_PULLUP);
-	else error(ERANGE); 
-}
-#else
-short aread(short p){ return 0; }
-short dread(short p){ return 0; }
-void awrite(short p, short v){}
-void dwrite(short p, short v){}
-void pinm(short p, short m){}
-void delay(short t) {}
-#endif
 
 /* 
  
@@ -2722,6 +2752,10 @@ void factor(){
 		case TDREAD: 
 			parsefunction(dread);
 			break;
+		case TMILLIS: 
+			parsefunction(bmillis);
+			break;		
+// unknown function
 		default:
 			error(EUNKNOWN);
 			return;
@@ -3893,6 +3927,13 @@ void xdelay(){
 	delay(x);	
 }
 
+void xtone(){
+	parsenarguments(3);
+	if (er != 0) return;
+	x=pop();
+	delay(x);	
+}
+
 /* 
 
 	statement processes an entire basic statement until the end 
@@ -4019,7 +4060,11 @@ void statement(){
 				break;
 			case TDELAY:
 				xdelay();
-				break;		
+				break;
+			case TTONE:
+				xtone();
+				break;				
+// and all the rest
 			case UNKNOWN:
 				error(EUNKNOWN);
 				return;
@@ -4038,6 +4083,11 @@ void statement(){
 
 // the setup routine - Arduino style
 void setup() {
+
+
+#ifndef ARDUINO
+	timespec_get(&start_time, TIME_UTC);
+#endif
 
 	ioinit();
 	printmessage(MGREET); outcr();
