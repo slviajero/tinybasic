@@ -1,0 +1,28 @@
+100 REM 
+110 REM 
+120 REM "Init variables - this is setup()"A
+130 D=0
+140 T=0:T0=0
+150 S=0
+160 C=0
+170 SET 2,1
+180 GOSUB 500
+300 REM "Wait for button - this is the loop()"
+320 A=AREAD (14)
+330 IF A>1000AND C<>0 THEN 400
+340 IF A<800AND A>600 THEN C=1
+350 DELAY 10
+360 IF S=1 THEN T=MILLIS(1000)-D
+370 IF T<>T0 THEN T0=T:GOSUB 500
+380 GOTO 300
+400 REM "State Change"
+410 S=(S+1)%2
+420 IF S=1 THEN D=MILLIS(1000)
+430 C=0
+440 GOTO 300
+500 REM "Update display - this is a function()"
+510 PUT 12
+520 PRINT "             "
+530 PUT 2
+540 PRINT "TIME = ";T
+550 RETURN 
