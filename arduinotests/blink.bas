@@ -1,12 +1,16 @@
-
-100 REM "The blink program"
-110 REM "Illustrates the BASICs"
-120 PINM 13, 0 : REM "Sets PIN 13 to OUTPUT"
-130 DWRITE 13, 1
-140 DELAY 1000
-150 DWRITE 13, 0
-160 DELAY 1000
-170 GET A
-180 IF A = 32 then 200 : REM "Space to end"
-190 GOTO 130
-200 END
+100 REM "The Blink program is like hello world"
+110 REM "Using the Arduino builtin LED"
+200 REM "The setup() from line 200-299"
+210 PINM 13, 0
+300 REM "The loop() from line 300-499"
+310 DWRITE 13, 1
+320 DELAY 1000
+330 DWRITE 13, 0
+340 DELAY 1000
+350 GET A
+360 IF A = 32 then 500 : REM "Space to end"
+499 GOTO 300
+500 REM "The cleanup from line 500 - 599"
+599 END
+600 REM "The functions from 600"
+610 RETURN
