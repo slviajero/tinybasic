@@ -46,8 +46,8 @@
 */ 
 
 #undef ESP8266
-#define ARDUINOLCD
-#define LCDSHIELD
+#undef ARDUINOLCD
+#undef LCDSHIELD
 #undef ARDUINOPS2
 #undef STANDALONE
 #undef ARDUINOTFT
@@ -56,7 +56,7 @@
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
-#define MEMSIZE 1024
+#define MEMSIZE 4096
 
 	
 // Don't change the definitions here unless you must
@@ -346,7 +346,7 @@ const char* const keyword[] PROGMEM = {
 #define EEEPROM		 21
 
 const char mfile[]    	PROGMEM = "file.bas";
-const char mprompt[]	PROGMEM = "] ";
+const char mprompt[]	PROGMEM = "> ";
 const char mgreet[]		PROGMEM = "Stefan's Basic 1.2"; // buffer overrun here - harmless
 const char egeneral[]  	PROGMEM = "Error";
 const char eunknown[]  	PROGMEM = "Syntax";
@@ -472,105 +472,6 @@ static char od = OLCD;
 FILE* fd;
 #endif
 
-/*
-	Arduino definitions and code
-*/
-
-// EEPROM
-#ifdef ARDUINOEEPROM
-#include <EEPROM.h>
-unsigned short elength() { return EEPROM.length(); }
-void eupdate(unsigned short i, short c) { EEPROM.update(i, c); }
-short eread(unsigned short i) { return EEPROM.read(i); }
-#else
-unsigned short elength() { return 0; }
-void eupdate(unsigned short i, short c) { return; }
-short eread(unsigned short i) { return 0; }
-#endif
-
-// global variables for the keyboard
-#ifdef ARDUINOPS2
-const int PS2DataPin = 3;
-const int PS2IRQpin =  2;
-PS2Keyboard keyboard;
-#endif
-
-// global variables for the LCD
-#ifdef ARDUINOLCD
-#ifdef LCDSHIELD
-// LCD shield pins to Arduino
-const int lcd_rows = 2;
-const int lcd_columns = 16;
-const int pin_RS = 8; 
-const int pin_EN = 9; 
-const int pin_d4 = 4; 
-const int pin_d5 = 5; 
-const int pin_d6 = 6; 
-const int pin_d7 = 7; 
-const int pin_BL = 10; 
-#else 
-// set your pins here
-const int lcd_rows = 4;
-const int lcd_columns = 20;
-const int pin_RS = 8; 
-const int pin_EN = 9; 
-const int pin_d4 = 10; 
-const int pin_d5 = 11; 
-const int pin_d6 = 12; 
-const int pin_d7 = 13; 
-#endif
-LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
-char lcdbuffer[lcd_rows][lcd_columns];
-char lcdmyrow = 0;
-char lcdmycol = 0;
-#endif
-
-// global variables for a TFT
-#ifdef ARDUINOTFT
-#endif
-
-// the wrappers of the arduino io functions
-#ifdef ARDUINO
-short aread(short p){ return analogRead(p); }
-short dread(short p){ return digitalRead(p); }
-void awrite(short p, short v){
-	if (v >= 0 && v<256) analogWrite(p, v);
-	else error(ERANGE);
-}
-void dwrite(short p, short v){
-	if (v == 0) digitalWrite(p, LOW);
-	else if (v == 1) digitalWrite(p, HIGH);
-	else error(ERANGE);
-}
-void pinm(short p, short m){
-	if ( m == 0 ) pinMode(p, OUTPUT);
-	else if (m == 1) pinMode(p, INPUT);
-	else if (m == 2) pinMode(p, INPUT_PULLUP);
-	else error(ERANGE); 
-}
-short bmillis(short d) {
-	short m;
-	m=(short) (millis()/d % 32768);
-	return m; 
-};
-#else
-short aread(short p){ return 0; }
-short dread(short p){ return 0; }
-void awrite(short p, short v){}
-void dwrite(short p, short v){}
-void pinm(short p, short m){}
-void delay(short t) {}
-struct timespec start_time;
-short bmillis(short d) {
-	struct timespec ts;
-	unsigned long dt;
-	short m;
-	timespec_get(&ts, TIME_UTC);
-	dt=(ts.tv_sec-start_time.tv_sec)*1000+(ts.tv_nsec-start_time.tv_nsec)/10000000;
-	m=(short) ( dt/d % 32768);
-	return ( (short) m ); 
-};
-#endif
 
 /* 
 	Layer 0 functions 
@@ -592,8 +493,8 @@ short getvar(char, char);
 void  setvar(char, char, short);
 
 // low level memory access packing 16 bit into 2 8 bit objexts
-short getshort(short);
-void  setshort(short, short);
+short getshort(unsigned short);
+void  setshort(unsigned short, short);
 
 // array handling
 void  createarry(char, char, short);
@@ -655,6 +556,121 @@ char innumber(short*);
 short getnumber(char*, short*);
 void outnumber(short);
 
+
+/*
+	Arduino definitions and code
+	wrapper functions for the Arduino libraries
+	Arduino definitions and code
+*/
+
+// EEPROM
+#ifdef ARDUINOEEPROM
+#include <EEPROM.h>
+unsigned short elength() { return EEPROM.length(); }
+void eupdate(unsigned short i, short c) { EEPROM.update(i, c); }
+short eread(unsigned short i) { return EEPROM.read(i); }
+#else
+unsigned short elength() { return 0; }
+void eupdate(unsigned short i, short c) { return; }
+short eread(unsigned short i) { return 0; }
+#endif
+
+// global variables for the keyboard
+#ifdef ARDUINOPS2
+const int PS2DataPin = 3;
+const int PS2IRQpin =  2;
+PS2Keyboard keyboard;
+#endif
+
+// global variables for the LCD
+#ifdef ARDUINOLCD
+#ifdef LCDSHIELD
+// LCD shield pins to Arduino
+const int lcd_rows = 2;
+const int lcd_columns = 16;
+const int pin_RS = 8; 
+const int pin_EN = 9; 
+const int pin_d4 = 4; 
+const int pin_d5 = 5; 
+const int pin_d6 = 6; 
+const int pin_d7 = 7; 
+const int pin_BL = 10; 
+#else 
+// set your pins here
+const int lcd_rows = 4;
+const int lcd_columns = 20;
+const int pin_RS = 8; 
+const int pin_EN = 9; 
+const int pin_d4 = 10; 
+const int pin_d5 = 11; 
+const int pin_d6 = 12; 
+const int pin_d7 = 13; 
+#endif
+LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
+char lcdbuffer[lcd_rows][lcd_columns];
+char lcdmyrow = 0;
+char lcdmycol = 0;
+#endif
+
+// global variables for a TFT
+#ifdef ARDUINOTFT
+#endif
+
+
+// the wrappers of the arduino io functions, to avoid 
+// spreading arduino code in the interpreter code
+#ifdef ARDUINO
+void aread(){ push(analogRead(pop())); }
+void dread(){ push(digitalRead(pop())); }
+void awrite(short p, short v){
+	if (v >= 0 && v<256) analogWrite(p, v);
+	else error(ERANGE);
+}
+void dwrite(short p, short v){
+	if (v == 0) digitalWrite(p, LOW);
+	else if (v == 1) digitalWrite(p, HIGH);
+	else error(ERANGE);
+}
+void pinm(short p, short m){
+	if (m>=0 && m<=2)  pinMode(p, m);
+	else error(ERANGE); 
+}
+void bmillis() {
+	short m;
+	m=(short) (millis()/pop() % 32768);
+	push(m); 
+};
+void bpulsein() { 
+  unsigned long t, pt;
+  t=((unsigned long) pop())*1000;
+  //Serial.println(t);
+  y=pop(); 
+  //Serial.println(y);
+  x=pop(); 
+  //Serial.println(x);
+  pt=pulseIn(x, y, t)/10; 
+  push(pt);
+}
+#else
+void aread(){ return; }
+void dread(){ return; }
+void awrite(short p, short v){}
+void dwrite(short p, short v){}
+void pinm(short p, short m){}
+void delay(short t) {}
+struct timespec start_time;
+void bmillis() {
+	struct timespec ts;
+	unsigned long dt;
+	short m;
+	timespec_get(&ts, TIME_UTC);
+	dt=(ts.tv_sec-start_time.tv_sec)*1000+(ts.tv_nsec-start_time.tv_nsec)/10000000;
+	m=(short) ( dt/pop() % 32768);
+	push( (short) m ); 
+};
+void bpulsein() { pop(); pop(); pop(); push(0); }
+#endif
+
 /* 	
 	Layer 1 function, provide data and do the heavy lifting 
 	for layer 2.
@@ -688,16 +704,12 @@ void  parsenarguments(char);
 short parsearguments();
 
 // mathematics and other functions
-short rnd(short);
-short sqr(short);
-short fre(short);
-short peek(short);
-short xabs(short);
-short xsgn(short);
-
-// ARDUINO i/O functions
-short dread(short);
-short aread(short);
+void rnd();
+void sqr();
+void fre();
+void peek();
+void xabs();
+void xsgn();
 
 // string values
 char stringvalue();
@@ -923,13 +935,13 @@ void clrvars() {
 	himem=MEMSIZE-1;
 }
 
-short getshort(short m){
+short getshort(unsigned short m){
 	z.b.l=memread(m++);
 	z.b.h=memread(m);
 	return z.i;
 }
 
-void setshort(short m, short v){
+void setshort(unsigned short m, short v){
 	z.i=v;
 	mem[m++]=z.b.l;
 	mem[m]=z.b.h;
@@ -2219,7 +2231,7 @@ unsigned short myline(unsigned short h) {
 */
 
 void moveblock(unsigned short b, unsigned short l, unsigned short d){
-	short i;
+	unsigned short i;
 
 	//outsc("** Moving block: "); outnumber(b); outspc(); outnumber(l); outspc(); outnumber(d); outcr();
 	if (d+l > himem) {
@@ -2231,8 +2243,8 @@ void moveblock(unsigned short b, unsigned short l, unsigned short d){
 		return;
 
 	if (b < d)
-		for (i=l-1; i>=0; i--)
-			mem[d+i]=mem[b+i]; 
+		for (i=l; i>0; i--)
+			mem[d+i-1]=mem[b+i-1]; 
 	else 
 		for (i=0; i<l; i++) 
 			mem[d+i]=mem[b+i]; 
@@ -2453,22 +2465,22 @@ void parsenarguments(char n) {
 }
 
 
-void parsefunction(short (*f)(short)){
+// parse a function argument and count the number 
+// of expressions supplied, ae is the number of 
+// expected expressions
+void parsefunction(void (*f)(), short ae){
 	char args;
 
 	nexttoken();
 	args=parsesubscripts();
 	if (er != 0) return;
 
-	if (args == 1) {
-		x=pop();
-		x=f(x);
-		push(x);
+	if (args == ae) {
+		f();
 	} else {
 		error(EARGS);
 		return;
 	}
-
 }
 
 
@@ -2525,54 +2537,65 @@ void parsesubstring() {
     }
 }
 
-short xabs(short x){
+void xabs(){
+	short x;
+	x=pop();
 	if (x<0) x=-x;
-	return x;
+	push(x);
 }
 
-short xsgn(short x){
+void xsgn(){
+	short x;
+	x=pop();
 	if (x>0) x=1;
 	if (x<0) x=-1;
-	return x;
+	push(x);
 }
 
 // on an arduino, negative values of peek address 
 // the EEPROM range -1 .. -1024 on an UNO
-short peek(short a){
+void peek(){
 	unsigned short amax;
+	short a;
+	a=pop();
 	if (MEMSIZE > 32767) amax=32767; else amax=MEMSIZE;
 
 	if (a >= 0 && a<amax) 
-		return mem[x];
+		push(mem[a]);
 	else if (a < 0 && -a < elength())
-		return eread(-a+1);
+		push(eread(-a+1));
 	else {
 		error(ERANGE);
-		return 0;
+		return;
 	}
 }
 
 // the fre function 
-short xfre(short x) {
-	if (x >=0 )
-		return himem-top;
-	return elength();
+void xfre() {
+	if (pop() >=0 )
+		push(himem-top);
+	else 
+		push(elength());
 }
 
 
 // very basic random number generator with constant seed.
-short rnd(short r) {
+void rnd() {
+	short r;
+	r=pop();
 	rd = (31421*rd + 6927) % 0x10000;
 	if (r>=0) 
-		return ((long)rd*r)/0x10000;
+		push((long)rd*r/0x10000);
 	else 
-		return ((long)rd*r)/0x10000+1;
+		push((long)rd*r/0x10000+1);
 }
 
 // a very simple approximate square root formula. 
-short sqr(short r){
-	short t=r;
+void sqr(){
+	short t,r;
 	short l=0;
+	r=pop();
+	t=r;
 	while (t > 0) {
 		t>>=1;
 		l++;
@@ -2584,7 +2607,7 @@ short sqr(short r){
 		l=t;
 		t=(t+r/t)/2;
 	} while (abs(t-l)>1);
-	return t;
+	push(t);
 }
 
 
@@ -2692,20 +2715,20 @@ void factor(){
 
 // Palo Alto BASIC functions
 		case TABS: 
-			parsefunction(xabs);
+			parsefunction(xabs, 1);
 			break;
 		case TRND: 
-			parsefunction(rnd);
+			parsefunction(rnd, 1);
 			break;
 		case TSIZE:
 			push(himem-top);
 			break;
 // Apple 1 BASIC functions
 		case TSGN: 
-			parsefunction(xsgn);
+			parsefunction(xsgn, 1);
 			break;
 		case TPEEK: 
-			parsefunction(peek);
+			parsefunction(peek, 1);
 			break;
 		case TLEN: 
 			nexttoken();
@@ -2740,21 +2763,24 @@ void factor(){
 			break;
 //  Stefan's tinybasic additions
 		case TSQR: 
-			parsefunction(sqr);
+			parsefunction(sqr, 1);
 			break;
 		case TFRE: 
-			parsefunction(xfre);
+			parsefunction(xfre, 1);
 			break;
 // Arduino I/O
 		case TAREAD: 
-			parsefunction(aread);
+			parsefunction(aread, 1);
 			break;
 		case TDREAD: 
-			parsefunction(dread);
+			parsefunction(dread, 1);
 			break;
 		case TMILLIS: 
-			parsefunction(bmillis);
-			break;		
+			parsefunction(bmillis, 1);
+			break;	
+		case TPULSEIN:
+			parsefunction(bpulsein, 3);
+			break;
 // unknown function
 		default:
 			error(EUNKNOWN);
@@ -3928,10 +3954,29 @@ void xdelay(){
 }
 
 void xtone(){
-	parsenarguments(3);
+	short args;
+
+	nexttoken();
+	args=parsearguments();
 	if (er != 0) return;
+	if (args>3 || args<2) {
+		error(EARGS);
+		return;
+	}
+
+#ifndef ARDUINO
+	clearst();
+	return;
+#else 
 	x=pop();
-	delay(x);	
+	y=pop();
+	if (args=2) {
+		tone(y,x);
+	} else {
+		z.i=pop();
+		tone(z.i, y, x);
+	}
+#endif		
 }
 
 /* 
