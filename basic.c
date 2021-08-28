@@ -48,6 +48,7 @@
 #undef ESP8266
 #undef ARDUINOLCD
 #undef LCDSHIELD
+#undef ARDUINOI2C
 #undef ARDUINOPS2
 #undef STANDALONE
 #undef ARDUINOTFT
@@ -67,7 +68,7 @@
 // if PROGMEM is defined we can asssume we compile on 
 // the Arduino IDE. Dun't change anything here.
 #ifdef PROGMEM
-#define ARDUINO
+//#define ARDUINO
 #define ARDUINOPROGMEM
 #else
 #undef ARDUINO
@@ -83,6 +84,10 @@
 #include <avr/pgmspace.h>
 #ifdef ARDUINOLCD
 #include <LiquidCrystal.h>
+#endif
+#ifdef ARDUINOI2C
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 #endif
 #ifdef USESPICOSERIAL
 #include <PicoSerial.h>
@@ -595,18 +600,21 @@ const int pin_d5 = 5;
 const int pin_d6 = 6; 
 const int pin_d7 = 7; 
 const int pin_BL = 10; 
+LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
 #else 
-// set your pins here
+// set your pins here - this is the parallel code
+// removed for the moment
 const int lcd_rows = 4;
 const int lcd_columns = 20;
-const int pin_RS = 8; 
-const int pin_EN = 9; 
-const int pin_d4 = 10; 
-const int pin_d5 = 11; 
-const int pin_d6 = 12; 
-const int pin_d7 = 13; 
+//const int pin_RS = 8; 
+//const int pin_EN = 9; 
+//const int pin_d4 = 10; 
+//const int pin_d5 = 11; 
+//const int pin_d6 = 12; 
+//const int pin_d7 = 13; 
+//LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
+LiquidCrystal_I2C lcd(0x27, lcd_columns, lcd_rows);
 #endif
-LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
 char lcdbuffer[lcd_rows][lcd_columns];
 char lcdmyrow = 0;
 char lcdmycol = 0;
@@ -1502,7 +1510,12 @@ void lcdwrite(char c) {
 }
 
 void lcdbegin() {
+#ifndef ARDUINOI2C
 	lcd.begin(lcd_columns, lcd_rows);
+#else 
+	lcd.init(); 
+	lcd.backlight();
+#endif
 }
 #else 
 void lcdwrite(char c) {}

@@ -46,8 +46,9 @@
 */ 
 
 #undef ESP8266
-#undef ARDUINOLCD
+#define ARDUINOLCD
 #undef LCDSHIELD
+#define ARDUINOI2C
 #undef ARDUINOPS2
 #undef STANDALONE
 #undef ARDUINOTFT
@@ -56,7 +57,7 @@
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
-#define MEMSIZE 4096
+#define MEMSIZE 1024
 
 	
 // Don't change the definitions here unless you must
@@ -67,7 +68,7 @@
 // if PROGMEM is defined we can asssume we compile on 
 // the Arduino IDE. Dun't change anything here.
 #ifdef PROGMEM
-#define ARDUINO
+//#define ARDUINO
 #define ARDUINOPROGMEM
 #else
 #undef ARDUINO
@@ -83,6 +84,10 @@
 #include <avr/pgmspace.h>
 #ifdef ARDUINOLCD
 #include <LiquidCrystal.h>
+#endif
+#ifdef ARDUINOI2C
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 #endif
 #ifdef USESPICOSERIAL
 #include <PicoSerial.h>
@@ -595,18 +600,21 @@ const int pin_d5 = 5;
 const int pin_d6 = 6; 
 const int pin_d7 = 7; 
 const int pin_BL = 10; 
+LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
 #else 
-// set your pins here
+// set your pins here - this is the parallel code
+// removed for the moment
 const int lcd_rows = 4;
 const int lcd_columns = 20;
-const int pin_RS = 8; 
-const int pin_EN = 9; 
-const int pin_d4 = 10; 
-const int pin_d5 = 11; 
-const int pin_d6 = 12; 
-const int pin_d7 = 13; 
+//const int pin_RS = 8; 
+//const int pin_EN = 9; 
+//const int pin_d4 = 10; 
+//const int pin_d5 = 11; 
+//const int pin_d6 = 12; 
+//const int pin_d7 = 13; 
+//LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
+LiquidCrystal_I2C lcd(0x27, lcd_columns, lcd_rows);
 #endif
-LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
 char lcdbuffer[lcd_rows][lcd_columns];
 char lcdmyrow = 0;
 char lcdmycol = 0;
@@ -643,11 +651,8 @@ void bmillis() {
 void bpulsein() { 
   unsigned long t, pt;
   t=((unsigned long) pop())*1000;
-  //Serial.println(t);
   y=pop(); 
-  //Serial.println(y);
   x=pop(); 
-  //Serial.println(x);
   pt=pulseIn(x, y, t)/10; 
   push(pt);
 }
@@ -1505,7 +1510,12 @@ void lcdwrite(char c) {
 }
 
 void lcdbegin() {
+#ifndef ARDUINOI2C
 	lcd.begin(lcd_columns, lcd_rows);
+#else 
+	lcd.init(); 
+	lcd.backlight();
+#endif
 }
 #else 
 void lcdwrite(char c) {}
@@ -2465,9 +2475,8 @@ void parsenarguments(char n) {
 }
 
 
-// parse a function argument and count the number 
-// of expressions supplied, ae is the number of 
-// expected expressions
+// parse a function argument ae is the number of 
+// expected expressions in the argument list
 void parsefunction(void (*f)(), short ae){
 	char args;
 
@@ -2483,7 +2492,7 @@ void parsefunction(void (*f)(), short ae){
 	}
 }
 
-
+// helper function in the recursive decent parser
 void parseoperator(void (*f)()) {
 	nexttoken();
 	f();
@@ -2492,6 +2501,7 @@ void parseoperator(void (*f)()) {
 	x=pop();
 }
 
+// counts the number of arguments given in brakets
 short parsesubscripts() {
 	char args = 0;
 
@@ -2503,6 +2513,7 @@ short parsesubscripts() {
 	return args;
 }
 
+// substring evaluation, mind the rewinding here - a bit of a hack
 void parsesubstring() {
 	char xc1, yc1; 
 	short args;
@@ -2537,6 +2548,7 @@ void parsesubstring() {
     }
 }
 
+// absolute value
 void xabs(){
 	short x;
 	x=pop();
@@ -2544,6 +2556,7 @@ void xabs(){
 	push(x);
 }
 
+// sign
 void xsgn(){
 	short x;
 	x=pop();
@@ -2610,7 +2623,7 @@ void sqr(){
 	push(t);
 }
 
-
+// evaluates a string value, FALSE if there is no string
 char stringvalue() {
 	char xcl;
 	char ycl;
@@ -2634,12 +2647,9 @@ char stringvalue() {
 	return TRUE;
 }
 
-/* 
 
-	numerical evaluation of a string expression
-
-*/
-
+// (numerical) evaluation of a string expression used for 
+// comparison and for string rightvalues as numbers
 void streval(){
 	char *irl;
 	short xl;
