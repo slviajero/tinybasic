@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.72 2021/08/24 19:38:31 stefan Exp stefan $
+// $Id: basic.c,v 1.73 2021/08/28 19:01:32 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -48,16 +48,24 @@
 #undef ESP8266
 #undef ARDUINOLCD
 #undef LCDSHIELD
-#undef ARDUINOI2C
-#undef ARDUINOPS2
-#undef STANDALONE
-#undef ARDUINOTFT
 #undef ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
 #define MEMSIZE 4096
+
+// these are the definitions to build a standalone 
+// computer. All of these extensions are very memory hungry
+// input methods
+#undef ARDUINOPS2
+// output methods
+#undef ARDUINOI2C
+#undef ARDUINOTFT
+// storage methods
+#undef ARDUINOSD
+// use the methods above as primary i/o devices
+#undef STANDALONE
 
 	
 // Don't change the definitions here unless you must
@@ -91,6 +99,10 @@
 #endif
 #ifdef USESPICOSERIAL
 #include <PicoSerial.h>
+#endif
+#ifdef ARDUINOSD
+#include <SPI.h>
+#include <SD.h>
 #endif
 #else 
 #define PROGMEM
@@ -349,6 +361,7 @@ const char* const keyword[] PROGMEM = {
 #define EFUN 		 19
 #define EARGS		 20
 #define EEEPROM		 21
+#define ESDCARD		 22
 
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "> ";
@@ -372,13 +385,14 @@ const char efile[]  	PROGMEM = "File";
 const char efun[] 	 	PROGMEM = "Function";
 const char eargs[]  	PROGMEM = "Args";
 const char eeeprom[]	PROGMEM = "EEPROM";
+const char esdcard[]	PROGMEM = "SD card";
 
 const char* const message[] PROGMEM = {
 	mfile, mprompt, mgreet,egeneral, eunknown,
 	enumber, edivide, eline, ereturn, enext,
 	egosub, efor, emem, estack, edim, erange,
 	estring, evariable, efile, efun, eargs, 
-	eeeprom
+	eeeprom, esdcard
 };
 
 
@@ -475,6 +489,11 @@ static char od = OLCD;
 
 #ifndef ARDUINO
 FILE* fd;
+#else 
+#ifdef ARDUINOSD
+File afile;
+#define FILE_OWRITE (O_READ | O_WRITE | O_CREAT | O_TRUNC)
+#endif
 #endif
 
 
@@ -574,10 +593,47 @@ void outnumber(short);
 unsigned short elength() { return EEPROM.length(); }
 void eupdate(unsigned short i, short c) { EEPROM.update(i, c); }
 short eread(unsigned short i) { return EEPROM.read(i); }
+// save a file to EEPROM
+void esave() {
+	int x=0;
+	if (top+EHEADERSIZE < elength()) {
+		x=0;
+		eupdate(x++, 0); // EEPROM per default is 255, 0 indicates that there is a program
+		z.i=top;
+		eupdate(x++, z.b.l);
+		eupdate(x++, z.b.h);
+		while (x < top+EHEADERSIZE){
+			eupdate(x, mem[x-EHEADERSIZE]);
+			x++;
+		}
+		eupdate(x++,0);
+	} else {
+		error(EOUTOFMEMORY);
+		er=0; //oh oh! check this.
+	}
+}
+// load a file from EEPROM
+void eload() {
+	int x=0;
+	if (eread(x) == 0 || eread(x) == 1) { // have we stored a program?
+		x++;
+		z.b.l=eread(x++);
+		z.b.h=eread(x++);
+		top=z.i;
+		while (x < top+EHEADERSIZE){
+			mem[x-EHEADERSIZE]=eread(x);
+			x++;
+		}
+	} else { // no valid program data is stored 
+		error(EEEPROM);
+	}
+}
 #else
 unsigned short elength() { return 0; }
 void eupdate(unsigned short i, short c) { return; }
 short eread(unsigned short i) { return 0; }
+void esave() { error(EEEPROM); return; }
+void eload() { error(EEEPROM); return; }
 #endif
 
 // global variables for the keyboard
@@ -624,9 +680,16 @@ char lcdmycol = 0;
 #ifdef ARDUINOTFT
 #endif
 
+// global variables for an Arduino SD card
+#ifdef ARDUINOSD
+// the SDI chip select
+const char sd_chipselect = 53;
+#endif
 
 // the wrappers of the arduino io functions, to avoid 
-// spreading arduino code in the interpreter code
+// spreading arduino code in the interpreter code 
+// also, this would be the place to insert the Wiring code
+// for raspberry
 #ifdef ARDUINO
 void aread(){ push(analogRead(pop())); }
 void dread(){ push(digitalRead(pop())); }
@@ -1589,8 +1652,10 @@ void ioinit() {
 
 
 void outch(char c) {
-	if (od == OLCD) {
-		lcdwrite(c);
+	if (afile) {
+		afile.write(c);
+	} else if (od == OLCD) {
+		lcdwrite(c);		
 	} else 
 		Serial.write(c);
 }
@@ -1680,7 +1745,9 @@ void picogetchar(int c){
 }
 
 void outch(char c) {
-	if (od == OLCD) {
+	if (afile) {
+		afile.write(c);
+	} else if (od == OLCD) {
 		lcdwrite(c);
 	} else 
 		PicoSerial.print(c);
@@ -3771,101 +3838,111 @@ char * getfilename() {
 }
 
 
+// save a file either to disk or to EEPROM
 void xsave() {
 	char * filename;
 
-#ifdef ARDUINO
-#ifdef ARDUINOEEPROM
-	if (top+EHEADERSIZE < elength()) {
-		x=0;
-		eupdate(x++, 0); // EEPROM per default is 255, 0 indicates that there is a program
-		z.i=top;
-		eupdate(x++, z.b.l);
-		eupdate(x++, z.b.h);
-		while (x < top+EHEADERSIZE){
-			eupdate(x, mem[x-EHEADERSIZE]);
-			x++;
-		}
-		eupdate(x++,0);
+	filename=getfilename();
+	if (er != 0 || filename == NULL) return;
+
+	if (filename[0] == '&') {
+		esave();
 		nexttoken();
 	} else {
-		error(EOUTOFMEMORY);
-		er=0;
-		nexttoken();
+#ifndef ARDUINO
+		fd=fopen(filename, "w");
+		if (!fd) {
+			error(EFILE);
+			nexttoken();
+			return;
+		} 
+		xlist();
+		fclose(fd);
+		fd=0;
+		// no nexttoken here because list has already done this
 		return;
-	}
 #else 
-	nexttoken();
+#ifdef ARDUINOSD
+		afile=SD.open(filename, FILE_WRITE);
+		if (!afile) {
+			error(EFILE);
+			nexttoken();
+			return;
+		} 
+		xlist();
+		afile.close();
+		// no nexttoken here because list has already done this
+#else
+      
 #endif
-#else 
-
-	filename=getfilename();
-	if (er != 0 || filename == NULL) return; 
-
-	fd=fopen(filename, "w");
-	if (!fd) {
-		error(EFILE);
-		nexttoken();
-		return;
-	} 
-	xlist();
-	fclose(fd);
-	fd=0;
-	// no nexttoken here because list has already done this
 #endif
+	}	
 }
 
 void xload() {
 	char * filename;
 
-#ifdef ARDUINO
-#ifdef ARDUINOEEPROM
-	x=0;
-	if (eread(x) == 0 || eread(x) == 1) { // have we stored a program?
-		x++;
-		z.b.l=eread(x++);
-		z.b.h=eread(x++);
-		top=z.i;
-		while (x < top+EHEADERSIZE){
-			mem[x-EHEADERSIZE]=eread(x);
-			x++;
-		}
-	} else { // no valid program data is stored 
-		error(EEEPROM);
-	}
-	nexttoken();
-#else 
-	nexttoken();
-#endif
-#else 
-/*
-	Load code on the Mac
-*/
-
 	filename=getfilename();
 	if (er != 0 || filename == NULL) return; 
 
-	fd=fopen(filename, "r");
-	if (!fd) {
-		error(EFILE);
+	if (filename[0] == '&') {
+		eload();
 		nexttoken();
-		return;
-	}
+	} else {
 
-	while (fgets(ibuffer+1, BUFSIZE, fd)) {
-		bi=ibuffer;
-		while(*bi != 0) { if (*bi == '\n' || *bi == '\r') *bi=' '; bi++; };
-		bi=ibuffer;
-		nexttoken();
-		if (token == NUMBER) storeline();
-		if (er != 0 ) break;
-	}
-	fclose(fd);	
-	fd=0;
+#ifndef ARDUINO
+		fd=fopen(filename, "r");
+		if (!fd) {
+			error(EFILE);
+			nexttoken();
+			return;
+		}
+		while (fgets(ibuffer+1, BUFSIZE, fd)) {
+			bi=ibuffer+1;
+			while(*bi != 0) { if (*bi == '\n' || *bi == '\r') *bi=' '; bi++; };
+				bi=ibuffer+1;
+				nexttoken();
+				if (token == NUMBER) storeline();
+				if (er != 0 ) break;
+		}
+		fclose(fd);	
+		fd=0;
+#else 
+		afile=SD.open(filename, FILE_READ);
+		if (!afile) {
+			error(EFILE);
+			nexttoken();
+			return;
+		} 
 
-	// nexttoken();
-
+    	bi=ibuffer+1;
+		while (afile.available()) {
+      		ch=afile.read();
+      		//Serial.print(ch);
+      		if (ch == '\n' || ch == '\r') {
+        	//Serial.println("<NEWLINE>");
+        		*bi=0;
+        		bi=ibuffer+1;
+        		nexttoken();
+        		//Serial.println("After nexttoken :");
+        		//Serial.println((int) token);
+        		//Serial.println(x);
+        		if (token == NUMBER) storeline();
+        		if (er != 0 ) break;
+        		bi=ibuffer+1;
+      		} else {
+        		*bi++=ch;
+      		}
+      		if ( (bi-ibuffer) > BUFSIZE ) {
+        		error(EOUTOFMEMORY);
+        		break;
+      		}
+		}   	
+		afile.close();
 #endif
+		// nexttoken();
+
+	}
 }
 
 /*
@@ -4143,11 +4220,12 @@ void setup() {
 #ifndef ARDUINO
 	timespec_get(&start_time, TIME_UTC);
 #endif
-
 	ioinit();
 	printmessage(MGREET); outcr();
- 	xnew();		
-
+ 	xnew();	
+#ifdef ARDUINOSD
+ 	SD.begin(sd_chipselect);
+#endif	
 #ifdef ARDUINOEEPROM
   	if (eread(0) == 1){ // autorun from the EEPROM
 		top=(unsigned char) eread(1);
