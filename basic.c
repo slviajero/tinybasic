@@ -8,7 +8,7 @@
 
 	Author: Stefan Lenz, sl001@serverfabrik.de
 
-*/
+
 
 /* 
 	Defines the target.
@@ -46,6 +46,7 @@
 */ 
 
 #undef ESP8266
+#undef MINGW
 #undef ARDUINOLCD
 #undef LCDSHIELD
 #undef ARDUINOEEPROM
@@ -108,7 +109,9 @@
 #define PROGMEM
 #include <stdio.h>
 #include <stdlib.h>
+#ifndef MINGW
 #include <termios.h>
+#endif
 #include <time.h>
 #endif
 
@@ -728,6 +731,7 @@ void pinm(short p, short m){}
 void delay(short t) {}
 struct timespec start_time;
 void bmillis() {
+#ifndef MINGW
 	struct timespec ts;
 	unsigned long dt;
 	short m;
@@ -735,6 +739,9 @@ void bmillis() {
 	dt=(ts.tv_sec-start_time.tv_sec)*1000+(ts.tv_nsec-start_time.tv_nsec)/10000000;
 	m=(short) ( dt/pop() % 32768);
 	push( (short) m ); 
+#else
+	push(0);
+#endif
 };
 void bpulsein() { pop(); pop(); pop(); push(0); }
 #endif
@@ -4218,7 +4225,9 @@ void setup() {
 
 
 #ifndef ARDUINO
+#ifndef MINGW
 	timespec_get(&start_time, TIME_UTC);
+#endif
 #endif
 	ioinit();
 	printmessage(MGREET); outcr();
