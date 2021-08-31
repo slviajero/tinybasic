@@ -214,6 +214,10 @@ const int serial_baudrate = 9600;
 #define TMILLIS  -68
 #define TTONE   -67
 #define TPULSEIN  -66
+// the SD card DOS functions 
+#define TCATALOG -65
+#define TDELETE  -64
+#define TRENAME	 -63
 // currently unused constants
 #define TERROR  -3
 #define UNKNOWN -2
@@ -221,7 +225,7 @@ const int serial_baudrate = 9600;
 
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+15+10+9 
+#define NKEYWORDS	3+19+15+10+9+3
 #define BASEKEYWORD -121
 
 /*
@@ -312,8 +316,11 @@ const char saread[]  PROGMEM = "AREAD";
 const char sdelay[]  PROGMEM = "DELAY";
 const char smillis[]  PROGMEM = "MILLIS";
 const char stone[]    PROGMEM = "ATONE";
-const char splusein[] PROGMEM = "PULSEIN";	
-
+const char splusein[] PROGMEM = "PULSEIN";
+// SD Card DOS functions
+const char scatalog[] PROGMEM = "CATALOG";
+const char sdelete[] PROGMEM = "DELETE";
+const char srename[] PROGMEM = "RENAME";
 
 const char* const keyword[] PROGMEM = {
 // Palo Alto BASIC
@@ -330,7 +337,9 @@ const char* const keyword[] PROGMEM = {
 	sload, sget, sput, sset, 
 // Arduino stuff
     spinm, sdwrite, sdread, sawrite, saread, 
-    sdelay, smillis, stone, splusein
+    sdelay, smillis, stone, splusein,
+// SD Card DOS
+    scatalog, sdelete, srename
 // the end 
 };
 
@@ -3773,8 +3782,8 @@ void xdump() {
 			a=MEMSIZE-1;
 			break;
 		case 2: 
-			y=pop();
 			a=pop();
+			x=pop();
 			break;
 		default:
 			error(EARGS);
@@ -3881,6 +3890,7 @@ void xsave() {
 
 void xload() {
 	char * filename;
+	char ch;
 
 	filename=getfilename();
 	if (er != 0 || filename == NULL) return; 
@@ -4066,6 +4076,21 @@ void xtone(){
 #endif		
 }
 
+// SD card DOS
+
+void xcatalog() {
+	nexttoken();
+}
+
+void xdelete() {
+	nexttoken();
+}
+
+void xrename() {
+	nexttoken();
+}
+
+
 /* 
 
 	statement processes an entire basic statement until the end 
@@ -4195,7 +4220,17 @@ void statement(){
 				break;
 			case TTONE:
 				xtone();
-				break;				
+				break;	
+// SD card DOS function 
+			case TCATALOG:
+				xcatalog();
+				break;
+			case TDELETE:
+				xdelete();
+				break;
+			case TRENAME:
+				xrename();
+				break;
 // and all the rest
 			case UNKNOWN:
 				error(EUNKNOWN);
