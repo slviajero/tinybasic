@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.73 2021/08/28 19:01:32 stefan Exp stefan $
+// $Id: basic.c,v 1.75 2021/09/01 18:24:26 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -8,10 +8,7 @@
 
 	Author: Stefan Lenz, sl001@serverfabrik.de
 
-*/
-
-/* 
-	Defines the target.
+	The first set of definions define the target.
 		- for any Arduino with serial I/O or a Mac nothing has 
 			to be set here. The default settings are correct
 			for Arduino boards including MK.
@@ -46,24 +43,25 @@
 */ 
 
 #undef ESP8266
-#define ARDUINOLCD
+#undef MINGW
+#undef ARDUINOLCD
 #undef LCDSHIELD
 #define ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
-#define MEMSIZE 4096
+#define MEMSIZE 1024
 
 // these are the definitions to build a standalone 
 // computer. All of these extensions are very memory hungry
 // input methods
 #undef ARDUINOPS2
 // output methods
-#define ARDUINOI2C
+#undef ARDUINOI2C
 #undef ARDUINOTFT
 // storage methods
-#define ARDUINOSD
+#undef ARDUINOSD
 // use the methods above as primary i/o devices
 #undef STANDALONE
 
@@ -108,7 +106,9 @@
 #define PROGMEM
 #include <stdio.h>
 #include <stdlib.h>
+#ifndef MINGW
 #include <termios.h>
+#endif
 #include <time.h>
 #endif
 
@@ -214,6 +214,10 @@ const int serial_baudrate = 9600;
 #define TMILLIS  -68
 #define TTONE   -67
 #define TPULSEIN  -66
+// the SD card DOS functions 
+#define TCATALOG -65
+#define TDELETE  -64
+#define TRENAME	 -63
 // currently unused constants
 #define TERROR  -3
 #define UNKNOWN -2
@@ -221,7 +225,7 @@ const int serial_baudrate = 9600;
 
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+15+10+9 
+#define NKEYWORDS	3+19+15+10+9+3
 #define BASEKEYWORD -121
 
 /*
@@ -312,8 +316,11 @@ const char saread[]  PROGMEM = "AREAD";
 const char sdelay[]  PROGMEM = "DELAY";
 const char smillis[]  PROGMEM = "MILLIS";
 const char stone[]    PROGMEM = "ATONE";
-const char splusein[] PROGMEM = "PULSEIN";	
-
+const char splusein[] PROGMEM = "PULSEIN";
+// SD Card DOS functions
+const char scatalog[] PROGMEM = "CATALOG";
+const char sdelete[] PROGMEM = "DELETE";
+const char srename[] PROGMEM = "RENAME";
 
 const char* const keyword[] PROGMEM = {
 // Palo Alto BASIC
@@ -330,7 +337,9 @@ const char* const keyword[] PROGMEM = {
 	sload, sget, sput, sset, 
 // Arduino stuff
     spinm, sdwrite, sdread, sawrite, saread, 
-    sdelay, smillis, stone, splusein
+    sdelay, smillis, stone, splusein,
+// SD Card DOS
+    scatalog, sdelete, srename
 // the end 
 };
 
@@ -522,8 +531,7 @@ void  setshort(unsigned short, short);
 
 // array handling
 void  createarry(char, char, short);
-short getarray(char, char, short);
-void  setarray(char, char, short, short);
+void array(char, char, char, short, short*);
 
 // string handling 
 void  createstring(char, char, short);
@@ -728,6 +736,7 @@ void pinm(short p, short m){}
 void delay(short t) {}
 struct timespec start_time;
 void bmillis() {
+#ifndef MINGW
 	struct timespec ts;
 	unsigned long dt;
 	short m;
@@ -735,6 +744,9 @@ void bmillis() {
 	dt=(ts.tv_sec-start_time.tv_sec)*1000+(ts.tv_nsec-start_time.tv_nsec)/10000000;
 	m=(short) ( dt/pop() % 32768);
 	push( (short) m ); 
+#else
+	push(0);
+#endif
 };
 void bpulsein() { pop(); pop(); pop(); push(0); }
 #endif
@@ -886,8 +898,8 @@ unsigned short bmalloc(signed char t, char c, char d, short l) {
     if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
 
 	// how much space is needed
-	if ( t == VARIABLE ) vsize=2+3; 	
-	else if ( t == ARRAYVAR ) vsize=2*l+2+3;
+	if ( t == VARIABLE ) vsize=NUMSIZE+3; 	
+	else if ( t == ARRAYVAR ) vsize=NUMSIZE*l+2+3;
 	else if ( t == STRINGVAR ) vsize=l+2+3;
 	else { error(EUNKNOWN); return 0; }
 	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return 0;}
@@ -925,27 +937,27 @@ unsigned short bfind(signed char t, char c, char d) {
 	char c1, d1;
 	short i=0;
 
-nextitem:
-	if (i >= nvars) return 0;
 
-	c1=mem[b--];
-	d1=mem[b--];
-	t1=mem[b--];
+	while (i < nvars) { 
 
-	if (t1 == STRINGVAR || t1 == ARRAYVAR) {
-		z.b.h=mem[b--];
-		z.b.l=mem[b--];
-	} else 
-		z.i=2; 
+		c1=mem[b--];
+		d1=mem[b--];
+		t1=mem[b--];
 
-	b-=z.i;
+		if (t1 == STRINGVAR || t1 == ARRAYVAR) {
+			z.b.h=mem[b--];
+			z.b.l=mem[b--];
+		} else 
+			z.i=NUMSIZE; 
 
-	if (c1 == c && d1 == d && t1 == t) {
-		return b+1;
+		b-=z.i;
+
+		if (c1 == c && d1 == d && t1 == t) return b+1;
+		i++;
 	}
 
-	i++;
-	goto nextitem;
+	return 0;
+
 }
 
 // the length of an object
@@ -1025,98 +1037,66 @@ void createarry(char c, char d, short i) {
 
 }
 
-
-short getarray(char c, char d, short i){
+// generic array access function 
+void array(char m, char c, char d, short i, short* v) {
 
 	unsigned short a;
+	unsigned short h;
+	char e = FALSE;
 
 	if (DEBUG) { outsc("* get array "); outch(c); outspc(); outnumber(i); outcr(); }
 
-	// Dr. Wang's famous rest of memory array
+	// special arrays 
 	if (c == '@') {
 
-		if ( i > 0 && i < (himem-top)/2 )
-			return getshort(himem-2*i);
-		else {
-			error(ERANGE);
-			return 0;
+		switch(d) {
+
+			// Dr. Wangs end of memory array
+			case 0: {
+				h=(himem-top)/2;
+				a=himem-2*i+1;
+				break;
+			}
+
+			// EEPROM access 
+			case '0': {
+				h=elength()/2;
+				a=elength() - 2*i;
+				e=TRUE;
+			}
 		}
+
+	} else {
+
+		// dynamically allocated arrays
+		a=bfind(ARRAYVAR, c, d);
+		if (a == 0) error(EVARIABLE);
+		h=z.i/2;
+		a=a+(i-1)*2;
 	}
 
-	// the EEPROM array in the same style;
-#ifdef ARDUINOEEPROM
-	if (c == '&') {
-		if ( i > 0 && i <= elength()/2  ) {
-			z.b.h=eread(elength() - i*2);
-			z.b.l=eread(elength() - i*2 + 1);
-			return z.i;		
+	// is the index in range
+	if ( (i < 1) || (i > h) ) error(ERANGE); 
+
+
+	// set or get the array
+	if (m == 'g') {
+		if (! e) {
+			*v=getshort(a);
 		} else {
-			error(ERANGE);
-			return 0;	
+			z.b.h=eread(a++);
+			z.b.l=eread(a);
+			*v=z.i;
 		}
-	}
-#endif
-
-	// dynamically allocated arrays
-	a=bfind(ARRAYVAR, c, d);
-	if (a == 0) {
-		error(EVARIABLE);
-		return 0;
-	}
-
-	if ( (i < 1) || (i > z.i/2) ) {
-		error(ERANGE); return 0;
-	}
-
-	a=a+(i-1)*2;
-	return getshort(a);
-}
-
-void setarray(char c, char d, short i, short v){
-
-	unsigned short a;
-
-		if (DEBUG) { outsc("* set array "); outch(c); outspc(); outnumber(i); outspc(); outnumber(v); outcr(); }
-
-	//  Dr. Wang's @ Palo Alto BASIC array
-	if (c == '@') {
-		if ( i > 0 && i < (himem-top)/2 ) {
-			setshort(himem-2*i, v);
-			return;		
+	} else if ( m == 's') {
+		if (! e) {
+			setshort(a, *v);
 		} else {
-			error(ERANGE);
-			return;
-		}
-	}
-
-	// Dr. Wang's EEPROM analogon
-#ifdef ARDUINOEEPROM
-	if (c == '&') {
-		if ( i > 0 && i <= elength()/2 ) {
-			z.i=v;
+			z.i=*v;
 			eupdate(elength() - i*2, z.b.h);
 			eupdate(elength() - i*2 + 1, z.b.l);
-			return;
-		} else {
-			error(ERANGE);
-			return;			
 		}
 	}
-#endif
-
-	// dynamically allocated arrays
-	a=bfind(ARRAYVAR, c, d);
-	if (a == 0) {
-		error(EVARIABLE);
-		return;
-	}
-
-	if ( (i < 1) || (i > z.i/2) ) {
-		error(ERANGE); return;
-	}
-
-	a=a+(i-1)*2;
-	setshort(a, v);
 }
 
 void createstring(char c, char d, short i) {
@@ -1652,9 +1632,12 @@ void ioinit() {
 
 
 void outch(char c) {
+#ifdef ARDUINOSD
 	if (afile) {
 		afile.write(c);
-	} else if (od == OLCD) {
+	} else 
+#endif
+	if (od == OLCD) {
 		lcdwrite(c);		
 	} else 
 		Serial.write(c);
@@ -1745,9 +1728,12 @@ void picogetchar(int c){
 }
 
 void outch(char c) {
+#ifdef ARDUINOSD
 	if (afile) {
 		afile.write(c);
-	} else if (od == OLCD) {
+	} else
+#endif 
+	if (od == OLCD) {
 		lcdwrite(c);
 	} else 
 		PicoSerial.print(c);
@@ -1954,26 +1940,6 @@ void nexttoken() {
 			return; 
 	}  
 
-	// Dr. Wangs BASIC had this array we keep it for sentimental reasons
-	if (*bi == '@') {
-		token=ARRAYVAR;
-		xc=*bi++;
-		if (*bi == '$') {
-			token=STRINGVAR;
-			bi++;
-		}
-		if (DEBUG) debugtoken();
-		return;
-	}
-
-#ifdef ARDUINOEEPROM 
-	if (*bi == '&') {
-		token=ARRAYVAR;
-		xc=*bi++;
-		if (DEBUG) debugtoken();
-		return;
-	}
-#endif
 
 	// relations
 	// single character relations are their own token
@@ -2025,7 +1991,8 @@ void nexttoken() {
 
 	// keyworks and variables
 	// isolate a word, bi points to the beginning, x is the length of the word
-	// ir points to the end of the word after isolating
+	// ir points to the end of the word after isolating.
+	// @ is a letter here to make the special @ arrays possible
 
 	// if (DEBUG) printmessage(EVARIABLE);
 	x=0;
@@ -2036,7 +2003,7 @@ void nexttoken() {
 			*ir-=32;
 			ir++;
 			x++;
-		} else if (*ir >= 'A' && *ir <= 'Z'){
+		} else if (*ir >= '@' && *ir <= 'Z'){
 			ir++;
 			x++;
 		} else {
@@ -2092,12 +2059,12 @@ void nexttoken() {
 		xc=*bi;
 		yc=0;
 		bi++;
-		whitespaces();
+		//whitespaces();
 		if (*bi >= '0' && *bi <= '9') { 
 			yc=*bi;
 			bi++;
 		} 
-		whitespaces();
+		//whitespaces();
 		if (*bi == '$') {
 			token=STRINGVAR;
 			bi++;
@@ -2781,7 +2748,8 @@ void factor(){
 			x=pop();
 			xc=pop();
 			yc=pop();
-			push(getarray(xc, yc, x)); 
+			array('g', xc, yc, x, &y);
+			push(y); 
 			break;
 		case '(':
 			nexttoken();
@@ -3140,7 +3108,7 @@ void assignment() {
 				break;
 			case ARRAYVAR: 
 				x=pop();	
-				setarray(xcl, ycl, i, x);
+				array('s', xcl, ycl, i, &x);
 				break;
 			case STRINGVAR:
 				ir=getstring(xcl, ycl, i);
@@ -3157,7 +3125,8 @@ void assignment() {
 				drop();
 				break;
 			case ARRAYVAR: 	
-				setarray(xcl, ycl, i, ir2[0]);
+				x=ir2[0];
+				array('s', xcl, ycl, i, &x);
 				drop();
 				break;
 			case STRINGVAR: // a string gets assigned a substring - copy algorithm
@@ -3230,12 +3199,13 @@ nextvariable:
 
 		outsc("? ");
 		if (innumber(&x) == BREAKCHAR) {
-			setarray(xc, yc, pop(), 0);
+			x=0;
+			array('s', xc, yc, pop(), &x);
 			st=SINT;
 			nexttoken();
 			return;
 		} else {
-			setarray(xc, yc, pop(), x);
+			array('s', xc, yc, pop(), &x);
 		}
 	}
 
@@ -3773,8 +3743,8 @@ void xdump() {
 			a=MEMSIZE-1;
 			break;
 		case 2: 
-			y=pop();
 			a=pop();
+			x=pop();
 			break;
 		default:
 			error(EARGS);
@@ -3809,6 +3779,7 @@ void dumpmem(unsigned short r, unsigned short b) {
 	i=r;
 	k=0;
 	while (i>0) {
+		outnumber(k); outspc();
 		for (j=0; j<8; j++) {
 			outnumber(eread(k++)); outspc();
 			if (k > elength()) break;
@@ -3881,7 +3852,7 @@ void xsave() {
 
 void xload() {
 	char * filename;
-  char ch;
+	char ch;
 
 	filename=getfilename();
 	if (er != 0 || filename == NULL) return; 
@@ -3909,6 +3880,7 @@ void xload() {
 		fclose(fd);	
 		fd=0;
 #else 
+#ifdef ARDUINOSD
 		afile=SD.open(filename, FILE_READ);
 		if (!afile) {
 			error(EFILE);
@@ -3940,6 +3912,9 @@ void xload() {
       		}
 		}   	
 		afile.close();
+#else 
+
+#endif
 #endif
 		// nexttoken();
 
@@ -4066,6 +4041,21 @@ void xtone(){
 	}
 #endif		
 }
+
+// SD card DOS
+
+void xcatalog() {
+	nexttoken();
+}
+
+void xdelete() {
+	nexttoken();
+}
+
+void xrename() {
+	nexttoken();
+}
+
 
 /* 
 
@@ -4196,7 +4186,17 @@ void statement(){
 				break;
 			case TTONE:
 				xtone();
-				break;				
+				break;	
+// SD card DOS function 
+			case TCATALOG:
+				xcatalog();
+				break;
+			case TDELETE:
+				xdelete();
+				break;
+			case TRENAME:
+				xrename();
+				break;
 // and all the rest
 			case UNKNOWN:
 				error(EUNKNOWN);
@@ -4219,7 +4219,9 @@ void setup() {
 
 
 #ifndef ARDUINO
+#ifndef MINGW
 	timespec_get(&start_time, TIME_UTC);
+#endif
 #endif
 	ioinit();
 	printmessage(MGREET); outcr();

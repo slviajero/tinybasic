@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.73 2021/08/28 19:01:32 stefan Exp stefan $
+// $Id: basic.c,v 1.75 2021/09/01 18:24:26 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -8,10 +8,7 @@
 
 	Author: Stefan Lenz, sl001@serverfabrik.de
 
-
-
-/* 
-	Defines the target.
+	The first set of definions define the target.
 		- for any Arduino with serial I/O or a Mac nothing has 
 			to be set here. The default settings are correct
 			for Arduino boards including MK.
@@ -109,9 +106,6 @@
 #define PROGMEM
 #include <stdio.h>
 #include <stdlib.h>
-#ifndef MINGW
-#include <termios.h>
-#endif
 #include <time.h>
 #endif
 
@@ -534,8 +528,7 @@ void  setshort(unsigned short, short);
 
 // array handling
 void  createarry(char, char, short);
-short getarray(char, char, short);
-void  setarray(char, char, short, short);
+void array(char, char, char, short, short*);
 
 // string handling 
 void  createstring(char, char, short);
@@ -902,8 +895,8 @@ unsigned short bmalloc(signed char t, char c, char d, short l) {
     if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
 
 	// how much space is needed
-	if ( t == VARIABLE ) vsize=2+3; 	
-	else if ( t == ARRAYVAR ) vsize=2*l+2+3;
+	if ( t == VARIABLE ) vsize=NUMSIZE+3; 	
+	else if ( t == ARRAYVAR ) vsize=NUMSIZE*l+2+3;
 	else if ( t == STRINGVAR ) vsize=l+2+3;
 	else { error(EUNKNOWN); return 0; }
 	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return 0;}
@@ -941,27 +934,27 @@ unsigned short bfind(signed char t, char c, char d) {
 	char c1, d1;
 	short i=0;
 
-nextitem:
-	if (i >= nvars) return 0;
 
-	c1=mem[b--];
-	d1=mem[b--];
-	t1=mem[b--];
+	while (i < nvars) { 
 
-	if (t1 == STRINGVAR || t1 == ARRAYVAR) {
-		z.b.h=mem[b--];
-		z.b.l=mem[b--];
-	} else 
-		z.i=2; 
+		c1=mem[b--];
+		d1=mem[b--];
+		t1=mem[b--];
 
-	b-=z.i;
+		if (t1 == STRINGVAR || t1 == ARRAYVAR) {
+			z.b.h=mem[b--];
+			z.b.l=mem[b--];
+		} else 
+			z.i=NUMSIZE; 
 
-	if (c1 == c && d1 == d && t1 == t) {
-		return b+1;
+		b-=z.i;
+
+		if (c1 == c && d1 == d && t1 == t) return b+1;
+		i++;
 	}
 
-	i++;
-	goto nextitem;
+	return 0;
+
 }
 
 // the length of an object
@@ -1041,98 +1034,66 @@ void createarry(char c, char d, short i) {
 
 }
 
-
-short getarray(char c, char d, short i){
+// generic array access function 
+void array(char m, char c, char d, short i, short* v) {
 
 	unsigned short a;
+	unsigned short h;
+	char e = FALSE;
 
 	if (DEBUG) { outsc("* get array "); outch(c); outspc(); outnumber(i); outcr(); }
 
-	// Dr. Wang's famous rest of memory array
+	// special arrays 
 	if (c == '@') {
 
-		if ( i > 0 && i < (himem-top)/2 )
-			return getshort(himem-2*i);
-		else {
-			error(ERANGE);
-			return 0;
+		switch(d) {
+
+			// Dr. Wangs end of memory array
+			case 0: {
+				h=(himem-top)/2;
+				a=himem-2*i+1;
+				break;
+			}
+
+			// EEPROM access 
+			case '0': {
+				h=elength()/2;
+				a=elength() - 2*i;
+				e=TRUE;
+			}
 		}
+
+	} else {
+
+		// dynamically allocated arrays
+		a=bfind(ARRAYVAR, c, d);
+		if (a == 0) error(EVARIABLE);
+		h=z.i/2;
+		a=a+(i-1)*2;
 	}
 
-	// the EEPROM array in the same style;
-#ifdef ARDUINOEEPROM
-	if (c == '&') {
-		if ( i > 0 && i <= elength()/2  ) {
-			z.b.h=eread(elength() - i*2);
-			z.b.l=eread(elength() - i*2 + 1);
-			return z.i;		
+	// is the index in range
+	if ( (i < 1) || (i > h) ) error(ERANGE); 
+
+
+	// set or get the array
+	if (m == 'g') {
+		if (! e) {
+			*v=getshort(a);
 		} else {
-			error(ERANGE);
-			return 0;	
+			z.b.h=eread(a++);
+			z.b.l=eread(a);
+			*v=z.i;
 		}
-	}
-#endif
-
-	// dynamically allocated arrays
-	a=bfind(ARRAYVAR, c, d);
-	if (a == 0) {
-		error(EVARIABLE);
-		return 0;
-	}
-
-	if ( (i < 1) || (i > z.i/2) ) {
-		error(ERANGE); return 0;
-	}
-
-	a=a+(i-1)*2;
-	return getshort(a);
-}
-
-void setarray(char c, char d, short i, short v){
-
-	unsigned short a;
-
-		if (DEBUG) { outsc("* set array "); outch(c); outspc(); outnumber(i); outspc(); outnumber(v); outcr(); }
-
-	//  Dr. Wang's @ Palo Alto BASIC array
-	if (c == '@') {
-		if ( i > 0 && i < (himem-top)/2 ) {
-			setshort(himem-2*i, v);
-			return;		
+	} else if ( m == 's') {
+		if (! e) {
+			setshort(a, *v);
 		} else {
-			error(ERANGE);
-			return;
-		}
-	}
-
-	// Dr. Wang's EEPROM analogon
-#ifdef ARDUINOEEPROM
-	if (c == '&') {
-		if ( i > 0 && i <= elength()/2 ) {
-			z.i=v;
+			z.i=*v;
 			eupdate(elength() - i*2, z.b.h);
 			eupdate(elength() - i*2 + 1, z.b.l);
-			return;
-		} else {
-			error(ERANGE);
-			return;			
 		}
 	}
-#endif
-
-	// dynamically allocated arrays
-	a=bfind(ARRAYVAR, c, d);
-	if (a == 0) {
-		error(EVARIABLE);
-		return;
-	}
-
-	if ( (i < 1) || (i > z.i/2) ) {
-		error(ERANGE); return;
-	}
-
-	a=a+(i-1)*2;
-	setshort(a, v);
 }
 
 void createstring(char c, char d, short i) {
@@ -1668,9 +1629,12 @@ void ioinit() {
 
 
 void outch(char c) {
+#ifdef ARDUINOSD
 	if (afile) {
 		afile.write(c);
-	} else if (od == OLCD) {
+	} else 
+#endif
+	if (od == OLCD) {
 		lcdwrite(c);		
 	} else 
 		Serial.write(c);
@@ -1761,9 +1725,12 @@ void picogetchar(int c){
 }
 
 void outch(char c) {
+#ifdef ARDUINOSD
 	if (afile) {
 		afile.write(c);
-	} else if (od == OLCD) {
+	} else
+#endif 
+	if (od == OLCD) {
 		lcdwrite(c);
 	} else 
 		PicoSerial.print(c);
@@ -1970,26 +1937,6 @@ void nexttoken() {
 			return; 
 	}  
 
-	// Dr. Wangs BASIC had this array we keep it for sentimental reasons
-	if (*bi == '@') {
-		token=ARRAYVAR;
-		xc=*bi++;
-		if (*bi == '$') {
-			token=STRINGVAR;
-			bi++;
-		}
-		if (DEBUG) debugtoken();
-		return;
-	}
-
-#ifdef ARDUINOEEPROM 
-	if (*bi == '&') {
-		token=ARRAYVAR;
-		xc=*bi++;
-		if (DEBUG) debugtoken();
-		return;
-	}
-#endif
 
 	// relations
 	// single character relations are their own token
@@ -2041,7 +1988,8 @@ void nexttoken() {
 
 	// keyworks and variables
 	// isolate a word, bi points to the beginning, x is the length of the word
-	// ir points to the end of the word after isolating
+	// ir points to the end of the word after isolating.
+	// @ is a letter here to make the special @ arrays possible
 
 	// if (DEBUG) printmessage(EVARIABLE);
 	x=0;
@@ -2052,7 +2000,7 @@ void nexttoken() {
 			*ir-=32;
 			ir++;
 			x++;
-		} else if (*ir >= 'A' && *ir <= 'Z'){
+		} else if (*ir >= '@' && *ir <= 'Z'){
 			ir++;
 			x++;
 		} else {
@@ -2108,12 +2056,12 @@ void nexttoken() {
 		xc=*bi;
 		yc=0;
 		bi++;
-		whitespaces();
+		//whitespaces();
 		if (*bi >= '0' && *bi <= '9') { 
 			yc=*bi;
 			bi++;
 		} 
-		whitespaces();
+		//whitespaces();
 		if (*bi == '$') {
 			token=STRINGVAR;
 			bi++;
@@ -2797,7 +2745,8 @@ void factor(){
 			x=pop();
 			xc=pop();
 			yc=pop();
-			push(getarray(xc, yc, x)); 
+			array('g', xc, yc, x, &y);
+			push(y); 
 			break;
 		case '(':
 			nexttoken();
@@ -3156,7 +3105,7 @@ void assignment() {
 				break;
 			case ARRAYVAR: 
 				x=pop();	
-				setarray(xcl, ycl, i, x);
+				array('s', xcl, ycl, i, &x);
 				break;
 			case STRINGVAR:
 				ir=getstring(xcl, ycl, i);
@@ -3173,7 +3122,8 @@ void assignment() {
 				drop();
 				break;
 			case ARRAYVAR: 	
-				setarray(xcl, ycl, i, ir2[0]);
+				x=ir2[0];
+				array('s', xcl, ycl, i, &x);
 				drop();
 				break;
 			case STRINGVAR: // a string gets assigned a substring - copy algorithm
@@ -3246,12 +3196,13 @@ nextvariable:
 
 		outsc("? ");
 		if (innumber(&x) == BREAKCHAR) {
-			setarray(xc, yc, pop(), 0);
+			x=0;
+			array('s', xc, yc, pop(), &x);
 			st=SINT;
 			nexttoken();
 			return;
 		} else {
-			setarray(xc, yc, pop(), x);
+			array('s', xc, yc, pop(), &x);
 		}
 	}
 
@@ -3825,6 +3776,7 @@ void dumpmem(unsigned short r, unsigned short b) {
 	i=r;
 	k=0;
 	while (i>0) {
+		outnumber(k); outspc();
 		for (j=0; j<8; j++) {
 			outnumber(eread(k++)); outspc();
 			if (k > elength()) break;
@@ -3925,6 +3877,7 @@ void xload() {
 		fclose(fd);	
 		fd=0;
 #else 
+#ifdef ARDUINOSD
 		afile=SD.open(filename, FILE_READ);
 		if (!afile) {
 			error(EFILE);
@@ -3956,6 +3909,9 @@ void xload() {
       		}
 		}   	
 		afile.close();
+#else 
+
+#endif
 #endif
 		// nexttoken();
 
