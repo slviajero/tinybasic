@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.75 2021/09/01 18:24:26 stefan Exp stefan $
+// $Id: basic.c,v 1.76 2021/09/02 05:41:52 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -44,26 +44,26 @@
 
 #undef ESP8266
 #undef MINGW
-#undef ARDUINOLCD
+#define ARDUINOLCD
 #undef LCDSHIELD
 #define ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
-#define MEMSIZE 1024
+#define MEMSIZE 4096
 
 // these are the definitions to build a standalone 
 // computer. All of these extensions are very memory hungry
 // input methods
-#undef ARDUINOPS2
+#define ARDUINOPS2
 // output methods
-#undef ARDUINOI2C
+#define ARDUINOI2C
 #undef ARDUINOTFT
 // storage methods
-#undef ARDUINOSD
+#define ARDUINOSD
 // use the methods above as primary i/o devices
-#undef STANDALONE
+#define STANDALONE
 
 	
 // Don't change the definitions here unless you must
@@ -88,6 +88,9 @@
 
 #ifdef ARDUINO
 #include <avr/pgmspace.h>
+#ifdef ARDUINOEEPROM
+#include <EEPROM.h>
+#endif
 #ifdef ARDUINOLCD
 #include <LiquidCrystal.h>
 #endif
@@ -106,9 +109,6 @@
 #define PROGMEM
 #include <stdio.h>
 #include <stdlib.h>
-#ifndef MINGW
-#include <termios.h>
-#endif
 #include <time.h>
 #endif
 
@@ -217,7 +217,6 @@ const int serial_baudrate = 9600;
 // the SD card DOS functions 
 #define TCATALOG -65
 #define TDELETE  -64
-#define TRENAME	 -63
 // currently unused constants
 #define TERROR  -3
 #define UNKNOWN -2
@@ -320,7 +319,6 @@ const char splusein[] PROGMEM = "PULSEIN";
 // SD Card DOS functions
 const char scatalog[] PROGMEM = "CATALOG";
 const char sdelete[] PROGMEM = "DELETE";
-const char srename[] PROGMEM = "RENAME";
 
 const char* const keyword[] PROGMEM = {
 // Palo Alto BASIC
@@ -339,7 +337,7 @@ const char* const keyword[] PROGMEM = {
     spinm, sdwrite, sdread, sawrite, saread, 
     sdelay, smillis, stone, splusein,
 // SD Card DOS
-    scatalog, sdelete, srename
+    scatalog, sdelete
 // the end 
 };
 
@@ -518,7 +516,7 @@ File afile;
 unsigned short bmalloc(signed char, char, char, short);
 unsigned short bfind(signed char, char, char);
 unsigned short blength (signed char, char, char);
-void  clrvars();
+void clrvars();
 
 // normal variables
 void  createvar(char, char);
@@ -561,13 +559,11 @@ short pop();
 void drop();
 void clearst();
 
-
 // Arduino I/O
 void lcdscroll();
 void lcdclear();
 void lcdwrite(char);
 void lcdbegin();
-
 
 // input output
 // these are the platfrom depended lowlevel functions
@@ -596,8 +592,7 @@ void outnumber(short);
 */
 
 // EEPROM
-#ifdef ARDUINOEEPROM
-#include <EEPROM.h>
+#if defined(ARDUINO) && defined(ARDUINOEEPROM)
 unsigned short elength() { return EEPROM.length(); }
 void eupdate(unsigned short i, short c) { EEPROM.update(i, c); }
 short eread(unsigned short i) { return EEPROM.read(i); }
@@ -777,7 +772,7 @@ void diag();
 void storeline();
 
 // read arguments from the token stream.
-char termsymbol();
+char  termsymbol();
 void  parsesubstring();
 short parsesubscripts();
 void  parsenarguments(char);
@@ -855,6 +850,8 @@ void dumpmem(unsigned short, unsigned short);
 char* getfilename();
 void xsave();
 void xload();
+void xcatalog();
+void xdelete();
 
 // low level I/O in BASIC
 void xget();
@@ -3558,10 +3555,14 @@ void xlist(){
 		if (token == LINENUMBER && x >  e) oflag=FALSE;
 		if (oflag) outputtoken();
 		gettoken();
-		if (token == LINENUMBER && oflag) outcr();
+		if (token == LINENUMBER && oflag) {
+      outcr();
+      if ( od == OLCD ) { inch(); }
+    }
 	}
 	if (here == top && oflag) outputtoken();
     if (e == 32767 || b != e) outcr(); // supress newlines in "list 50" - a little hack
+
 	nexttoken();
  }
 
@@ -3812,6 +3813,7 @@ char * getfilename() {
 // save a file either to disk or to EEPROM
 void xsave() {
 	char * filename;
+	unsigned short here2;
 
 	filename=getfilename();
 	if (er != 0 || filename == NULL) return;
@@ -3827,10 +3829,27 @@ void xsave() {
 			nexttoken();
 			return;
 		} 
-		xlist();
+		
+		// the core list function
+		// we step away from list 
+		here2=here;
+		here=0;
+		gettoken();
+		while (here < top) {
+			outputtoken();
+			gettoken();
+			if (token == LINENUMBER) outcr();
+		}
+		if (here == top) outputtoken();
+   		outcr(); 
+   		here=here2;
+
+   		// clean up
 		fclose(fd);
 		fd=0;
-		// no nexttoken here because list has already done this
+
+		// and continue
+		nexttoken();
 		return;
 #else 
 #ifdef ARDUINOSD
@@ -3840,9 +3859,27 @@ void xsave() {
 			nexttoken();
 			return;
 		} 
-		xlist();
+
+		// the core list function
+		// we step away from list 
+		here2=here;
+		here=0;
+		gettoken();
+		while (here < top) {
+			outputtoken();
+			gettoken();
+			if (token == LINENUMBER) outcr();
+		}
+		if (here == top) outputtoken();
+   		outcr(); 
+   		here=here2;
+
+   		// clean up
 		afile.close();
-		// no nexttoken here because list has already done this
+
+		// and continue
+		nexttoken();
+		return;
 #else
       
 #endif
@@ -3853,6 +3890,8 @@ void xsave() {
 void xload() {
 	char * filename;
 	char ch;
+	unsigned short here2;
+	char st2;
 
 	filename=getfilename();
 	if (er != 0 || filename == NULL) return; 
@@ -3861,6 +3900,9 @@ void xload() {
 		eload();
 		nexttoken();
 	} else {
+
+		// remember where we started - preparation for chain
+		here2=here;
 
 #ifndef ARDUINO
 		fd=fopen(filename, "r");
@@ -3916,8 +3958,8 @@ void xload() {
 
 #endif
 #endif
-		// nexttoken();
-
+		here=here2;
+		nexttoken();
 	}
 }
 
@@ -3936,7 +3978,6 @@ void xget(){
 		error(EUNKNOWN);
 	}
 	nexttoken();
-
 }
 
 /*
@@ -4045,15 +4086,39 @@ void xtone(){
 // SD card DOS
 
 void xcatalog() {
+#ifdef ARDUINOSD
+	File root, file;
+	char c = 0;
+
+	if ( od = OLCD ) { lcdwrite(12); }
+	root=SD.open("/");
+	while (TRUE) {
+		file=root.openNextFile();
+		if (! file) break;
+		if (! file.isDirectory()) { 
+		  outsc(file.name()); outch(' '); outnumber(file.size()); outcr();
+		  c++;
+		  if (c == lcd_rows-1) { inch(); c=0; }
+	  }
+    file.close(); 
+	}
+
+	root.close();
+
+#endif
 	nexttoken();
 }
 
 void xdelete() {
-	nexttoken();
-}
+#ifdef ARDUINOSD	
+	char * filename;
+	filename=getfilename();
+	if (er != 0 || filename == NULL) return; 
 
-void xrename() {
+	SD.remove(filename);
+#else 
 	nexttoken();
+#endif
 }
 
 
@@ -4159,9 +4224,9 @@ void statement(){
 			case TSAVE:
 				xsave();
 				break;
-			case TLOAD: // return here because new input is needed
+			case TLOAD: 
 				xload();
-				return;
+				return; // load doesn't like break;
 			case TGET:
 				xget();
 				break;
@@ -4193,9 +4258,6 @@ void statement(){
 				break;
 			case TDELETE:
 				xdelete();
-				break;
-			case TRENAME:
-				xrename();
 				break;
 // and all the rest
 			case UNKNOWN:
