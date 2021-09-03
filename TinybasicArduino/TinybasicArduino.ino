@@ -44,7 +44,7 @@
 
 #undef ESP8266
 #undef MINGW
-#define ARDUINOLCD
+#undef ARDUINOLCD
 #undef LCDSHIELD
 #define ARDUINOEEPROM
 #define HASFORNEXT
@@ -56,14 +56,14 @@
 // these are the definitions to build a standalone 
 // computer. All of these extensions are very memory hungry
 // input methods
-#define ARDUINOPS2
+#undef ARDUINOPS2
 // output methods
-#define ARDUINOI2C
+#undef ARDUINOI2C
 #undef ARDUINOTFT
 // storage methods
-#define ARDUINOSD
+#undef ARDUINOSD
 // use the methods above as primary i/o devices
-#define STANDALONE
+#undef STANDALONE
 
 	
 // Don't change the definitions here unless you must
@@ -84,7 +84,6 @@
 #define PROGMEM
 #undef ARDUINOPROGMEM
 #endif
-
 
 #ifdef ARDUINO
 #include <avr/pgmspace.h>
@@ -204,7 +203,7 @@ const int serial_baudrate = 9600;
 #define TGET    -77
 #define TPUT    -76
 #define TSET    -75
-// Arduino functions (6)
+// Arduino functions (9)
 #define TPINM	-74
 #define TDWRITE	-73
 #define TDREAD	-72
@@ -214,7 +213,7 @@ const int serial_baudrate = 9600;
 #define TMILLIS  -68
 #define TTONE   -67
 #define TPULSEIN  -66
-// the SD card DOS functions 
+// the SD card DOS functions (2)
 #define TCATALOG -65
 #define TDELETE  -64
 // currently unused constants
@@ -224,7 +223,7 @@ const int serial_baudrate = 9600;
 
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+15+10+9+3
+#define NKEYWORDS	3+19+15+10+9+2
 #define BASEKEYWORD -121
 
 /*
@@ -529,7 +528,7 @@ void  setshort(unsigned short, short);
 
 // array handling
 void  createarry(char, char, short);
-void array(char, char, char, short, short*);
+void  array(char, char, char, short, short*);
 
 // string handling 
 void  createstring(char, char, short);
@@ -1056,9 +1055,9 @@ void array(char m, char c, char d, short i, short* v) {
 			}
 
 			// EEPROM access 
-			case '0': {
+			case 'E': {
 				h=elength()/2;
-				a=elength() - 2*i;
+				a=elength()-2*i;
 				e=TRUE;
 			}
 		}
@@ -2051,7 +2050,7 @@ void nexttoken() {
 	second character like in Apple 1 BASIC
 
 */
-	if ( x == 1 ){
+	if ( x == 1 || (x == 2 && *bi == '@') ){
 		token=VARIABLE;
 		xc=*bi;
 		yc=0;
@@ -2061,6 +2060,10 @@ void nexttoken() {
 			yc=*bi;
 			bi++;
 		} 
+		if (xc == '@' && x == 2) {
+			yc=*bi;
+			bi++;
+		}
 		//whitespaces();
 		if (*bi == '$') {
 			token=STRINGVAR;
@@ -2196,7 +2199,7 @@ void gettoken() {
 			ir=(char *)&mem[here];
 			here+=x;
 #else 
-			if (st == SERUN) { // we run from the EEROM and cannot simply pass a point
+			if (st == SERUN) { // we run from the EEROM and cannot simply pass a pointer
 				for(int i=0; i<x; i++) {
 					ibuffer[i]=memread(here+i);   // we (ab)use the input buffer which is not needed here
 				}
@@ -3556,9 +3559,9 @@ void xlist(){
 		if (oflag) outputtoken();
 		gettoken();
 		if (token == LINENUMBER && oflag) {
-      outcr();
-      if ( od == OLCD ) { inch(); }
-    }
+			outcr();
+			if ( od == OLCD ) { inch(); }
+		}
 	}
 	if (here == top && oflag) outputtoken();
     if (e == 32767 || b != e) outcr(); // supress newlines in "list 50" - a little hack
@@ -3891,7 +3894,7 @@ void xload() {
 	char * filename;
 	char ch;
 	unsigned short here2;
-	char st2;
+	char chain = FALSE;
 
 	filename=getfilename();
 	if (er != 0 || filename == NULL) return; 
@@ -3901,8 +3904,16 @@ void xload() {
 		nexttoken();
 	} else {
 
-		// remember where we started - preparation for chain
-		here2=here;
+		// if load is called during runtime it chains
+		// load the program as new but perserve the variables
+		// gosub and for stacks are cleared 
+		if ( st == SRUN ) { 
+			chain=TRUE; 
+			st=SINT; 
+			top=0;
+			clrgosubstack();
+			clrforstack();
+		}
 
 #ifndef ARDUINO
 		fd=fopen(filename, "r");
@@ -3958,7 +3969,11 @@ void xload() {
 
 #endif
 #endif
-		here=here2;
+		// go back to run mode and start from the first line
+		if (chain) {
+			st=SRUN;
+			here=0;
+		}
 		nexttoken();
 	}
 }
@@ -4226,7 +4241,7 @@ void statement(){
 				break;
 			case TLOAD: 
 				xload();
-				return; // load doesn't like break;
+				return; // load doesn't like break as the ibuffer is messed up;
 			case TGET:
 				xget();
 				break;
