@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.77 2021/09/06 15:12:53 stefan Exp stefan $
+// $Id: basic.c,v 1.78 2021/09/07 04:32:55 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -497,7 +497,7 @@ static union accu168 { short i; struct twobytes b; } z;
 static char *ir, *ir2;
 static signed char token;
 static signed char er;
-static unsigned char ert;
+static signed char ert;
 
 static signed char st; 
 static unsigned short here; 
@@ -509,13 +509,9 @@ static char form = 0;
 
 static unsigned int rd;
 
-#ifndef STANDALONE
-static unsigned char id = ISERIAL;
-static unsigned char od = OSERIAL;
-#else 
-static unsigned char id = IKEYBOARD;
-static unsigned char od = OLCD;
-#endif
+static unsigned char od;
+static unsigned char id;
+
 
 #ifndef ARDUINO
 FILE* ifd;
@@ -592,6 +588,7 @@ void lcdbegin();
 // input output
 // these are the platfrom depended lowlevel functions
 void ioinit();
+void iodefaults();
 void picogetchar(int);
 void outch(char);
 char inch();
@@ -1319,6 +1316,7 @@ void printmessage(char i){
 
 void error(signed char e){
 	er=e;
+	iodefaults();
 	if (st != SINT) {
 		outnumber(myline(here));
 		outch(':');
@@ -1627,38 +1625,49 @@ void lcdbegin() {}
 	this is C standard library stuff, we branch to file input/output
 	if there is a valid file descriptor in fd.
 */
+
 void ioinit() {
+	iodefaults();
 	return;
+}
+
+void iodefaults(){
+	od=OSERIAL;
+	id=ISERIAL;
 }
 
 
 void outch(char c) { 
-	if (od == OSERIAL)
+	if (od & OSERIAL)
 		putchar(c);
-	if (ofd && od == OFILE)
-		fputc(c, ofd);
+	if (od & OFILE)
+		if (ofd) fputc(c, ofd);
 }
 
 char inch(){
-	char c;
+	char c=0;
 	if (id == ISERIAL)
-		return getchar(); 
-	if (ifd && id == IFILE) 
-		return fgetc(ifd);
+		c=getchar(); 
+	if (id == IFILE) {
+		if (ifd) c=fgetc(ifd); else ert=1;
+		if (c == -1 ) ert=-1;
+	}
 
-	return 0;
+	return c;
 }
 
 char checkch(){
 	return TRUE;
 }
 
+// ins separating sting and number input 
+// 
 void ins(char *b, short nb) {
 	char c;
 	short i = 1;
 	while(i < nb-1) {
 		c=inch();
-		if (c == '\n' || c == '\r') {
+		if (c == '\n' || c == '\r' || c == -1 ) {
 			b[i]=0x00;
 			b[0]=i-1;
 			break;
@@ -1669,6 +1678,19 @@ void ins(char *b, short nb) {
 }
 
 #else 
+
+// Arduinos default io channels
+void iodefaults(){
+#ifndef STANDALONE
+		id = ISERIAL;
+		od = OSERIAL;
+#else 
+		id = IKEYBOARD;
+		od = OLCD;
+#endif
+}
+
+
 #ifndef USESPICOSERIAL
 /*
 
@@ -1685,19 +1707,19 @@ void ioinit() {
 #ifdef ARDUINOPS2
 	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
 #endif
+	iodefaults();
 }
 
 
 void outch(char c) {
-#ifdef ARDUINOSD
-	if (ofile) {
-		ofile.write(c);
-	} else 
-#endif
-	if (od == OLCD) {
-		lcdwrite(c);		
-	} else 
+	if (od & OSERIAL)
 		Serial.write(c);
+	if (od & OLCD)
+		lcdwrite(c);
+#ifdef ARDUINOSD
+	if (od & OFILE)
+		if (ofile) ofile.write(c);
+#endif
 }
 
 
@@ -1707,17 +1729,22 @@ char inch(){
 		do 
 			if (Serial.available()) c=Serial.read();
 		while(c == 0); 
-		return c;
 	}
 #ifdef ARDUINOPS2	
 	if (id == IKEYBOARD) {
 		do 
 			if (keyboard.available()) c=keyboard.read();
 		while(c == 0);	
-    if (c == 13) c=10;
-		return c;
+    	if (c == 13) c=10;
 	}
 #endif
+#ifdef ARDUINOSD
+	if (id == IFILE) {
+		if (ifile) c=ifile.read(); else ert=1;
+		if (c == -1 ) ert=-1;
+	}
+#endif
+	return c;
 }
 
 char checkch(){
@@ -1732,8 +1759,8 @@ void ins(char *b, short nb) {
   	short i = 1;
   	while(i < nb-1) {
     	c=inch();
-    	outch(c);
-    	if (c == '\n' || c == '\r') {
+    	if (id != IFILE) outch(c);
+    	if (c == '\n' || c == '\r' || c == -1) {
       		b[i]=0x00;
       		b[0]=i-1;
       		break;
@@ -1764,6 +1791,7 @@ volatile static short picoi = 1;
 void ioinit() {
 	(void) PicoSerial.begin(serial_baudrate, picogetchar);
    	lcdbegin();  
+   	iodefaults();
 }
 
 void picogetchar(int c){
@@ -1785,21 +1813,37 @@ void picogetchar(int c){
 }
 
 void outch(char c) {
-#ifdef ARDUINOSD
-	if (ofile) {
-		ofile.write(c);
-	} else
-#endif 
-	if (od == OLCD) {
-		lcdwrite(c);
-	} else 
+	if (od & OSERIAL)
 		PicoSerial.print(c);
+	if (od & OLCD)
+		lcdwrite(c);
+#ifdef ARDUINOSD
+	if (od & OFILE)
+		if (ofile) ofile.write(c);
+#endif
 }
 
 char inch(){
 	char c;
-	c=picochar;
-	picochar=0;
+	if (id == ISERIAL) {
+		c=picochar;
+		picochar=0;	
+	}
+#ifdef ARDUINOPS2	
+	if (id == IKEYBOARD) {
+		do 
+			if (keyboard.available()) c=keyboard.read();
+		while(c == 0);	
+    	if (c == 13) c=10;
+	}
+#endif
+#ifdef ARDUINOSD
+	if (id == IFILE) {
+		if (ifile) c=ifile.read(); else ert=1;
+		if (c == -1 ) ert=-1;
+	}
+#endif
+
 	return c;
 }
 
@@ -3235,7 +3279,7 @@ void xinput(){
 	nexttoken();
 
 nextstring:
-	if (token == STRING) {   
+	if (token == STRING && ( id != IFILE )) {   
 		outs(ir, x);
 		nexttoken();
 		if (token != ',' && token != ';') {
@@ -3247,7 +3291,7 @@ nextstring:
 
 nextvariable:
 	if (token == VARIABLE) {   
-		outsc("? ");
+		if (id != IFILE) outsc("? ");
 		if (innumber(&x) == BREAKCHAR) {
 			setvar(xc, yc, 0);
 			st=SINT;
@@ -3268,7 +3312,7 @@ nextvariable:
 			return;
 		}
 
-		outsc("? ");
+		if (id != IFILE) outsc("? ");
 		if (innumber(&x) == BREAKCHAR) {
 			x=0;
 			array('s', xc, yc, pop(), &x);
@@ -3282,7 +3326,7 @@ nextvariable:
 
 	if (token == STRINGVAR) {
 		ir=getstring(xc, yc, 1); 
-		outsc("? ");
+		if (id != IFILE) outsc("? ");
 		ins(ir-1, stringdim(xc, yc));
  	}
 
@@ -4017,7 +4061,7 @@ void xload() {
 #else 
 #ifdef ARDUINOSD
 		ifile=SD.open(filename, FILE_READ);
-		if (!afile) {
+		if (!ifile) {
 			error(EFILE);
 			nexttoken();
 			return;
@@ -4203,7 +4247,7 @@ void xcatalog() {
 	File root, file;
 	char c = 0;
 
-	if ( od = OLCD ) { lcdwrite(12); }
+	if ( od & OLCD ) { lcdwrite(12); }
 	root=SD.open("/");
 	while (TRUE) {
 		file=root.openNextFile();
@@ -4211,7 +4255,7 @@ void xcatalog() {
 		if (! file.isDirectory()) { 
 		  outsc(file.name()); outch(' '); outnumber(file.size()); outcr();
 		  c++;
-		  if (c == lcd_rows-1) { inch(); c=0; }
+		  if ((od & OLCD) && c == lcd_rows-1) { inch(); c=0; }
 	  }
     file.close(); 
 	}
@@ -4523,6 +4567,8 @@ void setup() {
 void loop() {
 
 	if (st != SERUN) {
+
+		iodefaults();
 
 		printmessage(MPROMPT);
     	ins(ibuffer, BUFSIZE);
