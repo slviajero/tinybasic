@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.79 2021/09/10 12:51:44 stefan Exp stefan $
+// $Id: basic.c,v 1.79 2021/09/12 05:59:14 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -42,6 +42,7 @@
 
 */ 
 
+#undef ARDUINODUE
 #undef ESP8266
 #undef MINGW
 #undef ARDUINOLCD
@@ -127,7 +128,7 @@ const int serial_baudrate = 9600;
 
 // various buffer sizes
 #define BUFSIZE 	92
-#define SBUFSIZE	16
+#define SBUFSIZE	32
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -332,8 +333,8 @@ const char sazero[] PROGMEM = "AZERO";
 // SD Card DOS functions
 const char scatalog[] PROGMEM = "CATALOG";
 const char sdelete[] PROGMEM = "DELETE";
-const char sopen[] PROGMEM = "OPEN";
-const char sclose[] PROGMEM = "CLOSE";
+const char sfopen[] PROGMEM = "OPEN";
+const char sfclose[] PROGMEM = "CLOSE";
 // low level access functions
 const char susr[] PROGMEM = "USR";
 const char scall[] PROGMEM = "CALL";
@@ -355,7 +356,7 @@ const char* const keyword[] PROGMEM = {
     spinm, sdwrite, sdread, sawrite, saread, 
     sdelay, smillis, stone, splusein, sazero,
 // SD Card DOS
-    scatalog, sdelete, sopen, sclose,
+    scatalog, sdelete, sfopen, sfclose,
 // low level access
     susr, scall
 // the end 
@@ -500,7 +501,7 @@ static union accu168 { short i; struct twobytes b; } z;
 static char *ir, *ir2;
 static signed char token;
 static signed char er;
-static unsigned char ert;
+static signed char ert;
 
 static signed char st; 
 static unsigned short here; 
@@ -570,7 +571,7 @@ char* getstring(char, char, short);
 void  setstring(char, char, short, char *, short);
 
 // access memory dimensions and for strings also the actual length
-short arraydim(char);
+short arraydim(char, char);
 short stringdim(char, char);
 short lenstring(char, char);
 void setstringlength(char, char, short);
@@ -623,8 +624,8 @@ void outnumber(short);
 	Arduino definitions and code
 */
 
-// EEPROM
-#if defined(ARDUINO) && defined(ARDUINOEEPROM)
+// EEPROM 
+#if defined(ARDUINO) && defined(ARDUINOEEPROM) && ! defined(ESP8266)
 unsigned short elength() { return EEPROM.length(); }
 void eupdate(unsigned short i, short c) { EEPROM.update(i, c); }
 short eread(unsigned short i) { return EEPROM.read(i); }
@@ -999,6 +1000,7 @@ void createvar(char c, char d){
 	return;
 }
 
+// get and create a variable 
 short getvar(char c, char d){
 	unsigned short a;
 
@@ -1017,6 +1019,8 @@ short getvar(char c, char d){
 				return id;
 			case 'O':
 				return od;
+			case 'C':
+				if (checkch()) return inch(); else return 0;
 		}
 
 	// dynamically allocated vars
@@ -1030,6 +1034,7 @@ short getvar(char c, char d){
 
 }
 
+// set and create a variable 
 void setvar(char c, char d, short v){
 	unsigned short a;
 
@@ -1052,6 +1057,9 @@ void setvar(char c, char d, short v){
 				return;
 			case 'O':
 				od=v;
+				return;
+			case 'C':
+				outch(v);
 				return;
 		}
 
@@ -1192,11 +1200,15 @@ char* getstring(char c, char d, short b) {
 }
  
  // this function is currently not used 
-short arraydim(char c) {
+short arraydim(char c, char d) {
 	if (c == '@')
-		return (himem-top)/2;
-	if (c == '&')
-		return elength()/2;
+		switch (d) {
+			case 0:
+				return (himem-top)/2;
+			case 'E':
+				return elength()/2;
+		}
+
 	return blength(ARRAYVAR, c, '$')/2;
 }
 
@@ -1332,6 +1344,7 @@ void error(signed char e){
 	clearst();
 	clrforstack();
 	clrgosubstack();
+	iodefaults();
 }
 
 void reseterror() {
@@ -1618,6 +1631,7 @@ void lcdbegin() {
 	lcd.backlight();
 #endif
 }
+
 int lcdactive() {
 	return (od & OLCD);
 }
@@ -1652,14 +1666,18 @@ void filewrite(char c) {
 }
 
 char fileread(){
+	char c;
 #ifndef ARDUINO
-	if (ifd) return fgetc(ifd); else ert=1;
+	if (ifd) c=fgetc(ifd); else { ert=1; return 0; }
 #else
 #ifdef ARDUINOSD
-	if (ifile) return ifile.read(); else ert=1;
+	if (ifile) c=ifile.read(); else { ert=1; return 0; }
 #endif
 #endif
-	return -1;
+	if (c == -1 ) {
+		ert=-1;
+	}
+	return c;
 }
 
 // wrapper around console output
@@ -1704,7 +1722,7 @@ char inch(){
 	if (id == ISERIAL)
 		return getchar(); 
 	if (id == IFILE) 
-		if (ifd) return fgetc(ifd);
+		return fileread();
 	return 0;
 }
 
@@ -3108,7 +3126,11 @@ void expression(){
 
 void xprint(){
 	char semicolon = FALSE;
+	char oldod;
+	char modifier;
+
 	form=0;
+	oldod=od;
 
 	nexttoken();
 
@@ -3117,6 +3139,7 @@ processsymbol:
 	if (termsymbol()) {
 		if (! semicolon) outcr();
 		nexttoken();
+		od=oldod;
 		return;
 	}
 	semicolon=FALSE;
@@ -3128,13 +3151,22 @@ processsymbol:
 		goto separators;
 	}
 
-	// Palo Alto BASIC formatting stuff - tolerant code
-	if (token == '#') {
+	// modifiers of the print statement
+	if (token == '#' || token == '&') {
+		modifier=token;
 		nexttoken();
-		if (token == NUMBER) {
-			form=x;
-			nexttoken();
+		expression();
+		if (er != 0) return;
+		switch(modifier) {
+			case '#':
+				form=pop();
+				break;
+			case '&':
+				od=pop();
+				break;
 		}
+		modifier=0;
+		goto processsymbol;
 	}
 
 	if (token != ',' && token != ';' ) {
@@ -3146,12 +3178,13 @@ processsymbol:
 separators:
 	if (token == ',') {
 		outspc();
-		nexttoken();
+		nexttoken();	
 	}
 	if (token == ';'){
 		semicolon=TRUE;
 		nexttoken();
 	}
+
 	goto processsymbol;
 }
 
@@ -3194,8 +3227,10 @@ void assignment() {
 			switch(args) {
 				case 0:
 					i=1;
+					ps=TRUE;
 					break;
 				case 1:
+					ps=FALSE;
 					nexttoken();
 					i=pop();
 					break;
@@ -3243,7 +3278,10 @@ void assignment() {
 				ir=getstring(xcl, ycl, i);
 				if (er != 0) return;
 				ir[0]=pop();
-				if (lenstring(xcl, ycl) < i && i < stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
+				if (ps)
+					setstringlength(xcl, ycl, 1);
+				else 
+					if (lenstring(xcl, ycl) < i && i < stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
 				break;
 		}		
 	} else {
@@ -3289,11 +3327,27 @@ void assignment() {
 
 void xinput(){
 	short args;
+	short oldid;
 
 	nexttoken();
 
+	// modifiers of the input statement
+	if (token == '&') {
+		nexttoken();
+		expression();
+		if (er != 0) return;
+		oldid=id;
+		id=pop();
+		if ( token != ',') {
+			error(EUNKNOWN);
+			return;
+		} else 
+			nexttoken();
+	}
+
+
 nextstring:
-	if (token == STRING) {   
+	if (token == STRING && id != IFILE) {   
 		outs(ir, x);
 		nexttoken();
 		if (token != ',' && token != ';') {
@@ -3305,11 +3359,12 @@ nextstring:
 
 nextvariable:
 	if (token == VARIABLE) {   
-		outsc("? ");
+		if (id != IFILE) outsc("? ");
 		if (innumber(&x) == BREAKCHAR) {
 			setvar(xc, yc, 0);
 			st=SINT;
 			nexttoken();
+			id=oldid;
 			return;
 		} else {
 			setvar(xc, yc, x);
@@ -3326,12 +3381,13 @@ nextvariable:
 			return;
 		}
 
-		outsc("? ");
+		if (id != IFILE) outsc("? ");
 		if (innumber(&x) == BREAKCHAR) {
 			x=0;
 			array('s', xc, yc, pop(), &x);
 			st=SINT;
 			nexttoken();
+			id=oldid;
 			return;
 		} else {
 			array('s', xc, yc, pop(), &x);
@@ -3340,7 +3396,7 @@ nextvariable:
 
 	if (token == STRINGVAR) {
 		ir=getstring(xc, yc, 1); 
-		outsc("? ");
+		if (id != IFILE) outsc("? ");
 		ins(ir-1, stringdim(xc, yc));
  	}
 
@@ -3349,6 +3405,9 @@ nextvariable:
 		nexttoken();
 		goto nextstring;
 	}
+
+	id=oldid;
+
 }
 
 /*
@@ -4235,7 +4294,7 @@ void xtone(){
 		return;
 	}
 
-#ifndef ARDUINO
+#if !defined(ARDUINO) || defined(ARDUINODUE)
 	clearst();
 	return;
 #else 
@@ -4405,10 +4464,14 @@ void xclose() {
 void xusr() {
 	y=pop();
 	x=pop();
-	push(0);
+	switch(x) {
+		case 1:
+			break;
+	}
+	push(y);
 }
 
-void xacll() {
+void xcall() {
 	nexttoken();
 }
 
@@ -4556,6 +4619,10 @@ void statement(){
 			case TCLOSE:
 				xclose();
 				break;
+// low level functions 
+			case TCALL:
+				xcall();
+				break;	
 // and all the rest
 			case UNKNOWN:
 				error(EUNKNOWN);

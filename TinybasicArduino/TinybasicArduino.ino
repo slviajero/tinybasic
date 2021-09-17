@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.78 2021/09/07 04:32:55 stefan Exp stefan $
+// $Id: basic.c,v 1.79 2021/09/12 05:59:14 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -42,9 +42,10 @@
 
 */ 
 
+#undef ARDUINODUE
 #undef ESP8266
 #undef MINGW
-#define ARDUINOLCD
+#undef ARDUINOLCD
 #undef LCDSHIELD
 #define ARDUINOEEPROM
 #define HASFORNEXT
@@ -58,10 +59,11 @@
 // input methods
 #undef ARDUINOPS2
 // output methods
-#define ARDUINOI2C
+#undef ARDUINOI2C
 #undef ARDUINOTFT
+#undef ARDUINOPRT
 // storage methods
-#define ARDUINOSD
+#undef ARDUINOSD
 // use the methods above as primary i/o devices
 #undef STANDALONE
 
@@ -84,7 +86,6 @@
 #define PROGMEM
 #undef ARDUINOPROGMEM
 #endif
-
 
 #ifdef ARDUINO
 #include <avr/pgmspace.h>
@@ -110,6 +111,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/types.h>
+#include <dirent.h>
 #endif
 
 // Arduino default serial baudrate
@@ -124,7 +127,7 @@ const int serial_baudrate = 9600;
 
 // various buffer sizes
 #define BUFSIZE 	92
-#define SBUFSIZE	16
+#define SBUFSIZE	32
 #define VARSIZE		26
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
@@ -329,8 +332,8 @@ const char sazero[] PROGMEM = "AZERO";
 // SD Card DOS functions
 const char scatalog[] PROGMEM = "CATALOG";
 const char sdelete[] PROGMEM = "DELETE";
-const char sopen[] PROGMEM = "OPEN";
-const char sclose[] PROGMEM = "CLOSE";
+const char sfopen[] PROGMEM = "OPEN";
+const char sfclose[] PROGMEM = "CLOSE";
 // low level access functions
 const char susr[] PROGMEM = "USR";
 const char scall[] PROGMEM = "CALL";
@@ -352,7 +355,7 @@ const char* const keyword[] PROGMEM = {
     spinm, sdwrite, sdread, sawrite, saread, 
     sdelay, smillis, stone, splusein, sazero,
 // SD Card DOS
-    scatalog, sdelete, sopen, sclose,
+    scatalog, sdelete, sfopen, sfclose,
 // low level access
     susr, scall
 // the end 
@@ -509,9 +512,19 @@ static char form = 0;
 
 static unsigned int rd;
 
-static unsigned char od;
 static unsigned char id;
+static unsigned char od;
 
+
+void iodefaults() {
+#ifdef STANDALONE
+	id = IKEYBOARD;
+	od = OLCD;
+#else
+	id = ISERIAL;
+	od = ISERIAL;
+#endif
+}
 
 #ifndef ARDUINO
 FILE* ifd;
@@ -557,7 +570,7 @@ char* getstring(char, char, short);
 void  setstring(char, char, short, char *, short);
 
 // access memory dimensions and for strings also the actual length
-short arraydim(char);
+short arraydim(char, char);
 short stringdim(char, char);
 short lenstring(char, char);
 void setstringlength(char, char, short);
@@ -588,7 +601,6 @@ void lcdbegin();
 // input output
 // these are the platfrom depended lowlevel functions
 void ioinit();
-void iodefaults();
 void picogetchar(int);
 void outch(char);
 char inch();
@@ -611,8 +623,8 @@ void outnumber(short);
 	Arduino definitions and code
 */
 
-// EEPROM
-#if defined(ARDUINO) && defined(ARDUINOEEPROM)
+// EEPROM 
+#if defined(ARDUINO) && defined(ARDUINOEEPROM) && ! defined(ESP8266)
 unsigned short elength() { return EEPROM.length(); }
 void eupdate(unsigned short i, short c) { EEPROM.update(i, c); }
 short eread(unsigned short i) { return EEPROM.read(i); }
@@ -681,17 +693,9 @@ const int pin_d7 = 7;
 const int pin_BL = 10; 
 LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
 #else 
-// set your pins here - this is the parallel code
-// removed for the moment
+// a I2C display connected
 const int lcd_rows = 4;
 const int lcd_columns = 20;
-//const int pin_RS = 8; 
-//const int pin_EN = 9; 
-//const int pin_d4 = 10; 
-//const int pin_d5 = 11; 
-//const int pin_d6 = 12; 
-//const int pin_d7 = 13; 
-//LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
 LiquidCrystal_I2C lcd(0x27, lcd_columns, lcd_rows);
 #endif
 char lcdbuffer[lcd_rows][lcd_columns];
@@ -995,6 +999,7 @@ void createvar(char c, char d){
 	return;
 }
 
+// get and create a variable 
 short getvar(char c, char d){
 	unsigned short a;
 
@@ -1013,6 +1018,8 @@ short getvar(char c, char d){
 				return id;
 			case 'O':
 				return od;
+			case 'C':
+				if (checkch()) return inch(); else return 0;
 		}
 
 	// dynamically allocated vars
@@ -1026,6 +1033,7 @@ short getvar(char c, char d){
 
 }
 
+// set and create a variable 
 void setvar(char c, char d, short v){
 	unsigned short a;
 
@@ -1048,6 +1056,9 @@ void setvar(char c, char d, short v){
 				return;
 			case 'O':
 				od=v;
+				return;
+			case 'C':
+				outch(v);
 				return;
 		}
 
@@ -1188,11 +1199,15 @@ char* getstring(char c, char d, short b) {
 }
  
  // this function is currently not used 
-short arraydim(char c) {
+short arraydim(char c, char d) {
 	if (c == '@')
-		return (himem-top)/2;
-	if (c == '&')
-		return elength()/2;
+		switch (d) {
+			case 0:
+				return (himem-top)/2;
+			case 'E':
+				return elength()/2;
+		}
+
 	return blength(ARRAYVAR, c, '$')/2;
 }
 
@@ -1316,7 +1331,6 @@ void printmessage(char i){
 
 void error(signed char e){
 	er=e;
-	iodefaults();
 	if (st != SINT) {
 		outnumber(myline(here));
 		outch(':');
@@ -1329,6 +1343,7 @@ void error(signed char e){
 	clearst();
 	clrforstack();
 	clrgosubstack();
+	iodefaults();
 }
 
 void reseterror() {
@@ -1615,59 +1630,111 @@ void lcdbegin() {
 	lcd.backlight();
 #endif
 }
+
+int lcdactive() {
+	return (od & OLCD);
+}
+
 #else 
 void lcdwrite(char c) {}
 void lcdbegin() {}
+int lcdactive() {return 0; }
 #endif
+
+
+/* 
+
+	Platform dependend IO functions, implemented models are
+		- Standard C library
+		- Arduino Serial 
+		- Arduino Picoserial
+
+*/
+
+
+// wrapper around file access
+void filewrite(char c) {
+#ifndef ARDUINO
+	if (ofd) fputc(c, ofd); else ert=1;
+#else
+#ifdef ARDUINOSD
+	if (ofile) ofile.write(c); else ert=1;
+#endif
+#endif
+	return;
+}
+
+char fileread(){
+	char c;
+#ifndef ARDUINO
+	if (ifd) c=fgetc(ifd); else { ert=1; return 0; }
+#else
+#ifdef ARDUINOSD
+	if (ifile) c=ifile.read(); else { ert=1; return 0; }
+#endif
+#endif
+	if (c == -1 ) {
+		ert=-1;
+	}
+	return c;
+}
+
+// wrapper around console output
+void serialwrite(char c) {
+#ifndef ARDUINO
+	putchar(c);
+#else 
+#ifndef USESPICOSERIAL
+	Serial.write(c);
+#else
+	PicoSerial.print(c);
+#endif
+#endif
+	return;	
+}
+
+// printer wrappers
+void prtbegin() {
+#ifdef ARDUINOPRT
+	Serial1.begin(9600);
+#endif
+}
+
+void prtwrite(char c) {
+#ifdef ARDUINOPRT
+	Serial1.write(c);
+#endif
+}
 
 #ifndef ARDUINO
 /* 
 	this is C standard library stuff, we branch to file input/output
 	if there is a valid file descriptor in fd.
 */
-
 void ioinit() {
 	iodefaults();
 	return;
 }
 
-void iodefaults(){
-	od=OSERIAL;
-	id=ISERIAL;
-}
-
-
-void outch(char c) { 
-	if (od & OSERIAL)
-		putchar(c);
-	if (od & OFILE)
-		if (ofd) fputc(c, ofd);
-}
-
 char inch(){
-	char c=0;
+	char c;
 	if (id == ISERIAL)
-		c=getchar(); 
-	if (id == IFILE) {
-		if (ifd) c=fgetc(ifd); else ert=1;
-		if (c == -1 ) ert=-1;
-	}
-
-	return c;
+		return getchar(); 
+	if (id == IFILE) 
+		return fileread();
+	return 0;
 }
 
 char checkch(){
 	return TRUE;
 }
 
-// ins separating sting and number input 
-// 
 void ins(char *b, short nb) {
 	char c;
 	short i = 1;
 	while(i < nb-1) {
 		c=inch();
-		if (c == '\n' || c == '\r' || c == -1 ) {
+		if (c == '\n' || c == '\r') {
 			b[i]=0x00;
 			b[0]=i-1;
 			break;
@@ -1678,19 +1745,6 @@ void ins(char *b, short nb) {
 }
 
 #else 
-
-// Arduinos default io channels
-void iodefaults(){
-#ifndef STANDALONE
-		id = ISERIAL;
-		od = OSERIAL;
-#else 
-		id = IKEYBOARD;
-		od = OLCD;
-#endif
-}
-
-
 #ifndef USESPICOSERIAL
 /*
 
@@ -1704,24 +1758,12 @@ void iodefaults(){
 void ioinit() {
 	Serial.begin(serial_baudrate);
    	lcdbegin(); 
+   	prtbegin();
 #ifdef ARDUINOPS2
 	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
 #endif
 	iodefaults();
 }
-
-
-void outch(char c) {
-	if (od & OSERIAL)
-		Serial.write(c);
-	if (od & OLCD)
-		lcdwrite(c);
-#ifdef ARDUINOSD
-	if (od & OFILE)
-		if (ofile) ofile.write(c);
-#endif
-}
-
 
 char inch(){
 	char c=0;
@@ -1729,6 +1771,7 @@ char inch(){
 		do 
 			if (Serial.available()) c=Serial.read();
 		while(c == 0); 
+		return c;
 	}
 #ifdef ARDUINOPS2	
 	if (id == IKEYBOARD) {
@@ -1736,15 +1779,10 @@ char inch(){
 			if (keyboard.available()) c=keyboard.read();
 		while(c == 0);	
     	if (c == 13) c=10;
+    	if (c == '^') c='@';
+		return c;
 	}
 #endif
-#ifdef ARDUINOSD
-	if (id == IFILE) {
-		if (ifile) c=ifile.read(); else ert=1;
-		if (c == -1 ) ert=-1;
-	}
-#endif
-	return c;
 }
 
 char checkch(){
@@ -1759,8 +1797,8 @@ void ins(char *b, short nb) {
   	short i = 1;
   	while(i < nb-1) {
     	c=inch();
-    	if (id != IFILE) outch(c);
-    	if (c == '\n' || c == '\r' || c == -1) {
+    	outch(c);
+    	if (c == '\n' || c == '\r') {
       		b[i]=0x00;
       		b[0]=i-1;
       		break;
@@ -1812,38 +1850,10 @@ void picogetchar(int c){
 	}
 }
 
-void outch(char c) {
-	if (od & OSERIAL)
-		PicoSerial.print(c);
-	if (od & OLCD)
-		lcdwrite(c);
-#ifdef ARDUINOSD
-	if (od & OFILE)
-		if (ofile) ofile.write(c);
-#endif
-}
-
 char inch(){
 	char c;
-	if (id == ISERIAL) {
-		c=picochar;
-		picochar=0;	
-	}
-#ifdef ARDUINOPS2	
-	if (id == IKEYBOARD) {
-		do 
-			if (keyboard.available()) c=keyboard.read();
-		while(c == 0);	
-    	if (c == 13) c=10;
-	}
-#endif
-#ifdef ARDUINOSD
-	if (id == IFILE) {
-		if (ifile) c=ifile.read(); else ert=1;
-		if (c == -1 ) ert=-1;
-	}
-#endif
-
+	c=picochar;
+	picochar=0;
 	return c;
 }
 
@@ -1862,10 +1872,31 @@ void ins(char *b, short nb) {
 #endif
 #endif
 
+/* 
+
+	The generic IO code 
+
+*/ 
+
+
+// output one character to a stream
+void outch(char c) {
+	if (od == OSERIAL)
+		serialwrite(c);
+	if (od == OPRT) 
+		prtwrite(c);
+	if (od == OFILE) 
+		filewrite(c); 
+	if (od == OLCD) 
+		lcdwrite(c);
+}
+
+// send a newline
 void outcr() {
 	outch('\n');
 } 
 
+// send a space
 void outspc() {
 	outch(' ');
 }
@@ -3094,7 +3125,11 @@ void expression(){
 
 void xprint(){
 	char semicolon = FALSE;
+	char oldod;
+	char modifier;
+
 	form=0;
+	oldod=od;
 
 	nexttoken();
 
@@ -3103,6 +3138,7 @@ processsymbol:
 	if (termsymbol()) {
 		if (! semicolon) outcr();
 		nexttoken();
+		od=oldod;
 		return;
 	}
 	semicolon=FALSE;
@@ -3114,13 +3150,22 @@ processsymbol:
 		goto separators;
 	}
 
-	// Palo Alto BASIC formatting stuff - tolerant code
-	if (token == '#') {
+	// modifiers of the print statement
+	if (token == '#' || token == '&') {
+		modifier=token;
 		nexttoken();
-		if (token == NUMBER) {
-			form=x;
-			nexttoken();
+		expression();
+		if (er != 0) return;
+		switch(modifier) {
+			case '#':
+				form=pop();
+				break;
+			case '&':
+				od=pop();
+				break;
 		}
+		modifier=0;
+		goto processsymbol;
 	}
 
 	if (token != ',' && token != ';' ) {
@@ -3132,12 +3177,13 @@ processsymbol:
 separators:
 	if (token == ',') {
 		outspc();
-		nexttoken();
+		nexttoken();	
 	}
 	if (token == ';'){
 		semicolon=TRUE;
 		nexttoken();
 	}
+
 	goto processsymbol;
 }
 
@@ -3180,8 +3226,10 @@ void assignment() {
 			switch(args) {
 				case 0:
 					i=1;
+					ps=TRUE;
 					break;
 				case 1:
+					ps=FALSE;
 					nexttoken();
 					i=pop();
 					break;
@@ -3229,7 +3277,10 @@ void assignment() {
 				ir=getstring(xcl, ycl, i);
 				if (er != 0) return;
 				ir[0]=pop();
-				if (lenstring(xcl, ycl) < i && i < stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
+				if (ps)
+					setstringlength(xcl, ycl, 1);
+				else 
+					if (lenstring(xcl, ycl) < i && i < stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
 				break;
 		}		
 	} else {
@@ -3275,11 +3326,27 @@ void assignment() {
 
 void xinput(){
 	short args;
+	short oldid;
 
 	nexttoken();
 
+	// modifiers of the input statement
+	if (token == '&') {
+		nexttoken();
+		expression();
+		if (er != 0) return;
+		oldid=id;
+		id=pop();
+		if ( token != ',') {
+			error(EUNKNOWN);
+			return;
+		} else 
+			nexttoken();
+	}
+
+
 nextstring:
-	if (token == STRING && ( id != IFILE )) {   
+	if (token == STRING && id != IFILE) {   
 		outs(ir, x);
 		nexttoken();
 		if (token != ',' && token != ';') {
@@ -3296,6 +3363,7 @@ nextvariable:
 			setvar(xc, yc, 0);
 			st=SINT;
 			nexttoken();
+			id=oldid;
 			return;
 		} else {
 			setvar(xc, yc, x);
@@ -3318,6 +3386,7 @@ nextvariable:
 			array('s', xc, yc, pop(), &x);
 			st=SINT;
 			nexttoken();
+			id=oldid;
 			return;
 		} else {
 			array('s', xc, yc, pop(), &x);
@@ -3335,6 +3404,9 @@ nextvariable:
 		nexttoken();
 		goto nextstring;
 	}
+
+	id=oldid;
+
 }
 
 /*
@@ -3675,7 +3747,7 @@ void xlist(){
 		gettoken();
 		if (token == LINENUMBER && oflag) {
 			outcr();
-			if ( od == OLCD ) { inch(); }
+			if ( lcdactive() ) { if ( inch() == 27 ) break;}
 		}
 	}
 	if (here == top && oflag) outputtoken();
@@ -4221,7 +4293,7 @@ void xtone(){
 		return;
 	}
 
-#ifndef ARDUINO
+#if !defined(ARDUINO) || defined(ARDUINODUE)
 	clearst();
 	return;
 #else 
@@ -4247,7 +4319,7 @@ void xcatalog() {
 	File root, file;
 	char c = 0;
 
-	if ( od & OLCD ) { lcdwrite(12); }
+	if ( od == OLCD ) { lcdwrite(12); }
 	root=SD.open("/");
 	while (TRUE) {
 		file=root.openNextFile();
@@ -4255,25 +4327,45 @@ void xcatalog() {
 		if (! file.isDirectory()) { 
 		  outsc(file.name()); outch(' '); outnumber(file.size()); outcr();
 		  c++;
-		  if ((od & OLCD) && c == lcd_rows-1) { inch(); c=0; }
+		  if (lcdactive() && (c == lcd_rows-1)) { if ( inch() == 27 ) break;  c=0; }
 	  }
     file.close(); 
 	}
 
 	root.close();
+#else 
+#ifndef ARDUINO 
+	DIR *dp;
+	struct dirent *ep;     
+  	dp = opendir ("./");
 
+  	if (dp != NULL) {
+    	while ( (ep = readdir(dp)) ) {
+    		if (ep->d_type == DT_REG) {
+    		    outsc(ep->d_name); 
+      			outcr();	
+    		}
+    	}
+    	(void) closedir (dp);
+  	} else
+    	ert=1; 
 #endif
+#endif
+
 	nexttoken();
 }
 
 void xdelete() {
-#ifdef ARDUINOSD	
 	char * filename;
 	filename=getfilename();
 	if (er != 0 || filename == NULL) return; 
 
+#ifdef ARDUINOSD	
 	SD.remove(filename);
 #else 
+#ifndef ARDUINO
+	remove(filename);
+#endif
 	nexttoken();
 #endif
 }
@@ -4371,10 +4463,14 @@ void xclose() {
 void xusr() {
 	y=pop();
 	x=pop();
-	push(0);
+	switch(x) {
+		case 1:
+			break;
+	}
+	push(y);
 }
 
-void xacll() {
+void xcall() {
 	nexttoken();
 }
 
@@ -4522,6 +4618,10 @@ void statement(){
 			case TCLOSE:
 				xclose();
 				break;
+// low level functions 
+			case TCALL:
+				xcall();
+				break;	
 // and all the rest
 			case UNKNOWN:
 				error(EUNKNOWN);
