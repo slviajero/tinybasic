@@ -9,22 +9,26 @@
 	Author: Stefan Lenz, sl001@serverfabrik.de
 
 	The first set of definions define the target.
-		- for any Arduino with serial I/O or a Mac nothing has 
-			to be set here. The default settings are correct
-			for Arduino boards including MK.
-		- for ESP8266 boards define this macro (#define ESP8266)
-		- ARDUINOLCD actives the LCD code, LCDSHIELD automatically 
-			defines the right settings for the classical shield modules
-		- ARDUINOPS2 activates the PS2 code. Default pins are 2 and 3.
-			If you use other pins the respective changes have to be made 
+	- for any Arduino with serial I/O or a Mac nothing has 
+		to be set here. The default settings are correct
+		for Arduino boards including MK. 
+	- DUE unfortunately needs a special setting as it has no 
+		tone() function
+	- for ESP8266 boards define this macro (#define ESP8266)
+    - for RP2040 boards define this macros (#define RP2040)
+      (for both cases PROGMEM is disabled and EEPROM ignored)
+	- ARDUINOLCD actives the LCD code, LCDSHIELD automatically 
+		defines the right settings for the classical shield modules
+	- ARDUINOPS2 activates the PS2 code. Default pins are 2 and 3.
+		If you use other pins the respective changes have to be made 
 			below. 
-		- _if_ LCD and PS2 are both activated STANDALONE cause the Arduino
+	- _if_ LCD and PS2 are both activated STANDALONE cause the Arduino
 			to start with keyboard and lcd as standard devices.
-		- ARDUINOTFT is not yet implemented
-		- ARDUINOEEPROM includes the EEPROM access code
-		- HAS* activates or deactives features of the interpreter
-		- activating Picoserial is not compatible with keyboard code
-			Picoserial doesn't work on MEGA
+	- ARDUINOTFT is not yet implemented
+	- ARDUINOEEPROM includes the EEPROM access code
+	- HAS* activates or deactives features of the interpreter
+	- activating Picoserial is not compatible with keyboard code
+		Picoserial doesn't work on MEGA
 
 
 	SMALLness - Memory footprint of extensions
@@ -43,6 +47,7 @@
 */ 
 
 #undef ARDUINODUE
+#undef RP2040
 #undef ESP8266
 #undef MINGW
 #undef ARDUINOLCD
@@ -52,7 +57,7 @@
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
-#define MEMSIZE 4096
+#define MEMSIZE 1024
 
 // these are the definitions to build a standalone 
 // computer. All of these extensions are very memory hungry
@@ -74,21 +79,25 @@
 #endif
 
 // if PROGMEM is defined we can asssume we compile on 
-// the Arduino IDE. Dun't change anything here.
+// the Arduino IDE. Don't change anything here. 
+// This is a little hack to detect where we compile
 #ifdef PROGMEM
-//#define ARDUINO
 #define ARDUINOPROGMEM
 #else
 #undef ARDUINO
 #endif
 
-#ifdef ESP8266
+#if defined(ESP8266) || defined(RP2040)
 #define PROGMEM
+#define ARDUINO
 #undef ARDUINOPROGMEM
+#undef ARDUINOEEPROM
 #endif
 
 #ifdef ARDUINO
+#ifdef ARDUINOPROGMEM
 #include <avr/pgmspace.h>
+#endif
 #ifdef ARDUINOEEPROM
 #include <EEPROM.h>
 #endif
@@ -422,6 +431,11 @@ const char* const message[] PROGMEM = {
 	eeeprom, esdcard
 };
 
+
+// preparation for numbers and addresses not being 16 bit
+typedef short number_t;
+typedef unsigned short address_t;
+
 /*
 	The basic interpreter is implemented as a stack machine
 	with global variable for the interpreter state, the memory
@@ -467,18 +481,18 @@ const char* const message[] PROGMEM = {
 
 
 */
-static short stack[STACKSIZE];
-static unsigned short sp=0; 
+static number_t stack[STACKSIZE];
+static address_t sp=0; 
 
 static char sbuffer[SBUFSIZE];
 
 static char ibuffer[BUFSIZE] = "\0";
 static char *bi;
 
-static short vars[VARSIZE];
+static number_t vars[VARSIZE];
 
 static signed char mem[MEMSIZE];
-static unsigned short himem = MEMSIZE-1;
+static address_t himem = MEMSIZE-1;
 
 #ifdef HASFORNEXT
 static struct {char varx; char vary; short here; short to; short step;} forstack[FORDEPTH];
@@ -491,7 +505,7 @@ static short gosubsp = 0;
 static char fnc; 
 #endif
 
-static short x, y;
+static number_t x, y;
 static signed char xc, yc;
 
 struct twobytes {signed char l; signed char h;};
@@ -503,10 +517,10 @@ static signed char er;
 static signed char ert;
 
 static signed char st; 
-static unsigned short here; 
-static unsigned short top;
+static address_t here; 
+static address_t top;
 
-static unsigned short nvars = 0; 
+static address_t nvars = 0; 
 
 static char form = 0;
 
@@ -546,19 +560,19 @@ File ofile;
 */
 
 // heap management 
-unsigned short bmalloc(signed char, char, char, short);
-unsigned short bfind(signed char, char, char);
-unsigned short blength (signed char, char, char);
+address_t bmalloc(signed char, char, char, short);
+address_t bfind(signed char, char, char);
+address_t blength (signed char, char, char);
 void clrvars();
 
 // normal variables
 void  createvar(char, char);
-short getvar(char, char);
-void  setvar(char, char, short);
+number_t getvar(char, char);
+void  setvar(char, char, number_t);
 
 // low level memory access packing 16 bit into 2 8 bit objexts
-short getshort(unsigned short);
-void  setshort(unsigned short, short);
+number_t getshort(address_t);
+void  setshort(address_t, number_t);
 
 // array handling
 void  createarry(char, char, short);
@@ -587,7 +601,7 @@ void debugtoken();
 void debug(char*);
 
 // stack stuff
-void push(short);
+void push(number_t);
 short pop();
 void drop();
 void clearst();
@@ -625,9 +639,9 @@ void outnumber(short);
 
 // EEPROM 
 #if defined(ARDUINO) && defined(ARDUINOEEPROM) && ! defined(ESP8266)
-unsigned short elength() { return EEPROM.length(); }
-void eupdate(unsigned short i, short c) { EEPROM.update(i, c); }
-short eread(unsigned short i) { return EEPROM.read(i); }
+address_t elength() { return EEPROM.length(); }
+void eupdate(address_t i, short c) { EEPROM.update(i, c); }
+short eread(address_t i) { return EEPROM.read(i); }
 // save a file to EEPROM
 void esave() {
 	int x=0;
@@ -664,9 +678,9 @@ void eload() {
 	}
 }
 #else
-unsigned short elength() { return 0; }
-void eupdate(unsigned short i, short c) { return; }
-short eread(unsigned short i) { return 0; }
+address_t elength() { return 0; }
+void eupdate(address_t i, short c) { return; }
+short eread(address_t i) { return 0; }
 void esave() { error(EEEPROM); return; }
 void eload() { error(EEEPROM); return; }
 #endif
@@ -3326,7 +3340,7 @@ void assignment() {
 
 void xinput(){
 	short args;
-	short oldid;
+	short oldid = -1;
 
 	nexttoken();
 
@@ -3405,7 +3419,7 @@ nextvariable:
 		goto nextstring;
 	}
 
-	id=oldid;
+	if (oldid != -1) id=oldid;
 
 }
 
