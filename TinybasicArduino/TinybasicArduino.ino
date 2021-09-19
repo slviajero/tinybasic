@@ -52,7 +52,7 @@
 #undef MINGW
 #undef ARDUINOLCD
 #undef LCDSHIELD
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
@@ -141,13 +141,6 @@ const int serial_baudrate = 9600;
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
 #define FORDEPTH 	4
-
-// definitions on EEROM handling in the Arduino
-#define EHEADERSIZE 3
-#define EDUMMYSIZE 0
-
-// not yet used - added to implement different number types
-#define NUMSIZE 2
 
 /*
 
@@ -433,8 +426,12 @@ const char* const message[] PROGMEM = {
 
 
 // preparation for numbers and addresses not being 16 bit
+// not used consistently! Don't change this right now.
 typedef short number_t;
 typedef unsigned short address_t;
+const int numsize=sizeof(number_t);
+const int addrsize=sizeof(address_t);
+const int eheadersize=addrsize+1;
 
 /*
 	The basic interpreter is implemented as a stack machine
@@ -495,12 +492,12 @@ static signed char mem[MEMSIZE];
 static address_t himem = MEMSIZE-1;
 
 #ifdef HASFORNEXT
-static struct {char varx; char vary; short here; short to; short step;} forstack[FORDEPTH];
+static struct {char varx; char vary; address_t here; number_t to; number_t step;} forstack[FORDEPTH];
 static short forsp = 0;
 #endif
 
 #ifdef HASGOSUB
-static short gosubstack[GOSUBDEPTH];
+static address_t gosubstack[GOSUBDEPTH];
 static short gosubsp = 0;
 static char fnc; 
 #endif
@@ -509,7 +506,7 @@ static number_t x, y;
 static signed char xc, yc;
 
 struct twobytes {signed char l; signed char h;};
-static union accu168 { short i; struct twobytes b; } z;
+static union accu168 { number_t i; struct twobytes b; signed char c[numsize]; } z;
 
 static char *ir, *ir2;
 static signed char token;
@@ -570,24 +567,27 @@ void  createvar(char, char);
 number_t getvar(char, char);
 void  setvar(char, char, number_t);
 
-// low level memory access packing 16 bit into 2 8 bit objexts
-number_t getshort(address_t);
-void  setshort(address_t, number_t);
+// low level memory access packing n*8bit bit into n 8 bit objects
+// e* is for Arduino EEPROM
+number_t getnumber(address_t);
+void  setnumber(address_t, number_t);
+number_t egetnumber(address_t);
+void  esetnumber(address_t, number_t);
 
 // array handling
-void  createarry(char, char, short);
-void  array(char, char, char, short, short*);
+void  createarry(char, char, number_t);
+void  array(char, char, char, number_t, number_t*);
 
 // string handling 
-void  createstring(char, char, short);
-char* getstring(char, char, short);
-void  setstring(char, char, short, char *, short);
+void  createstring(char, char, number_t);
+char* getstring(char, char, number_t);
+void  setstring(char, char, number_t, char *, number_t);
 
 // access memory dimensions and for strings also the actual length
-short arraydim(char, char);
-short stringdim(char, char);
-short lenstring(char, char);
-void setstringlength(char, char, short);
+number_t arraydim(char, char);
+number_t stringdim(char, char);
+number_t lenstring(char, char);
+void setstringlength(char, char, number_t);
 
 // get keyword from PROGMEM
 char* getkeyword(signed char);
@@ -602,7 +602,7 @@ void debug(char*);
 
 // stack stuff
 void push(number_t);
-short pop();
+number_t pop();
 void drop();
 void clearst();
 
@@ -627,9 +627,9 @@ void outcr();
 void outspc();
 void outs(char*, short);
 void outsc(char*);
-char innumber(short*);
-short getnumber(char*, short*);
-void outnumber(short);
+char innumber(number_t*);
+short parsenumber(char*, number_t*);
+void outnumber(number_t);
 
 /*
 	Arduino definitions and code
@@ -644,15 +644,18 @@ void eupdate(address_t i, short c) { EEPROM.update(i, c); }
 short eread(address_t i) { return EEPROM.read(i); }
 // save a file to EEPROM
 void esave() {
-	int x=0;
-	if (top+EHEADERSIZE < elength()) {
+	address_t x=0;
+	if (top+eheadersize < elength()) {
 		x=0;
 		eupdate(x++, 0); // EEPROM per default is 255, 0 indicates that there is a program
+
+		// store a number 
+		esetnumber(x, top);
 		z.i=top;
-		eupdate(x++, z.b.l);
-		eupdate(x++, z.b.h);
-		while (x < top+EHEADERSIZE){
-			eupdate(x, mem[x-EHEADERSIZE]);
+		x+=numsize;
+
+		while (x < top+eheadersize){
+			eupdate(x, mem[x-eheadersize]);
 			x++;
 		}
 		eupdate(x++,0);
@@ -663,14 +666,16 @@ void esave() {
 }
 // load a file from EEPROM
 void eload() {
-	int x=0;
+	address_t x=0;
 	if (eread(x) == 0 || eread(x) == 1) { // have we stored a program?
 		x++;
-		z.b.l=eread(x++);
-		z.b.h=eread(x++);
-		top=z.i;
-		while (x < top+EHEADERSIZE){
-			mem[x-EHEADERSIZE]=eread(x);
+
+		// get a number
+		top=egetnumber(x);
+		x+=numsize;
+
+		while (x < top+eheadersize){
+			mem[x-eheadersize]=eread(x);
 			x++;
 		}
 	} else { // no valid program data is stored 
@@ -723,8 +728,14 @@ char lcdmycol = 0;
 
 // global variables for an Arduino SD card
 #ifdef ARDUINOSD
-// the SDI chip select
-const char sd_chipselect = 53;
+// the SD chip select, set 4 for the Ethernet/SD shield
+//const char sd_chipselect = 53;
+const char sd_chipselect = 4;
+#endif
+
+// global variables for an Ethernet shield
+#ifdef ARDUINOETH
+const char eth_chipselect = 10;
 #endif
 
 // the wrappers of the arduino io functions, to avoid 
@@ -734,22 +745,22 @@ const char sd_chipselect = 53;
 #ifdef ARDUINO
 void aread(){ push(analogRead(pop())); }
 void dread(){ push(digitalRead(pop())); }
-void awrite(short p, short v){
+void awrite(number_t p, number_t v){
 	if (v >= 0 && v<256) analogWrite(p, v);
 	else error(ERANGE);
 }
-void dwrite(short p, short v){
+void dwrite(number_t p, number_t v){
 	if (v == 0) digitalWrite(p, LOW);
 	else if (v == 1) digitalWrite(p, HIGH);
 	else error(ERANGE);
 }
-void pinm(short p, short m){
+void pinm(number_t p, number_t m){
 	if (m>=0 && m<=2)  pinMode(p, m);
 	else error(ERANGE); 
 }
 void bmillis() {
-	short m;
-	m=(short) (millis()/pop() % 32768);
+	number_t m;
+	m=(number_t) (millis()/pop() % 32768);
 	push(m); 
 };
 void bpulsein() { 
@@ -763,10 +774,10 @@ void bpulsein() {
 #else
 void aread(){ return; }
 void dread(){ return; }
-void awrite(short p, short v){}
-void dwrite(short p, short v){}
-void pinm(short p, short m){}
-void delay(short t) {}
+void awrite(number_t p, number_t v){}
+void dwrite(number_t p, number_t v){}
+void pinm(number_t p, number_t m){}
+void delay(number_t t) {}
 struct timespec start_time;
 void bmillis() {
 #ifndef MINGW
@@ -795,17 +806,17 @@ void debugtoken();
 void nexttoken();
 
 // storeing and retrieving programs
-char nomemory(short);
-void dumpmem(unsigned short, unsigned short);
+char nomemory(number_t);
+void dumpmem(address_t, address_t);
 void storetoken(); 
-char memread(unsigned short);
+char memread(address_t);
 void gettoken();
 void firstline();
 void nextline();
-void findline(unsigned short);
-unsigned short myline(unsigned short);
-void moveblock(unsigned short, unsigned short, unsigned short);
-void zeroblock(unsigned short, unsigned short);
+void findline(address_t);
+unsigned short myline(address_t);
+void moveblock(address_t, address_t, address_t);
+void zeroblock(address_t, address_t);
 void diag();
 void storeline();
 
@@ -882,7 +893,6 @@ void xdim();
 void xpoke();
 void xtab();
 void xdump();
-void dumpmem(unsigned short, unsigned short);
 
 // file access 
 char* getfilename();
@@ -930,18 +940,24 @@ void statement();
 // allocate a junk of memory for a variable on the heap
 // every objects is identified by name (c,d) and type t
 // 3 bytes are used here but 2 would be enough
-unsigned short bmalloc(signed char t, char c, char d, short l) {
+address_t bmalloc(signed char t, char c, char d, short l) {
 
-	unsigned short vsize;     // the length of the header
-	unsigned short b;
+	address_t vsize;     // the length of the header
+	address_t b;
 
 
     if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
 
-	// how much space is needed
-	if ( t == VARIABLE ) vsize=NUMSIZE+3; 	
-	else if ( t == ARRAYVAR ) vsize=NUMSIZE*l+2+3;
-	else if ( t == STRINGVAR ) vsize=l+2+3;
+	/* 
+		how much space is needed
+			3 bytes for the token and the 2 name characters
+			numsize for every number including array length
+			one byte for every string character
+	*/
+
+	if ( t == VARIABLE ) vsize=numsize+3; 	
+	else if ( t == ARRAYVAR ) vsize=numsize*l+numsize+3;
+	else if ( t == STRINGVAR ) vsize=l+numsize+3;
 	else { error(EUNKNOWN); return 0; }
 	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return 0;}
 
@@ -956,9 +972,14 @@ unsigned short bmalloc(signed char t, char c, char d, short l) {
 
 	// for strings and arrays write the length
 	if (t == ARRAYVAR || t == STRINGVAR) {
-		z.i=vsize-5;
-		mem[b--]=z.b.h;
-		mem[b--]=z.b.l;
+
+		// store a number
+		//z.i=vsize-(numsize+3);
+		//mem[b--]=z.b.h;
+		//mem[b--]=z.b.l;
+		b=b-numsize+1;
+		setnumber(b, vsize-(numsize+3));
+		b--;
 	}
 
 	// reserve space for the payload
@@ -971,9 +992,9 @@ unsigned short bmalloc(signed char t, char c, char d, short l) {
 
 // bfind passes back the location of the object as result
 // the length of the object is in z.i as a side effect 
-unsigned short bfind(signed char t, char c, char d) {
+address_t bfind(signed char t, char c, char d) {
 
-	short unsigned b = MEMSIZE-1;
+	address_t b = MEMSIZE-1;
 	signed char t1;
 	char c1, d1;
 	short i=0;
@@ -986,10 +1007,17 @@ unsigned short bfind(signed char t, char c, char d) {
 		t1=mem[b--];
 
 		if (t1 == STRINGVAR || t1 == ARRAYVAR) {
-			z.b.h=mem[b--];
-			z.b.l=mem[b--];
+
+			// get a number
+			// z.b.h=mem[b--];
+			// z.b.l=mem[b--];
+
+			b=b-numsize+1;
+			z.i=getnumber(b);
+			b--;
+
 		} else 
-			z.i=NUMSIZE; 
+			z.i=numsize; 
 
 		b-=z.i;
 
@@ -1002,7 +1030,7 @@ unsigned short bfind(signed char t, char c, char d) {
 }
 
 // the length of an object
-unsigned short blength (signed char t, char c, char d) {
+address_t blength (signed char t, char c, char d) {
 	if (! bfind(t, c, d)) return 0;
 	return z.i;
 }
@@ -1014,8 +1042,8 @@ void createvar(char c, char d){
 }
 
 // get and create a variable 
-short getvar(char c, char d){
-	unsigned short a;
+number_t getvar(char c, char d){
+	address_t a;
 
 	if (DEBUG) { outsc("* getvar "); outch(c); outch(d); outspc(); outcr(); }
 
@@ -1043,13 +1071,12 @@ short getvar(char c, char d){
 		if (er != 0) return 0;
 	} 
 
-	return getshort(a);
-
+	return getnumber(a);
 }
 
 // set and create a variable 
-void setvar(char c, char d, short v){
-	unsigned short a;
+void setvar(char c, char d, number_t v){
+	address_t a;
 
 	if (DEBUG) { outsc("* setvar "); outch(c); outch(d); outspc(); outnumber(v); outcr(); }
 
@@ -1084,7 +1111,7 @@ void setvar(char c, char d, short v){
 		if (er != 0) return;
 	} 
 
-	setshort(a, v);
+	setnumber(a, v);
 }
 
 
@@ -1094,20 +1121,65 @@ void clrvars() {
 	himem=MEMSIZE-1;
 }
 
-short getshort(unsigned short m){
-	z.b.l=memread(m++);
-	z.b.h=memread(m);
+// the program memory access - attention there is a hack here
+// this can sometimes also access eeproms for autorun through
+// the memread wrapper - still not really redundant to egetnumber
+number_t getnumber(address_t m){
+
+	if ( numsize == 2 ) {
+		z.b.l=memread(m++);
+		z.b.h=memread(m);
+	} else {
+ 		for (int i=0; i<numsize; i++) {
+			z.c[i]=memread(m++);
+		}
+	}
 	return z.i;
 }
 
-void setshort(unsigned short m, short v){
-	z.i=v;
-	mem[m++]=z.b.l;
-	mem[m]=z.b.h;
+// the eeprom memory access 
+number_t egetnumber(address_t m){
+
+	if ( numsize == 2 ) {
+		z.b.l=eread(m++);
+		z.b.h=eread(m);
+	} else {
+ 		for (int i=0; i<numsize; i++) {
+			z.c[i]=eread(m++);
+		}
+	}
+	return z.i;
 }
 
 
-void createarry(char c, char d, short i) {
+void setnumber(address_t m, number_t v){
+	z.i=v;
+
+	if ( numsize == 2 ) {
+		mem[m++]=z.b.l;
+		mem[m]=z.b.h;
+	} else {
+ 		for (int i=0; i<numsize; i++) {
+			mem[m++]=z.c[i];
+		}
+	}
+}
+
+void esetnumber(address_t m, number_t v){
+	z.i=v;
+
+	if ( numsize == 2 ) {
+		eupdate(m++, z.b.l);
+		eupdate(m, z.b.h);
+	} else {
+ 		for (int i=0; i<numsize; i++) {
+			eupdate(m++, z.c[i]);
+		}
+	}
+}
+
+
+void createarry(char c, char d, number_t i) {
 
 	if (bfind(ARRAYVAR, c, d)) { error(EVARIABLE); return; }
 	(void) bmalloc(ARRAYVAR, c, d, i);
@@ -1117,7 +1189,7 @@ void createarry(char c, char d, short i) {
 }
 
 // generic array access function 
-void array(char m, char c, char d, short i, short* v) {
+void array(char m, char c, char d, number_t i, number_t* v) {
 
 	unsigned short a;
 	unsigned short h;
@@ -1132,15 +1204,15 @@ void array(char m, char c, char d, short i, short* v) {
 
 			// Dr. Wangs end of memory array
 			case 0: {
-				h=(himem-top)/2;
-				a=himem-2*i+1;
+				h=(himem-top)/numsize;
+				a=himem-numsize*i+1;
 				break;
 			}
 
 			// EEPROM access 
 			case 'E': {
-				h=elength()/2;
-				a=elength()-2*i;
+				h=elength()/numsize;
+				a=elength()-numsize*i;
 				e=TRUE;
 			}
 		}
@@ -1150,8 +1222,8 @@ void array(char m, char c, char d, short i, short* v) {
 		// dynamically allocated arrays
 		a=bfind(ARRAYVAR, c, d);
 		if (a == 0) error(EVARIABLE);
-		h=z.i/2;
-		a=a+(i-1)*2;
+		h=z.i/numsize;
+		a=a+(i-1)*numsize;
 	}
 
 	// is the index in range
@@ -1161,24 +1233,26 @@ void array(char m, char c, char d, short i, short* v) {
 	// set or get the array
 	if (m == 'g') {
 		if (! e) {
-			*v=getshort(a);
+			*v=getnumber(a);
 		} else {
-			z.b.h=eread(a++);
-			z.b.l=eread(a);
-			*v=z.i;
+			// z.b.h=eread(a++);
+			// z.b.l=eread(a);
+			// *v=z.i;	
+			*v=egetnumber(a);
 		}
 	} else if ( m == 's') {
 		if (! e) {
-			setshort(a, *v);
+			setnumber(a, *v);
 		} else {
-			z.i=*v;
-			eupdate(elength() - i*2, z.b.h);
-			eupdate(elength() - i*2 + 1, z.b.l);
+			// z.i=*v;
+			// eupdate(elength() - i*numsize, z.b.h);
+			// eupdate(elength() - i*numsize + 1, z.b.l);
+			esetnumber(a, *v);
 		}
 	}
 }
 
-void createstring(char c, char d, short i) {
+void createstring(char c, char d, number_t i) {
 
 	if (bfind(STRINGVAR, c, d)) { error(EVARIABLE); return; }
 	(void) bmalloc(STRINGVAR, c, d, i+1);
@@ -1187,8 +1261,8 @@ void createstring(char c, char d, short i) {
 }
 
 
-char* getstring(char c, char d, short b) {	
-	unsigned short a;
+char* getstring(char c, char d, number_t b) {	
+	address_t a;
 
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
 
@@ -1213,25 +1287,25 @@ char* getstring(char c, char d, short b) {
 }
  
  // this function is currently not used 
-short arraydim(char c, char d) {
+number_t arraydim(char c, char d) {
 	if (c == '@')
 		switch (d) {
 			case 0:
-				return (himem-top)/2;
+				return (himem-top)/numsize;
 			case 'E':
-				return elength()/2;
+				return elength()/numsize;
 		}
 
-	return blength(ARRAYVAR, c, '$')/2;
+	return blength(ARRAYVAR, c, d)/numsize;
 }
 
-short stringdim(char c, char d) {
+number_t stringdim(char c, char d) {
 	if (c == '@')
 		return BUFSIZE-1;
 	return blength(STRINGVAR, c, d)-1;
 }
 
-short lenstring(char c, char d){
+number_t lenstring(char c, char d){
 	char* b;
 	if (c == '@')
 		return ibuffer[0];
@@ -1241,8 +1315,8 @@ short lenstring(char c, char d){
 	return b[-1];
 }
 
-void setstringlength(char c, char d, short l) {
-	unsigned short a; 
+void setstringlength(char c, char d, number_t l) {
+	address_t a; 
 
 	if (c == '@') {
 		*ibuffer=l;
@@ -1263,9 +1337,9 @@ void setstringlength(char c, char d, short l) {
 
 }
 
-void setstring(char c, char d, short w, char* s, short n) {
+void setstring(char c, char d, number_t w, char* s, number_t n) {
 	char *b;
-	unsigned short a;
+	address_t a;
 
 	if (DEBUG) { outsc("* set string "); outch(c); outch(d); outspc(); outnumber(w); outcr(); }
 
@@ -1423,7 +1497,7 @@ void debug(char *c){
 	on a stack of 16 bit objects.
 */
 
-void push(short t){
+void push(number_t t){
 	if (DEBUG) {outsc("** push sp= "); outnumber(sp); outcr(); }
 	if (sp == STACKSIZE)
 		error(ESTACK);
@@ -1431,7 +1505,7 @@ void push(short t){
 		stack[sp++]=t;
 }
 
-short pop(){
+number_t pop(){
 	if (DEBUG) {outsc("** pop sp= "); outnumber(sp); outcr(); }
 	if (sp == 0) {
 		error(ESTACK);
@@ -1926,22 +2000,25 @@ void outsc(char *c){
 }
 
 
-// reading a 16 bit number from a char bufer 
-short getnumber(char *c, short *r) {
+// reading a number from a char buffer 
+// maximum number of digits is adjusted to 16
+// ugly here, testcode when introducting 
+// number_t was strictly 16 bit before
+short parsenumber(char *c, number_t *r) {
 	int nd = 0;
 	*r=0;
 	while (*c >= '0' && *c <= '9' && *c != 0) {
 		*r=*r*10+*c++-'0';
 		nd++;
-		if (nd == 5) break;
+		if (nd == SBUFSIZE) break;
 	}
 	return nd;
 }
 
 // use sbuffer as a char buffer to get a number input 
-char innumber(short *r) {
-	int i = 1;
-	int s = 1;
+char innumber(number_t *r) {
+	short i = 1;
+	short s = 1;
 
 again:
 	ins(sbuffer, SBUFSIZE);
@@ -1954,7 +2031,7 @@ again:
 			i++;
 		}
 		if (sbuffer[i] >= '0' && sbuffer[i] <= '9') {
-			(void) getnumber(&sbuffer[i], r);
+			(void) parsenumber(&sbuffer[i], r);
 			*r*=s;
 			return 0;
 		} else {
@@ -1972,20 +2049,27 @@ again:
 }
 
 // prints a 16 bit number
-void outnumber(short x){
+void outnumber(number_t n){
 	char c, co;
-	short d;
-	char i=1;
-	if (x<0) {
+	number_t d;
+	short i=1;
+	if (n<0) {
 		outch('-');
 		i++;
-		x=-x;
+		n=-n;
 	}
+
+	// totally ugly test code remove soon
 	d=10000;
+	if (numsize == 4)
+		d=1000000;
+	if (numsize == 8)
+		d=1000000000000000000;
+
 	c=FALSE; // surpress leading 0s
 	while (d > 0){
-		co=x/d;
-		x=x%d;
+		co=n/d;
+		n=n%d;
 		if (co != 0 || d == 1 || c) {
 			co=co+48;
 			outch(co);
@@ -2056,7 +2140,7 @@ void nexttoken() {
 
 	// unsigned numbers, value returned in x
 	if (*bi <='9' && *bi>= '0'){
-		bi+=getnumber(bi, &x);
+		bi+=parsenumber(bi, &x);
 		token=NUMBER;
 		if (DEBUG) debugtoken();
 		return;
@@ -2265,7 +2349,7 @@ void nexttoken() {
 	Error handling is still incomplete.
 */
 
-char nomemory(short b){
+char nomemory(number_t b){
 	if (top >= himem-b) return TRUE; else return FALSE;
 }
 
@@ -2275,11 +2359,13 @@ void storetoken() {
 	switch (token) {
 		case NUMBER:
 		case LINENUMBER:
-			if ( nomemory(3) ) break;
+			if ( nomemory(numsize+1) ) break;
 			mem[top++]=token;	
-			z.i=x;
-			mem[top++]=z.b.l;
-			mem[top++]=z.b.h;
+			//z.i=x;
+			//mem[top++]=z.b.l;
+			//mem[top++]=z.b.h;
+			setnumber(top, x);
+			top+=numsize;
 			return;
 		case ARRAYVAR:
 		case VARIABLE:
@@ -2307,19 +2393,21 @@ void storetoken() {
 } 
 
 
-char memread(unsigned short i){
+// wrapper around mem access for eeprom autorun on small Arduinos
+char memread(address_t i){
 #ifndef ARDUINOEEPROM
 	return mem[i];
 #else 
 	if (st != SERUN) {
 		return mem[i];
 	} else {
-		return eread(i+EHEADERSIZE);
+		return eread(i+eheadersize);
 	}
 #endif
 }
 
 
+// get a token from memory
 void gettoken() {
 
 	// if we have reached the end of the program, EOL is always returned
@@ -2332,10 +2420,9 @@ void gettoken() {
 	token=memread(here++);
 	switch (token) {
 		case NUMBER:
-		case LINENUMBER:		
-			z.b.l=memread(here++);
-			z.b.h=memread(here++);
-			x=z.i;
+		case LINENUMBER:	
+			x=getnumber(here);
+			here+=numsize;	
 			break;
 		case ARRAYVAR:
 		case VARIABLE:
@@ -2362,6 +2449,7 @@ void gettoken() {
 		}
 }
 
+// goto the first line of a program
 void firstline() {
 	if (top == 0) {
 		x=0;
@@ -2371,6 +2459,7 @@ void firstline() {
 	gettoken();
 }
 
+// goto the next line
 void nextline() {
 	while (here < top) {
 		gettoken();
@@ -2385,7 +2474,7 @@ void nextline() {
 }
 
 // find a line
-void findline(unsigned short l) {
+void findline(address_t l) {
 	here=0;
 	while (here < top) {
 		gettoken();
@@ -2395,10 +2484,11 @@ void findline(unsigned short l) {
 }
 
 // finds the line of a location
-unsigned short myline(unsigned short h) {
-	unsigned short l=0; 
-	unsigned short l1=0;
-	unsigned short here2;
+address_t myline(address_t h) {
+	address_t l=0; 
+	address_t l1=0;
+	address_t here2;
+
 	here2=here;
 	here=0;
 	gettoken();
@@ -2424,8 +2514,8 @@ unsigned short myline(unsigned short h) {
 
 */
 
-void moveblock(unsigned short b, unsigned short l, unsigned short d){
-	unsigned short i;
+void moveblock(address_t b, address_t l, address_t d){
+	address_t i;
 
 	//outsc("** Moving block: "); outnumber(b); outspc(); outnumber(l); outspc(); outnumber(d); outcr();
 	if (d+l > himem) {
@@ -2446,8 +2536,8 @@ void moveblock(unsigned short b, unsigned short l, unsigned short d){
 	//outsc("** Done moving /n");
 }
 
-void zeroblock(unsigned short b, unsigned short l){
-	unsigned short i;
+void zeroblock(address_t b, address_t l){
+	address_t i;
 
 	if (b+l > himem) {
 		error(EOUTOFMEMORY);
@@ -2488,8 +2578,8 @@ void diag(){
 
 void storeline() {
 	short linelength;
-	short newline; 
-	unsigned short here2, here3; 
+	number_t newline; 
+	address_t here2, here3; 
 
 	// zero is an illegal line number
 	if (x == 0) {
@@ -2524,14 +2614,14 @@ void storeline() {
 	
 */
 
-	if (linelength == 3) {  		
-		top-=3;
+	if (linelength == (numsize+1)) {  		
+		top-=(numsize+1);
 		y=x;					
 		findline(y);
 		if (er != 0) return;	
-		y=here-3;							
+		y=here-(numsize+1);							
 		nextline();			
-		here-=3;
+		here-=(numsize+1);
 		if (x != 0) {						
 			moveblock(here, top-here, y);	
 			top=top-(here-y);
@@ -2548,7 +2638,7 @@ void storeline() {
 	else {	
 		y=x;
 		here2=here;
-		here=3;
+		here=numsize+1;
 		nextline();
 		if (x == 0) { // there is no nextline after the first line, we are done
 			return;
@@ -2568,19 +2658,19 @@ void storeline() {
 		// here points to the following line and here2 points to the previous line
 
 		if (x == 0) { 
-			here=here3-3;
+			here=here3-(numsize+1);
 			gettoken();
 			if (token == LINENUMBER && x == y) { // we have a double line at the end
-				here2-=3;
-				here-=3;
+				here2-=(numsize+1);
+				here-=(numsize+1);
 				moveblock(here2, linelength, here);
 				top=here+linelength;
 			}
 			return;
 		}
-		here-=3;
+		here-=(numsize+1);
 		push(here);
-		here=here2-3;
+		here=here2-(numsize+1);
 		push(here);
 		gettoken();
 		if (x == y) {     // the line already exists and has to be replaced
@@ -2701,9 +2791,10 @@ short parsesubscripts() {
 void parsesubstring() {
 	char xc1, yc1; 
 	short args;
-	short t1,t2;
-	short unsigned h1; // remember the here
+	address_t h1; // remember the here
 	char * bi1;
+
+	// remember the string name
     xc1=xc;
     yc1=yc;
 
@@ -2732,29 +2823,32 @@ void parsesubstring() {
     }
 }
 
-// absolute value
+// absolute value, 
+number_t babs(number_t n) {
+	if (n<0) return -n; else return n;
+}
+
 void xabs(){
-	short x;
-	x=pop();
-	if (x<0) x=-x;
-	push(x);
+	push(babs(pop()));
 }
 
 // sign
 void xsgn(){
-	short x;
-	x=pop();
-	if (x>0) x=1;
-	if (x<0) x=-1;
-	push(x);
+	number_t n;
+	n=pop();
+	if (n>0) n=1;
+	if (n<0) n=-1;
+	push(n);
 }
 
 // on an arduino, negative values of peek address 
 // the EEPROM range -1 .. -1024 on an UNO
 void peek(){
-	unsigned short amax;
-	short a;
+	address_t amax;
+	number_t a;
 	a=pop();
+
+	// this is a hack again, 16 bit numbers can't peek big addresses
 	if (MEMSIZE > 32767) amax=32767; else amax=MEMSIZE;
 
 	if (a >= 0 && a<amax) 
@@ -2778,7 +2872,7 @@ void xfre() {
 
 // very basic random number generator with constant seed.
 void rnd() {
-	short r;
+	number_t r;
 	r=pop();
 	rd = (31421*rd + 6927) % 0x10000;
 	if (r>=0) 
@@ -2789,8 +2883,8 @@ void rnd() {
 
 // a very simple approximate square root formula. 
 void sqr(){
-	short t,r;
-	short l=0;
+	number_t t,r;
+	number_t l=0;
 	r=pop();
 	t=r;
 	while (t > 0) {
@@ -2803,7 +2897,7 @@ void sqr(){
 	do {
 		l=t;
 		t=(t+r/t)/2;
-	} while (abs(t-l)>1);
+	} while (babs(t-l)>1);
 	push(t);
 }
 
@@ -2836,10 +2930,10 @@ char stringvalue() {
 // comparison and for string rightvalues as numbers
 void streval(){
 	char *irl;
-	short xl;
+	number_t xl;
 	char xcl;
 	signed char t;
-	unsigned short h1;
+	address_t h1;
 
 	if ( ! stringvalue()) {
 		error(EUNKNOWN);
@@ -3462,7 +3556,7 @@ void clrgosubstack() {
 #endif
 
 void xgoto() {
-	int t=token;
+	short t=token;
 
 	nexttoken();
 	expression();
@@ -3623,7 +3717,7 @@ void xbreak(){
 void xnext(){
 	char xcl=0;
 	char ycl;
-	short t;
+	number_t t;
 
 	nexttoken();
 	if (termsymbol()) goto plainnext;
@@ -3726,7 +3820,7 @@ void outputtoken() {
 
 
 void xlist(){
-	short b, e;
+	number_t b, e;
 	char oflag = FALSE;
 
 	nexttoken();
@@ -3897,7 +3991,10 @@ nextvariable:
 */
 
 void xpoke(){
-	short a, amax;
+	address_t amax;
+	number_t a;
+
+	// like in peek
 	if (MEMSIZE > 32767) amax=32767; else amax=MEMSIZE;
 	parsenarguments(2);
 	if (er != 0) return;
@@ -3933,7 +4030,7 @@ void xtab(){
 
 #ifdef HASDUMP
 void xdump() {
-	unsigned short a;
+	address_t a;
 	
 	nexttoken();
 	y=parsearguments();
@@ -3962,9 +4059,9 @@ void xdump() {
 	nexttoken();
 }
 
-void dumpmem(unsigned short r, unsigned short b) {
-	unsigned short j, i;	
-	unsigned short k;
+void dumpmem(address_t r, address_t b) {
+	address_t j, i;	
+	address_t k;
 
 	k=b;
 	i=r;
@@ -4017,17 +4114,17 @@ char * getfilename() {
 // save a file either to disk or to EEPROM
 void xsave() {
 	char * filename;
-	unsigned short here2;
+	address_t here2;
 
 	filename=getfilename();
 	if (er != 0 || filename == NULL) return;
 
+	// save the output mode
+	push(od);
+
 	if (filename[0] == '!') {
 		esave();
 	} else {
-
-		// save the output mode
-		push(od);
 		od=OFILE;
 
 
@@ -4082,8 +4179,6 @@ void xsave() {
 
    		// clean up
 		ofile.close();
-
-
 #else
       
 #endif
@@ -4101,7 +4196,7 @@ void xsave() {
 void xload() {
 	char * filename;
 	char ch;
-	unsigned short here2;
+	address_t here2;
 	char chain = FALSE;
 
 	filename=getfilename();
@@ -4663,7 +4758,11 @@ void setup() {
 #endif
 #endif
 	ioinit();
-	printmessage(MGREET); outcr();
+	printmessage(MGREET); outspc();
+	printmessage(EOUTOFMEMORY); outspc(); outnumber(MEMSIZE); outspc();
+	outnumber(numsize); outcr();
+	//outnumber(elength()); outcr();
+
  	xnew();	
 #ifdef ARDUINOSD
  	SD.begin(sd_chipselect);
