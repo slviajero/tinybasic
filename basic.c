@@ -427,11 +427,13 @@ const char* const message[] PROGMEM = {
 
 // preparation for numbers and addresses not being 16 bit
 // not used consistently! Don't change this right now.
-typedef short number_t;
+typedef int number_t;
 typedef unsigned short address_t;
 const int numsize=sizeof(number_t);
 const int addrsize=sizeof(address_t);
 const int eheadersize=addrsize+1;
+const number_t maxnum=~(1<<(numsize*8-1));
+const address_t maxaddr=(~0); 
 
 /*
 	The basic interpreter is implemented as a stack machine
@@ -448,9 +450,9 @@ const int eheadersize=addrsize+1;
 
 	mem is the working memory of the basic interperter.
 
-	x, y, xc, yc are two 16 bit and two 8 bit accumulators.
+	x, y, xc, yc are two n*8 bit and two 8 bit accumulators.
 
-	z is a mixed 16/8 bit accumulator
+	z is a mixed n*8 bit accumulator
 
 	ir, ir2 are general index registers for string processing.
 
@@ -569,10 +571,10 @@ void  setvar(char, char, number_t);
 
 // low level memory access packing n*8bit bit into n 8 bit objects
 // e* is for Arduino EEPROM
-number_t getnumber(address_t);
-void  setnumber(address_t, number_t);
-number_t egetnumber(address_t);
-void  esetnumber(address_t, number_t);
+number_t getnumber(address_t, short);
+void  setnumber(address_t, number_t, short);
+number_t egetnumber(address_t, short);
+void  esetnumber(address_t, number_t, short);
 
 // array handling
 void  createarry(char, char, number_t);
@@ -649,8 +651,8 @@ void esave() {
 		x=0;
 		eupdate(x++, 0); // EEPROM per default is 255, 0 indicates that there is a program
 
-		// store a number 
-		esetnumber(x, top);
+		// store the size of the program in byte 1,2 of the EEPROM	
+		esetnumber(x, top, addrsize);
 		z.i=top;
 		x+=numsize;
 
@@ -671,7 +673,7 @@ void eload() {
 		x++;
 
 		// get a number
-		top=egetnumber(x);
+		top=egetnumber(x, addrsize);
 		x+=numsize;
 
 		while (x < top+eheadersize){
@@ -760,7 +762,7 @@ void pinm(number_t p, number_t m){
 }
 void bmillis() {
 	number_t m;
-	m=(number_t) (millis()/pop() % 32768);
+	m=(number_t) (millis()/pop() % maxnum);
 	push(m); 
 };
 void bpulsein() { 
@@ -783,11 +785,11 @@ void bmillis() {
 #ifndef MINGW
 	struct timespec ts;
 	unsigned long dt;
-	short m;
+	number_t m;
 	timespec_get(&ts, TIME_UTC);
 	dt=(ts.tv_sec-start_time.tv_sec)*1000+(ts.tv_nsec-start_time.tv_nsec)/10000000;
-	m=(short) ( dt/pop() % 32768);
-	push( (short) m ); 
+	m=(number_t) ( dt/pop() % maxnum);
+	push(m); 
 #else
 	push(0);
 #endif
@@ -973,12 +975,9 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 	// for strings and arrays write the length
 	if (t == ARRAYVAR || t == STRINGVAR) {
 
-		// store a number
-		//z.i=vsize-(numsize+3);
-		//mem[b--]=z.b.h;
-		//mem[b--]=z.b.l;
-		b=b-numsize+1;
-		setnumber(b, vsize-(numsize+3));
+		// store the length of the array of string
+		b=b-addrsize+1;
+		setnumber(b, vsize-(addrsize+3), addrsize);
 		b--;
 	}
 
@@ -1013,7 +1012,7 @@ address_t bfind(signed char t, char c, char d) {
 			// z.b.l=mem[b--];
 
 			b=b-numsize+1;
-			z.i=getnumber(b);
+			z.i=getnumber(b, addrsize);
 			b--;
 
 		} else 
@@ -1071,7 +1070,7 @@ number_t getvar(char c, char d){
 		if (er != 0) return 0;
 	} 
 
-	return getnumber(a);
+	return getnumber(a, numsize);
 }
 
 // set and create a variable 
@@ -1111,7 +1110,7 @@ void setvar(char c, char d, number_t v){
 		if (er != 0) return;
 	} 
 
-	setnumber(a, v);
+	setnumber(a, v, numsize);
 }
 
 
@@ -1124,13 +1123,14 @@ void clrvars() {
 // the program memory access - attention there is a hack here
 // this can sometimes also access eeproms for autorun through
 // the memread wrapper - still not really redundant to egetnumber
-number_t getnumber(address_t m){
+number_t getnumber(address_t m, short n){
 
-	if ( numsize == 2 ) {
+	z.i=0;
+	if ( n == 2 ) {
 		z.b.l=memread(m++);
 		z.b.h=memread(m);
 	} else {
- 		for (int i=0; i<numsize; i++) {
+ 		for (int i=0; i<n; i++) {
 			z.c[i]=memread(m++);
 		}
 	}
@@ -1138,13 +1138,14 @@ number_t getnumber(address_t m){
 }
 
 // the eeprom memory access 
-number_t egetnumber(address_t m){
+number_t egetnumber(address_t m, short n){
 
-	if ( numsize == 2 ) {
+	z.i=0;
+	if ( n == 2 ) {
 		z.b.l=eread(m++);
 		z.b.h=eread(m);
 	} else {
- 		for (int i=0; i<numsize; i++) {
+ 		for (int i=0; i<n; i++) {
 			z.c[i]=eread(m++);
 		}
 	}
@@ -1152,27 +1153,27 @@ number_t egetnumber(address_t m){
 }
 
 
-void setnumber(address_t m, number_t v){
+void setnumber(address_t m, number_t v, short n){
+	
 	z.i=v;
-
-	if ( numsize == 2 ) {
+	if ( n == 2 ) {
 		mem[m++]=z.b.l;
 		mem[m]=z.b.h;
 	} else {
- 		for (int i=0; i<numsize; i++) {
+ 		for (int i=0; i<n; i++) {
 			mem[m++]=z.c[i];
 		}
 	}
 }
 
-void esetnumber(address_t m, number_t v){
+void esetnumber(address_t m, number_t v, short n){
+	
 	z.i=v;
-
-	if ( numsize == 2 ) {
+	if ( n == 2 ) {
 		eupdate(m++, z.b.l);
 		eupdate(m, z.b.h);
 	} else {
- 		for (int i=0; i<numsize; i++) {
+ 		for (int i=0; i<n; i++) {
 			eupdate(m++, z.c[i]);
 		}
 	}
@@ -1233,21 +1234,15 @@ void array(char m, char c, char d, number_t i, number_t* v) {
 	// set or get the array
 	if (m == 'g') {
 		if (! e) {
-			*v=getnumber(a);
+			*v=getnumber(a, numsize);
 		} else {
-			// z.b.h=eread(a++);
-			// z.b.l=eread(a);
-			// *v=z.i;	
-			*v=egetnumber(a);
+			*v=egetnumber(a, numsize);
 		}
 	} else if ( m == 's') {
 		if (! e) {
-			setnumber(a, *v);
+			setnumber(a, *v, numsize);
 		} else {
-			// z.i=*v;
-			// eupdate(elength() - i*numsize, z.b.h);
-			// eupdate(elength() - i*numsize + 1, z.b.l);
-			esetnumber(a, *v);
+			esetnumber(a, *v, numsize);
 		}
 	}
 }
@@ -2357,14 +2352,16 @@ char nomemory(number_t b){
 void storetoken() {
 	short i=x;
 	switch (token) {
-		case NUMBER:
 		case LINENUMBER:
+			if ( nomemory(addrsize+1) ) break;
+			mem[top++]=token;	
+			setnumber(top, x, addrsize);
+			top+=addrsize;
+			return;	
+		case NUMBER:
 			if ( nomemory(numsize+1) ) break;
 			mem[top++]=token;	
-			//z.i=x;
-			//mem[top++]=z.b.l;
-			//mem[top++]=z.b.h;
-			setnumber(top, x);
+			setnumber(top, x, numsize);
 			top+=numsize;
 			return;
 		case ARRAYVAR:
@@ -2419,9 +2416,12 @@ void gettoken() {
 
 	token=memread(here++);
 	switch (token) {
-		case NUMBER:
-		case LINENUMBER:	
-			x=getnumber(here);
+		case LINENUMBER:
+			x=getnumber(here, addrsize);
+			here+=addrsize;
+			break;
+		case NUMBER:	
+			x=getnumber(here, numsize);
 			here+=numsize;	
 			break;
 		case ARRAYVAR:
@@ -2577,6 +2577,8 @@ void diag(){
 #endif
 
 void storeline() {
+
+	const short lnlength=addrsize+1;
 	short linelength;
 	number_t newline; 
 	address_t here2, here3; 
@@ -2614,14 +2616,14 @@ void storeline() {
 	
 */
 
-	if (linelength == (numsize+1)) {  		
-		top-=(numsize+1);
+	if (linelength == (lnlength)) {  		
+		top-=(lnlength);
 		y=x;					
 		findline(y);
 		if (er != 0) return;	
-		y=here-(numsize+1);							
+		y=here-lnlength;							
 		nextline();			
-		here-=(numsize+1);
+		here-=lnlength;
 		if (x != 0) {						
 			moveblock(here, top-here, y);	
 			top=top-(here-y);
@@ -2638,7 +2640,7 @@ void storeline() {
 	else {	
 		y=x;
 		here2=here;
-		here=numsize+1;
+		here=lnlength;
 		nextline();
 		if (x == 0) { // there is no nextline after the first line, we are done
 			return;
@@ -2658,19 +2660,19 @@ void storeline() {
 		// here points to the following line and here2 points to the previous line
 
 		if (x == 0) { 
-			here=here3-(numsize+1);
+			here=here3-lnlength;
 			gettoken();
 			if (token == LINENUMBER && x == y) { // we have a double line at the end
-				here2-=(numsize+1);
-				here-=(numsize+1);
+				here2-=lnlength;
+				here-=lnlength;
 				moveblock(here2, linelength, here);
 				top=here+linelength;
 			}
 			return;
 		}
-		here-=(numsize+1);
+		here-=lnlength;
 		push(here);
-		here=here2-(numsize+1);
+		here=here2-lnlength;
 		push(here);
 		gettoken();
 		if (x == y) {     // the line already exists and has to be replaced
@@ -2849,7 +2851,7 @@ void peek(){
 	a=pop();
 
 	// this is a hack again, 16 bit numbers can't peek big addresses
-	if (MEMSIZE > 32767) amax=32767; else amax=MEMSIZE;
+	if (MEMSIZE > maxnum) amax=maxnum; else amax=MEMSIZE;
 
 	if (a >= 0 && a<amax) 
 		push(mem[a]);
@@ -4759,8 +4761,12 @@ void setup() {
 #endif
 	ioinit();
 	printmessage(MGREET); outspc();
-	printmessage(EOUTOFMEMORY); outspc(); outnumber(MEMSIZE); outspc();
+	printmessage(EOUTOFMEMORY); outspc(); 
+	outnumber(MEMSIZE); outspc();
 	outnumber(numsize); outcr();
+	printf("%d", maxnum); outcr();
+	printf("%d", maxaddr); outcr();
+
 	//outnumber(elength()); outcr();
 
  	xnew();	
