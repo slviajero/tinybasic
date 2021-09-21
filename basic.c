@@ -427,13 +427,13 @@ const char* const message[] PROGMEM = {
 
 // preparation for numbers and addresses not being 16 bit
 // not used consistently! Don't change this right now.
-typedef int number_t;
+typedef short number_t;
 typedef unsigned short address_t;
 const int numsize=sizeof(number_t);
 const int addrsize=sizeof(address_t);
 const int eheadersize=addrsize+1;
-const number_t maxnum=~(1<<(numsize*8-1));
-const address_t maxaddr=(~0); 
+const number_t maxnum=(number_t)~((number_t)1<<(numsize*8-1));
+const address_t maxaddr=(address_t)(~0); 
 
 /*
 	The basic interpreter is implemented as a stack machine
@@ -1006,15 +1006,9 @@ address_t bfind(signed char t, char c, char d) {
 		t1=mem[b--];
 
 		if (t1 == STRINGVAR || t1 == ARRAYVAR) {
-
-			// get a number
-			// z.b.h=mem[b--];
-			// z.b.l=mem[b--];
-
 			b=b-numsize+1;
 			z.i=getnumber(b, addrsize);
 			b--;
-
 		} else 
 			z.i=numsize; 
 
@@ -2000,7 +1994,7 @@ void outsc(char *c){
 // ugly here, testcode when introducting 
 // number_t was strictly 16 bit before
 short parsenumber(char *c, number_t *r) {
-	int nd = 0;
+	short nd = 0;
 	*r=0;
 	while (*c >= '0' && *c <= '9' && *c != 0) {
 		*r=*r*10+*c++-'0';
@@ -2009,6 +2003,33 @@ short parsenumber(char *c, number_t *r) {
 	}
 	return nd;
 }
+
+short writenumber(char *c, number_t v){
+	short nd = 0;
+	short i;
+	signed char s = 1;
+
+	if (v<0) {
+		s=-1; 
+		v=-v;
+	}
+	do {
+		c[nd++]=v%10+'0';
+		v=v/10;
+	} while (v > 0);
+	if (s < 0 ) c[nd]='-'; else nd--;
+
+	for (i=0; i < nd; i++) {
+		s=c[i];
+		c[i]=c[nd-i];
+		c[nd-i]=s;
+	}
+
+	nd++;
+	c[nd]=0;
+
+	return nd;
+} 
 
 // use sbuffer as a char buffer to get a number input 
 char innumber(number_t *r) {
@@ -2045,37 +2066,13 @@ again:
 
 // prints a 16 bit number
 void outnumber(number_t n){
-	char c, co;
-	number_t d;
-	short i=1;
-	if (n<0) {
-		outch('-');
-		i++;
-		n=-n;
-	}
+	short nd;
 
-	// totally ugly test code remove soon
-	d=10000;
-	if (numsize == 4)
-		d=1000000;
-	if (numsize == 8)
-		d=1000000000000000000;
-
-	c=FALSE; // surpress leading 0s
-	while (d > 0){
-		co=n/d;
-		n=n%d;
-		if (co != 0 || d == 1 || c) {
-			co=co+48;
-			outch(co);
-			i++;
-			c=TRUE;
-		}
-		d=d/10;
-	}
+	nd=writenumber(sbuffer, n);
+	outsc(sbuffer);
 
 	// number formats in Palo Alto style
-	while (i < form) {outspc(); i++; };
+	while (nd < form) {outspc(); nd++; };
 
 }
 
@@ -4763,11 +4760,7 @@ void setup() {
 	printmessage(MGREET); outspc();
 	printmessage(EOUTOFMEMORY); outspc(); 
 	outnumber(MEMSIZE); outspc();
-	outnumber(numsize); outcr();
-	printf("%d", maxnum); outcr();
-	printf("%d", maxaddr); outcr();
-
-	//outnumber(elength()); outcr();
+	outnumber(elength()); outcr();
 
  	xnew();	
 #ifdef ARDUINOSD
@@ -4775,8 +4768,9 @@ void setup() {
 #endif	
 #ifdef ARDUINOEEPROM
   	if (eread(0) == 1){ // autorun from the EEPROM
-		top=(unsigned char) eread(1);
-		top+=((unsigned char) eread(2))*256;
+  		top=egetnumber(1, addrsize);
+		//top=(unsigned char) eread(1);
+		//top+=((unsigned char) eread(2))*256;
   		st=SERUN;
   	} 
 #endif
