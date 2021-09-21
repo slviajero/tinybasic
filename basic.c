@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.79 2021/09/12 05:59:14 stefan Exp stefan $
+// $Id: basic.c,v 1.80 2021/09/21 04:29:27 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -57,7 +57,7 @@
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
-#define MEMSIZE 512
+#define MEMSIZE 4096
 
 // these are the definitions to build a standalone 
 // computer. All of these extensions are very memory hungry
@@ -975,7 +975,7 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 	// for strings and arrays write the length
 	if (t == ARRAYVAR || t == STRINGVAR) {
 
-		// store the length of the array of string
+		// store the maximum length of the array of string
 		b=b-addrsize+1;
 		setnumber(b, vsize-(addrsize+3), addrsize);
 		b--;
@@ -1186,8 +1186,8 @@ void createarry(char c, char d, number_t i) {
 // generic array access function 
 void array(char m, char c, char d, number_t i, number_t* v) {
 
-	unsigned short a;
-	unsigned short h;
+	address_t a;
+	address_t h;
 	char e = FALSE;
 
 	if (DEBUG) { outsc("* get array "); outch(c); outspc(); outnumber(i); outcr(); }
@@ -1319,7 +1319,7 @@ void setstringlength(char c, char d, number_t l) {
 		return;
 	}
 
-	if (l < z.i-1)
+	if (l < z.i)
 		mem[a]=l;
 	else
 		error(ERANGE);
@@ -2006,8 +2006,10 @@ short parsenumber(char *c, number_t *r) {
 
 short writenumber(char *c, number_t v){
 	short nd = 0;
-	short i;
-	signed char s = 1;
+	short i,j;
+	short s = 1;
+	char c1;
+
 
 	if (v<0) {
 		s=-1; 
@@ -2017,12 +2019,17 @@ short writenumber(char *c, number_t v){
 		c[nd++]=v%10+'0';
 		v=v/10;
 	} while (v > 0);
+
 	if (s < 0 ) c[nd]='-'; else nd--;
 
-	for (i=0; i < nd; i++) {
-		s=c[i];
-		c[i]=c[nd-i];
-		c[nd-i]=s;
+	i=0; 
+	j=nd;
+	while (j>i) {
+		c1=c[i];
+		c[i]=c[j];
+		c[j]=c1;
+		i++;
+		j--;
 	}
 
 	nd++;
@@ -3304,8 +3311,8 @@ void assignment() {
 	signed char t=token;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
 	char xcl, ycl; // to preserve the left hand side variable names
-	short i=1;      // and the beginning of the destination string  
-	short lensource;
+	address_t i=1;      // and the beginning of the destination string  
+	address_t lensource;
 	short args;
 
 	// this code evaluates the left hand side
@@ -3418,7 +3425,9 @@ void assignment() {
 					for (int j=0; j<lensource; j++) { ir[j]=ir2[j];}
 				else
 					for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
+
 				setstringlength(xcl, ycl, i+lensource-1);
+
 		}
 
 		nexttoken();
@@ -3965,6 +3974,7 @@ nextvariable:
 		x=pop();
 		if (x<=0) {error(ERANGE); return; }
 		if (t == STRINGVAR) {
+			if (x>255) {error(ERANGE); return; }
 			createstring(xcl, ycl, x);
 		} else {
 			createarry(xcl, ycl, x);
