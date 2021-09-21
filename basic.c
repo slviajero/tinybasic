@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.80 2021/09/21 04:29:27 stefan Exp stefan $
+// $Id: basic.c,v 1.81 2021/09/21 17:35:17 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -114,6 +114,10 @@
 #ifdef ARDUINOSD
 #include <SPI.h>
 #include <SD.h>
+#endif
+#ifdef ARDUINOTFT
+#include <memorysaver.h>
+#include <UTFT.h>
 #endif
 #else 
 #define PROGMEM
@@ -535,7 +539,7 @@ void iodefaults() {
 	od = OLCD;
 #else
 	id = ISERIAL;
-	od = ISERIAL;
+	od = OSERIAL;
 #endif
 }
 
@@ -725,7 +729,18 @@ char lcdmycol = 0;
 #endif
 
 // global variables for a TFT
+// this is code for a SD1963 800*480 board using the UTFT library
+// it is mainly intended for a DUE as a all in one system
 #ifdef ARDUINOTFT
+extern uint8_t SmallFont[];
+extern uint8_t BigFont[];
+UTFT tft(CTE70,38,39,40,41);
+const int tft_rows=30;
+const int tft_columns=50;
+char tftbuffer[tft_rows][tft_columns];
+char tftmyrow = 0;
+char tftmycol = 0;
+char tftfontsize = 16;
 #endif
 
 // global variables for an Arduino SD card
@@ -1718,6 +1733,115 @@ void lcdbegin() {}
 int lcdactive() {return 0; }
 #endif
 
+#ifdef ARDUINOTFT
+
+void tftscroll() {
+	short r,c;
+	short i;
+
+  	for (r=1; r<tft_rows; r++)
+    	for (c=0; c<tft_columns; c++)
+      		tftbuffer[r-1][c]=tftbuffer[r][c];
+
+   	for (c=0; c<tft_columns; c++) tftbuffer[tft_rows-1][c]=0;
+
+   	tft.clrScr();
+  	tftmyrow=0;
+  	tftmycol=0;
+
+	for (r=0; r<tft_rows-1; r++) {
+    	for (c=0; c<tft_columns; c++) {
+      		if (tftbuffer[r][c] >= 32) {
+      			tft.printChar(tftbuffer[r][c], c*tftfontsize, r*tftfontsize);
+      		}
+    	}
+   }
+   tftmyrow=tft_rows-1;
+   return;
+}
+
+void tftclear() {
+	short r,c;
+	for (r=0; r<tft_rows; r++)
+		for (c=0; c<tft_columns; c++)
+      		tftbuffer[r][c]=0;
+	tft.clrScr();
+  	tftmyrow=0;
+  	tftmycol=0;
+  	return;
+}
+
+void tftwrite(char c) {
+
+	// the special characters the LCD need to know
+  	switch(c) {
+    	case 02: // STX is used for Home
+    		tftmyrow=0;
+    		tftmycol=0;
+    		break;
+    	case 8: // back one character
+    		if (tftmycol > 0) tftmycol--;
+    		break;
+    	case 9: // forward one character 
+    		if (tftmycol < tft_columns) tftmycol++;
+    		break;
+  		case 10: // this is LF Unix style doing also a CR
+    		tftmyrow=(tftmyrow + 1);
+    		if (tftmyrow >= tft_rows) {
+      			tftscroll(); 
+    		}
+    		tftmycol=0;
+    		break;
+    	case 11: // one char down 
+    		tftmyrow=(tftmyrow+1) % tft_rows;
+    		break;
+    	case 12: // form feed is clear screen
+    		tftclear();
+    		return;
+    	case 13: // classical carriage return 
+    		tftmycol=0;
+    		break;
+    	case 14: // cursor on
+    		return; 
+    	case 15: // cursor off 
+    		return;
+    	case 127: // delete
+    		if (tftmycol > 0) {
+      			tftmycol--;
+      			tftbuffer[tftmyrow][tftmycol]=0;
+      			tft.printChar(' ', tftmycol*tftfontsize, tftmyrow*tftfontsize);
+      			return;
+    		}
+  	}
+
+	if (c < 32 ) return; 
+
+	tft.printChar(c, tftmycol*tftfontsize, tftmyrow*tftfontsize);
+	tftbuffer[tftmyrow][tftmycol++]=c;
+	if (tftmycol == tft_columns) {
+		tftmycol=0;
+		tftmyrow=(tftmyrow + 1);
+    	if (tftmyrow >= tft_rows) {
+      		tftscroll(); 
+    	}
+	}
+}
+
+void tftbegin() {
+	tft.InitLCD();
+	tft.setFont(BigFont);
+	tft.clrScr();
+}
+
+
+int tftactive() {
+	return (od & OTFT);
+}
+#else
+void tftwrite(char c) {}
+void tftbegin() {}
+int tftactive() {return 0; }
+#endif
 
 /* 
 
@@ -1836,6 +1960,7 @@ void ioinit() {
 	Serial.begin(serial_baudrate);
    	lcdbegin(); 
    	prtbegin();
+   	tftbegin();
 #ifdef ARDUINOPS2
 	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
 #endif
@@ -1966,6 +2091,8 @@ void outch(char c) {
 		filewrite(c); 
 	if (od == OLCD) 
 		lcdwrite(c);
+	if (od == OTFT)
+		tftwrite(c);
 }
 
 // send a newline
@@ -4004,7 +4131,9 @@ void xpoke(){
 	number_t a;
 
 	// like in peek
-	if (MEMSIZE > 32767) amax=32767; else amax=MEMSIZE;
+	// this is a hack again, 16 bit numbers can't peek big addresses
+	if (MEMSIZE > maxnum) amax=maxnum; else amax=MEMSIZE;
+
 	parsenarguments(2);
 	if (er != 0) return;
 	y=pop();

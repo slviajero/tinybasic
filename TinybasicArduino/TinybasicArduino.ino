@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.79 2021/09/12 05:59:14 stefan Exp stefan $
+// $Id: basic.c,v 1.81 2021/09/21 17:35:17 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -46,18 +46,18 @@
 
 */ 
 
-#undef ARDUINODUE
+#define ARDUINODUE
 #undef RP2040
 #undef ESP8266
 #undef MINGW
 #undef ARDUINOLCD
 #undef LCDSHIELD
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
-#define MEMSIZE 512
+#define MEMSIZE 4096
 
 // these are the definitions to build a standalone 
 // computer. All of these extensions are very memory hungry
@@ -65,7 +65,7 @@
 #undef ARDUINOPS2
 // output methods
 #undef ARDUINOI2C
-#undef ARDUINOTFT
+#define ARDUINOTFT
 #undef ARDUINOPRT
 // storage methods
 #undef ARDUINOSD
@@ -114,6 +114,10 @@
 #ifdef ARDUINOSD
 #include <SPI.h>
 #include <SD.h>
+#endif
+#ifdef ARDUINOTFT
+#include <memorysaver.h>
+#include <UTFT.h>
 #endif
 #else 
 #define PROGMEM
@@ -260,7 +264,7 @@ const int serial_baudrate = 9600;
 #define OLCD 2
 #define OPRT 4
 #define OTFT 8
-#define OFILE 16
+#define OFILE 16 
 
 #define ISERIAL 1
 #define IKEYBOARD 2
@@ -432,8 +436,8 @@ typedef unsigned short address_t;
 const int numsize=sizeof(number_t);
 const int addrsize=sizeof(address_t);
 const int eheadersize=addrsize+1;
-const number_t maxnum=~(1<<(numsize*8-1));
-const address_t maxaddr=(~0); 
+const number_t maxnum=(number_t)~((number_t)1<<(numsize*8-1));
+const address_t maxaddr=(address_t)(~0); 
 
 /*
 	The basic interpreter is implemented as a stack machine
@@ -535,7 +539,7 @@ void iodefaults() {
 	od = OLCD;
 #else
 	id = ISERIAL;
-	od = ISERIAL;
+	od = OSERIAL;
 #endif
 }
 
@@ -725,7 +729,18 @@ char lcdmycol = 0;
 #endif
 
 // global variables for a TFT
+// this is code for a SD1963 800*480 board using the UTFT library
+// it is mainly intended for a DUE as a all in one system
 #ifdef ARDUINOTFT
+extern uint8_t SmallFont[];
+extern uint8_t BigFont[];
+UTFT tft(CTE70,38,39,40,41);
+const int tft_rows=30;
+const int tft_columns=50;
+char tftbuffer[tft_rows][tft_columns];
+char tftmyrow = 0;
+char tftmycol = 0;
+char tftfontsize = 16;
 #endif
 
 // global variables for an Arduino SD card
@@ -975,7 +990,7 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 	// for strings and arrays write the length
 	if (t == ARRAYVAR || t == STRINGVAR) {
 
-		// store the length of the array of string
+		// store the maximum length of the array of string
 		b=b-addrsize+1;
 		setnumber(b, vsize-(addrsize+3), addrsize);
 		b--;
@@ -1006,15 +1021,9 @@ address_t bfind(signed char t, char c, char d) {
 		t1=mem[b--];
 
 		if (t1 == STRINGVAR || t1 == ARRAYVAR) {
-
-			// get a number
-			// z.b.h=mem[b--];
-			// z.b.l=mem[b--];
-
 			b=b-numsize+1;
 			z.i=getnumber(b, addrsize);
 			b--;
-
 		} else 
 			z.i=numsize; 
 
@@ -1192,8 +1201,8 @@ void createarry(char c, char d, number_t i) {
 // generic array access function 
 void array(char m, char c, char d, number_t i, number_t* v) {
 
-	unsigned short a;
-	unsigned short h;
+	address_t a;
+	address_t h;
 	char e = FALSE;
 
 	if (DEBUG) { outsc("* get array "); outch(c); outspc(); outnumber(i); outcr(); }
@@ -1325,7 +1334,7 @@ void setstringlength(char c, char d, number_t l) {
 		return;
 	}
 
-	if (l < z.i-1)
+	if (l < z.i)
 		mem[a]=l;
 	else
 		error(ERANGE);
@@ -1724,6 +1733,115 @@ void lcdbegin() {}
 int lcdactive() {return 0; }
 #endif
 
+#ifdef ARDUINOTFT
+
+void tftscroll() {
+	short r,c;
+	short i;
+
+  	for (r=1; r<tft_rows; r++)
+    	for (c=0; c<tft_columns; c++)
+      		tftbuffer[r-1][c]=tftbuffer[r][c];
+
+   	for (c=0; c<tft_columns; c++) tftbuffer[tft_rows-1][c]=0;
+
+   	tft.clrScr();
+  	tftmyrow=0;
+  	tftmycol=0;
+
+	for (r=0; r<tft_rows-1; r++) {
+    	for (c=0; c<tft_columns; c++) {
+      		if (tftbuffer[r][c] >= 32) {
+      			tft.printChar(tftbuffer[r][c], c*tftfontsize, r*tftfontsize);
+      		}
+    	}
+   }
+   tftmyrow=tft_rows-1;
+   return;
+}
+
+void tftclear() {
+	short r,c;
+	for (r=0; r<tft_rows; r++)
+		for (c=0; c<tft_columns; c++)
+      		tftbuffer[r][c]=0;
+	tft.clrScr();
+  	tftmyrow=0;
+  	tftmycol=0;
+  	return;
+}
+
+void tftwrite(char c) {
+
+	// the special characters the LCD need to know
+  	switch(c) {
+    	case 02: // STX is used for Home
+    		tftmyrow=0;
+    		tftmycol=0;
+    		break;
+    	case 8: // back one character
+    		if (tftmycol > 0) tftmycol--;
+    		break;
+    	case 9: // forward one character 
+    		if (tftmycol < tft_columns) tftmycol++;
+    		break;
+  		case 10: // this is LF Unix style doing also a CR
+    		tftmyrow=(tftmyrow + 1);
+    		if (tftmyrow >= tft_rows) {
+      			tftscroll(); 
+    		}
+    		tftmycol=0;
+    		break;
+    	case 11: // one char down 
+    		tftmyrow=(tftmyrow+1) % tft_rows;
+    		break;
+    	case 12: // form feed is clear screen
+    		tftclear();
+    		return;
+    	case 13: // classical carriage return 
+    		tftmycol=0;
+    		break;
+    	case 14: // cursor on
+    		return; 
+    	case 15: // cursor off 
+    		return;
+    	case 127: // delete
+    		if (tftmycol > 0) {
+      			tftmycol--;
+      			tftbuffer[tftmyrow][tftmycol]=0;
+      			tft.printChar(' ', tftmycol*tftfontsize, tftmyrow*tftfontsize);
+      			return;
+    		}
+  	}
+
+	if (c < 32 ) return; 
+
+	tft.printChar(c, tftmycol*tftfontsize, tftmyrow*tftfontsize);
+	tftbuffer[tftmyrow][tftmycol++]=c;
+	if (tftmycol == tft_columns) {
+		tftmycol=0;
+		tftmyrow=(tftmyrow + 1);
+    	if (tftmyrow >= tft_rows) {
+      		tftscroll(); 
+    	}
+	}
+}
+
+void tftbegin() {
+	tft.InitLCD();
+	tft.setFont(BigFont);
+	tft.clrScr();
+}
+
+
+int tftactive() {
+	return (od & OTFT);
+}
+#else
+void tftwrite(char c) {}
+void tftbegin() {}
+int tftactive() {return 0; }
+#endif
 
 /* 
 
@@ -1842,6 +1960,7 @@ void ioinit() {
 	Serial.begin(serial_baudrate);
    	lcdbegin(); 
    	prtbegin();
+   	tftbegin();
 #ifdef ARDUINOPS2
 	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
 #endif
@@ -1972,6 +2091,8 @@ void outch(char c) {
 		filewrite(c); 
 	if (od == OLCD) 
 		lcdwrite(c);
+	if (od == OTFT)
+		tftwrite(c);
 }
 
 // send a newline
@@ -2000,7 +2121,7 @@ void outsc(char *c){
 // ugly here, testcode when introducting 
 // number_t was strictly 16 bit before
 short parsenumber(char *c, number_t *r) {
-	int nd = 0;
+	short nd = 0;
 	*r=0;
 	while (*c >= '0' && *c <= '9' && *c != 0) {
 		*r=*r*10+*c++-'0';
@@ -2009,6 +2130,40 @@ short parsenumber(char *c, number_t *r) {
 	}
 	return nd;
 }
+
+short writenumber(char *c, number_t v){
+	short nd = 0;
+	short i,j;
+	short s = 1;
+	char c1;
+
+
+	if (v<0) {
+		s=-1; 
+		v=-v;
+	}
+	do {
+		c[nd++]=v%10+'0';
+		v=v/10;
+	} while (v > 0);
+
+	if (s < 0 ) c[nd]='-'; else nd--;
+
+	i=0; 
+	j=nd;
+	while (j>i) {
+		c1=c[i];
+		c[i]=c[j];
+		c[j]=c1;
+		i++;
+		j--;
+	}
+
+	nd++;
+	c[nd]=0;
+
+	return nd;
+} 
 
 // use sbuffer as a char buffer to get a number input 
 char innumber(number_t *r) {
@@ -2045,37 +2200,13 @@ again:
 
 // prints a 16 bit number
 void outnumber(number_t n){
-	char c, co;
-	number_t d;
-	short i=1;
-	if (n<0) {
-		outch('-');
-		i++;
-		n=-n;
-	}
+	short nd;
 
-	// totally ugly test code remove soon
-	d=10000;
-	if (numsize == 4)
-		d=1000000;
-	if (numsize == 8)
-		d=1000000000000000000;
-
-	c=FALSE; // surpress leading 0s
-	while (d > 0){
-		co=n/d;
-		n=n%d;
-		if (co != 0 || d == 1 || c) {
-			co=co+48;
-			outch(co);
-			i++;
-			c=TRUE;
-		}
-		d=d/10;
-	}
+	nd=writenumber(sbuffer, n);
+	outsc(sbuffer);
 
 	// number formats in Palo Alto style
-	while (i < form) {outspc(); i++; };
+	while (nd < form) {outspc(); nd++; };
 
 }
 
@@ -3307,8 +3438,8 @@ void assignment() {
 	signed char t=token;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
 	char xcl, ycl; // to preserve the left hand side variable names
-	short i=1;      // and the beginning of the destination string  
-	short lensource;
+	address_t i=1;      // and the beginning of the destination string  
+	address_t lensource;
 	short args;
 
 	// this code evaluates the left hand side
@@ -3421,7 +3552,9 @@ void assignment() {
 					for (int j=0; j<lensource; j++) { ir[j]=ir2[j];}
 				else
 					for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
+
 				setstringlength(xcl, ycl, i+lensource-1);
+
 		}
 
 		nexttoken();
@@ -3968,6 +4101,7 @@ nextvariable:
 		x=pop();
 		if (x<=0) {error(ERANGE); return; }
 		if (t == STRINGVAR) {
+			if (x>255) {error(ERANGE); return; }
 			createstring(xcl, ycl, x);
 		} else {
 			createarry(xcl, ycl, x);
@@ -3997,7 +4131,9 @@ void xpoke(){
 	number_t a;
 
 	// like in peek
-	if (MEMSIZE > 32767) amax=32767; else amax=MEMSIZE;
+	// this is a hack again, 16 bit numbers can't peek big addresses
+	if (MEMSIZE > maxnum) amax=maxnum; else amax=MEMSIZE;
+
 	parsenarguments(2);
 	if (er != 0) return;
 	y=pop();
@@ -4763,11 +4899,7 @@ void setup() {
 	printmessage(MGREET); outspc();
 	printmessage(EOUTOFMEMORY); outspc(); 
 	outnumber(MEMSIZE); outspc();
-	outnumber(numsize); outcr();
-	printf("%d", maxnum); outcr();
-	printf("%d", maxaddr); outcr();
-
-	//outnumber(elength()); outcr();
+	outnumber(elength()); outcr();
 
  	xnew();	
 #ifdef ARDUINOSD
@@ -4775,8 +4907,9 @@ void setup() {
 #endif	
 #ifdef ARDUINOEEPROM
   	if (eread(0) == 1){ // autorun from the EEPROM
-		top=(unsigned char) eread(1);
-		top+=((unsigned char) eread(2))*256;
+  		top=egetnumber(1, addrsize);
+		//top=(unsigned char) eread(1);
+		//top+=((unsigned char) eread(2))*256;
   		st=SERUN;
   	} 
 #endif
