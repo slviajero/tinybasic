@@ -136,7 +136,7 @@ const int serial_baudrate = 9600;
 #define FALSE 0
 
 // debug mode switches 
-#define DEBUG  0
+#define DEBUG  1
 
 // various buffer sizes
 #define BUFSIZE 	92
@@ -431,7 +431,7 @@ const char* const message[] PROGMEM = {
 
 // preparation for numbers and addresses not being 16 bit
 // not used consistently! Don't change this right now.
-typedef short number_t;
+typedef int number_t;
 typedef unsigned short address_t;
 const int numsize=sizeof(number_t);
 const int addrsize=sizeof(address_t);
@@ -726,6 +726,9 @@ LiquidCrystal_I2C lcd(0x27, lcd_columns, lcd_rows);
 char lcdbuffer[lcd_rows][lcd_columns];
 char lcdmyrow = 0;
 char lcdmycol = 0;
+#else 
+const int lcd_rows = 0;
+const int lcd_columns = 0;
 #endif
 
 // global variables for a TFT
@@ -973,8 +976,8 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 	*/
 
 	if ( t == VARIABLE ) vsize=numsize+3; 	
-	else if ( t == ARRAYVAR ) vsize=numsize*l+numsize+3;
-	else if ( t == STRINGVAR ) vsize=l+numsize+3;
+	else if ( t == ARRAYVAR ) vsize=numsize*l+addrsize+3;
+	else if ( t == STRINGVAR ) vsize=l+addrsize+3;
 	else { error(EUNKNOWN); return 0; }
 	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return 0;}
 
@@ -1021,7 +1024,7 @@ address_t bfind(signed char t, char c, char d) {
 		t1=mem[b--];
 
 		if (t1 == STRINGVAR || t1 == ARRAYVAR) {
-			b=b-numsize+1;
+			b=b-addrsize+1;
 			z.i=getnumber(b, addrsize);
 			b--;
 		} else 
@@ -1205,7 +1208,7 @@ void array(char m, char c, char d, number_t i, number_t* v) {
 	address_t h;
 	char e = FALSE;
 
-	if (DEBUG) { outsc("* get array "); outch(c); outspc(); outnumber(i); outcr(); }
+	if (DEBUG) { outsc("* get/set array "); outch(c); outspc(); outnumber(i); outcr(); }
 
 	// special arrays 
 	if (c == '@') {
@@ -1738,26 +1741,29 @@ int lcdactive() {return 0; }
 void tftscroll() {
 	short r,c;
 	short i;
+  	char a,b;
 
   	for (r=1; r<tft_rows; r++)
-    	for (c=0; c<tft_columns; c++)
-      		tftbuffer[r-1][c]=tftbuffer[r][c];
-
-   	for (c=0; c<tft_columns; c++) tftbuffer[tft_rows-1][c]=0;
-
-   	tft.clrScr();
-  	tftmyrow=0;
-  	tftmycol=0;
-
-	for (r=0; r<tft_rows-1; r++) {
     	for (c=0; c<tft_columns; c++) {
-      		if (tftbuffer[r][c] >= 32) {
-      			tft.printChar(tftbuffer[r][c], c*tftfontsize, r*tftfontsize);
-      		}
+        a=tftbuffer[r-1][c];
+        b=tftbuffer[r][c];
+        if ( a != b ) {
+          tftbuffer[r-1][c]=b;
+          if (b > 32) 
+            tft.printChar(b, c*tftfontsize, (r-1)*tftfontsize);
+          else 
+            tft.printChar(' ', c*tftfontsize, (r-1)*tftfontsize);
+        }      
     	}
-   }
-   tftmyrow=tft_rows-1;
-   return;
+
+   	for (c=0; c<tft_columns; c++) {
+   	  tftbuffer[tft_rows-1][c]=0;
+      tft.printChar(' ', c*tftfontsize, (tft_rows-1)*tftfontsize);
+   	}
+    
+  	tftmycol=0;
+    tftmyrow=tft_rows-1;
+    return;
 }
 
 void tftclear() {
