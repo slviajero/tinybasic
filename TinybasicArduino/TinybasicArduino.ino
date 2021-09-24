@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.81 2021/09/21 17:35:17 stefan Exp stefan $
+// $Id: basic.c,v 1.82 2021/09/23 05:03:31 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -264,7 +264,7 @@ const int serial_baudrate = 9600;
 #define OLCD 2
 #define OPRT 4
 #define OTFT 8
-#define OFILE 16 
+#define OFILE 16
 
 #define ISERIAL 1
 #define IKEYBOARD 2
@@ -430,13 +430,14 @@ const char* const message[] PROGMEM = {
 
 
 // preparation for numbers and addresses not being 16 bit
-// not used consistently! Don't change this right now.
-typedef short number_t;
+// works but with the tacit assumption that 
+// sizeof(number_t) >= sizeof(address_t)
+typedef int number_t;
 typedef unsigned short address_t;
 const int numsize=sizeof(number_t);
 const int addrsize=sizeof(address_t);
-const int eheadersize=addrsize+1;
-const number_t maxnum=(number_t)~((number_t)1<<(numsize*8-1));
+const int eheadersize=sizeof(address_t)+1;
+const number_t maxnum=(number_t)~((number_t)1<<(sizeof(number_t)*8-1));
 const address_t maxaddr=(address_t)(~0); 
 
 /*
@@ -512,7 +513,7 @@ static number_t x, y;
 static signed char xc, yc;
 
 struct twobytes {signed char l; signed char h;};
-static union accu168 { number_t i; struct twobytes b; signed char c[numsize]; } z;
+static union accu168 { number_t i; struct twobytes b; signed char c[sizeof(number_t)]; } z;
 
 static char *ir, *ir2;
 static signed char token;
@@ -539,7 +540,7 @@ void iodefaults() {
 	od = OLCD;
 #else
 	id = ISERIAL;
-	od = OSERIAL;
+	od = OTFT;
 #endif
 }
 
@@ -726,28 +727,33 @@ LiquidCrystal_I2C lcd(0x27, lcd_columns, lcd_rows);
 char lcdbuffer[lcd_rows][lcd_columns];
 char lcdmyrow = 0;
 char lcdmycol = 0;
+#else 
+const int lcd_rows = 0;
+const int lcd_columns = 0;
 #endif
 
 // global variables for a TFT
 // this is code for a SD1963 800*480 board using the UTFT library
 // it is mainly intended for a DUE as a all in one system
 #ifdef ARDUINOTFT
+#define DISPLAY
 extern uint8_t SmallFont[];
 extern uint8_t BigFont[];
 UTFT tft(CTE70,38,39,40,41);
-const int tft_rows=30;
-const int tft_columns=50;
-char tftbuffer[tft_rows][tft_columns];
-char tftmyrow = 0;
-char tftmycol = 0;
-char tftfontsize = 16;
+const int dsp_rows=30;
+const int dsp_columns=50;
+char dspfontsize = 16;
+short dsp_scroll_rows=1;
+void dspprintchar(char c, short col, short row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
+void dspclear() { tft.clrScr();}
+void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); dspclear(); }
 #endif
 
 // global variables for an Arduino SD card
 #ifdef ARDUINOSD
 // the SD chip select, set 4 for the Ethernet/SD shield
-//const char sd_chipselect = 53;
-const char sd_chipselect = 4;
+const char sd_chipselect = 53;
+//const char sd_chipselect = 4;
 #endif
 
 // global variables for an Ethernet shield
@@ -973,8 +979,8 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 	*/
 
 	if ( t == VARIABLE ) vsize=numsize+3; 	
-	else if ( t == ARRAYVAR ) vsize=numsize*l+numsize+3;
-	else if ( t == STRINGVAR ) vsize=l+numsize+3;
+	else if ( t == ARRAYVAR ) vsize=numsize*l+addrsize+3;
+	else if ( t == STRINGVAR ) vsize=l+addrsize+3;
 	else { error(EUNKNOWN); return 0; }
 	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return 0;}
 
@@ -1021,7 +1027,7 @@ address_t bfind(signed char t, char c, char d) {
 		t1=mem[b--];
 
 		if (t1 == STRINGVAR || t1 == ARRAYVAR) {
-			b=b-numsize+1;
+			b=b-addrsize+1;
 			z.i=getnumber(b, addrsize);
 			b--;
 		} else 
@@ -1205,7 +1211,7 @@ void array(char m, char c, char d, number_t i, number_t* v) {
 	address_t h;
 	char e = FALSE;
 
-	if (DEBUG) { outsc("* get array "); outch(c); outspc(); outnumber(i); outcr(); }
+	if (DEBUG) { outsc("* get/set array "); outch(c); outspc(); outnumber(i); outcr(); }
 
 	// special arrays 
 	if (c == '@') {
@@ -1257,7 +1263,6 @@ void array(char m, char c, char d, number_t i, number_t* v) {
 }
 
 void createstring(char c, char d, number_t i) {
-
 	if (bfind(STRINGVAR, c, d)) { error(EVARIABLE); return; }
 	(void) bmalloc(STRINGVAR, c, d, i+1);
 	if (er != 0) return;
@@ -1733,114 +1738,126 @@ void lcdbegin() {}
 int lcdactive() {return 0; }
 #endif
 
-#ifdef ARDUINOTFT
 
-void tftscroll() {
+
+#ifdef DISPLAY
+
+/*
+	this is a generic display code and will be brought together
+	it combines the functions of LCD and TFT drivers
+	if this code is active 
+	dspprintchar(char c, short col, short row)
+	dspclear()
+	dspbegin()
+	have to be defined before
+*/
+
+short dspmycol;
+short dspmyrow;
+char dspbuffer[dsp_rows][dsp_columns];
+
+int dspactive() {
+	return TRUE;
+}
+
+
+void dspbufferclear() {
 	short r,c;
-	short i;
+	for (r=0; r<dsp_rows; r++)
+		for (c=0; c<dsp_columns; c++)
+      		dspbuffer[r][c]=0;
+  	dspmyrow=0;
+  	dspmycol=0;
+}
 
-  	for (r=1; r<tft_rows; r++)
-    	for (c=0; c<tft_columns; c++)
-      		tftbuffer[r-1][c]=tftbuffer[r][c];
+void dspscroll(){
+	short r,c;
+	int i;
+  	char a,b;
 
-   	for (c=0; c<tft_columns; c++) tftbuffer[tft_rows-1][c]=0;
+  	// shift dsp_scroll_rows up
+  	for (r=0; r<dsp_rows-dsp_scroll_rows; r++) { 
+    	for (c=0; c<dsp_columns; c++) {
+        	a=dspbuffer[r][c];
+        	b=dspbuffer[r+dsp_scroll_rows][c];
+        	if ( a != b ) {
+            	if (b >= 32) dspprintchar(b, c, r); else dspprintchar(' ', c, r);
+        	}      
+        	dspbuffer[r][c]=b;
+    	} 
+    }
 
-   	tft.clrScr();
-  	tftmyrow=0;
-  	tftmycol=0;
-
-	for (r=0; r<tft_rows-1; r++) {
-    	for (c=0; c<tft_columns; c++) {
-      		if (tftbuffer[r][c] >= 32) {
-      			tft.printChar(tftbuffer[r][c], c*tftfontsize, r*tftfontsize);
-      		}
+    // delete the characters in the remaining lines
+  	for (r=dsp_rows-dsp_scroll_rows; r<dsp_rows; r++) {
+    	for (c=0; c<dsp_columns; c++) {
+			if (dspbuffer[r][c] > 32) dspprintchar(' ', c, r); 
+        	dspbuffer[r][c]=0;     
     	}
-   }
-   tftmyrow=tft_rows-1;
-   return;
+    }
+  
+	// set the cursor to the fist free line	    
+  	dspmycol=0;
+    dspmyrow=dsp_rows-dsp_scroll_rows;
 }
 
-void tftclear() {
-	short r,c;
-	for (r=0; r<tft_rows; r++)
-		for (c=0; c<tft_columns; c++)
-      		tftbuffer[r][c]=0;
-	tft.clrScr();
-  	tftmyrow=0;
-  	tftmycol=0;
-  	return;
-}
-
-void tftwrite(char c) {
-
+void dspwrite(char c){
 	// the special characters the LCD need to know
   	switch(c) {
     	case 02: // STX is used for Home
-    		tftmyrow=0;
-    		tftmycol=0;
+    		dspmyrow=0;
+    		dspmycol=0;
     		break;
     	case 8: // back one character
-    		if (tftmycol > 0) tftmycol--;
+    		if (dspmycol > 0) dspmycol--;
     		break;
     	case 9: // forward one character 
-    		if (tftmycol < tft_columns) tftmycol++;
+    		if (dspmycol < dsp_columns) dspmycol++;
     		break;
   		case 10: // this is LF Unix style doing also a CR
-    		tftmyrow=(tftmyrow + 1);
-    		if (tftmyrow >= tft_rows) {
-      			tftscroll(); 
+    		dspmyrow=(dspmyrow + 1);
+    		if (dspmyrow >= dsp_rows) {
+      			dspscroll(); 
     		}
-    		tftmycol=0;
+    		dspmycol=0;
     		break;
     	case 11: // one char down 
-    		tftmyrow=(tftmyrow+1) % tft_rows;
+    		dspmyrow=(dspmyrow+1) % dsp_rows;
     		break;
     	case 12: // form feed is clear screen
-    		tftclear();
+    		dspbufferclear();
+    		dspclear();
     		return;
     	case 13: // classical carriage return 
-    		tftmycol=0;
+    		dspmycol=0;
     		break;
     	case 14: // cursor on
     		return; 
     	case 15: // cursor off 
     		return;
     	case 127: // delete
-    		if (tftmycol > 0) {
-      			tftmycol--;
-      			tftbuffer[tftmyrow][tftmycol]=0;
-      			tft.printChar(' ', tftmycol*tftfontsize, tftmyrow*tftfontsize);
+    		if (dspmycol > 0) {
+      			dspmycol--;
+      			dspbuffer[dspmyrow][dspmycol]=0;
+      			dspprintchar(' ', dspmycol, dspmyrow);
       			return;
     		}
   	}
 
 	if (c < 32 ) return; 
 
-	tft.printChar(c, tftmycol*tftfontsize, tftmyrow*tftfontsize);
-	tftbuffer[tftmyrow][tftmycol++]=c;
-	if (tftmycol == tft_columns) {
-		tftmycol=0;
-		tftmyrow=(tftmyrow + 1);
-    	if (tftmyrow >= tft_rows) {
-      		tftscroll(); 
+	dspprintchar(c, dspmycol, dspmyrow);
+	dspbuffer[dspmyrow][dspmycol++]=c;
+	if (dspmycol == dsp_columns) {
+		dspmycol=0;
+		dspmyrow=(dspmyrow + 1);
+    	if (dspmyrow >= dsp_rows) {
+      		dspscroll(); 
     	}
 	}
 }
-
-void tftbegin() {
-	tft.InitLCD();
-	tft.setFont(BigFont);
-	tft.clrScr();
-}
-
-
-int tftactive() {
-	return (od & OTFT);
-}
 #else
-void tftwrite(char c) {}
-void tftbegin() {}
-int tftactive() {return 0; }
+void dspwrite(char c){};
+void dspbegin() {};
 #endif
 
 /* 
@@ -1960,7 +1977,7 @@ void ioinit() {
 	Serial.begin(serial_baudrate);
    	lcdbegin(); 
    	prtbegin();
-   	tftbegin();
+   	dspbegin();
 #ifdef ARDUINOPS2
 	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
 #endif
@@ -2092,7 +2109,7 @@ void outch(char c) {
 	if (od == OLCD) 
 		lcdwrite(c);
 	if (od == OTFT)
-		tftwrite(c);
+		dspwrite(c);
 }
 
 // send a newline
