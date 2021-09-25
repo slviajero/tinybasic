@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.82 2021/09/23 05:03:31 stefan Exp stefan $
+// $Id: basic.c,v 1.83 2021/09/25 08:03:35 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -42,16 +42,13 @@
 	DUMP 	  130  		0
 	PICO     -504 	-179
 
-	The extension flags control features and code size.
-
+	The extension flags control features and code size
 */ 
 
 #undef ARDUINODUE
 #undef RP2040
 #undef ESP8266
 #undef MINGW
-#undef ARDUINOLCD
-#undef LCDSHIELD
 #define ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
@@ -64,9 +61,10 @@
 // input methods
 #undef ARDUINOPS2
 // output methods
-#undef ARDUINOI2C
-#undef ARDUINOTFT
 #undef ARDUINOPRT
+#undef ARDUINOLCDI2C
+#undef LCDSHIELD
+#undef ARDUINOTFT
 // storage methods
 #undef ARDUINOSD
 // use the methods above as primary i/o devices
@@ -87,7 +85,7 @@
 #undef ARDUINO
 #endif
 
-#if defined(ESP8266) || defined(RP2040)
+#if defined(ESP8266) || defined(RP2040) || defined(ARDUINODUE)
 #define PROGMEM
 #define ARDUINO
 #undef ARDUINOPROGMEM
@@ -101,23 +99,12 @@
 #ifdef ARDUINOEEPROM
 #include <EEPROM.h>
 #endif
-#ifdef ARDUINOLCD
-#include <LiquidCrystal.h>
-#endif
-#ifdef ARDUINOI2C
-#include <Wire.h>
-#include <LiquidCrystal_I2C.h>
-#endif
 #ifdef USESPICOSERIAL
 #include <PicoSerial.h>
 #endif
 #ifdef ARDUINOSD
 #include <SPI.h>
 #include <SD.h>
-#endif
-#ifdef ARDUINOTFT
-#include <memorysaver.h>
-#include <UTFT.h>
 #endif
 #else 
 #define PROGMEM
@@ -261,9 +248,8 @@ const int serial_baudrate = 9600;
 */
 
 #define OSERIAL 1
-#define OLCD 2
+#define ODSP 2
 #define OPRT 4
-#define OTFT 8
 #define OFILE 16
 
 #define ISERIAL 1
@@ -537,7 +523,7 @@ static unsigned char od;
 void iodefaults() {
 #ifdef STANDALONE
 	id = IKEYBOARD;
-	od = OLCD;
+	od = ODSP;
 #else
 	id = ISERIAL;
 	od = OSERIAL;
@@ -614,10 +600,19 @@ void drop();
 void clearst();
 
 // Arduino I/O
+// old LCD code - deprecated 
 void lcdscroll();
 void lcdclear();
 void lcdwrite(char);
 void lcdbegin();
+
+// generic display code - used for Shield, I2C, and TFT
+void dspwrite(char);
+void dspbegin();
+char dspwaitonscroll();
+char dspactive();
+void dspsetscrollmode(char, short);
+void dspsetcursor(short, short);
 
 // input output
 // these are the platfrom depended lowlevel functions
@@ -704,49 +699,50 @@ const int PS2IRQpin =  2;
 PS2Keyboard keyboard;
 #endif
 
-// global variables for the LCD
-#ifdef ARDUINOLCD
+
 #ifdef LCDSHIELD
+#define DISPLAYDRIVER
+#include <LiquidCrystal.h>
 // LCD shield pins to Arduino
-const int lcd_rows = 2;
-const int lcd_columns = 16;
-const int pin_RS = 8; 
-const int pin_EN = 9; 
-const int pin_d4 = 4; 
-const int pin_d5 = 5; 
-const int pin_d6 = 6; 
-const int pin_d7 = 7; 
-const int pin_BL = 10; 
-LiquidCrystal lcd( pin_RS,  pin_EN,  pin_d4,  pin_d5,  pin_d6,  pin_d7);
-#else 
-// a I2C display connected
-const int lcd_rows = 4;
-const int lcd_columns = 20;
-LiquidCrystal_I2C lcd(0x27, lcd_columns, lcd_rows);
+//  RS, EN, d4, d5, d6, d7; 
+// backlight on pin 10;
+const int dsp_rows=2;
+const int dsp_columns=16;
+LiquidCrystal lcd( 8,  9,  4,  5,  6,  7);
+void dspbegin() { 	lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
+void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
+void dspclear() { lcd.clear(); }
 #endif
-char lcdbuffer[lcd_rows][lcd_columns];
-char lcdmyrow = 0;
-char lcdmycol = 0;
-#else 
-const int lcd_rows = 0;
-const int lcd_columns = 0;
+
+#ifdef ARDUINOLCDI2C
+#define DISPLAYDRIVER
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+// a I2C display connected
+const int dsp_rows=4;
+const int dsp_columns=20;
+LiquidCrystal_I2C lcd(0x27, dsp_columns, dsp_rows);
+void dspbegin() {   lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
+void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
+void dspclear() { lcd.clear(); }
 #endif
 
 // global variables for a TFT
 // this is code for a SD1963 800*480 board using the UTFT library
 // it is mainly intended for a DUE as a all in one system
 #ifdef ARDUINOTFT
-#define DISPLAY
+#include <memorysaver.h>
+#include <UTFT.h>
+#define DISPLAYDRIVER
 extern uint8_t SmallFont[];
 extern uint8_t BigFont[];
 UTFT tft(CTE70,38,39,40,41);
 const int dsp_rows=30;
 const int dsp_columns=50;
 char dspfontsize = 16;
-short dsp_scroll_rows=1;
+void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrollmode(0, 4); }
 void dspprintchar(char c, short col, short row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
-void dspclear() { tft.clrScr();}
-void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); }
+void dspclear() { tft.clrScr(); }
 #endif
 
 // global variables for an Arduino SD card
@@ -1740,7 +1736,7 @@ int lcdactive() {return 0; }
 
 
 
-#ifdef DISPLAY
+#ifdef DISPLAYDRIVER
 
 /*
 	this is a generic display code and will be brought together
@@ -1755,11 +1751,25 @@ int lcdactive() {return 0; }
 short dspmycol;
 short dspmyrow;
 char dspbuffer[dsp_rows][dsp_columns];
+char  dspscrollmode = 0;
+short dsp_scroll_rows = 1; 
 
-int dspactive() {
-	return TRUE;
+// 0 normal scroll
+// 1 enable waitonscroll function
+// ... more to come
+void dspsetscrollmode(char c, short l) {
+	dspscrollmode = c;
+	dsp_scroll_rows = l;
 }
 
+void dspsetcursor(short c, short r) {
+	dspmyrow=r;
+	dspmycol=c;
+}
+
+char dspactive() {
+	return od & ODSP;
+}
 
 void dspbufferclear() {
 	short r,c;
@@ -1855,9 +1865,22 @@ void dspwrite(char c){
     	}
 	}
 }
+
+char dspwaitonscroll() {
+	if ( dspscrollmode == 1 )
+		if (dspmyrow == dsp_rows) return inch();
+
+	return 0;
+}
+
+
 #else
 void dspwrite(char c){};
 void dspbegin() {};
+char dspwaitonscroll() { return 0; };
+char  dspactive() {return FALSE; }
+void dspsetscrollmode(char c, short l) {}
+void dspsetcursor(short c, short r) {}
 #endif
 
 /* 
@@ -2106,9 +2129,7 @@ void outch(char c) {
 		prtwrite(c);
 	if (od == OFILE) 
 		filewrite(c); 
-	if (od == OLCD) 
-		lcdwrite(c);
-	if (od == OTFT)
+	if (od == ODSP)
 		dspwrite(c);
 }
 
@@ -4007,7 +4028,7 @@ void xlist(){
 		gettoken();
 		if (token == LINENUMBER && oflag) {
 			outcr();
-			if ( lcdactive() ) { if ( inch() == 27 ) break;}
+			if ( dspactive() ) { if ( inch() == 27 ) break;}
 		}
 	}
 	if (here == top && oflag) outputtoken();
@@ -4491,7 +4512,7 @@ void xset(){
 					od=OSERIAL;
 					break;
 				case 1:
-					od=OLCD;
+					od=ODSP;
 					break;
 			}		
 			break;
@@ -4581,7 +4602,6 @@ void xtone(){
 void xcatalog() {
 #ifdef ARDUINOSD
 	File root, file;
-	char c = 0;
 
 	if ( od == OLCD ) { lcdwrite(12); }
 	root=SD.open("/");
@@ -4589,11 +4609,10 @@ void xcatalog() {
 		file=root.openNextFile();
 		if (! file) break;
 		if (! file.isDirectory()) { 
-		  outsc(file.name()); outch(' '); outnumber(file.size()); outcr();
-		  c++;
-		  if (lcdactive() && (c == lcd_rows-1)) { if ( inch() == 27 ) break;  c=0; }
-	  }
-    file.close(); 
+			if ( dspwaitonscroll() == 27 ) {file.close(); break; };
+		  	outsc(file.name()); outch(' '); outnumber(file.size()); outcr();
+		}
+    	file.close(); 
 	}
 
 	root.close();
