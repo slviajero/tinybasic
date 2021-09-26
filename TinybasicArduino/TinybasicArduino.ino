@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.83 2021/09/25 08:03:35 stefan Exp stefan $
+// $Id: basic.c,v 1.84 2021/09/26 13:29:14 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -46,6 +46,9 @@
 	PICO     -504 	-179
 
 	The extension flags control features and code size
+
+  MEMSIZE sets the BASIC main memory to a fixed value
+    
 */ 
 
 #undef ARDUINODUE
@@ -57,21 +60,21 @@
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
-#define MEMSIZE 4096
+#define MEMSIZE 0
 
 // these are the definitions to build a standalone 
 // computer. All of these extensions are very memory hungry
 // input methods
-#define ARDUINOPS2
+#undef ARDUINOPS2
 // output methods
-#define ARDUINOPRT
-#define ARDUINOLCDI2C
+#undef ARDUINOPRT
+#undef ARDUINOLCDI2C
 #undef LCDSHIELD
 #undef ARDUINOTFT
 // storage methods
-#define ARDUINOSD
+#undef ARDUINOSD
 // use the methods above as primary i/o devices
-#define STANDALONE
+#undef STANDALONE
 
 // Don't change the definitions here unless you must
 
@@ -484,8 +487,12 @@ static char *bi;
 
 static number_t vars[VARSIZE];
 
+/*
 static signed char mem[MEMSIZE];
 static address_t himem = MEMSIZE-1;
+*/
+static signed char* mem;
+static address_t himem, memsize;
 
 #ifdef HASFORNEXT
 static struct {char varx; char vary; address_t here; number_t to; number_t step;} forstack[FORDEPTH];
@@ -871,6 +878,8 @@ void expression();
 // basic commands of the core language set
 void xprint();
 void assignment();
+void lefthandside(address_t*, char*);
+void assignnumber(signed char, char, char, address_t, char);
 void xinput();
 void xgoto();
 void xreturn();
@@ -952,6 +961,53 @@ void statement();
 	the code.
  */
 
+// ugly, guess the possible basic memory size
+address_t allocmem() {
+
+	if (MEMSIZE > 0) {
+		mem=(signed char*)malloc(MEMSIZE);
+		if (mem != NULL) {
+			return MEMSIZE-1;
+		} else 
+			goto fallback;
+	} 
+
+	if (sizeof(number_t) > 2) {
+		// big boards like rp2040 
+		mem=(signed char*)malloc(60000);
+		if (mem != NULL) { return 60000-1; }
+
+		// ESP boards can do this
+		mem=(signed char*)malloc(46000);
+		if (mem != NULL) { return 46000-1; };	
+
+		// but only if we do 32 bit numbers
+	}
+
+	// MKR boards can do this
+	mem=(signed char*)malloc(30000);
+	if (mem != NULL) { return 30000-1; };
+
+	// MEGA Boards
+	mem=(signed char*)malloc(4096);
+	if (mem != NULL) { return 4096-1; };
+
+	// UNO
+	mem=(signed char*)malloc(1024);
+	if (mem != NULL) { return 1024-1; };
+
+	// UNO and smaller one when we have a lot 
+	// of other stuff on them
+	mem=(signed char*)malloc(512);
+	if (mem != NULL) { return 512-1; };
+
+fallback:
+	mem=(signed char*)malloc(128);
+	return 127;
+
+}
+
+
 // allocate a junk of memory for a variable on the heap
 // every objects is identified by name (c,d) and type t
 // 3 bytes are used here but 2 would be enough
@@ -1006,7 +1062,7 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 // the length of the object is in z.i as a side effect 
 address_t bfind(signed char t, char c, char d) {
 
-	address_t b = MEMSIZE-1;
+	address_t b = memsize;
 	signed char t1;
 	char c1, d1;
 	short i=0;
@@ -1124,7 +1180,7 @@ void setvar(char c, char d, number_t v){
 void clrvars() {
 	for (char i=0; i<VARSIZE; i++) vars[i]=0;
 	nvars=0;
-	himem=MEMSIZE-1;
+	himem=memsize;
 }
 
 // the program memory access - attention there is a hack here
@@ -1763,6 +1819,8 @@ char dspwaitonscroll() {
 
 
 #else
+const int dsp_rows=0;
+const int dsp_columns=0;
 void dspwrite(char c){};
 void dspbegin() {};
 char dspwaitonscroll() { return 0; };
@@ -2783,7 +2841,6 @@ nextexpression:
 
 void parsenarguments(char n) {
 	char args=0;
-	nexttoken();
 
 	args=parsearguments();
 	if (er != 0 ) return;
@@ -2895,7 +2952,7 @@ void peek(){
 	a=pop();
 
 	// this is a hack again, 16 bit numbers can't peek big addresses
-	if (MEMSIZE > maxnum) amax=maxnum; else amax=MEMSIZE;
+	//if (memsize > maxnum) amax=maxnum; else amax=memsize;
 
 	if (a >= 0 && a<amax) 
 		push(mem[a]);
@@ -3345,19 +3402,18 @@ separators:
 	
 	assigment code for various lefthand and righthand side. 
 
+	lefthandside is a helper function for reuse in other 
+	commands. It determines the address the value is to be 
+	assigned to and whether the assignment target is a 
+	"pure" i.e. subscriptless string expression
+
+	assignnumber assigns a number to a given lefthandside
+
 */
 
-void assignment() {
-	signed char t=token;  // remember the left hand side token until the end of the statement, type of the lhs
-	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
-	char xcl, ycl; // to preserve the left hand side variable names
-	address_t i=1;      // and the beginning of the destination string  
-	address_t lensource;
+void lefthandside(address_t* i, char* ps) {
 	short args;
 
-	// this code evaluates the left hand side
-	ycl=yc;
-	xcl=xc;
 	switch (token) {
 		case VARIABLE:
 			nexttoken();
@@ -3371,7 +3427,7 @@ void assignment() {
 				error(EARGS);
 				return;
 			}
-			i=pop();
+			*i=pop();
 			break;
 		case STRINGVAR:
 			nexttoken();
@@ -3379,13 +3435,13 @@ void assignment() {
 			if (er != 0) return;
 			switch(args) {
 				case 0:
-					i=1;
-					ps=TRUE;
+					*i=1;
+					*ps=TRUE;
 					break;
 				case 1:
-					ps=FALSE;
+					*ps=FALSE;
 					nexttoken();
-					i=pop();
+					*i=pop();
 					break;
 				default:
 					error(EARGS);
@@ -3396,8 +3452,47 @@ void assignment() {
 			error(EUNKNOWN);
 			return;
 	}
+}
 
-	
+void assignnumber(signed char t, char xcl, char ycl, address_t i, char ps) {
+
+		switch (t) {
+			case VARIABLE:
+				x=pop();
+				setvar(xcl, ycl , x);
+				break;
+			case ARRAYVAR: 
+				x=pop();	
+				array('s', xcl, ycl, i, &x);
+				break;
+			case STRINGVAR:
+				ir=getstring(xcl, ycl, i);
+				if (er != 0) return;
+				ir[0]=pop();
+				if (ps)
+					setstringlength(xcl, ycl, 1);
+				else 
+					if (lenstring(xcl, ycl) < i && i < stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
+				break;
+		}
+}
+
+void assignment() {
+	signed char t;  // remember the left hand side token until the end of the statement, type of the lhs
+	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
+	char xcl, ycl; // to preserve the left hand side variable names
+	address_t i=1;      // and the beginning of the destination string  
+	address_t lensource;
+	short args;
+
+	// this code evaluates the left hand side
+	ycl=yc;
+	xcl=xc;
+	t=token;
+
+	lefthandside(&i, &ps);
+	if (er != 0) return;
+
 	// the assignment part
 	if (token != '=') {
 		error(EUNKNOWN);
@@ -3418,25 +3513,8 @@ void assignment() {
 		expression();
 		if (er != 0 ) return;
 
-		switch (t) {
-			case VARIABLE:
-				x=pop();
-				setvar(xcl, ycl , x);
-				break;
-			case ARRAYVAR: 
-				x=pop();	
-				array('s', xcl, ycl, i, &x);
-				break;
-			case STRINGVAR:
-				ir=getstring(xcl, ycl, i);
-				if (er != 0) return;
-				ir[0]=pop();
-				if (ps)
-					setstringlength(xcl, ycl, 1);
-				else 
-					if (lenstring(xcl, ycl) < i && i < stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
-				break;
-		}		
+		assignnumber(t, xcl, ycl, i, ps);
+	
 	} else {
 
 		switch (t) {
@@ -3903,7 +3981,7 @@ void xlist(){
 		gettoken();
 		if (token == LINENUMBER && oflag) {
 			outcr();
-			if ( dspactive() ) { if ( inch() == 27 ) break;}
+			if ( dspactive() && (dsp_rows < 10) ){ if ( inch() == 27 ) break;}
 		}
 	}
 	if (here == top && oflag) outputtoken();
@@ -3943,7 +4021,7 @@ statementloop:
 
 void xnew(){ // the general cleanup function
 	clearst();
-	himem=MEMSIZE-1;
+	himem=memsize;
 	top=0;
 	zeroblock(top,himem);
 	reseterror();
@@ -4045,8 +4123,9 @@ void xpoke(){
 
 	// like in peek
 	// this is a hack again, 16 bit numbers can't peek big addresses
-	if (MEMSIZE > maxnum) amax=maxnum; else amax=MEMSIZE;
+	//if (MEMSIZE > maxnum) amax=maxnum; else amax=MEMSIZE;
 
+	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return;
 	y=pop();
@@ -4067,6 +4146,7 @@ void xpoke(){
 */
 
 void xtab(){
+	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
 	x=pop();
@@ -4089,11 +4169,11 @@ void xdump() {
 	switch (y) {
 		case 0: 
 			x=0;
-			a=MEMSIZE-1;
+			a=memsize;
 			break;
 		case 1: 
 			x=pop();
-			a=MEMSIZE-1;
+			a=memsize;
 			break;
 		case 2: 
 			a=pop();
@@ -4121,11 +4201,11 @@ void dumpmem(address_t r, address_t b) {
 		for (j=0; j<8; j++) {
 			outnumber(mem[k++]); outspc();
 			delay(1); // slow down a little here for low serial baudrates
-			if (k > MEMSIZE-1) break;
+			if (k > memsize) break;
 		}
 		outcr();
 		i--;
-		if (k > MEMSIZE-1) break;
+		if (k > memsize) break;
 	}
 #ifdef ARDUINOEEPROM
 	printmessage(EEEPROM); outcr();
@@ -4341,16 +4421,42 @@ void xload() {
 */
 
 void xget(){
+	signed char t;  // remember the left hand side token until the end of the statement, type of the lhs
+	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
+	char xcl, ycl; // to preserve the left hand side variable names
+	address_t i=1;      // and the beginning of the destination string  
+	short oid=id;
+
 	nexttoken();
-	if (token == VARIABLE) {
-		if (checkch()) setvar(xc, yc, inch()); else setvar(xc, yc, 0);
-	} else if (token == STRINGVAR) {
-		// need to implement string left value
-		error(EUNKNOWN);
-	} else {
-		error(EUNKNOWN);
+
+	// modifiers of the get statement
+	if (token == '&') {
+		nexttoken();
+		expression();
+		if (er != 0) return;
+		id=pop();		
+		if (token != ',') {
+			error(EUNKNOWN);
+			return;
+		}
+		nexttoken();
 	}
+
+	// this code evaluates the left hand side
+	ycl=yc;
+	xcl=xc;
+	t=token;
+
+	lefthandside(&i, &ps);
+	if (er != 0) return;
+
+	if (checkch()) push(inch()); else push(0);
+
+	assignnumber(t, xcl, ycl, i, ps);
+
 	nexttoken();
+
+	id=oid;
 }
 
 /*
@@ -4358,10 +4464,29 @@ void xget(){
 */
 
 void xput(){
+	short ood=od;
+
+	nexttoken();
+
+	// modifiers of the put statement
+	if (token == '&') {
+		nexttoken();
+		expression();
+		if (er != 0) return;
+		od=pop();
+		if (token != ',') {
+			error(EUNKNOWN);
+			return;
+		}
+		nexttoken();
+	}
+
 	parsenarguments(1);
 	if (er != 0) return;
 	x=pop();
 	outch(x);
+
+	od=ood;
 }
 
 /* 
@@ -4373,6 +4498,8 @@ void xput(){
 */
 
 void xset(){
+
+	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return;
 	x=pop();
@@ -4432,6 +4559,7 @@ void xset(){
 */
 
 void xdwrite(){
+	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return; 
 	x=pop();
@@ -4440,6 +4568,7 @@ void xdwrite(){
 }
 
 void xawrite(){
+	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return; 
 	x=pop();
@@ -4448,6 +4577,7 @@ void xawrite(){
 }
 
 void xpinm(){
+	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return; 
 	x=pop();
@@ -4456,6 +4586,7 @@ void xpinm(){
 }
 
 void xdelay(){
+	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
 	x=pop();
@@ -4611,6 +4742,7 @@ void xopen() {
 void xclose() {
 	char mode;
 
+	nexttoken();
 	parsenarguments(1);
 	mode=pop();
 
@@ -4826,6 +4958,7 @@ void statement(){
 // the setup routine - Arduino style
 void setup() {
 
+	himem=(memsize=allocmem());
 
 #ifndef ARDUINO
 #ifndef MINGW
@@ -4835,7 +4968,7 @@ void setup() {
 	ioinit();
 	printmessage(MGREET); outspc();
 	printmessage(EOUTOFMEMORY); outspc(); 
-	outnumber(MEMSIZE); outspc();
+	outnumber(memsize+1); outspc();
 	outnumber(elength()); outcr();
 
  	xnew();	
