@@ -12,17 +12,20 @@
 	- for any Arduino with serial I/O or a Mac nothing has 
 		to be set here. The default settings are correct
 		for Arduino boards including MK. 
+	- MINGW disables the timing functions for a MINGW Windows
+	 	executable.
 	- DUE unfortunately needs a special setting as it has no 
 		tone() function
 	- for ESP8266 boards define this macro (#define ESP8266)
     - for RP2040 boards define this macros (#define RP2040)
       (for both cases PROGMEM is disabled and EEPROM ignored)
-	- ARDUINOLCD actives the LCD code, LCDSHIELD automatically 
-		defines the right settings for the classical shield modules
+	- ARDUINOLCD, ARDUINOTFT and LCDSHIELD active the LCD code, 
+		LCDSHIELD automatically defines the right settings for 
+		the classical shield modules
 	- ARDUINOPS2 activates the PS2 code. Default pins are 2 and 3.
 		If you use other pins the respective changes have to be made 
 			below. 
-	- _if_ LCD and PS2 are both activated STANDALONE cause the Arduino
+	- _if_  and PS2 are both activated STANDALONE cause the Arduino
 			to start with keyboard and lcd as standard devices.
 	- ARDUINOTFT is not yet implemented
 	- ARDUINOEEPROM includes the EEPROM access code
@@ -70,11 +73,7 @@
 // use the methods above as primary i/o devices
 #undef STANDALONE
 
-	
 // Don't change the definitions here unless you must
-#ifdef ARDUINOPS2
-#include <PS2Keyboard.h>
-#endif
 
 // if PROGMEM is defined we can asssume we compile on 
 // the Arduino IDE. Don't change anything here. 
@@ -93,6 +92,9 @@
 #endif
 
 #ifdef ARDUINO
+#ifdef ARDUINOPS2
+#include <PS2Keyboard.h>
+#endif
 #ifdef ARDUINOPROGMEM
 #include <avr/pgmspace.h>
 #endif
@@ -117,6 +119,7 @@
 
 // Arduino default serial baudrate
 const int serial_baudrate = 9600;
+const int printer_baudrate = 9600;
 
 // general definitions
 #define TRUE  1
@@ -384,7 +387,7 @@ const char* const keyword[] PROGMEM = {
 
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "> ";
-const char mgreet[]		PROGMEM = "Stefan's Basic 1.2"; // buffer overrun here - harmless
+const char mgreet[]		PROGMEM = "Stefan's Basic 1.2";
 const char egeneral[]  	PROGMEM = "Error";
 const char eunknown[]  	PROGMEM = "Syntax";
 const char enumber[]	PROGMEM = "Number";
@@ -519,16 +522,13 @@ static unsigned int rd;
 static unsigned char id;
 static unsigned char od;
 
-
-void iodefaults() {
 #ifdef STANDALONE
-	id = IKEYBOARD;
-	od = ODSP;
+static unsigned char idd = IKEYBOARD;
+static unsigned char odd = ODSP;
 #else
-	id = ISERIAL;
-	od = OSERIAL;
+static unsigned char idd = ISERIAL;
+static unsigned char odd = OSERIAL;
 #endif
-}
 
 #ifndef ARDUINO
 FILE* ifd;
@@ -599,13 +599,6 @@ number_t pop();
 void drop();
 void clearst();
 
-// Arduino I/O
-// old LCD code - deprecated 
-void lcdscroll();
-void lcdclear();
-void lcdwrite(char);
-void lcdbegin();
-
 // generic display code - used for Shield, I2C, and TFT
 void dspwrite(char);
 void dspbegin();
@@ -616,7 +609,10 @@ void dspsetcursor(short, short);
 
 // input output
 // these are the platfrom depended lowlevel functions
+void serialbegin();
+void prtbegin();
 void ioinit();
+void iodefaults();
 void picogetchar(int);
 void outch(char);
 char inch();
@@ -640,7 +636,7 @@ void outnumber(number_t);
 */
 
 // EEPROM 
-#if defined(ARDUINO) && defined(ARDUINOEEPROM) && ! defined(ESP8266)
+#if defined(ARDUINO) && defined(ARDUINOEEPROM)
 address_t elength() { return EEPROM.length(); }
 void eupdate(address_t i, short c) { EEPROM.update(i, c); }
 short eread(address_t i) { return EEPROM.read(i); }
@@ -1613,131 +1609,22 @@ void clrforstack() {
 	 very dumb ascii terminal
 */
 
-#ifdef ARDUINOLCD
-void lcdscroll(){
-	short r,c;
-	short i;
-
-  	for (r=1; r<lcd_rows; r++)
-    	for (c=0; c<lcd_columns; c++)
-      		lcdbuffer[r-1][c]=lcdbuffer[r][c];
-
-   for (c=0; c<lcd_columns; c++) lcdbuffer[lcd_rows-1][c]=0;
-
-   lcd.clear();
-   lcd.home();
-
-	for (r=0; r<lcd_rows-1; r++) {
-   		lcd.setCursor(0, r);
-    	for (c=0; c<lcd_columns; c++) {
-      		if (lcdbuffer[r][c] >= 32) {
-        		lcd.write(lcdbuffer[r][c]);
-      		}
-    	}
-   }
-   lcdmyrow=lcd_rows-1;
-   return;
-}
-
-void lcdclear() {
-	short r,c;
-	for (r=0; r<lcd_rows; r++)
-		for (c=0; c<lcd_columns; c++)
-      		lcdbuffer[r][c]=0;
-	lcd.clear();
-  	lcd.home();
-  	lcdmyrow=0;
-  	lcdmycol=0;
-  	return;
-}
-
-void lcdwrite(char c) {
-
-	// the special characters the LCD need to know
-  	switch(c) {
-    	case 02: // STX is used for Home
-    		lcd.home();
-    		lcdmyrow=0;
-    		lcdmycol=0;
-    		break;
-    	case 8: // back one character
-    		if (lcdmycol > 0) lcdmycol--;
-    		break;
-    	case 9: // forward one character 
-    		if (lcdmycol < lcd_columns) lcdmycol++;
-    		break;
-  		case 10: // this is LF Unix style doing also a CR
-    		lcdmyrow=(lcdmyrow + 1);
-    		if (lcdmyrow >= lcd_rows) {
-      			lcdscroll(); 
-    		}
-    		lcdmycol=0;
-    		break;
-    	case 11: // one char down 
-    		lcdmyrow=(lcdmyrow+1) % lcd_rows;
-    		break;
-    	case 12: // form feed is clear screen
-    		lcdclear();
-    		return;
-    	case 13: // classical carriage return 
-    		lcdmycol=0;
-    		break;
-    	case 14:
-    		lcd.cursor();
-    		return; 
-    	case 15:
-    		lcd.noCursor();
-    		return;
-    	case 127: // delete
-    		if (lcdmycol > 0) {
-      			lcdmycol--;
-      			lcdbuffer[lcdmyrow][lcdmycol]=0;
-      			lcd.setCursor(lcdmycol, lcdmyrow);
-      			lcd.write(" ");
-      			lcd.setCursor(lcdmycol, lcdmyrow);
-      			return;
-    		}
-  	}
-
-
-  	lcd.setCursor(lcdmycol, lcdmyrow);
-	if (c < 32 ) return; 
-
-	lcd.write(c);
-	lcdbuffer[lcdmyrow][lcdmycol++]=c;
-	if (lcdmycol == lcd_columns) {
-		lcdmycol=0;
-		lcdmyrow=(lcdmyrow + 1);
-    	if (lcdmyrow >= lcd_rows) {
-      		lcdscroll(); 
-    	}
-		lcd.setCursor(lcdmycol, lcdmyrow);
-	}
-}
-
-void lcdbegin() {
-#ifndef ARDUINOI2C
-	lcd.begin(lcd_columns, lcd_rows);
-#else 
-	lcd.init(); 
-	lcd.backlight();
+void ioinit() {
+	serialbegin();
+	dspbegin();
+	prtbegin();
+#ifdef ARDUINOPS2
+	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
 #endif
+	iodefaults();
 }
 
-int lcdactive() {
-	return (od & OLCD);
+void iodefaults() {
+	od=odd;
+	id=idd;
 }
-
-#else 
-void lcdwrite(char c) {}
-void lcdbegin() {}
-int lcdactive() {return 0; }
-#endif
-
-
 
 #ifdef DISPLAYDRIVER
-
 /*
 	this is a generic display code and will be brought together
 	it combines the functions of LCD and TFT drivers
@@ -1745,7 +1632,8 @@ int lcdactive() {return 0; }
 	dspprintchar(char c, short col, short row)
 	dspclear()
 	dspbegin()
-	have to be defined before
+	dspclear()
+	have to be defined before in a hardware dependent section
 */
 
 short dspmycol;
@@ -1878,7 +1766,7 @@ char dspwaitonscroll() {
 void dspwrite(char c){};
 void dspbegin() {};
 char dspwaitonscroll() { return 0; };
-char  dspactive() {return FALSE; }
+char dspactive() {return FALSE; }
 void dspsetscrollmode(char c, short l) {}
 void dspsetcursor(short c, short r) {}
 #endif
@@ -1891,7 +1779,6 @@ void dspsetcursor(short c, short r) {}
 		- Arduino Picoserial
 
 */
-
 
 // wrapper around file access
 void filewrite(char c) {
@@ -1937,7 +1824,7 @@ void serialwrite(char c) {
 // printer wrappers
 void prtbegin() {
 #ifdef ARDUINOPRT
-	Serial1.begin(9600);
+	Serial1.begin(printer_baudrate);
 #endif
 }
 
@@ -1952,10 +1839,8 @@ void prtwrite(char c) {
 	this is C standard library stuff, we branch to file input/output
 	if there is a valid file descriptor in fd.
 */
-void ioinit() {
-	iodefaults();
-	return;
-}
+
+void serialbegin(){}
 
 char inch(){
 	char c;
@@ -1991,20 +1876,12 @@ void ins(char *b, short nb) {
 
 	This is standard Arduino code Serial code. 
 	In inch() we wait for input by looping. 
-	LCD output is controlled by the flag od.
-	Keyboard code here is totally beta
+	output is controlled by the flag od.
 
 */ 
 
-void ioinit() {
+void serialbegin() {
 	Serial.begin(serial_baudrate);
-   	lcdbegin(); 
-   	prtbegin();
-   	dspbegin();
-#ifdef ARDUINOPS2
-	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
-#endif
-	iodefaults();
 }
 
 char inch(){
@@ -2068,10 +1945,8 @@ volatile static char* picob = NULL;
 static short picobsize = 0;
 volatile static short picoi = 1;
 
-void ioinit() {
-	(void) PicoSerial.begin(serial_baudrate, picogetchar);
-   	lcdbegin();  
-   	iodefaults();
+void serialbegin() {
+	(void) PicoSerial.begin(serial_baudrate, picogetchar); 
 }
 
 void picogetchar(int c){
@@ -4506,7 +4381,7 @@ void xset(){
 		case 1: // autorun/run flag of the EEPROM 255 for clear, 0 for prog, 1 for autorun
 			eupdate(0, x);
 			break;
-		case 2: // serial = 0, LCD = 1 
+		case 2: // change the output device 
 			switch (x) {
 				case 0:
 					od=OSERIAL;
@@ -4516,7 +4391,17 @@ void xset(){
 					break;
 			}		
 			break;
-		case 4: // serial = 0, keyboard = 1 
+		case 3: // change the default output device
+			switch (x) {
+				case 0:
+					od=(odd=OSERIAL);
+					break;
+				case 1:
+					od=(odd=ODSP);
+					break;
+			}		
+			break;
+		case 4: // change the input device (deprectated use @i instead)
 			switch (x) {
 				case 0:
 					id=ISERIAL;
@@ -4525,7 +4410,17 @@ void xset(){
 					id=IKEYBOARD;
 					break;
 			}		
-			break;			
+			break;		
+		case 5: // change the default input device 
+			switch (x) {
+				case 0:
+					idd=(id=ISERIAL);
+					break;
+				case 1:
+					idd=(id=IKEYBOARD);
+					break;
+			}		
+			break;	
 	}
 }
 
@@ -4603,13 +4498,11 @@ void xcatalog() {
 #ifdef ARDUINOSD
 	File root, file;
 
-	if ( od == OLCD ) { lcdwrite(12); }
 	root=SD.open("/");
 	while (TRUE) {
 		file=root.openNextFile();
 		if (! file) break;
 		if (! file.isDirectory()) { 
-			if ( dspwaitonscroll() == 27 ) {file.close(); break; };
 		  	outsc(file.name()); outch(' '); outnumber(file.size()); outcr();
 		}
     	file.close(); 
@@ -4741,14 +4634,22 @@ void xclose() {
 	nexttoken();
 }
 
-// low level function access of the interpreter
+/*
+	low level function access of the interpreter
+	for each group of functions there is a call vector
+	and and argument.
+
+	Implemented call vectors
+		1: Serial code
+
+*/
 
 void xusr() {
 	y=pop();
 	x=pop();
 	switch(x) {
 		case 1:
-			break;
+		break;	
 	}
 	push(y);
 }
