@@ -55,13 +55,13 @@
 #undef ARDUINODUE
 #undef RP2040
 #undef ESP8266
-#define MINGW
+#undef MINGW
 #define ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
-#define MEMSIZE 4096
+#define MEMSIZE 0
 
 // these are the definitions to build a standalone 
 // computer. All of these extensions are very memory hungry
@@ -3680,7 +3680,7 @@ nextvariable:
 		ir=getstring(xc, yc, 1); 
 		if (id != IFILE) outsc("? ");
 		ins(ir-1, stringdim(xc, yc));
-		if (xc != '@') {
+		if (xc != '@') {    // works only for strindex 2 - work needed)
 			*(ir-2)=*(ir-1);
 			*(ir-1)=0;
 		}
