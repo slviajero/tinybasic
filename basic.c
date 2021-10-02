@@ -46,18 +46,22 @@
 	PICO     -504 	-179
 
 	The extension flags control features and code size
+
+	MEMSIZE sets the BASIC main memory to a fixed value,
+		if MEMSIZE=0 a heuristic is used stepping down 
+		from 60000 to 128 bytes.
 */ 
 
 #undef ARDUINODUE
 #undef RP2040
 #undef ESP8266
-#undef MINGW
+#define MINGW
 #define ARDUINOEEPROM
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
 #undef USESPICOSERIAL
-#define MEMSIZE 0
+#define MEMSIZE 4096
 
 // these are the definitions to build a standalone 
 // computer. All of these extensions are very memory hungry
@@ -168,7 +172,7 @@ const int printer_baudrate = 9600;
 #define TTO     -110
 #define TSTEP   -109
 #define TNEXT   -108
-#define TSTOP    -107
+#define TSTOP   -107
 #define TLIST	-106
 #define TNEW    -105
 #define TRUN    -104
@@ -418,7 +422,8 @@ const char* const message[] PROGMEM = {
 };
 
 
-// preparation for numbers and addresses not being 16 bit
+// code for variable numbers and addresses sizes
+// the original code was 16 bit but can be extended here
 // works but with the tacit assumption that 
 // sizeof(number_t) >= sizeof(address_t)
 typedef int number_t;
@@ -426,6 +431,7 @@ typedef unsigned short address_t;
 const int numsize=sizeof(number_t);
 const int addrsize=sizeof(address_t);
 const int eheadersize=sizeof(address_t)+1;
+const int strindexsize=2;
 const number_t maxnum=(number_t)~((number_t)1<<(sizeof(number_t)*8-1));
 const address_t maxaddr=(address_t)(~0); 
 
@@ -494,12 +500,12 @@ static address_t himem, memsize;
 #ifdef HASFORNEXT
 static struct {char varx; char vary; address_t here; number_t to; number_t step;} forstack[FORDEPTH];
 static short forsp = 0;
+static char fnc; 
 #endif
 
 #ifdef HASGOSUB
 static address_t gosubstack[GOSUBDEPTH];
 static short gosubsp = 0;
-static char fnc; 
 #endif
 
 static number_t x, y;
@@ -632,6 +638,7 @@ void outsc(char*);
 char innumber(number_t*);
 short parsenumber(char*, number_t*);
 void outnumber(number_t);
+short writenumber(char*, number_t);
 
 /*
 	Arduino definitions and code
@@ -699,7 +706,7 @@ const int PS2IRQpin =  2;
 PS2Keyboard keyboard;
 #endif
 
-
+// global variables for a standard LCD shield.
 #ifdef LCDSHIELD
 #define DISPLAYDRIVER
 #include <LiquidCrystal.h>
@@ -714,11 +721,12 @@ void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.w
 void dspclear() { lcd.clear(); }
 #endif
 
+// global variables for a LCD display connnected
+// via i2c. 
 #ifdef ARDUINOLCDI2C
 #define DISPLAYDRIVER
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
-// a I2C display connected
 const int dsp_rows=4;
 const int dsp_columns=20;
 LiquidCrystal_I2C lcd(0x27, dsp_columns, dsp_rows);
@@ -729,7 +737,7 @@ void dspclear() { lcd.clear(); }
 
 // global variables for a TFT
 // this is code for a SD1963 800*480 board using the UTFT library
-// it is mainly intended for a DUE as a all in one system
+// it is mainly intended for a MEGA or DUE as a all in one system
 #ifdef ARDUINOTFT
 #include <memorysaver.h>
 #include <UTFT.h>
@@ -745,7 +753,8 @@ void dspprintchar(char c, short col, short row) { tft.printChar(c, col*dspfontsi
 void dspclear() { tft.clrScr(); }
 #endif
 
-// global variables for an Arduino SD card
+// global variables for an Arduino SD card, chipselect 
+// depends on the shield. 
 #ifdef ARDUINOSD
 // the SD chip select, set 4 for the Ethernet/SD shield
 //const char sd_chipselect = 53;
@@ -982,8 +991,8 @@ address_t allocmem() {
 	}
 
 	// MKR boards can do this
-	mem=(signed char*)malloc(30000);
-	if (mem != NULL) { return 30000-1; };
+	mem=(signed char*)malloc(28000);
+	if (mem != NULL) { return 28000-1; };
 
 	// MEGA Boards
 	mem=(signed char*)malloc(4096);
@@ -1008,6 +1017,7 @@ fallback:
 // allocate a junk of memory for a variable on the heap
 // every objects is identified by name (c,d) and type t
 // 3 bytes are used here but 2 would be enough
+
 address_t bmalloc(signed char t, char c, char d, short l) {
 
 	address_t vsize;     // the length of the header
@@ -1015,6 +1025,13 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 
 
     if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
+
+    /*
+		check if the object already exists
+    */
+
+    	b=bfind(t, c, d);
+    	if (b != 0 ) { error(EVARIABLE); return 0; };
 
 	/* 
 		how much space is needed
@@ -1025,8 +1042,7 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 
 	if ( t == VARIABLE ) vsize=numsize+3; 	
 	else if ( t == ARRAYVAR ) vsize=numsize*l+addrsize+3;
-	else if ( t == STRINGVAR ) vsize=l+addrsize+3;
-	else { error(EUNKNOWN); return 0; }
+	else vsize=l+addrsize+3;
 	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return 0;}
 
 	// here we would create the hash, currently simplified
@@ -1038,7 +1054,7 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 	mem[b--]=d;
 	mem[b--]=t;
 
-	// for strings and arrays write the length
+	// for strings and arrays write the (maximum) length
 	if (t == ARRAYVAR || t == STRINGVAR) {
 
 		// store the maximum length of the array of string
@@ -1064,19 +1080,26 @@ address_t bfind(signed char t, char c, char d) {
 	char c1, d1;
 	short i=0;
 
-
 	while (i < nvars) { 
 
 		c1=mem[b--];
 		d1=mem[b--];
 		t1=mem[b--];
 
-		if (t1 == STRINGVAR || t1 == ARRAYVAR) {
+		// if (t1 == STRINGVAR || t1 == ARRAYVAR) {
+		//	b=b-addrsize+1;
+		//	z.i=getnumber(b, addrsize);
+		//	b--;
+		//} else 
+		//	z.i=numsize; 
+
+		if (t1 == VARIABLE) {
+			z.i=numsize; 
+		} else {
 			b=b-addrsize+1;
 			z.i=getnumber(b, addrsize);
 			b--;
-		} else 
-			z.i=numsize; 
+		}
 
 		b-=z.i;
 
@@ -1186,14 +1209,19 @@ void clrvars() {
 number_t getnumber(address_t m, short n){
 
 	z.i=0;
-	if ( n == 2 ) {
-		z.b.l=memread(m++);
-		z.b.h=memread(m);
-	} else {
- 		for (int i=0; i<n; i++) {
-			z.c[i]=memread(m++);
-		}
+
+	switch (n) {
+		case 1:
+			z.i=memread(m);
+			break;
+		case 2:
+			z.b.l=memread(m++);
+			z.b.h=memread(m);
+			break;
+		default:
+			for (int i=0; i<n; i++) z.c[i]=memread(m++);
 	}
+
 	return z.i;
 }
 
@@ -1216,13 +1244,17 @@ number_t egetnumber(address_t m, short n){
 void setnumber(address_t m, number_t v, short n){
 	
 	z.i=v;
-	if ( n == 2 ) {
-		mem[m++]=z.b.l;
-		mem[m]=z.b.h;
-	} else {
- 		for (int i=0; i<n; i++) {
-			mem[m++]=z.c[i];
-		}
+
+	switch (n) {
+		case 1:
+			mem[m]=z.i;
+			break;
+		case 2: 
+			mem[m++]=z.b.l;
+			mem[m]=z.b.h;
+			break;
+		default:
+ 			for (int i=0; i<n; i++) mem[m++]=z.c[i];
 	}
 }
 
@@ -1309,12 +1341,12 @@ void array(char m, char c, char d, number_t i, number_t* v) {
 
 void createstring(char c, char d, number_t i) {
 	if (bfind(STRINGVAR, c, d)) { error(EVARIABLE); return; }
-	(void) bmalloc(STRINGVAR, c, d, i+1);
+	(void) bmalloc(STRINGVAR, c, d, i+strindexsize);
 	if (er != 0) return;
 	if (DEBUG) { outsc("Created string "); outch(c); outch(d); outspc(); outnumber(nvars); outcr(); }
 }
 
-
+// the -1+stringdexsize is needed because a string index starts with 1
 char* getstring(char c, char d, number_t b) {	
 	address_t a;
 
@@ -1326,17 +1358,24 @@ char* getstring(char c, char d, number_t b) {
 
 	// dynamically allocated strings
 	a=bfind(STRINGVAR, c, d);
+
+	if (DEBUG) { outsc("** heap address "); outnumber(a); outcr(); }
+	if (DEBUG) { outsc("** byte length "); outnumber(z.i); outcr(); }
+
 	if (er != 0) return 0;
 	if (a == 0) {
 		error(EVARIABLE);
 		return 0;
 	}
 
-	if ( (b < 1) || (b > z.i) ) {
+	if ( (b < 1) || (b > z.i-strindexsize ) ) {
 		error(ERANGE); return 0;
 	}
 
-	a=a+b;
+	a=a+b-1+strindexsize;
+
+	if (DEBUG) { outsc("** payload address address "); outnumber(a); outcr(); }
+
 	return (char *)&mem[a];
 }
  
@@ -1356,17 +1395,21 @@ number_t arraydim(char c, char d) {
 number_t stringdim(char c, char d) {
 	if (c == '@')
 		return BUFSIZE-1;
-	return blength(STRINGVAR, c, d)-1;
+
+	return blength(STRINGVAR, c, d)-strindexsize;
 }
 
 number_t lenstring(char c, char d){
 	char* b;
+	number_t a;
+
 	if (c == '@')
 		return ibuffer[0];
 	
-	b=getstring(c, d, 1);
+	a=bfind(STRINGVAR, c, d);
 	if (er != 0) return 0;
-	return b[-1];
+
+	return getnumber(a, strindexsize);
 }
 
 void setstringlength(char c, char d, number_t l) {
@@ -1385,7 +1428,8 @@ void setstringlength(char c, char d, number_t l) {
 	}
 
 	if (l < z.i)
-		mem[a]=l;
+		setnumber(a, l, strindexsize);
+		//mem[a]=l;
 	else
 		error(ERANGE);
 
@@ -1395,7 +1439,7 @@ void setstring(char c, char d, number_t w, char* s, number_t n) {
 	char *b;
 	address_t a;
 
-	if (DEBUG) { outsc("* set string "); outch(c); outch(d); outspc(); outnumber(w); outcr(); }
+	if (DEBUG) { outsc("* set var string "); outch(c); outch(d); outspc(); outnumber(w); outcr(); }
 
 
 	if ( c == '@') {
@@ -1408,13 +1452,14 @@ void setstring(char c, char d, number_t w, char* s, number_t n) {
 			return;
 		}
 
-		b=(char *)&mem[a+1];
+		b=(char *)&mem[a+strindexsize];
 
 	}
 
 	if ( (w+n-1) <= stringdim(c, d) ) {
 		for (int i=0; i<n; i++) { b[i+w]=s[i]; } 
-		b[0]=w+n-1; 	
+		setnumber(a, w+n-1, strindexsize);
+		//b[0]=w+n-1; 	
 	}
 	else 
 		error(ERANGE);
@@ -3513,7 +3558,7 @@ void assignment() {
 		assignnumber(t, xcl, ycl, i, ps);
 	
 	} else {
-
+		// note that stringvalue sets the ir2 register
 		switch (t) {
 			case VARIABLE: // a scalar variable gets assigned the first string character 
 				setvar(xcl, ycl , ir2[0]);
@@ -3531,7 +3576,14 @@ void assignment() {
 				ir=getstring(xcl, ycl, i);
 				if (er != 0) return;
 
-				if ((lenstring(xcl, ycl)+lensource-1) > stringdim(xcl, ycl)) { error(ERANGE); return; }
+				if (DEBUG) {
+					outsc("* assigment stringcode "); outch(xcl); outch(ycl); outcr();
+					outsc("** assignment source string length "); printf("%d ", lensource); outcr();
+					outsc("** assignment old string length "); printf("%d ",lenstring(xcl, ycl)); outcr();
+					outsc("** assignment string dimension "); printf("%d ",stringdim(xcl, ycl)); outcr();
+				};
+
+				if ((i+lensource-1) > stringdim(xcl, ycl)) { error(ERANGE); return; }
 
 				// this code is needed to make sure we can copy one string to the same string 
 				// without overwriting stuff, we go either left to right or backwards
@@ -3628,6 +3680,10 @@ nextvariable:
 		ir=getstring(xc, yc, 1); 
 		if (id != IFILE) outsc("? ");
 		ins(ir-1, stringdim(xc, yc));
+		if (xc != '@') {
+			*(ir-2)=*(ir-1);
+			*(ir-1)=0;
+		}
  	}
 
 	nexttoken();
@@ -4089,7 +4145,7 @@ nextvariable:
 		x=pop();
 		if (x<=0) {error(ERANGE); return; }
 		if (t == STRINGVAR) {
-			if (x>255) {error(ERANGE); return; }
+			if ( (x>255) && (strindexsize==1) ) {error(ERANGE); return; }
 			createstring(xcl, ycl, x);
 		} else {
 			createarry(xcl, ycl, x);
@@ -4774,13 +4830,85 @@ void xclose() {
 */
 
 void xusr() {
+	address_t a;
+	number_t n;
+	char* instr=ibuffer;
+
 	y=pop();
 	x=pop();
 	switch(x) {
-		case 1:
-		break;	
+		case 0: // USR(0,y) delivers all the internal constants
+			switch(y) {
+				case 0: push(numsize); break;
+				case 1: push(maxnum); break;
+				case 2: push(addrsize); break;
+				case 3: push(maxaddr); break;
+				case 4: push(strindexsize); break;
+				case 5: push(memsize); break;
+				case 6: push(elength()); break;
+				case 7: push(GOSUBDEPTH); break;
+				case 8: push(FORDEPTH); break;
+				case 9: push(STACKSIZE); break;
+				case 10: push(BUFSIZE); break;
+				case 11: push(SBUFSIZE); break;
+				default: push(0);
+			}
+			break;	
+		case 1: // access to the variables of the interpreter
+			switch(y) {
+				case 0: push(top); break;
+				case 1: push(here); break;
+				case 2: push(himem); break;
+				case 3: push(nvars); break;
+				case 4: push(0); break;
+				case 5: push(0); break;
+				case 6: push(0); break;
+				case 7: push(gosubsp); break;
+				case 8: push(fnc); break;
+				case 9: push(sp); break;
+				default: push(0);
+			}
+			break;
+		case 2: // io definitions, somewhat redundant to @ 
+			switch(y) {
+				case 0: push(id); break;
+				case 1: push(idd); break;
+				case 2: push(od); break;
+				case 3: push(odd); break;
+				case 4: push(0); break;
+				default: push(0);
+			}
+			break;
+		// here the evil part begins - access to the heap
+		case 3: // find a variable from its type and name in ibuffer 
+			push(bfind(instr[1], instr[2], instr[3]));
+			break;	
+		case 4: // more evil - allocate an arbitrary object on the heap
+			push(bmalloc(instr[1], instr[2], instr[3], y));
+			break;
+		case 5: // find the length of an object on the heap
+			push(blength(instr[1], instr[2], instr[3]));
+			break;
+		case 6: // parse a number in the input buffer - less evil
+			(void) parsenumber(ibuffer+1, &x);
+			push(x);
+			break;
+		case 7: // write a number to the input buffer
+			push(*ibuffer=writenumber(ibuffer+1, y));
+			break;
+		case 8: // maximal evil - store a line into a basic program 
+			x=y;                // the linennumber
+			push(st); st=SINT;  // go to (fake) interactive mode
+			push(here); 		// remember where we were
+			bi=ibuffer+1; 		// go to the beginning of the line
+			ibuffer[ibuffer[0]+1]=0; // an end of line 
+			storeline();  		// try to store it
+			here=pop();			// back to our original place (and hope no mod was made)
+			st=pop();			// go back to run mode
+			push(0);
+			break;
+		default: push(0);
 	}
-	push(y);
 }
 
 void xcall() {
