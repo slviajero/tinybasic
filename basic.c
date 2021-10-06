@@ -122,8 +122,16 @@
 #endif
 
 // Arduino default serial baudrate
+#ifdef ARDUINO
 const int serial_baudrate = 9600;
+#else 
+const int serial_baudrate = 0;
+#endif
+#ifdef ARDUINOPRT
 const int printer_baudrate = 9600;
+#else
+const int printer_baudrate = 0;
+#endif
 
 // general definitions
 #define TRUE  1
@@ -431,7 +439,7 @@ typedef unsigned short address_t;
 const int numsize=sizeof(number_t);
 const int addrsize=sizeof(address_t);
 const int eheadersize=sizeof(address_t)+1;
-const int strindexsize=2;
+const int strindexsize=2; // the index size of strings either 1 byte or 2 bytes - no other values supported
 const number_t maxnum=(number_t)~((number_t)1<<(sizeof(number_t)*8-1));
 const address_t maxaddr=(address_t)(~0); 
 
@@ -635,6 +643,7 @@ void outcr();
 void outspc();
 void outs(char*, short);
 void outsc(char*);
+void outscf(char *, short);
 char innumber(number_t*);
 short parsenumber(char*, number_t*);
 void outnumber(number_t);
@@ -700,9 +709,16 @@ void eload() { error(EEEPROM); return; }
 #endif
 
 // global variables for the keyboard
+// heuristic here - with and without TFT shield 
+// needs to be changed according to hw config
 #ifdef ARDUINOPS2
+#ifdef ARDUINOTFT 
+const int PS2DataPin = 18;
+const int PS2IRQpin =  19;
+#else
 const int PS2DataPin = 3;
 const int PS2IRQpin =  2;
+#endif
 PS2Keyboard keyboard;
 #endif
 
@@ -748,7 +764,7 @@ UTFT tft(CTE70,38,39,40,41);
 const int dsp_rows=30;
 const int dsp_columns=50;
 char dspfontsize = 16;
-void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrollmode(0, 4); }
+void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrollmode(1, 4); }
 void dspprintchar(char c, short col, short row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
 void dspclear() { tft.clrScr(); }
 #endif
@@ -757,8 +773,11 @@ void dspclear() { tft.clrScr(); }
 // depends on the shield. 
 #ifdef ARDUINOSD
 // the SD chip select, set 4 for the Ethernet/SD shield
-//const char sd_chipselect = 53;
+#ifdef ARDUINOTFT
+const char sd_chipselect = 53;
+#else
 const char sd_chipselect = 4;
+#endif
 #endif
 
 // global variables for an Ethernet shield
@@ -925,7 +944,9 @@ void xtab();
 void xdump();
 
 // file access 
+void stringtosbuffer();
 char* getfilename();
+void getfilename2(char*, char);
 void xsave();
 void xload();
 void xcatalog();
@@ -1853,9 +1874,17 @@ void dspwrite(char c){
 }
 
 char dspwaitonscroll() {
-	if ( dspscrollmode == 1 )
-		if (dspmyrow == dsp_rows) return inch();
+  	char c;
 
+	if ( dspscrollmode == 1 ) {
+		if (dspmyrow == dsp_rows-1) {
+        	c=inch();
+        	if (c == ' ') {
+          		outch(12);
+        	}
+		    return c;
+		}
+	}
 	return 0;
 }
 
@@ -2126,6 +2155,16 @@ void outs(char *ir, short l){
 // output a zero terminated string at ir - c style
 void outsc(char *c){
 	while (*c != 0) outch(*c++);
+}
+
+// output a zero terminated string in a formated box
+void outscf(char *c, short f){
+  short i = 0;
+  while (*c != 0) { outch(*c++); i++; }
+  if (f > i) {
+    f=f-i;
+    while (f--) outspc();
+  }
 }
 
 
@@ -2994,7 +3033,7 @@ void peek(){
 	a=pop();
 
 	// this is a hack again, 16 bit numbers can't peek big addresses
-	//if (memsize > maxnum) amax=maxnum; else amax=memsize;
+	if ((long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
 
 	if (a >= 0 && a<amax) 
 		push(mem[a]);
@@ -3680,7 +3719,7 @@ nextvariable:
 		ir=getstring(xc, yc, 1); 
 		if (id != IFILE) outsc("? ");
 		ins(ir-1, stringdim(xc, yc));
-		if (xc != '@') {    // works only for strindex 2 - work needed)
+		if (xc != '@' && strindexsize == 2) { 
 			*(ir-2)=*(ir-1);
 			*(ir-1)=0;
 		}
@@ -3822,28 +3861,30 @@ void findnext(){
 */
 
 void xfor(){
+	char xcl, ycl;
 	
 	nexttoken();
 	if (token != VARIABLE) {
 		error(EUNKNOWN);
 		return;
 	}
-	push(yc);
-	push(xc);
+	xcl=xc;
+	ycl=yc;
+
 	nexttoken();
 	if (token != '=') { 
 		error(EUNKNOWN); 
 		return; 
 	}
+
 	nexttoken();
 	expression();
 	if (er != 0) return;
+
 	x=pop();	
-	xc=pop();
-	yc=pop();
-	setvar(xc, yc, x);
-	if (DEBUG) { outch(xc); outspc(); outnumber(x); outcr(); }
-	push(xc);
+	setvar(xcl, ycl, x);
+	if (DEBUG) { outch(xcl); outch(ycl); outspc(); outnumber(x); outcr(); }
+
 	if (token != TTO){
 		error(EUNKNOWN);
 		return;
@@ -3864,10 +3905,13 @@ void xfor(){
 		error(UNKNOWN);
 		return;
 	}
+
 	x=pop();
-	xc=pop();
 	if (st == SINT)
 		here=bi-ibuffer;
+
+	xc=xcl;
+	yc=ycl;
 	pushforstack();
 	if (er != 0) return;
 
@@ -3896,6 +3940,7 @@ void xbreak(){
 void xnext(){
 	char xcl=0;
 	char ycl;
+	address_t h;
 	number_t t;
 
 	nexttoken();
@@ -3911,11 +3956,11 @@ void xnext(){
 	}
 
 plainnext:
-	push(here);
+	h=here;
 	popforstack();
 	if (xcl) {
 		if (xcl != xc || ycl != yc ) {
-			error(EUNKNOWN);
+			error(EFOR);
 			return;
 		} 
 	}
@@ -3926,7 +3971,7 @@ plainnext:
 	if (y < 0 && t >= x) goto backtofor;
 
 	// last iteration completed
-	here=pop();
+	here=h;
 	nexttoken();
 	return;
 
@@ -3935,7 +3980,6 @@ backtofor:
 	pushforstack();
 	if (st == SINT)
 		bi=ibuffer+here;
-	drop();
 	nexttoken();
 	return;
 
@@ -4034,7 +4078,9 @@ void xlist(){
 		gettoken();
 		if (token == LINENUMBER && oflag) {
 			outcr();
-			if ( dspactive() && (dsp_rows < 10) ){ if ( inch() == 27 ) break;}
+			// wait after every line on small displays
+			// if ( dspactive() && (dsp_rows < 10) ){ if ( inch() == 27 ) break;}
+			if ( dspwaitonscroll() == 27 ) break;
 		}
 	}
 	if (here == top && oflag) outputtoken();
@@ -4050,6 +4096,7 @@ void xrun(){
 		nexttoken();
 		goto statementloop;
 	} 
+
 	nexttoken();
 	y=parsearguments();
 	if (er != 0 ) return;
@@ -4176,7 +4223,7 @@ void xpoke(){
 
 	// like in peek
 	// this is a hack again, 16 bit numbers can't peek big addresses
-	//if (MEMSIZE > maxnum) amax=maxnum; else amax=MEMSIZE;
+	if ( (long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
 
 	nexttoken();
 	parsenarguments(2);
@@ -4280,11 +4327,18 @@ void dumpmem(address_t r, address_t b) {
 }
 #endif
 
+// creates a C string from a BASIC string
+void stringtobuffer(char *buffer) {
+	if (x >= SBUFSIZE) x=SBUFSIZE-1;
+	buffer[x--]=0;
+	while (x >= 0) { buffer[x]=ir2[x]; x--; }
+}
+
+/* get a file argument
 char * getfilename() {
 	nexttoken();
-	if (token == STRING && x > 0 && x < SBUFSIZE) {
-		sbuffer[x--]=0;
-		while (x >= 0) { sbuffer[x]=ir[x]; x--; }
+	if (token == STRING && x > 0) {
+		stringtosbuffer();
 		return sbuffer;
 	} else if (termsymbol()) {
 		return getmessage(MFILE);
@@ -4293,15 +4347,45 @@ char * getfilename() {
 		return NULL;
 	}
 }
+*/
+
+
+// get a file argument (2) nexttoken handling still to be checked
+void getfilename2(char * buffer, char d) {
+	char s;
+	char *sbuffer;
+
+	nexttoken();
+	s=stringvalue();
+	if (er != 0) return;
+
+	if (DEBUG) {outsc("** in getfilename2 stringvalue delivered it "); outnumber(s); outcr(); }
+
+	if (s) {
+		x=pop();
+		stringtobuffer(buffer);
+		if (DEBUG) {outsc("** in getfilename2 stringvalue string "); outsc(buffer); outcr(); }
+	} else if (termsymbol()) {
+		if (d) {
+			sbuffer=getmessage(MFILE);
+			s=0;
+			while ( (sbuffer[s] != 0) && (s<SBUFSIZE-1)) { buffer[s]=sbuffer[s]; s++; }
+			buffer[s]=0;
+		} else 
+			buffer[0]=0;
+	} else {
+		error(EUNKNOWN);
+	}
+}
 
 
 // save a file either to disk or to EEPROM
 void xsave() {
-	char * filename;
+	char filename[SBUFSIZE];
 	address_t here2;
 
-	filename=getfilename();
-	if (er != 0 || filename == NULL) return;
+	getfilename2(filename, 1);
+	if (er != 0) return;
 
 	// save the output mode
 	push(od);
@@ -4377,14 +4461,15 @@ void xsave() {
 	return;
 }
 
+// loading a file 
 void xload() {
-	char * filename;
+	char filename[SBUFSIZE];
 	char ch;
 	address_t here2;
 	char chain = FALSE;
 
-	filename=getfilename();
-	if (er != 0 || filename == NULL) return; 
+	getfilename2(filename, 1);
+	if (er != 0) return; 
 
 	if (filename[0] == '!') {
 		eload();
@@ -4639,9 +4724,11 @@ void xpinm(){
 }
 
 void xdelay(){
+
 	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
+
 	x=pop();
 	delay(x);	
 }
@@ -4678,21 +4765,48 @@ void xtone(){
 
 */
 
+// string equal helper in catalog 
+char streq(char *s, char *m){
+	short i=0;
+	while (m[i]!=0 && s[i]!=0 && i < SBUFSIZE){
+		if (s[i] != m[i]) return 0;
+		i++;
+	}	
+	return 1;
+}
+
+// basic directory function
 void xcatalog() {
+
+	char filename[SBUFSIZE];
+
+	getfilename2(filename, 0);
+	if (er != 0) return; 
+
 #ifdef ARDUINOSD
+
 	File root, file;
+  	char *n;
 
 	root=SD.open("/");
 	while (TRUE) {
 		file=root.openNextFile();
 		if (! file) break;
 		if (! file.isDirectory()) { 
-		  	outsc(file.name()); outch(' '); outnumber(file.size()); outcr();
+        	n=file.name();
+        	if (*n != '_' && streq(n, filename)) { 
+        	    outscf(n, 14); 
+        	    outch(' '); 
+        	    outnumber(file.size()); 
+        	    outcr(); 
+              if ( dspwaitonscroll() == 27 ) break;
+        	}
 		}
     	file.close(); 
 	}
-
+  	file.close();
 	root.close();
+
 #else 
 #ifndef ARDUINO 
 	DIR *dp;
@@ -4702,8 +4816,10 @@ void xcatalog() {
   	if (dp != NULL) {
     	while ( (ep = readdir(dp)) ) {
     		if (ep->d_type == DT_REG) {
-    		    outsc(ep->d_name); 
-      			outcr();	
+    			if (streq(ep->d_name, filename)) {
+        		    outsc(ep->d_name); 
+      				outcr();				
+    			}
     		}
     	}
     	(void) closedir (dp);
@@ -4716,9 +4832,10 @@ void xcatalog() {
 }
 
 void xdelete() {
-	char * filename;
-	filename=getfilename();
-	if (er != 0 || filename == NULL) return; 
+	char filename[SBUFSIZE];
+
+	getfilename2(filename, 0);
+	if (er != 0) return; 
 
 #ifdef ARDUINOSD	
 	SD.remove(filename);
@@ -4731,12 +4848,12 @@ void xdelete() {
 }
 
 void xopen() {
-	char * filename;
+	char filename[SBUFSIZE];
 	short args=0;
 	char mode;
 
-	filename=getfilename();
-	if (er != 0 || filename == NULL) return; 
+	getfilename2(filename, 0);
+	if (er != 0) return; 
 
 	nexttoken();
 	if (token == ',') { 
@@ -4815,7 +4932,6 @@ void xclose() {
 #endif
 #endif
 
-
 	nexttoken();
 }
 
@@ -4844,13 +4960,17 @@ void xusr() {
 				case 2: push(addrsize); break;
 				case 3: push(maxaddr); break;
 				case 4: push(strindexsize); break;
-				case 5: push(memsize); break;
+				case 5: push(memsize+1); break;
 				case 6: push(elength()); break;
 				case 7: push(GOSUBDEPTH); break;
 				case 8: push(FORDEPTH); break;
 				case 9: push(STACKSIZE); break;
 				case 10: push(BUFSIZE); break;
 				case 11: push(SBUFSIZE); break;
+				case 12: push(serial_baudrate); break;
+				case 13: push(printer_baudrate); break;
+				case 14: push(dsp_rows); break;
+				case 15: push(dsp_columns); break;
 				default: push(0);
 			}
 			break;	
@@ -4980,6 +5100,7 @@ void statement(){
 #endif
 			case TSTOP:
 			case TEND: // return here because new input is needed
+				*ibuffer=0; // clear ibuffer - this is a hack
 				st=SINT;
 				return;
 			case TLIST:
