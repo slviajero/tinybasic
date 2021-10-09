@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.86 2021/10/06 11:46:55 stefan Exp stefan $
+// $Id: basic.c,v 1.87 2021/10/09 03:43:05 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -990,7 +990,6 @@ short dspmyrow;
 char dspbuffer[dsp_rows][dsp_columns];
 char  dspscrollmode = 0;
 short dsp_scroll_rows = 1; 
-char  tcc = 0;
 
 // 0 normal scroll
 // 1 enable waitonscroll function
@@ -1050,21 +1049,23 @@ void dspscroll(){
 
 void dspwrite(char c){
 	// the special characters the LCD need to know
-    // we process a multi character sequence 
+	// we process a multi character sequence for cursor 
+	// control
     if (tcc) {
         switch(tcc) {
-          case 17: 
-            dspmycol=c%dsp_columns;
-            break;
-          case 18:
-            dspmyrow=c%dsp_rows;
-            break;
+          	case 17: 
+            	dspmycol=c%dsp_columns;
+            	break;
+          	case 18:
+            	dspmyrow=c%dsp_rows;
+            	break;
         }
-      tcc=0;
-      return;
+      	tcc=0;
+      	return;
     }
+
   	switch(c) {
-    	case 02: // STX is used for Home
+    	case 2: // STX is used for Home
     		dspmyrow=0;
     		dspmycol=0;
     		break;
@@ -1095,12 +1096,12 @@ void dspwrite(char c){
     		return; 
     	case 15: // cursor off 
     		return;
-      case 17:
-        tcc=17; 
-        return;
-      case 18:
-        tcc=18;
-        return;
+    	case 17:
+        	tcc=17; 
+        	return;
+      	case 18:
+        	tcc=18;
+        	return;
     	case 127: // delete
     		if (dspmycol > 0) {
       			dspmycol--;
@@ -1403,14 +1404,14 @@ number_t getnumber(address_t m, short n){
 
 	switch (n) {
 		case 1:
-			z.i=memread(m);
+			z.i=mem[m];
 			break;
 		case 2:
-			z.b.l=memread(m++);
-			z.b.h=memread(m);
+			z.b.l=mem[m++];
+			z.b.h=mem[m];
 			break;
 		default:
-			for (int i=0; i<n; i++) z.c[i]=memread(m++);
+			for (int i=0; i<n; i++) z.c[i]=mem[m++];
 	}
 
 	return z.i;
@@ -2051,14 +2052,14 @@ void serialbegin() {
 
 #ifdef LCDSHIELD
 short keypadread(){
-  short a=analogRead(A0);
-  if (a > 850) return 0;
-  else if (a>600 && a<800) return 's';
-  else if (a>400 && a<600) return 'l';
-  else if (a>200 && a<400) return 'd';
-  else if (a>60  && a<200) return 'u';
-  else if (a<60)           return 'r';
-  return 0;
+	short a=analogRead(A0);
+	if (a > 850) return 0;
+	else if (a>600 && a<800) return 's';
+	else if (a>400 && a<600) return 'l';
+	else if (a>200 && a<400) return 'd';
+	else if (a>60  && a<200) return 'u';
+	else if (a<60)           return 'r';
+	return 0;
 }
 #endif
 
@@ -2660,11 +2661,11 @@ void gettoken() {
 	token=memread(here++);
 	switch (token) {
 		case LINENUMBER:
-			x=getnumber(here, addrsize);
+			if (st != SERUN) x=getnumber(here, addrsize); else x=egetnumber(here+eheadersize, addrsize);
 			here+=addrsize;
 			break;
 		case NUMBER:	
-			x=getnumber(here, numsize);
+			if (st !=SERUN) x=getnumber(here, numsize); else x=egetnumber(here+eheadersize, numsize);
 			here+=numsize;	
 			break;
 		case ARRAYVAR:
@@ -4140,8 +4141,8 @@ void xlist(){
 			outcr();
 			// wait after every line on small displays
 			// if ( dspactive() && (dsp_rows < 10) ){ if ( inch() == 27 ) break;}
-      if (dspactive()) 
-			  if ( dspwaitonscroll() == 27 ) break;
+			if (dspactive()) 
+				if ( dspwaitonscroll() == 27 ) break;
 		}
 	}
 	if (here == top && oflag) outputtoken();
@@ -4664,7 +4665,7 @@ void xget(){
 
 void xput(){
 	short ood=od;
-  short args, i;
+	short args, i;
 
 	nexttoken();
 
@@ -4681,11 +4682,11 @@ void xput(){
 		nexttoken();
 	}
 
-  args=parsearguments();
-  if (er != 0) return;
+	args=parsearguments();
+	if (er != 0) return;
 
-  for (i=args-1; i>=0; i--) sbuffer[i]=pop();
-  for (i=0; i<args; i++) outch(sbuffer[i]);
+	for (i=args-1; i>=0; i--) sbuffer[i]=pop();
+	for (i=0; i<args; i++) outch(sbuffer[i]);
 
 	od=ood;
 }

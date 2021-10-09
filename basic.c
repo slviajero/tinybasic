@@ -1404,14 +1404,14 @@ number_t getnumber(address_t m, short n){
 
 	switch (n) {
 		case 1:
-			z.i=memread(m);
+			z.i=mem[m];
 			break;
 		case 2:
-			z.b.l=memread(m++);
-			z.b.h=memread(m);
+			z.b.l=mem[m++];
+			z.b.h=mem[m];
 			break;
 		default:
-			for (int i=0; i<n; i++) z.c[i]=memread(m++);
+			for (int i=0; i<n; i++) z.c[i]=mem[m++];
 	}
 
 	return z.i;
@@ -2661,11 +2661,11 @@ void gettoken() {
 	token=memread(here++);
 	switch (token) {
 		case LINENUMBER:
-			x=getnumber(here, addrsize);
+			if (st != SERUN) x=getnumber(here, addrsize); else x=egetnumber(here+eheadersize, addrsize);
 			here+=addrsize;
 			break;
 		case NUMBER:	
-			x=getnumber(here, numsize);
+			if (st !=SERUN) x=getnumber(here, numsize); else x=egetnumber(here+eheadersize, numsize);
 			here+=numsize;	
 			break;
 		case ARRAYVAR:
