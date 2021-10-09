@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.84 2021/09/26 13:29:14 stefan Exp stefan $
+// $Id: basic.c,v 1.86 2021/10/06 11:46:55 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -973,6 +973,183 @@ void xusr();
 // the statement loop
 void statement();
 
+/*  Layer 0
+	this is a generic display code 
+	it combines the functions of LCD and TFT drivers
+	if this code is active 
+	dspprintchar(char c, short col, short row)
+	dspclear()
+	dspbegin()
+	dspclear()
+	have to be defined before in a hardware dependent section
+*/
+
+#ifdef DISPLAYDRIVER
+short dspmycol;
+short dspmyrow;
+char dspbuffer[dsp_rows][dsp_columns];
+char  dspscrollmode = 0;
+short dsp_scroll_rows = 1; 
+char  tcc = 0;
+
+// 0 normal scroll
+// 1 enable waitonscroll function
+// ... more to come
+void dspsetscrollmode(char c, short l) {
+	dspscrollmode = c;
+	dsp_scroll_rows = l;
+}
+
+void dspsetcursor(short c, short r) {
+	dspmyrow=r;
+	dspmycol=c;
+}
+
+char dspactive() {
+	return od & ODSP;
+}
+
+void dspbufferclear() {
+	short r,c;
+	for (r=0; r<dsp_rows; r++)
+		for (c=0; c<dsp_columns; c++)
+      		dspbuffer[r][c]=0;
+  	dspmyrow=0;
+  	dspmycol=0;
+}
+
+void dspscroll(){
+	short r,c;
+	int i;
+  	char a,b;
+
+  	// shift dsp_scroll_rows up
+  	for (r=0; r<dsp_rows-dsp_scroll_rows; r++) { 
+    	for (c=0; c<dsp_columns; c++) {
+        	a=dspbuffer[r][c];
+        	b=dspbuffer[r+dsp_scroll_rows][c];
+        	if ( a != b ) {
+            	if (b >= 32) dspprintchar(b, c, r); else dspprintchar(' ', c, r);
+        	}      
+        	dspbuffer[r][c]=b;
+    	} 
+    }
+
+    // delete the characters in the remaining lines
+  	for (r=dsp_rows-dsp_scroll_rows; r<dsp_rows; r++) {
+    	for (c=0; c<dsp_columns; c++) {
+			if (dspbuffer[r][c] > 32) dspprintchar(' ', c, r); 
+        	dspbuffer[r][c]=0;     
+    	}
+    }
+  
+	// set the cursor to the fist free line	    
+  	dspmycol=0;
+    dspmyrow=dsp_rows-dsp_scroll_rows;
+}
+
+void dspwrite(char c){
+	// the special characters the LCD need to know
+    // we process a multi character sequence 
+    if (tcc) {
+        switch(tcc) {
+          case 17: 
+            dspmycol=c%dsp_columns;
+            break;
+          case 18:
+            dspmyrow=c%dsp_rows;
+            break;
+        }
+      tcc=0;
+      return;
+    }
+  	switch(c) {
+    	case 02: // STX is used for Home
+    		dspmyrow=0;
+    		dspmycol=0;
+    		break;
+    	case 8: // back one character
+    		if (dspmycol > 0) dspmycol--;
+    		break;
+    	case 9: // forward one character 
+    		if (dspmycol < dsp_columns) dspmycol++;
+    		break;
+  		case 10: // this is LF Unix style doing also a CR
+    		dspmyrow=(dspmyrow + 1);
+    		if (dspmyrow >= dsp_rows) {
+      			dspscroll(); 
+    		}
+    		dspmycol=0;
+    		break;
+    	case 11: // one char down 
+    		dspmyrow=(dspmyrow+1) % dsp_rows;
+    		break;
+    	case 12: // form feed is clear screen
+    		dspbufferclear();
+    		dspclear();
+    		return;
+    	case 13: // classical carriage return 
+    		dspmycol=0;
+    		break;
+    	case 14: // cursor on
+    		return; 
+    	case 15: // cursor off 
+    		return;
+      case 17:
+        tcc=17; 
+        return;
+      case 18:
+        tcc=18;
+        return;
+    	case 127: // delete
+    		if (dspmycol > 0) {
+      			dspmycol--;
+      			dspbuffer[dspmyrow][dspmycol]=0;
+      			dspprintchar(' ', dspmycol, dspmyrow);
+      			return;
+    		}
+  	}
+
+	if (c < 32 ) return; 
+
+	dspprintchar(c, dspmycol, dspmyrow);
+	dspbuffer[dspmyrow][dspmycol++]=c;
+	if (dspmycol == dsp_columns) {
+		dspmycol=0;
+		dspmyrow=(dspmyrow + 1);
+    	if (dspmyrow >= dsp_rows) {
+      		dspscroll(); 
+    	}
+	}
+}
+
+char dspwaitonscroll() {
+  	char c;
+
+	if ( dspscrollmode == 1 ) {
+		if (dspmyrow == dsp_rows-1) {
+        	c=inch();
+        	if (c == ' ') {
+          		outch(12);
+        	}
+		    return c;
+		}
+	}
+	return 0;
+}
+
+#else
+const int dsp_rows=0;
+const int dsp_columns=0;
+void dspwrite(char c){};
+void dspbegin() {};
+char dspwaitonscroll() { return 0; };
+char dspactive() {return FALSE; }
+void dspsetscrollmode(char c, short l) {}
+void dspsetcursor(short c, short r) {}
+#endif
+
+
 /*
 	Layer 0 function - variable handling.
 
@@ -1107,13 +1284,6 @@ address_t bfind(signed char t, char c, char d) {
 		d1=mem[b--];
 		t1=mem[b--];
 
-		// if (t1 == STRINGVAR || t1 == ARRAYVAR) {
-		//	b=b-addrsize+1;
-		//	z.i=getnumber(b, addrsize);
-		//	b--;
-		//} else 
-		//	z.i=numsize; 
-
 		if (t1 == VARIABLE) {
 			z.i=numsize; 
 		} else {
@@ -1217,7 +1387,7 @@ void setvar(char c, char d, number_t v){
 	setnumber(a, v, numsize);
 }
 
-
+// clr all variables 
 void clrvars() {
 	for (char i=0; i<VARSIZE; i++) vars[i]=0;
 	nvars=0;
@@ -1261,7 +1431,7 @@ number_t egetnumber(address_t m, short n){
 	return z.i;
 }
 
-
+// set a number at a memory location
 void setnumber(address_t m, number_t v, short n){
 	
 	z.i=v;
@@ -1328,7 +1498,30 @@ void array(char m, char c, char d, number_t i, number_t* v) {
 				h=elength()/numsize;
 				a=elength()-numsize*i;
 				e=TRUE;
+				break;
 			}
+
+
+			// display access, write directly to the buffer (ugly needs rework)
+			case 'D': {
+#ifdef DISPLAYDRIVER
+        		if (dsp_rows == 0 || dsp_columns == 0) { return; }
+        		if (i<1 || i>dsp_columns*dsp_columns ) { return; }
+        		i--;
+        		a=i%dsp_columns;
+        		h=i/dsp_columns;
+        		// this should be encapsulated later into the display object
+        		if (m == 's') {
+          			if (*v == 0) e=' '; else e=*v;
+          			dspprintchar(e, a, h);
+          			if (*v == 32) dspbuffer[h][a]=0; else dspbuffer[h][a]=*v;
+        		} else {
+          			*v=(number_t)dspbuffer[h][a];
+        		}
+#endif
+				return;
+			}
+
 		}
 
 	} else {
@@ -1743,163 +1936,6 @@ void iodefaults() {
 	id=idd;
 }
 
-#ifdef DISPLAYDRIVER
-/*
-	this is a generic display code and will be brought together
-	it combines the functions of LCD and TFT drivers
-	if this code is active 
-	dspprintchar(char c, short col, short row)
-	dspclear()
-	dspbegin()
-	dspclear()
-	have to be defined before in a hardware dependent section
-*/
-
-short dspmycol;
-short dspmyrow;
-char dspbuffer[dsp_rows][dsp_columns];
-char  dspscrollmode = 0;
-short dsp_scroll_rows = 1; 
-
-// 0 normal scroll
-// 1 enable waitonscroll function
-// ... more to come
-void dspsetscrollmode(char c, short l) {
-	dspscrollmode = c;
-	dsp_scroll_rows = l;
-}
-
-void dspsetcursor(short c, short r) {
-	dspmyrow=r;
-	dspmycol=c;
-}
-
-char dspactive() {
-	return od & ODSP;
-}
-
-void dspbufferclear() {
-	short r,c;
-	for (r=0; r<dsp_rows; r++)
-		for (c=0; c<dsp_columns; c++)
-      		dspbuffer[r][c]=0;
-  	dspmyrow=0;
-  	dspmycol=0;
-}
-
-void dspscroll(){
-	short r,c;
-	int i;
-  	char a,b;
-
-  	// shift dsp_scroll_rows up
-  	for (r=0; r<dsp_rows-dsp_scroll_rows; r++) { 
-    	for (c=0; c<dsp_columns; c++) {
-        	a=dspbuffer[r][c];
-        	b=dspbuffer[r+dsp_scroll_rows][c];
-        	if ( a != b ) {
-            	if (b >= 32) dspprintchar(b, c, r); else dspprintchar(' ', c, r);
-        	}      
-        	dspbuffer[r][c]=b;
-    	} 
-    }
-
-    // delete the characters in the remaining lines
-  	for (r=dsp_rows-dsp_scroll_rows; r<dsp_rows; r++) {
-    	for (c=0; c<dsp_columns; c++) {
-			if (dspbuffer[r][c] > 32) dspprintchar(' ', c, r); 
-        	dspbuffer[r][c]=0;     
-    	}
-    }
-  
-	// set the cursor to the fist free line	    
-  	dspmycol=0;
-    dspmyrow=dsp_rows-dsp_scroll_rows;
-}
-
-void dspwrite(char c){
-	// the special characters the LCD need to know
-  	switch(c) {
-    	case 02: // STX is used for Home
-    		dspmyrow=0;
-    		dspmycol=0;
-    		break;
-    	case 8: // back one character
-    		if (dspmycol > 0) dspmycol--;
-    		break;
-    	case 9: // forward one character 
-    		if (dspmycol < dsp_columns) dspmycol++;
-    		break;
-  		case 10: // this is LF Unix style doing also a CR
-    		dspmyrow=(dspmyrow + 1);
-    		if (dspmyrow >= dsp_rows) {
-      			dspscroll(); 
-    		}
-    		dspmycol=0;
-    		break;
-    	case 11: // one char down 
-    		dspmyrow=(dspmyrow+1) % dsp_rows;
-    		break;
-    	case 12: // form feed is clear screen
-    		dspbufferclear();
-    		dspclear();
-    		return;
-    	case 13: // classical carriage return 
-    		dspmycol=0;
-    		break;
-    	case 14: // cursor on
-    		return; 
-    	case 15: // cursor off 
-    		return;
-    	case 127: // delete
-    		if (dspmycol > 0) {
-      			dspmycol--;
-      			dspbuffer[dspmyrow][dspmycol]=0;
-      			dspprintchar(' ', dspmycol, dspmyrow);
-      			return;
-    		}
-  	}
-
-	if (c < 32 ) return; 
-
-	dspprintchar(c, dspmycol, dspmyrow);
-	dspbuffer[dspmyrow][dspmycol++]=c;
-	if (dspmycol == dsp_columns) {
-		dspmycol=0;
-		dspmyrow=(dspmyrow + 1);
-    	if (dspmyrow >= dsp_rows) {
-      		dspscroll(); 
-    	}
-	}
-}
-
-char dspwaitonscroll() {
-  	char c;
-
-	if ( dspscrollmode == 1 ) {
-		if (dspmyrow == dsp_rows-1) {
-        	c=inch();
-        	if (c == ' ') {
-          		outch(12);
-        	}
-		    return c;
-		}
-	}
-	return 0;
-}
-
-
-#else
-const int dsp_rows=0;
-const int dsp_columns=0;
-void dspwrite(char c){};
-void dspbegin() {};
-char dspwaitonscroll() { return 0; };
-char dspactive() {return FALSE; }
-void dspsetscrollmode(char c, short l) {}
-void dspsetcursor(short c, short r) {}
-#endif
-
 /* 
 
 	Platform dependend IO functions, implemented models are
@@ -2013,6 +2049,20 @@ void serialbegin() {
 	Serial.begin(serial_baudrate);
 }
 
+#ifdef LCDSHIELD
+short keypadread(){
+  short a=analogRead(A0);
+  if (a > 850) return 0;
+  else if (a>600 && a<800) return 's';
+  else if (a>400 && a<600) return 'l';
+  else if (a>200 && a<400) return 'd';
+  else if (a>60  && a<200) return 'u';
+  else if (a<60)           return 'r';
+  return 0;
+}
+#endif
+
+
 char inch(){
 	char c=0;
 	if (id == ISERIAL) {
@@ -2030,6 +2080,12 @@ char inch(){
     	if (c == '^') c='@';
 		return c;
 	}
+#else 
+#ifdef LCDSHIELD
+	if (id == IKEYBOARD) {
+		return keypadread();
+	}
+#endif
 #endif
 }
 
@@ -2037,6 +2093,10 @@ char checkch(){
 	if (Serial.available() && id == ISERIAL) return Serial.peek(); 
 #ifdef ARDUINOPS2
 	if (keyboard.available() && id == IKEYBOARD) return keyboard.read();
+#else 
+#ifdef LCDSHIELD
+	return keypadread();
+#endif
 #endif
 }
 
@@ -4080,7 +4140,8 @@ void xlist(){
 			outcr();
 			// wait after every line on small displays
 			// if ( dspactive() && (dsp_rows < 10) ){ if ( inch() == 27 ) break;}
-			if ( dspwaitonscroll() == 27 ) break;
+      if (dspactive()) 
+			  if ( dspwaitonscroll() == 27 ) break;
 		}
 	}
 	if (here == top && oflag) outputtoken();
@@ -4603,6 +4664,7 @@ void xget(){
 
 void xput(){
 	short ood=od;
+  short args, i;
 
 	nexttoken();
 
@@ -4619,10 +4681,11 @@ void xput(){
 		nexttoken();
 	}
 
-	parsenarguments(1);
-	if (er != 0) return;
-	x=pop();
-	outch(x);
+  args=parsearguments();
+  if (er != 0) return;
+
+  for (i=args-1; i>=0; i--) sbuffer[i]=pop();
+  for (i=0; i<args; i++) outch(sbuffer[i]);
 
 	od=ood;
 }
@@ -4784,6 +4847,7 @@ void xcatalog() {
 	if (er != 0) return; 
 
 #ifdef ARDUINOSD
+
 	File root, file;
   	char *n;
 
@@ -4801,10 +4865,11 @@ void xcatalog() {
               if ( dspwaitonscroll() == 27 ) break;
         	}
 		}
-    file.close(); 
+    	file.close(); 
 	}
-  file.close();
+  	file.close();
 	root.close();
+
 #else 
 #ifndef ARDUINO 
 	DIR *dp;
