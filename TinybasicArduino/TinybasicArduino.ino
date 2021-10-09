@@ -70,7 +70,7 @@
 // output methods
 #undef ARDUINOPRT
 #undef ARDUINOLCDI2C
-#undef LCDSHIELD
+#define LCDSHIELD
 #undef ARDUINOTFT
 // storage methods
 #undef ARDUINOSD
@@ -990,6 +990,7 @@ short dspmyrow;
 char dspbuffer[dsp_rows][dsp_columns];
 char  dspscrollmode = 0;
 short dsp_scroll_rows = 1; 
+char tcc = 0;
 
 // 0 normal scroll
 // 1 enable waitonscroll function
