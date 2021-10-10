@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.87 2021/10/09 03:43:05 stefan Exp stefan $
+// $Id: basic.c,v 1.89 2021/10/10 19:12:00 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -34,7 +34,7 @@
 		Picoserial doesn't work on MEGA
 
 
-	SMALLness - Memory footprint of extensions
+	SMALLness - Memory footprint of extensions on an UNO
 	
 	          FLASH	    RAM
 	EEPROM    834  		0
@@ -43,7 +43,7 @@
 	PS2       1930      128
 	GOSUB     144  		10
 	DUMP 	  130  		0
-	PICO     -504 	-179
+	PICO     -504 		-179
 
 	The extension flags control features and code size
 
@@ -52,23 +52,38 @@
 		from 60000 to 128 bytes.
 */ 
 
+// architectures 
 #undef ARDUINODUE
 #undef RP2040
 #undef ESP8266
 #undef MINGW
-#define ARDUINOEEPROM
+
+// interpreter features
 #define HASFORNEXT
 #define HASGOSUB
 #define HASDUMP
-#undef USESPICOSERIAL
-#define MEMSIZE 0
+#define HASAPPLE1
+#define HASARDUINOIO
+#define HASFILEIO
+#define HASTONE
+#define HASPULSE
+#define HASSTEFANSEXT
 
-// these are the definitions to build a standalone 
-// computer. All of these extensions are very memory hungry
-// input methods
+
+// hardcoded memory size set 0 for automatic malloc
+#define MEMSIZE 4096
+
+// these are the definitions for various arduino extensions
+// computer. All of them are memory hungry
+// 
+// Arduino features
+#undef USESPICOSERIAL
+#define ARDUINOEEPROM
+// input methods 
 #undef ARDUINOPS2
 // output methods
 #undef ARDUINOPRT
+#define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef LCDSHIELD
 #undef ARDUINOTFT
@@ -498,12 +513,14 @@ static char *bi;
 
 static number_t vars[VARSIZE];
 
-/*
+#if MEMSIZE != 0
 static signed char mem[MEMSIZE];
 static address_t himem = MEMSIZE-1;
-*/
+static address_t memsize = MEMSIZE-1;
+#else
 static signed char* mem;
 static address_t himem, memsize;
+#endif
 
 #ifdef HASFORNEXT
 static struct {char varx; char vary; address_t here; number_t to; number_t step;} forstack[FORDEPTH];
@@ -987,18 +1004,7 @@ void statement();
 #ifdef DISPLAYDRIVER
 short dspmycol;
 short dspmyrow;
-char dspbuffer[dsp_rows][dsp_columns];
-char  dspscrollmode = 0;
-short dsp_scroll_rows = 1; 
 char tcc = 0;
-
-// 0 normal scroll
-// 1 enable waitonscroll function
-// ... more to come
-void dspsetscrollmode(char c, short l) {
-	dspscrollmode = c;
-	dsp_scroll_rows = l;
-}
 
 void dspsetcursor(short c, short r) {
 	dspmyrow=r;
@@ -1007,6 +1013,19 @@ void dspsetcursor(short c, short r) {
 
 char dspactive() {
 	return od & ODSP;
+}
+
+#ifdef DISPLAYCANSCROLL
+char dspbuffer[dsp_rows][dsp_columns];
+char  dspscrollmode = 0;
+short dsp_scroll_rows = 1; 
+
+// 0 normal scroll
+// 1 enable waitonscroll function
+// ... more to come
+void dspsetscrollmode(char c, short l) {
+	dspscrollmode = c;
+	dsp_scroll_rows = l;
 }
 
 void dspbufferclear() {
@@ -1139,7 +1158,77 @@ char dspwaitonscroll() {
 	}
 	return 0;
 }
+#else 
+char dspwaitonscroll() {
+	return 0;
+}
 
+void dspwrite(char c){
+	// the special characters the LCD need to know
+	// we process a multi character sequence for cursor 
+	// control
+    if (tcc) {
+        switch(tcc) {
+          	case 17: 
+            	dspmycol=c%dsp_columns;
+            	break;
+          	case 18:
+            	dspmyrow=c%dsp_rows;
+            	break;
+        }
+      	tcc=0;
+      	return;
+    }
+
+  	switch(c) {
+  		case 12: // form feed is clear screen
+    		dspclear();
+    	case 2: // STX is used for Home
+    		dspmyrow=0;
+    		dspmycol=0;
+    		return;
+    	case 8: // back one character
+    		if (dspmycol > 0) dspmycol--;
+    		return;
+    	case 9: // forward one character 
+    		if (dspmycol < dsp_columns) dspmycol++;
+    		return;
+  		case 10: // this is LF Unix style doing also a CR
+    		dspmyrow=(dspmyrow + 1)%dsp_rows;
+    		dspmycol=0;
+    		return;
+    	case 11: // one char down 
+    		dspmyrow=(dspmyrow+1) % dsp_rows;
+    		return;
+    	case 13: // classical carriage return 
+    		dspmycol=0;
+    		return;
+    	case 14: // cursor on
+    		return; 
+    	case 15: // cursor off 
+    		return;
+    	case 17:
+        	tcc=17; 
+        	return;
+      	case 18:
+        	tcc=18;
+        	return;
+    	case 127: // delete
+    		if (dspmycol > 0) {
+      			dspmycol--;
+      			dspprintchar(' ', dspmycol, dspmyrow);
+    		}
+    		return;
+  	}
+
+	if (c < 32 ) return; 
+
+	dspprintchar(c, dspmycol++, dspmyrow);
+	dspmycol=dspmycol%dsp_columns;
+}
+
+void dspsetscrollmode(char c, short l) {}
+#endif
 #else
 const int dsp_rows=0;
 const int dsp_columns=0;
@@ -1167,6 +1256,7 @@ void dspsetcursor(short c, short r) {}
 	the code.
  */
 
+#if MEMSIZE == 0
 // ugly, guess the possible basic memory size
 address_t allocmem() {
 
@@ -1212,8 +1302,9 @@ fallback:
 	return 127;
 
 }
+#endif
 
-
+#ifdef HASAPPLE1
 // allocate a junk of memory for a variable on the heap
 // every objects is identified by name (c,d) and type t
 // 3 bytes are used here but 2 would be enough
@@ -1309,6 +1400,7 @@ address_t blength (signed char t, char c, char d) {
 	if (! bfind(t, c, d)) return 0;
 	return z.i;
 }
+#endif
 
 
 // ununsed so far, simple variables are created on the fly
@@ -1339,6 +1431,7 @@ number_t getvar(char c, char d){
 				if (checkch()) return inch(); else return 0;
 		}
 
+#ifdef HASAPPLE1
 	// dynamically allocated vars
 	a=bfind(VARIABLE, c, d);
 	if ( a == 0) {
@@ -1347,6 +1440,10 @@ number_t getvar(char c, char d){
 	} 
 
 	return getnumber(a, numsize);
+#else
+	error(EVARIABLE);
+	return 0;
+#endif
 }
 
 // set and create a variable 
@@ -1378,7 +1475,7 @@ void setvar(char c, char d, number_t v){
 				return;
 		}
 
-
+#ifdef HASAPPLE1
 	// dynamically allocated vars
 	a=bfind(VARIABLE, c, d);
 	if ( a == 0) {
@@ -1387,6 +1484,9 @@ void setvar(char c, char d, number_t v){
 	} 
 
 	setnumber(a, v, numsize);
+#else 	
+	error(EVARIABLE);
+#endif
 }
 
 // clr all variables 
@@ -1466,12 +1566,12 @@ void esetnumber(address_t m, number_t v, short n){
 
 
 void createarry(char c, char d, number_t i) {
-
+#ifdef HASAPPLE1
 	if (bfind(ARRAYVAR, c, d)) { error(EVARIABLE); return; }
 	(void) bmalloc(ARRAYVAR, c, d, i);
 	if (er != 0) return;
 	if (DEBUG) { outsc("* created array "); outch(c); outspc(); outnumber(nvars); outcr(); }
-
+#endif
 }
 
 // generic array access function 
@@ -1506,7 +1606,7 @@ void array(char m, char c, char d, number_t i, number_t* v) {
 
 			// display access, write directly to the buffer (ugly needs rework)
 			case 'D': {
-#ifdef DISPLAYDRIVER
+#if defined(DISPLAYDRIVER) && defined(DISPLAYCANSCROLL)
         		if (dsp_rows == 0 || dsp_columns == 0) { return; }
         		if (i<1 || i>dsp_columns*dsp_columns ) { return; }
         		i--;
@@ -1526,7 +1626,9 @@ void array(char m, char c, char d, number_t i, number_t* v) {
 
 		}
 
-	} else {
+	} 
+#ifdef HASAPPLE1
+	else {
 
 		// dynamically allocated arrays
 		a=bfind(ARRAYVAR, c, d);
@@ -1534,6 +1636,7 @@ void array(char m, char c, char d, number_t i, number_t* v) {
 		h=z.i/numsize;
 		a=a+(i-1)*numsize;
 	}
+#endif
 
 	// is the index in range
 	if ( (i < 1) || (i > h) ) error(ERANGE); 
@@ -1556,10 +1659,12 @@ void array(char m, char c, char d, number_t i, number_t* v) {
 }
 
 void createstring(char c, char d, number_t i) {
+#ifdef HASAPPLE1
 	if (bfind(STRINGVAR, c, d)) { error(EVARIABLE); return; }
 	(void) bmalloc(STRINGVAR, c, d, i+strindexsize);
 	if (er != 0) return;
 	if (DEBUG) { outsc("Created string "); outch(c); outch(d); outspc(); outnumber(nvars); outcr(); }
+#endif
 }
 
 // the -1+stringdexsize is needed because a string index starts with 1
@@ -1572,8 +1677,10 @@ char* getstring(char c, char d, number_t b) {
 	if ( c == '@')
 			return ibuffer+b;
 
+#ifdef HASAPPLE1
 	// dynamically allocated strings
 	a=bfind(STRINGVAR, c, d);
+#endif
 
 	if (DEBUG) { outsc("** heap address "); outnumber(a); outcr(); }
 	if (DEBUG) { outsc("** byte length "); outnumber(z.i); outcr(); }
@@ -1604,10 +1711,14 @@ number_t arraydim(char c, char d) {
 			case 'E':
 				return elength()/numsize;
 		}
-
+#ifdef HASAPPLE1
 	return blength(ARRAYVAR, c, d)/numsize;
+#else 
+	return 0;
+#endif
 }
 
+#ifdef HASAPPLE1
 number_t stringdim(char c, char d) {
 	if (c == '@')
 		return BUFSIZE-1;
@@ -1680,6 +1791,7 @@ void setstring(char c, char d, number_t w, char* s, number_t n) {
 	else 
 		error(ERANGE);
 }
+#endif
 
 /* 
 	Layer 0 - keyword handling - PROGMEM logic goes here
@@ -1744,8 +1856,12 @@ void error(signed char e){
 	printmessage(EGENERAL);
 	outcr();
 	clearst();
+#ifdef HASFORNEXT
 	clrforstack();
+#endif
+#ifdef HASGOSUB
 	clrgosubstack();
+#endif
 	iodefaults();
 }
 
@@ -2038,19 +2154,6 @@ void ins(char *b, short nb) {
 }
 
 #else 
-#ifndef USESPICOSERIAL
-/*
-
-	This is standard Arduino code Serial code. 
-	In inch() we wait for input by looping. 
-	output is controlled by the flag od.
-
-*/ 
-
-void serialbegin() {
-	Serial.begin(serial_baudrate);
-}
-
 #ifdef LCDSHIELD
 short keypadread(){
 	short a=analogRead(A0);
@@ -2063,6 +2166,18 @@ short keypadread(){
 	return 0;
 }
 #endif
+#ifndef USESPICOSERIAL
+/*
+
+	This is standard Arduino code Serial code. 
+	In inch() we wait for input by looping. 
+	output is controlled by the flag od.
+
+*/ 
+
+void serialbegin() {
+	Serial.begin(serial_baudrate);
+}
 
 
 char inch(){
@@ -2092,7 +2207,7 @@ char inch(){
 }
 
 char checkch(){
-	if (Serial.available() && id == ISERIAL) return Serial.peek(); 
+	 if (Serial.available() && id == ISERIAL) return Serial.peek(); 
 #ifdef ARDUINOPS2
 	if (keyboard.available() && id == IKEYBOARD) return keyboard.read();
 #else 
@@ -2158,15 +2273,26 @@ void picogetchar(int c){
 	}
 }
 
+
 char inch(){
 	char c;
-	c=picochar;
-	picochar=0;
-	return c;
+	if (id == ISERIAL) {
+		c=picochar;
+		picochar=0;
+		return c;	
+	}
+#ifdef LCDSHIELD
+	if (id == IKEYBAORD) {
+		return keypadread();	
+	}
+#endif
 }
 
 char checkch(){
-    return picochar;
+    if (id == ISERIAL) return picochar;
+#ifdef LCDSHIELD
+	if (id =IKEBOARD) return keypadread();
+#endif
 }
 
 void ins(char *b, short nb) {
@@ -3034,6 +3160,7 @@ short parsesubscripts() {
 }
 
 // substring evaluation, mind the rewinding here - a bit of a hack
+#ifdef HASAPPLE1
 void parsesubstring() {
 	char xc1, yc1; 
 	short args;
@@ -3068,6 +3195,7 @@ void parsesubstring() {
 			break;
     }
 }
+#endif
 
 // absolute value, 
 number_t babs(number_t n) {
@@ -3154,6 +3282,7 @@ char stringvalue() {
 	if (token == STRING) {
 		ir2=ir;
 		push(x);
+#ifdef HASAPPLE1
 	} else if (token == STRINGVAR) {
 		xcl=xc;
 		ycl=yc;
@@ -3165,6 +3294,7 @@ char stringvalue() {
 		push(y-x+1);
 		xc=xcl;
 		yc=ycl;
+#endif
 	} else {
 		return FALSE;
 	}
@@ -3217,7 +3347,9 @@ neq:
 	return;
 }
 
-
+// the factor function - contrary to all other function
+// nothing here should end with a new token - this is handled 
+// in factors calling function
 void factor(){
 	short args;
 	if (DEBUG) debug("factor\n");
@@ -3259,6 +3391,7 @@ void factor(){
 			push(himem-top);
 			break;
 // Apple 1 BASIC functions
+#ifdef HASAPPLE1
 		case TSGN: 
 			parsefunction(xsgn, 1);
 			break;
@@ -3296,14 +3429,21 @@ void factor(){
 			//debugtoken(); outsc("after streval in factor"); outcr();
 			if (er != 0 ) return;
 			break;
+#endif
 //  Stefan's tinybasic additions
+#ifdef HASSTEFANSEXT
 		case TSQR: 
 			parsefunction(sqr, 1);
 			break;
 		case TFRE: 
 			parsefunction(xfre, 1);
 			break;
+		case TUSR:
+			parsefunction(xusr, 2);
+			break;
+#endif
 // Arduino I/O
+#ifdef HASARDUINOIO
 		case TAREAD: 
 			parsefunction(aread, 1);
 			break;
@@ -3313,9 +3453,11 @@ void factor(){
 		case TMILLIS: 
 			parsefunction(bmillis, 1);
 			break;	
+#ifdef HASPULSE
 		case TPULSEIN:
 			parsefunction(bpulsein, 3);
 			break;
+#endif
 		case TAZERO:
 #ifdef ARDUINO
 			push(A0);
@@ -3323,9 +3465,7 @@ void factor(){
 			push(0);
 #endif			
 			break;
-		case TUSR:
-			parsefunction(xusr, 2);
-			break;
+#endif
 // unknown function
 		default:
 			error(EUNKNOWN);
@@ -3572,6 +3712,7 @@ void lefthandside(address_t* i, char* ps) {
 			}
 			*i=pop();
 			break;
+#ifdef HASAPPLE1
 		case STRINGVAR:
 			nexttoken();
 			args=parsesubscripts();
@@ -3591,6 +3732,7 @@ void lefthandside(address_t* i, char* ps) {
 					return;
 			}
 			break;
+#endif
 		default:
 			error(EUNKNOWN);
 			return;
@@ -3608,6 +3750,7 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, char ps) {
 				x=pop();	
 				array('s', xcl, ycl, i, &x);
 				break;
+#ifdef HASAPPLE1
 			case STRINGVAR:
 				ir=getstring(xcl, ycl, i);
 				if (er != 0) return;
@@ -3617,6 +3760,7 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, char ps) {
 				else 
 					if (lenstring(xcl, ycl) < i && i < stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
 				break;
+#endif
 		}
 }
 
@@ -3627,6 +3771,7 @@ void assignment() {
 	address_t i=1;      // and the beginning of the destination string  
 	address_t lensource;
 	short args;
+	char s;
 
 	// this code evaluates the left hand side
 	ycl=yc;
@@ -3650,14 +3795,19 @@ void assignment() {
 	// in ir2 and pop() we have the the adress and length of the source string, 
 	// xc is the name, y contains the end and x the beginning index 
 
-	if (! stringvalue () ) {
-		if (er != 0 ) return;
+#ifdef HASAPPLE1
+	s=stringvalue();
+	if (er != 0 ) return;
+
+	if (! s ) {
+#endif 
 
 		expression();
 		if (er != 0 ) return;
 
 		assignnumber(t, xcl, ycl, i, ps);
-	
+
+#ifdef HASAPPLE1	
 	} else {
 		// note that stringvalue sets the ir2 register
 		switch (t) {
@@ -3670,6 +3820,7 @@ void assignment() {
 				array('s', xcl, ycl, i, &x);
 				drop();
 				break;
+
 			case STRINGVAR: // a string gets assigned a substring - copy algorithm
 				lensource=pop();
 
@@ -3697,9 +3848,9 @@ void assignment() {
 				setstringlength(xcl, ycl, i+lensource-1);
 
 		}
-
 		nexttoken();
 	} 
+#endif
 
 }
 
@@ -3777,15 +3928,17 @@ nextvariable:
 		}
 	}
 
+#ifdef HASAPPLE1
 	if (token == STRINGVAR) {
 		ir=getstring(xc, yc, 1); 
 		if (id != IFILE) outsc("? ");
 		ins(ir-1, stringdim(xc, yc));
-		if (xc != '@' && strindexsize == 2) { 
+		if (xc != '@' && strindexsize == 2) { // hack hack
 			*(ir-2)=*(ir-1);
 			*(ir-1)=0;
 		}
  	}
+#endif
 
 	nexttoken();
 	if (token == ',' || token == ';') {
@@ -4228,6 +4381,7 @@ void xclr() {
 	nexttoken();
 }
 
+#ifdef HASAPPLE1
 /* 
 
 	the dimensioning of arrays and strings from Apple 1 BASIC
@@ -4316,6 +4470,8 @@ void xtab(){
 	while (x-- > 0) outspc();	
 }
 
+#endif
+
 /*
 
 	Stefan's additions 
@@ -4390,28 +4546,13 @@ void dumpmem(address_t r, address_t b) {
 }
 #endif
 
+#if !defined(ARDUINO) || defined(ARDUINOSD)
 // creates a C string from a BASIC string
 void stringtobuffer(char *buffer) {
 	if (x >= SBUFSIZE) x=SBUFSIZE-1;
 	buffer[x--]=0;
 	while (x >= 0) { buffer[x]=ir2[x]; x--; }
 }
-
-/* get a file argument
-char * getfilename() {
-	nexttoken();
-	if (token == STRING && x > 0) {
-		stringtosbuffer();
-		return sbuffer;
-	} else if (termsymbol()) {
-		return getmessage(MFILE);
-	} else {
-		error(EUNKNOWN);
-		return NULL;
-	}
-}
-*/
-
 
 // get a file argument (2) nexttoken handling still to be checked
 void getfilename2(char * buffer, char d) {
@@ -4440,7 +4581,12 @@ void getfilename2(char * buffer, char d) {
 		error(EUNKNOWN);
 	}
 }
-
+#else
+// simplified file name code for EEPROM only
+void getfilename2(char * buffer, char d) {
+	*buffer='!';
+}
+#endif
 
 // save a file either to disk or to EEPROM
 void xsave() {
@@ -4455,9 +4601,8 @@ void xsave() {
 
 	if (filename[0] == '!') {
 		esave();
-	} else {
-		od=OFILE;
-
+	} else {		
+	 	od=OFILE;
 
 #ifndef ARDUINO
 		ofd=fopen(filename, "w");
@@ -4509,9 +4654,7 @@ void xsave() {
    		here=here2;
 
    		// clean up
-		ofile.close();
-#else
-      
+		ofile.close();      
 #endif
 #endif
 
@@ -4604,8 +4747,6 @@ void xload() {
       		}
 		}   	
 		ifile.close();
-#else 
-
 #endif
 #endif
 		// go back to run mode and start from the first line
@@ -4798,6 +4939,7 @@ void xdelay(){
 	delay(x);	
 }
 
+#ifdef HASTONE
 void xtone(){
 	short args;
 
@@ -4823,12 +4965,15 @@ void xtone(){
 	}
 #endif		
 }
+#endif
 
 /*
 
   	SD card DOS - basics to access an SD card as mass storage from BASIC
 
 */
+
+#ifdef HASFILEIO
 
 // string equal helper in catalog 
 char streq(char *s, char *m){
@@ -5000,6 +5145,9 @@ void xclose() {
 	nexttoken();
 }
 
+#endif
+
+#ifdef HASSTEFANSEXT
 /*
 	low level function access of the interpreter
 	for each group of functions there is a call vector
@@ -5049,7 +5197,9 @@ void xusr() {
 				case 5: push(0); break;
 				case 6: push(0); break;
 				case 7: push(gosubsp); break;
+#ifdef HASFORNEXT
 				case 8: push(fnc); break;
+#endif
 				case 9: push(sp); break;
 				default: push(0);
 			}
@@ -5064,6 +5214,7 @@ void xusr() {
 				default: push(0);
 			}
 			break;
+#ifdef HASAPPLE1
 		// here the evil part begins - access to the heap
 		case 3: // find a variable from its type and name in ibuffer 
 			push(bfind(instr[1], instr[2], instr[3]));
@@ -5074,6 +5225,7 @@ void xusr() {
 		case 5: // find the length of an object on the heap
 			push(blength(instr[1], instr[2], instr[3]));
 			break;
+#endif
 		case 6: // parse a number in the input buffer - less evil
 			(void) parsenumber(ibuffer+1, &x);
 			push(x);
@@ -5095,6 +5247,8 @@ void xusr() {
 		default: push(0);
 	}
 }
+
+#endif
 
 void xcall() {
 	nexttoken();
@@ -5183,6 +5337,7 @@ void statement(){
 				xrem();
 				break;
 // Apple 1 language set 
+#ifdef HASAPPLE1
 			case TDIM:
 				xdim();
 				break;
@@ -5195,6 +5350,7 @@ void statement(){
 			case TPOKE:
 				xpoke();
 				break;
+#endif
 // Stefan's tinybasic additions
 #ifdef HASDUMP
 			case TDUMP:
@@ -5217,6 +5373,7 @@ void statement(){
 				xset();
 				break;
 // Arduino IO
+#ifdef HASARDUINOIO
 			case TDWRITE:
 				xdwrite();
 				break;	
@@ -5229,10 +5386,14 @@ void statement(){
 			case TDELAY:
 				xdelay();
 				break;
+#ifdef HASTONE
 			case TTONE:
 				xtone();
 				break;	
+#endif
+#endif
 // SD card DOS function 
+#ifdef HASFILEIO
 			case TCATALOG:
 				xcatalog();
 				break;
@@ -5245,6 +5406,7 @@ void statement(){
 			case TCLOSE:
 				xclose();
 				break;
+#endif
 // low level functions 
 			case TCALL:
 				xcall();
@@ -5268,8 +5430,9 @@ void statement(){
 
 // the setup routine - Arduino style
 void setup() {
-
+#if MEMSIZE == 0
 	himem=(memsize=allocmem());
+#endif
 
 #ifndef ARDUINO
 #ifndef MINGW
