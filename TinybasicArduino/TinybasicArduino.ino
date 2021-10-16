@@ -68,6 +68,9 @@
 #define HASTONE
 #define HASPULSE
 #define HASSTEFANSEXT
+#define HASERRORMSG
+#define HASVT52
+
 
 // hardcoded memory size set 0 for automatic malloc
 #define MEMSIZE 1024
@@ -202,7 +205,7 @@ const int printer_baudrate = 0;
 #define TRND	-102
 #define TSIZE   -101
 #define TREM 	-100
-// this is the Apple 1 language set in addition to Palo Alto (15)
+// this is the Apple 1 language set in addition to Palo Alto (14)
 #define TNOT    -99
 #define TAND	-98
 #define TOR  	-97
@@ -211,25 +214,25 @@ const int printer_baudrate = 0;
 #define TPEEK	-94
 #define TDIM	-93
 #define TCLR	-92
-#define TSCR    -91
-#define TLOMEM  -90
-#define THIMEM  -89 
-#define TTAB 	-88
-#define TTHEN   -87
-#define TEND    -86
-#define TPOKE	-85
-// Stefan's tinybasic additions (9)
-#define TCONT   -84
-#define TSQR	-83
-#define TFRE	-82
-#define TDUMP 	-81
-#define TBREAK  -80
-#define TSAVE   -79
-#define TLOAD   -78
-#define TGET    -77
-#define TPUT    -76
-#define TSET    -75
-// Arduino functions (9)
+#define TLOMEM  -91
+#define THIMEM  -90 
+#define TTAB 	-89
+#define TTHEN   -88
+#define TEND    -87
+#define TPOKE	-86
+// Stefan's tinybasic additions (11)
+#define TCONT   -85
+#define TSQR	-84
+#define TFRE	-83
+#define TDUMP 	-82
+#define TBREAK  -81
+#define TSAVE   -80
+#define TLOAD   -79
+#define TGET    -78
+#define TPUT    -77
+#define TSET    -76
+#define TCLS    -75
+// Arduino functions (10)
 #define TPINM	-74
 #define TDWRITE	-73
 #define TDREAD	-72
@@ -240,7 +243,7 @@ const int printer_baudrate = 0;
 #define TTONE   -67
 #define TPULSEIN  -66
 #define TAZERO	  -65
-// the SD card DOS functions (2)
+// the SD card DOS functions (4)
 #define TCATALOG -64
 #define TDELETE  -63
 #define TOPEN 	-62
@@ -255,7 +258,7 @@ const int printer_baudrate = 0;
 
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+15+10+10+4+2
+#define NKEYWORDS	3+19+14+11+10+4+2
 #define BASEKEYWORD -121
 
 /*
@@ -321,7 +324,6 @@ const char ssgn[]    PROGMEM = "SGN";
 const char speek[]   PROGMEM = "PEEK";
 const char sdim[]    PROGMEM = "DIM";
 const char sclr[]    PROGMEM = "CLR";
-const char sscr[]    PROGMEM = "SCR";
 const char slomem[]  PROGMEM = "LOMEM";
 const char shimem[]  PROGMEM = "HIMEM";
 const char stab[]    PROGMEM = "TAB";
@@ -339,6 +341,7 @@ const char sload[]   PROGMEM = "LOAD";
 const char sget[]    PROGMEM = "GET";
 const char sput[]    PROGMEM = "PUT";
 const char sset[]    PROGMEM = "SET";
+const char scls[]    PROGMEM = "CLS";
 // Arduino functions
 const char spinm[]   PROGMEM = "PINM";
 const char sdwrite[] PROGMEM = "DWRITE";
@@ -367,11 +370,11 @@ const char* const keyword[] PROGMEM = {
 	sabs, srnd, ssize, srem,
 // Apple 1 BASIC additions
 	snot, sand, sor, slen, ssgn, speek, sdim,
-	sclr, sscr, slomem, shimem, stab, sthen, 
+	sclr, slomem, shimem, stab, sthen, 
 	send, spoke,
 // Stefan's additions
 	scont, ssqr, sfre, sdump, sbreak, ssave,
-	sload, sget, sput, sset, 
+	sload, sget, sput, sset, scls,
 // Arduino stuff
     spinm, sdwrite, sdread, sawrite, saread, 
     sdelay, smillis, stone, splusein, sazero,
@@ -415,6 +418,7 @@ const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "> ";
 const char mgreet[]		PROGMEM = "Stefan's Basic 1.2";
 const char egeneral[]  	PROGMEM = "Error";
+#ifdef HASERRORMSG
 const char eunknown[]  	PROGMEM = "Syntax";
 const char enumber[]	PROGMEM = "Number";
 const char edivide[]  	PROGMEM = "Div by 0";
@@ -434,13 +438,16 @@ const char efun[] 	 	PROGMEM = "Function";
 const char eargs[]  	PROGMEM = "Args";
 const char eeeprom[]	PROGMEM = "EEPROM";
 const char esdcard[]	PROGMEM = "SD card";
+#endif
 
 const char* const message[] PROGMEM = {
-	mfile, mprompt, mgreet,egeneral, eunknown,
-	enumber, edivide, eline, ereturn, enext,
-	egosub, efor, emem, estack, edim, erange,
+	mfile, mprompt, mgreet, egeneral
+#ifdef HASERRORMSG
+	, eunknown, enumber, edivide, eline, ereturn, 
+	enext, egosub, efor, emem, estack, edim, erange,
 	estring, evariable, efile, efun, eargs, 
 	eeeprom, esdcard
+#endif
 };
 
 
@@ -770,13 +777,20 @@ void dspclear() { lcd.clear(); }
 // global variables for a TFT
 // this is code for a SD1963 800*480 board using the UTFT library
 // it is mainly intended for a MEGA or DUE as a all in one system
+// this is for a MEGA shield and the CTE DUE shield, for the due 
+// you need to read the comment in Arduino/libraries/UTFT/hardware/arm
+// HW_ARM_defines.h -> uncomment the DUE shield
 #ifdef ARDUINOTFT
 #include <memorysaver.h>
 #include <UTFT.h>
 #define DISPLAYDRIVER
 extern uint8_t SmallFont[];
 extern uint8_t BigFont[];
+#ifdef ARDUINODUE
+UTFT tft(CTE70,25,26,27,28);
+#else 
 UTFT tft(CTE70,38,39,40,41);
+#endif
 const int dsp_rows=30;
 const int dsp_columns=50;
 char dspfontsize = 16;
@@ -877,7 +891,7 @@ void gettoken();
 void firstline();
 void nextline();
 void findline(address_t);
-unsigned short myline(address_t);
+address_t myline(address_t);
 void moveblock(address_t, address_t, address_t);
 void zeroblock(address_t, address_t);
 void diag();
@@ -1001,9 +1015,9 @@ void statement();
 */
 
 #ifdef DISPLAYDRIVER
-short dspmycol;
-short dspmyrow;
-char tcc = 0;
+short dspmycol = 0;
+short dspmyrow = 0;
+char esc = 0;
 
 void dspsetcursor(short c, short r) {
 	dspmyrow=r;
@@ -1013,6 +1027,82 @@ void dspsetcursor(short c, short r) {
 char dspactive() {
 	return od & ODSP;
 }
+
+#ifdef HASVT52
+// nano vt52 state engine
+char vt52s = 0;
+
+void dspvt52(char* c){
+  
+	switch (vt52s) {
+		case 'Y':
+			if (esc == 2) { dspmyrow=(*c-31)%dsp_rows; esc=1; return;}
+			if (esc == 1) { dspmycol=(*c-31)%dsp_columns; *c=0; }
+      		vt52s=0; 
+			break;
+	}
+ 
+	switch (*c) {
+		case 'A': // cursor up
+			if (dspmyrow>0) dspmyrow--;
+			break;
+		case 'B': // cursor down
+		    dspmyrow=(dspmyrow++) % dsp_rows;
+			break;
+		case 'C': // cursor right
+			dspmycol=(dspmycol++) % dsp_columns;
+			break; 
+		case 'D': // cursor left
+			if (dspmycol>0) dspmycol--;
+			break;
+		case 'E': // GEMDOS / TOS extension clear screen
+		    dspbufferclear();
+    		dspclear();
+			break;
+		case 'H': // cursor home
+		    dspmyrow=0;
+    		dspmycol=0;
+			break;	
+		case 'Y': // Set cursor position
+			vt52s='Y';
+			esc=2;
+      		*c=0;
+			return;
+		case 'F': // enter graphics mode
+		case 'G': // exit graphics mode
+		case 'I': // reverse line feed
+		case 'J': // clear to end of screen
+		case 'K': // clear to end of line
+		case 'L': // Insert line
+		case 'M': // Delete line
+		case 'Z': // Ident
+		case '=': // alternate keypad on
+		case '>': // alternate keypad off
+		case 'b': // GEMDOS / TOS extension text color
+		case 'c': // GEMDOS / TOS extension background color
+		case 'd': // GEMDOS / TOS extension clear to start of screen
+		case 'e': // GEMDOS / TOS extension enable cursor
+		case 'f': // GEMDOS / TOS extension disable cursor
+		case 'j': // GEMDOS / TOS extension restore cursor
+		case 'k': // GEMDOS / TOS extension save cursor
+		case 'l': // GEMDOS / TOS extension clear line
+		case 'o': // GEMDOS / TOS extension clear to start of line		
+		case 'p': // GEMDOS / TOS extension reverse video
+		case 'q': // GEMDOS / TOS extension normal video
+		case 'v': // GEMDOS / TOS extension enable wrap
+		case 'w': // GEMDOS / TOS extension disable wrap
+		case '^': // Printer extensions - print on
+		case '_': // Printer extensions - print off
+		case 'W': // Printer extensions - print without display on
+		case 'X': // Printer extensions - print without display off
+		case 'V': // Printer extensions - print cursor line
+		case ']': // Printer extension - print screen 
+			break;
+	}
+      esc=0;
+      *c=0;
+}
+#endif
 
 #ifdef DISPLAYCANSCROLL
 char dspbuffer[dsp_rows][dsp_columns];
@@ -1067,59 +1157,34 @@ void dspscroll(){
 }
 
 void dspwrite(char c){
-	// the special characters the LCD need to know
-	// we process a multi character sequence for cursor 
-	// control
-    if (tcc) {
-        switch(tcc) {
-          	case 17: 
-            	dspmycol=c%dsp_columns;
-            	break;
-          	case 18:
-            	dspmyrow=c%dsp_rows;
-            	break;
-        }
-      	tcc=0;
-      	return;
-    }
 
+#ifdef HASVT52
+    // escape character received - we switch to vt52 mode
+    // the character is modified and then handed over to the
+    // internal pipeline
+    if (esc) {
+    	dspvt52(&c);
+    }
+#endif
+
+    // will be reworked soon - not super good 
   	switch(c) {
-    	case 2: // STX is used for Home
-    		dspmyrow=0;
-    		dspmycol=0;
-    		break;
-    	case 8: // back one character
-    		if (dspmycol > 0) dspmycol--;
-    		break;
-    	case 9: // forward one character 
-    		if (dspmycol < dsp_columns) dspmycol++;
-    		break;
   		case 10: // this is LF Unix style doing also a CR
     		dspmyrow=(dspmyrow + 1);
     		if (dspmyrow >= dsp_rows) {
       			dspscroll(); 
     		}
     		dspmycol=0;
-    		break;
-    	case 11: // one char down 
-    		dspmyrow=(dspmyrow+1) % dsp_rows;
-    		break;
-    	case 12: // form feed is clear screen
+    		return;
+    	case 12: // form feed is clear screen - deprecated
     		dspbufferclear();
     		dspclear();
     		return;
     	case 13: // classical carriage return 
     		dspmycol=0;
-    		break;
-    	case 14: // cursor on
-    		return; 
-    	case 15: // cursor off 
     		return;
-    	case 17:
-        	tcc=17; 
-        	return;
-      	case 18:
-        	tcc=18;
+        case 27: // escape - initiate vtxxx mode
+        	esc=1;
         	return;
     	case 127: // delete
     		if (dspmycol > 0) {
@@ -1157,40 +1222,28 @@ char dspwaitonscroll() {
 	}
 	return 0;
 }
+
+// code for low memory simple display access - can still be simplified
 #else 
+
+void dspbufferclear() {}
+
 char dspwaitonscroll() {
 	return 0;
 }
 
 void dspwrite(char c){
-	// the special characters the LCD need to know
-	// we process a multi character sequence for cursor 
-	// control
-    if (tcc) {
-        switch(tcc) {
-          	case 17: 
-            	dspmycol=c%dsp_columns;
-            	break;
-          	case 18:
-            	dspmyrow=c%dsp_rows;
-            	break;
-        }
-      	tcc=0;
-      	return;
-    }
 
-  	switch(c) {
+#ifdef HASVT52
+	// escape character received - we switch to vt52 mode
+    // the character is modified and then handed over to the
+    // internal pipeline
+    if (esc) { dspvt52(&c); }
+#endif
+
+ 	switch(c) {
   		case 12: // form feed is clear screen
     		dspclear();
-    	case 2: // STX is used for Home
-    		dspmyrow=0;
-    		dspmycol=0;
-    		return;
-    	case 8: // back one character
-    		if (dspmycol > 0) dspmycol--;
-    		return;
-    	case 9: // forward one character 
-    		if (dspmycol < dsp_columns) dspmycol++;
     		return;
   		case 10: // this is LF Unix style doing also a CR
     		dspmyrow=(dspmyrow + 1)%dsp_rows;
@@ -1202,15 +1255,8 @@ void dspwrite(char c){
     	case 13: // classical carriage return 
     		dspmycol=0;
     		return;
-    	case 14: // cursor on
-    		return; 
-    	case 15: // cursor off 
-    		return;
-    	case 17:
-        	tcc=17; 
-        	return;
-      	case 18:
-        	tcc=18;
+        case 27: // escape - initiate vtxxx mode
+        	esc=1;
         	return;
     	case 127: // delete
     		if (dspmycol > 0) {
@@ -1320,8 +1366,8 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 		check if the object already exists
     */
 
-    	b=bfind(t, c, d);
-    	if (b != 0 ) { error(EVARIABLE); return 0; };
+    b=bfind(t, c, d);
+    if (b != 0 ) { error(EVARIABLE); return 0; };
 
 	/* 
 		how much space is needed
@@ -1428,6 +1474,12 @@ number_t getvar(char c, char d){
 				return od;
 			case 'C':
 				if (checkch()) return inch(); else return 0;
+#ifdef DISPLAYDRIVER
+			case 'X':
+				return dspmycol;
+			case 'Y':
+				return dspmyrow;
+#endif
 		}
 
 #ifdef HASAPPLE1
@@ -1472,6 +1524,14 @@ void setvar(char c, char d, number_t v){
 			case 'C':
 				outch(v);
 				return;
+#ifdef DISPLAYDRIVER
+			case 'X':
+				dspmycol=v%dsp_columns;
+				return;
+			case 'Y':
+				dspmyrow=v%dsp_rows;
+				return;
+#endif
 		}
 
 #ifdef HASAPPLE1
@@ -1521,14 +1581,19 @@ number_t getnumber(address_t m, short n){
 number_t egetnumber(address_t m, short n){
 
 	z.i=0;
-	if ( n == 2 ) {
-		z.b.l=eread(m++);
-		z.b.h=eread(m);
-	} else {
- 		for (int i=0; i<n; i++) {
-			z.c[i]=eread(m++);
-		}
+
+	switch (n) {
+		case 1:
+			z.i=eread(m);
+			break;
+		case 2:
+			z.b.l=eread(m++);
+			z.b.h=eread(m);
+			break;
+		default:
+			for (int i=0; i<n; i++) z.c[i]=eread(m++);
 	}
+
 	return z.i;
 }
 
@@ -1553,13 +1618,17 @@ void setnumber(address_t m, number_t v, short n){
 void esetnumber(address_t m, number_t v, short n){
 	
 	z.i=v;
-	if ( n == 2 ) {
-		eupdate(m++, z.b.l);
-		eupdate(m, z.b.h);
-	} else {
- 		for (int i=0; i<n; i++) {
-			eupdate(m++, z.c[i]);
-		}
+
+	switch (n) {
+		case 1:
+			eupdate(m, z.i);
+			break;
+		case 2: 
+			eupdate(m++, z.b.l);
+			eupdate(m, z.b.h);
+			break;
+		default:
+ 			for (int i=0; i<n; i++) eupdate(m++, z.c[i]);
 	}
 }
 
@@ -1587,13 +1656,6 @@ void array(char m, char c, char d, number_t i, number_t* v) {
 
 		switch(d) {
 
-			// Dr. Wangs end of memory array
-			case 0: {
-				h=(himem-top)/numsize;
-				a=himem-numsize*i+1;
-				break;
-			}
-
 			// EEPROM access 
 			case 'E': {
 				h=elength()/numsize;
@@ -1617,28 +1679,40 @@ void array(char m, char c, char d, number_t i, number_t* v) {
           			dspprintchar(e, a, h);
           			if (*v == 32) dspbuffer[h][a]=0; else dspbuffer[h][a]=*v;
         		} else {
-          			*v=(number_t)dspbuffer[h][a];
+          			*v=(number_t)dspbuffer[h][a];          			
         		}
 #endif
 				return;
 			}
 
+			// Dr. Wangs end of memory array
+			case 0: 
+			default: {
+				h=(himem-top)/numsize;
+				a=himem-numsize*i+1;
+				break;
+			}
+
 		}
 
 	} 
-#ifdef HASAPPLE1
-	else {
 
+	else {
+#ifdef HASAPPLE1
 		// dynamically allocated arrays
 		a=bfind(ARRAYVAR, c, d);
-		if (a == 0) error(EVARIABLE);
+		if (a == 0) { error(EVARIABLE); return; }
 		h=z.i/numsize;
 		a=a+(i-1)*numsize;
-	}
+#else
+		error(EVARIABLE); 
+		return;
 #endif
+	}
+
 
 	// is the index in range
-	if ( (i < 1) || (i > h) ) error(ERANGE); 
+	if ( (i < 1) || (i > h) ) { error(ERANGE); return; }
 
 
 	// set or get the array
@@ -1679,7 +1753,6 @@ char* getstring(char c, char d, number_t b) {
 #ifdef HASAPPLE1
 	// dynamically allocated strings
 	a=bfind(STRINGVAR, c, d);
-#endif
 
 	if (DEBUG) { outsc("** heap address "); outnumber(a); outcr(); }
 	if (DEBUG) { outsc("** byte length "); outnumber(z.i); outcr(); }
@@ -1699,6 +1772,11 @@ char* getstring(char c, char d, number_t b) {
 	if (DEBUG) { outsc("** payload address address "); outnumber(a); outcr(); }
 
 	return (char *)&mem[a];
+#else 
+
+	return 0;
+
+#endif
 }
  
  // this function is currently not used 
@@ -1826,6 +1904,9 @@ char* getmessage(char i) {
 }
 
 void printmessage(char i){
+#ifndef HASERRORMSG
+	if (i > 3) return;
+#endif
 	outsc((char *)getmessage(i));
 }
 
@@ -1845,13 +1926,19 @@ void printmessage(char i){
 
 void error(signed char e){
 	er=e;
+	// set input and output device back to default
+	od=odd;
+	id=idd;
+	// find the line number
 	if (st != SINT) {
 		outnumber(myline(here));
 		outch(':');
 		outspc();
 	}
+#ifdef HASERRORMSG
 	printmessage(e);
 	outspc();
+#endif
 	printmessage(EGENERAL);
 	outcr();
 	clearst();
@@ -2281,7 +2368,7 @@ char inch(){
 		return c;	
 	}
 #ifdef LCDSHIELD
-	if (id == IKEYBAORD) {
+	if (id == IKEYBOARD) {
 		return keypadread();	
 	}
 #endif
@@ -2290,7 +2377,7 @@ char inch(){
 char checkch(){
     if (id == ISERIAL) return picochar;
 #ifdef LCDSHIELD
-	if (id =IKEBOARD) return keypadread();
+	if (id =IKEYBOARD) return keypadread();
 #endif
 }
 
@@ -2925,7 +3012,7 @@ void zeroblock(address_t b, address_t l){
 	stage 1: no matter what the line number is - store at the top
    				remember the location in here.
 	stage 2: see if it is only an empty line - try to delete this line
-	stage 3: caculate lengthes and free memory and make room at the 
+	stage 3: calculate lengthes and free memory and make room at the 
 				appropriate place
 	stage 4: copy to the right place 
 
@@ -2952,6 +3039,7 @@ void storeline() {
 	short linelength;
 	number_t newline; 
 	address_t here2, here3; 
+	address_t t1, t2;
 
 	// zero is an illegal line number
 	if (x == 0) {
@@ -2964,7 +3052,7 @@ void storeline() {
 	remember the line number on the stack and the old top in here
 
 */
-    push(x);			
+    t1=x;			
     here=top;		
     newline=here;	 
 	token=LINENUMBER;
@@ -2978,7 +3066,7 @@ void storeline() {
 		nexttoken();
 	} while (token != EOL);
 
-	x=pop();				// recall the line number
+	x=t1;					// recall the line number
 	linelength=top-here;	// calculate the number of stored bytes
 
 /* 
@@ -3041,13 +3129,13 @@ void storeline() {
 			return;
 		}
 		here-=lnlength;
-		push(here);
+		t1=here;
 		here=here2-lnlength;
-		push(here);
+		t2=here;
 		gettoken();
 		if (x == y) {     // the line already exists and has to be replaced
-			here2=pop();  // this is the line we are dealing with
-			here=pop();   // this is the next line
+			here2=t2;  // this is the line we are dealing with
+			here=t1;   // this is the next line
 			y=here-here2; // the length of the line as it is 
 			if (linelength == y) {     // no change in line legth
 				moveblock(top-linelength, linelength, here2);
@@ -3065,8 +3153,7 @@ void storeline() {
 				top=top-y+linelength;
 			}
 		} else {         // the line has to be inserted in between
-			drop();
-			here=pop();
+			here=t1;
 			moveblock(here, top-here, here+linelength);
 			moveblock(top, linelength, here);
 		}
@@ -3096,7 +3183,7 @@ short parsearguments() {
 
 nextexpression:
 	expression();
-	if (er != 0) { clearst(); return 0; }
+	if (er != 0) { return 0; }
 
 	args++;
 
@@ -3303,12 +3390,16 @@ char stringvalue() {
 
 // (numerical) evaluation of a string expression used for 
 // comparison and for string rightvalues as numbers
+// the token rewind here is needed as streval is called in 
+// factor - no factor function can nextto
 void streval(){
 	char *irl;
 	number_t xl;
 	char xcl;
 	signed char t;
 	address_t h1;
+
+	//printf("*** streval called \n");
 
 	if ( ! stringvalue()) {
 		error(EUNKNOWN);
@@ -3318,16 +3409,25 @@ void streval(){
 	irl=ir2;
 	xl=pop();
 
-	h1=here;
+	h1=here; // get ready for rewind.
+	t=token;
+
 	nexttoken();
+	//debugtoken();
+
 	if (token != '=' && token != NOTEQUAL) {
-		here=h1;
-		push(irl[1]);
+		here=h1; // rewind one token if not comparison
+		token=t;
+		//debugtoken();
+
+		// printf("*** interpret string as number \n");
+		if (xl == 0) push(0); else push(irl[0]); // a zero string length evaluate to 0
 		return; 
 	}
-
 	t=token;
-	nexttoken();
+
+	nexttoken(); 
+	//debugtoken();
 
 	if (! stringvalue() ){
 		error(EUNKNOWN);
@@ -3357,7 +3457,7 @@ void factor(){
 			push(x);
 			break;
 		case VARIABLE: 
-			push(getvar(xc, yc));
+			push(getvar(xc, yc));	
 			break;
 		case ARRAYVAR:
 			push(yc);
@@ -3425,7 +3525,6 @@ void factor(){
 		case STRING:
 		case STRINGVAR:
 			streval();
-			//debugtoken(); outsc("after streval in factor"); outcr();
 			if (er != 0 ) return;
 			break;
 #endif
@@ -3619,7 +3718,7 @@ void expression(){
 void xprint(){
 	char semicolon = FALSE;
 	char oldod;
-	char modifier;
+	char modifier = 0;
 
 	form=0;
 	oldod=od;
@@ -3657,7 +3756,7 @@ processsymbol:
 				od=pop();
 				break;
 		}
-		modifier=0;
+		// modifier=0;
 		goto processsymbol;
 	}
 
@@ -3668,14 +3767,15 @@ processsymbol:
 	}
 
 separators:
-	if (token == ',') {
-		outspc();
+	if (token == ',')  {
+		if (! modifier ) outspc(); 
 		nexttoken();	
 	}
 	if (token == ';'){
 		semicolon=TRUE;
 		nexttoken();
 	}
+	modifier=0;
 
 	goto processsymbol;
 }
@@ -3763,12 +3863,14 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, char ps) {
 		}
 }
 
+
+// the core assigment function
 void assignment() {
 	signed char t;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
 	char xcl, ycl; // to preserve the left hand side variable names
 	address_t i=1;      // and the beginning of the destination string  
-	address_t lensource;
+	address_t lensource, lendest, newlength;
 	short args;
 	char s;
 
@@ -3790,9 +3892,80 @@ void assignment() {
 	// here comes the code for the right hand side
 	// rewritten 
 
+
+	switch (t) {
+		case VARIABLE:
+		case ARRAYVAR: // the lefthandside is a scalar, evaluate the righthandside as a number
+			expression();
+			if (er != 0 ) return;
+			assignnumber(t, xcl, ycl, i, ps);
+			break;
+#ifdef HASAPPLE1
+		case STRINGVAR: // the lefthandside is a string 
+			// we try to evaluate as a stringvalue
+			s=stringvalue();
+			if (er != 0 ) return;
+
+			// and then as an expression
+			if (!s) {
+				expression();
+				if (er != 0 ) return;
+				assignnumber(t, xcl, ycl, i, ps);
+				break;
+			}
+
+			// this is the string righthandside code - how long is the rightandside
+			lensource=pop();
+
+			// the destination address of the lefthandside
+			ir=getstring(xcl, ycl, i);
+			if (er != 0) return;
+
+			// the length of the original string
+			lendest=lenstring(xcl, ycl);
+
+			if (DEBUG) {
+				outsc("* assigment stringcode "); outch(xcl); outch(ycl); outcr();
+				outsc("** assignment source string length "); printf("%d ", lensource); outcr();
+				outsc("** assignment old string length "); printf("%d ",lenstring(xcl, ycl)); outcr();
+				outsc("** assignment string dimension "); printf("%d ",stringdim(xcl, ycl)); outcr();
+			};
+
+			// does the source string fit into the destination
+			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(ERANGE); return; }
+
+			// this code is needed to make sure we can copy one string to the same string 
+			// without overwriting stuff, we go either left to right or backwards
+			if (x > i) 
+				for (int j=0; j<lensource; j++) { ir[j]=ir2[j];}
+			else
+				for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
+
+			// classical Apple 1 behaviour would be string truncation in substring logic
+#ifndef HASSTEFANSEXT
+			newlength = i+lensource-1;	
+#else 
+			if (i+lensource > lendest)
+				newlength = i+lensource-1;	
+			else 
+				newlength = lendest;
+#endif			
+
+			//printf("Calculated new length %d \n", newlength);	
+
+			setstringlength(xcl, ycl, newlength);
+			// one could clear the string from here on
+			break;
+#endif
+	}
+
+/*
+
+
 	// stringvalue is a nasty function with many side effects
 	// in ir2 and pop() we have the the adress and length of the source string, 
 	// xc is the name, y contains the end and x the beginning index 
+
 
 #ifdef HASAPPLE1
 	s=stringvalue();
@@ -3850,7 +4023,8 @@ void assignment() {
 		nexttoken();
 	} 
 #endif
-
+*/
+	nexttoken();
 }
 
 /*
@@ -4331,7 +4505,6 @@ statementloop:
 	}
 	st=SINT;
 }
-
 
 
 void xnew(){ // the general cleanup function
@@ -5324,7 +5497,6 @@ void statement(){
 			case TLIST:
 				xlist();
 				break;
-			case TSCR:
 			case TNEW: // return here because new input is needed
 				xnew();
 				return;
@@ -5370,6 +5542,10 @@ void statement(){
 				break;			
 			case TSET:
 				xset();
+				break;
+			case TCLS:
+				outch(12);
+				nexttoken();
 				break;
 // Arduino IO
 #ifdef HASARDUINOIO
