@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.89 2021/10/10 19:12:00 stefan Exp stefan $
+// $Id: basic.c,v 1.91 2021/10/16 09:23:37 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -56,7 +56,7 @@
 #undef ARDUINODUE
 #undef RP2040
 #undef ESP8266
-#undef MINGW
+#define MINGW
 
 // interpreter features
 #define HASFORNEXT
@@ -70,6 +70,7 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
+#define HASFLOAT
 
 
 // hardcoded memory size set 0 for automatic malloc
@@ -107,14 +108,17 @@
 
 #if defined(ESP8266) || defined(RP2040) || defined(ARDUINODUE)
 #define PROGMEM
-#define ARDUINO
+#define ARDUINO 100
 #undef ARDUINOPROGMEM
 #undef ARDUINOEEPROM
 #endif
-
 #ifdef ARDUINO
 #ifdef ARDUINOPS2
+#ifndef ESP8266
 #include <PS2Keyboard.h>
+#else 
+#include <PS2Kbd.h>
+#endif
 #endif
 #ifdef ARDUINOPROGMEM
 #include <avr/pgmspace.h>
@@ -133,6 +137,10 @@
 #define PROGMEM
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef HASFLOAT
+#include <math.h>
+#include <float.h>
+#endif
 #include <time.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -155,7 +163,7 @@ const int printer_baudrate = 0;
 #define FALSE 0
 
 // debug mode switches 
-#define DEBUG  0
+#define DEBUG  1
 
 // various buffer sizes
 #define BUFSIZE 	92
@@ -352,7 +360,7 @@ const char sdelay[]  PROGMEM = "DELAY";
 const char smillis[]  PROGMEM = "MILLIS";
 const char stone[]    PROGMEM = "ATONE";
 const char splusein[] PROGMEM = "PULSEIN";
-const char sazero[] PROGMEM = "AZERO";
+const char sazero[]   PROGMEM = "AZERO";
 // SD Card DOS functions
 const char scatalog[] PROGMEM = "CATALOG";
 const char sdelete[] PROGMEM = "DELETE";
@@ -454,14 +462,24 @@ const char* const message[] PROGMEM = {
 // code for variable numbers and addresses sizes
 // the original code was 16 bit but can be extended here
 // works but with the tacit assumption that 
-// sizeof(number_t) >= sizeof(address_t)
+// sizeof(number_t) >= sizeof(address_t) 
+// floating point here is under construction we always 
+// assume that float >= 4 bytes in the following
+#ifdef HASFLOAT
+typedef float number_t;
+#else
 typedef int number_t;
+#endif
 typedef unsigned short address_t;
 const int numsize=sizeof(number_t);
 const int addrsize=sizeof(address_t);
 const int eheadersize=sizeof(address_t)+1;
 const int strindexsize=2; // the index size of strings either 1 byte or 2 bytes - no other values supported
+#ifndef HASFLOAT
 const number_t maxnum=(number_t)~((number_t)1<<(sizeof(number_t)*8-1));
+#else 
+const number_t maxnum=16777216; // we use the maximum accurate(!) integer of a 32 bit float here 
+#endif
 const address_t maxaddr=(address_t)(~0); 
 
 /*
@@ -543,7 +561,7 @@ static number_t x, y;
 static signed char xc, yc;
 
 struct twobytes {signed char l; signed char h;};
-static union accu168 { number_t i; struct twobytes b; signed char c[sizeof(number_t)]; } z;
+static union accunumber { number_t i; address_t a; struct twobytes b; signed char c[sizeof(number_t)]; } z;
 
 static char *ir, *ir2;
 static signed char token;
@@ -558,7 +576,8 @@ static address_t nvars = 0;
 
 static char form = 0;
 
-static unsigned int rd;
+// this is unsigned hence address_t 
+static address_t rd;
 
 static unsigned char id;
 static unsigned char od;
@@ -603,25 +622,25 @@ void  setvar(char, char, number_t);
 
 // low level memory access packing n*8bit bit into n 8 bit objects
 // e* is for Arduino EEPROM
-number_t getnumber(address_t, short);
-void  setnumber(address_t, number_t, short);
-number_t egetnumber(address_t, short);
-void  esetnumber(address_t, number_t, short);
+void  getnumber(address_t, short);
+void  setnumber(address_t, short);
+void  egetnumber(address_t, short);
+void  esetnumber(address_t, short);
 
 // array handling
-void  createarry(char, char, number_t);
-void  array(char, char, char, number_t, number_t*);
+void  createarray(char, char, address_t);
+void  array(char, char, char, address_t, number_t*);
 
 // string handling 
-void  createstring(char, char, number_t);
-char* getstring(char, char, number_t);
-void  setstring(char, char, number_t, char *, number_t);
+void  createstring(char, char, address_t);
+char* getstring(char, char, address_t);
+void  setstring(char, char, address_t, char *, address_t);
 
 // access memory dimensions and for strings also the actual length
 number_t arraydim(char, char);
 number_t stringdim(char, char);
 number_t lenstring(char, char);
-void setstringlength(char, char, number_t);
+void setstringlength(char, char, address_t);
 
 // get keyword from PROGMEM
 char* getkeyword(signed char);
@@ -685,39 +704,42 @@ void eupdate(address_t i, short c) { EEPROM.update(i, c); }
 short eread(address_t i) { return EEPROM.read(i); }
 // save a file to EEPROM
 void esave() {
-	address_t x=0;
+	address_t a=0;
 	if (top+eheadersize < elength()) {
-		x=0;
-		eupdate(x++, 0); // EEPROM per default is 255, 0 indicates that there is a program
+		a=0;
+		eupdate(a++, 0); // EEPROM per default is 255, 0 indicates that there is a program
 
 		// store the size of the program in byte 1,2 of the EEPROM	
-		esetnumber(x, top, addrsize);
+		z.a=top;
+		esetnumber(a, addrsize);
 		z.i=top;
-		x+=numsize;
+		a+=numsize;
 
-		while (x < top+eheadersize){
-			eupdate(x, mem[x-eheadersize]);
-			x++;
+		while (a < top+eheadersize){
+			eupdate(a, mem[a-eheadersize]);
+			a++;
 		}
-		eupdate(x++,0);
+		eupdate(a++,0);
 	} else {
 		error(EOUTOFMEMORY);
 		er=0; //oh oh! check this.
 	}
 }
+
 // load a file from EEPROM
 void eload() {
-	address_t x=0;
-	if (eread(x) == 0 || eread(x) == 1) { // have we stored a program?
-		x++;
+	address_t a=0;
+	if (eread(a) == 0 || eread(a) == 1) { // have we stored a program
+		a++;
 
-		// get a number
-		top=egetnumber(x, addrsize);
-		x+=numsize;
+		// how long is it?
+		egetnumber(a, addrsize);
+		top=z.a;
+		a+=numsize;
 
-		while (x < top+eheadersize){
-			mem[x-eheadersize]=eread(x);
-			x++;
+		while (a < top+eheadersize){
+			mem[a-eheadersize]=eread(a);
+			a++;
 		}
 	} else { // no valid program data is stored 
 		error(EEEPROM);
@@ -734,15 +756,29 @@ void eload() { error(EEEPROM); return; }
 // global variables for the keyboard
 // heuristic here - with and without TFT shield 
 // needs to be changed according to hw config
+// ESP added as well making it even more complex
 #ifdef ARDUINOPS2
 #ifdef ARDUINOTFT 
+#ifdef ARDUINODUE
+const int PS2DataPin = 9;
+const int PS2IRQpin =  8;
+PS2Keyboard keyboard;
+#else
 const int PS2DataPin = 18;
 const int PS2IRQpin =  19;
+PS2Keyboard keyboard;
+#endif
+#else
+#ifdef ESP8266
+const int PS2DataPin = 0;
+const int PS2IRQpin =  2;
+PS2Kbd keyboard(PS2DataPin, PS2IRQpin);
 #else
 const int PS2DataPin = 3;
 const int PS2IRQpin =  2;
-#endif
 PS2Keyboard keyboard;
+#endif
+#endif
 #endif
 
 // global variables for a standard LCD shield.
@@ -1003,7 +1039,9 @@ void xusr();
 // the statement loop
 void statement();
 
-/*  Layer 0
+/* 
+ 	Layer 0
+
 	this is a generic display code 
 	it combines the functions of LCD and TFT drivers
 	if this code is active 
@@ -1162,18 +1200,14 @@ void dspwrite(char c){
     // escape character received - we switch to vt52 mode
     // the character is modified and then handed over to the
     // internal pipeline
-    if (esc) {
-    	dspvt52(&c);
-    }
+    if (esc) dspvt52(&c);
 #endif
 
     // will be reworked soon - not super good 
   	switch(c) {
   		case 10: // this is LF Unix style doing also a CR
     		dspmyrow=(dspmyrow + 1);
-    		if (dspmyrow >= dsp_rows) {
-      			dspscroll(); 
-    		}
+    		if (dspmyrow >= dsp_rows) dspscroll(); 
     		dspmycol=0;
     		return;
     	case 12: // form feed is clear screen - deprecated
@@ -1202,9 +1236,7 @@ void dspwrite(char c){
 	if (dspmycol == dsp_columns) {
 		dspmycol=0;
 		dspmyrow=(dspmyrow + 1);
-    	if (dspmyrow >= dsp_rows) {
-      		dspscroll(); 
-    	}
+    	if (dspmyrow >= dsp_rows) dspscroll(); 
 	}
 }
 
@@ -1214,9 +1246,7 @@ char dspwaitonscroll() {
 	if ( dspscrollmode == 1 ) {
 		if (dspmyrow == dsp_rows-1) {
         	c=inch();
-        	if (c == ' ') {
-          		outch(12);
-        	}
+        	if (c == ' ') outch(12);
 		    return c;
 		}
 	}
@@ -1240,6 +1270,7 @@ void dspwrite(char c){
     // internal pipeline
     if (esc) { dspvt52(&c); }
 #endif
+
 
  	switch(c) {
   		case 12: // form feed is clear screen
@@ -1302,50 +1333,20 @@ void dspsetcursor(short c, short r) {}
  */
 
 #if MEMSIZE == 0
-// ugly, guess the possible basic memory size
-address_t allocmem() {
+// guess the possible basic memory size
+void allocmem() {
 
-	if (MEMSIZE > 0) {
-		mem=(signed char*)malloc(MEMSIZE);
-		if (mem != NULL) {
-			return MEMSIZE-1;
-		} else 
-			goto fallback;
-	} 
+	short i = 0;
+	// 									RP2040  ESP    MK   MEGA   UNO  168  FALLBACK
+	const unsigned short memmodel[7] = {60000, 46000, 28000, 4096, 1024, 512, 128}; 
 
-	if (sizeof(number_t) > 2) {
-		// big boards like rp2040 
-		mem=(signed char*)malloc(60000);
-		if (mem != NULL) { return 60000-1; }
-
-		// ESP boards can do this
-		mem=(signed char*)malloc(46000);
-		if (mem != NULL) { return 46000-1; };	
-
-		// but only if we do 32 bit numbers
-	}
-
-	// MKR boards can do this
-	mem=(signed char*)malloc(28000);
-	if (mem != NULL) { return 28000-1; };
-
-	// MEGA Boards
-	mem=(signed char*)malloc(4096);
-	if (mem != NULL) { return 4096-1; };
-
-	// UNO
-	mem=(signed char*)malloc(1024);
-	if (mem != NULL) { return 1024-1; };
-
-	// UNO and smaller one when we have a lot 
-	// of other stuff on them
-	mem=(signed char*)malloc(512);
-	if (mem != NULL) { return 512-1; };
-
-fallback:
-	mem=(signed char*)malloc(128);
-	return 127;
-
+	if (sizeof(number_t) <= 2) i=2;
+	do {
+		mem=(signed char*)malloc(memmodel[i]);
+		if (mem != NULL) break;
+		i++;
+	} while (i<7);
+	memsize=memmodel[i]-1;
 }
 #endif
 
@@ -1395,7 +1396,8 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 
 		// store the maximum length of the array of string
 		b=b-addrsize+1;
-		setnumber(b, vsize-(addrsize+3), addrsize);
+		z.a=vsize-(addrsize+3);
+		setnumber(b, addrsize);
 		b--;
 	}
 
@@ -1423,14 +1425,14 @@ address_t bfind(signed char t, char c, char d) {
 		t1=mem[b--];
 
 		if (t1 == VARIABLE) {
-			z.i=numsize; 
+			z.a=numsize; 
 		} else {
 			b=b-addrsize+1;
-			z.i=getnumber(b, addrsize);
+			getnumber(b, addrsize);
 			b--;
 		}
 
-		b-=z.i;
+		b-=z.a;
 
 		if (c1 == c && d1 == d && t1 == t) return b+1;
 		i++;
@@ -1443,7 +1445,7 @@ address_t bfind(signed char t, char c, char d) {
 // the length of an object
 address_t blength (signed char t, char c, char d) {
 	if (! bfind(t, c, d)) return 0;
-	return z.i;
+	return z.a;
 }
 #endif
 
@@ -1474,6 +1476,8 @@ number_t getvar(char c, char d){
 				return od;
 			case 'C':
 				if (checkch()) return inch(); else return 0;
+			case 'R':
+				return rd;
 #ifdef DISPLAYDRIVER
 			case 'X':
 				return dspmycol;
@@ -1490,7 +1494,8 @@ number_t getvar(char c, char d){
 		if (er != 0) return 0;
 	} 
 
-	return getnumber(a, numsize);
+	getnumber(a, numsize);
+	return z.i;
 #else
 	error(EVARIABLE);
 	return 0;
@@ -1524,12 +1529,15 @@ void setvar(char c, char d, number_t v){
 			case 'C':
 				outch(v);
 				return;
+			case 'R':
+				rd=v;
+				return;
 #ifdef DISPLAYDRIVER
 			case 'X':
-				dspmycol=v%dsp_columns;
+				dspmycol=(short)v%dsp_columns;
 				return;
 			case 'Y':
-				dspmyrow=v%dsp_rows;
+				dspmyrow=(short)v%dsp_rows;
 				return;
 #endif
 		}
@@ -1542,7 +1550,8 @@ void setvar(char c, char d, number_t v){
 		if (er != 0) return;
 	} 
 
-	setnumber(a, v, numsize);
+	z.i=v;
+	setnumber(a, numsize);
 #else 	
 	error(EVARIABLE);
 #endif
@@ -1558,7 +1567,7 @@ void clrvars() {
 // the program memory access - attention there is a hack here
 // this can sometimes also access eeproms for autorun through
 // the memread wrapper - still not really redundant to egetnumber
-number_t getnumber(address_t m, short n){
+void getnumber(address_t m, short n){
 
 	z.i=0;
 
@@ -1573,12 +1582,10 @@ number_t getnumber(address_t m, short n){
 		default:
 			for (int i=0; i<n; i++) z.c[i]=mem[m++];
 	}
-
-	return z.i;
 }
 
 // the eeprom memory access 
-number_t egetnumber(address_t m, short n){
+void egetnumber(address_t m, short n){
 
 	z.i=0;
 
@@ -1593,15 +1600,11 @@ number_t egetnumber(address_t m, short n){
 		default:
 			for (int i=0; i<n; i++) z.c[i]=eread(m++);
 	}
-
-	return z.i;
 }
 
 // set a number at a memory location
-void setnumber(address_t m, number_t v, short n){
+void setnumber(address_t m, short n){
 	
-	z.i=v;
-
 	switch (n) {
 		case 1:
 			mem[m]=z.i;
@@ -1615,10 +1618,8 @@ void setnumber(address_t m, number_t v, short n){
 	}
 }
 
-void esetnumber(address_t m, number_t v, short n){
+void esetnumber(address_t m, short n){
 	
-	z.i=v;
-
 	switch (n) {
 		case 1:
 			eupdate(m, z.i);
@@ -1633,7 +1634,7 @@ void esetnumber(address_t m, number_t v, short n){
 }
 
 
-void createarry(char c, char d, number_t i) {
+void createarray(char c, char d, address_t i) {
 #ifdef HASAPPLE1
 	if (bfind(ARRAYVAR, c, d)) { error(EVARIABLE); return; }
 	(void) bmalloc(ARRAYVAR, c, d, i);
@@ -1643,7 +1644,7 @@ void createarry(char c, char d, number_t i) {
 }
 
 // generic array access function 
-void array(char m, char c, char d, number_t i, number_t* v) {
+void array(char m, char c, char d, address_t i, number_t* v) {
 
 	address_t a;
 	address_t h;
@@ -1702,7 +1703,7 @@ void array(char m, char c, char d, number_t i, number_t* v) {
 		// dynamically allocated arrays
 		a=bfind(ARRAYVAR, c, d);
 		if (a == 0) { error(EVARIABLE); return; }
-		h=z.i/numsize;
+		h=z.a/numsize;
 		a=a+(i-1)*numsize;
 #else
 		error(EVARIABLE); 
@@ -1717,21 +1718,15 @@ void array(char m, char c, char d, number_t i, number_t* v) {
 
 	// set or get the array
 	if (m == 'g') {
-		if (! e) {
-			*v=getnumber(a, numsize);
-		} else {
-			*v=egetnumber(a, numsize);
-		}
+		if (! e) { getnumber(a, numsize); } else { egetnumber(a, numsize); }
+		*v=z.i;
 	} else if ( m == 's') {
-		if (! e) {
-			setnumber(a, *v, numsize);
-		} else {
-			esetnumber(a, *v, numsize);
-		}
+		z.i=*v;
+		if (! e) { setnumber(a, numsize); } else { esetnumber(a, numsize); }
 	}
 }
 
-void createstring(char c, char d, number_t i) {
+void createstring(char c, char d, address_t i) {
 #ifdef HASAPPLE1
 	if (bfind(STRINGVAR, c, d)) { error(EVARIABLE); return; }
 	(void) bmalloc(STRINGVAR, c, d, i+strindexsize);
@@ -1741,7 +1736,7 @@ void createstring(char c, char d, number_t i) {
 }
 
 // the -1+stringdexsize is needed because a string index starts with 1
-char* getstring(char c, char d, number_t b) {	
+char* getstring(char c, char d, address_t b) {	
 	address_t a;
 
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
@@ -1755,7 +1750,7 @@ char* getstring(char c, char d, number_t b) {
 	a=bfind(STRINGVAR, c, d);
 
 	if (DEBUG) { outsc("** heap address "); outnumber(a); outcr(); }
-	if (DEBUG) { outsc("** byte length "); outnumber(z.i); outcr(); }
+	if (DEBUG) { outsc("** byte length "); outnumber(z.a); outcr(); }
 
 	if (er != 0) return 0;
 	if (a == 0) {
@@ -1763,7 +1758,7 @@ char* getstring(char c, char d, number_t b) {
 		return 0;
 	}
 
-	if ( (b < 1) || (b > z.i-strindexsize ) ) {
+	if ( (b < 1) || (b > z.a-strindexsize ) ) {
 		error(ERANGE); return 0;
 	}
 
@@ -1813,10 +1808,11 @@ number_t lenstring(char c, char d){
 	a=bfind(STRINGVAR, c, d);
 	if (er != 0) return 0;
 
-	return getnumber(a, strindexsize);
+	getnumber(a, strindexsize);
+	return z.a;
 }
 
-void setstringlength(char c, char d, number_t l) {
+void setstringlength(char c, char d, address_t l) {
 	address_t a; 
 
 	if (c == '@') {
@@ -1831,15 +1827,16 @@ void setstringlength(char c, char d, number_t l) {
 		return;
 	}
 
-	if (l < z.i)
-		setnumber(a, l, strindexsize);
+	if (l < z.a) {
+		z.a=l;
+		setnumber(a, strindexsize);
 		//mem[a]=l;
-	else
+	} else
 		error(ERANGE);
 
 }
 
-void setstring(char c, char d, number_t w, char* s, number_t n) {
+void setstring(char c, char d, address_t w, char* s, address_t n) {
 	char *b;
 	address_t a;
 
@@ -1862,7 +1859,8 @@ void setstring(char c, char d, number_t w, char* s, number_t n) {
 
 	if ( (w+n-1) <= stringdim(c, d) ) {
 		for (int i=0; i<n; i++) { b[i+w]=s[i]; } 
-		setnumber(a, w+n-1, strindexsize);
+		z.a=w+n-1;
+		setnumber(a, strindexsize);
 		//b[0]=w+n-1; 	
 	}
 	else 
@@ -2032,6 +2030,7 @@ number_t pop(){
 		return stack[--sp];	
 }
 
+/* unused - can be replaced by (void) pop();
 void drop() {
 	if (DEBUG) {outsc("** drop sp= "); outnumber(sp); outcr(); }
 	if (sp == 0)
@@ -2039,6 +2038,7 @@ void drop() {
 	else
 		--sp;	
 }
+*/
 
 void clearst(){
 	sp=0;
@@ -2130,7 +2130,11 @@ void ioinit() {
 	dspbegin();
 	prtbegin();
 #ifdef ARDUINOPS2
+#ifdef ESP8266
+	keyboard.begin();
+#else
 	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
+#endif
 #endif
 	iodefaults();
 }
@@ -2278,9 +2282,11 @@ char inch(){
 	if (id == IKEYBOARD) {
 		do 
 			if (keyboard.available()) c=keyboard.read();
+			delay(1); // this seems to be needed on an ESP
 		while(c == 0);	
     	if (c == 13) c=10;
-    	if (c == '^') c='@';
+    	// check if really needed - DUE vs. MEGA descrepancy 
+    	//if (c == '^') c='@';
 		return c;
 	}
 #else 
@@ -2398,7 +2404,6 @@ void ins(char *b, short nb) {
 
 */ 
 
-
 // output one character to a stream
 void outch(char c) {
 	if (od == OSERIAL)
@@ -2457,12 +2462,18 @@ short parsenumber(char *c, number_t *r) {
 	return nd;
 }
 
-short writenumber(char *c, number_t v){
-	short nd = 0;
+// convert a number to a string
+// the use of long v here is a hack related to HASFLOAT 
+// unfinished here and need to be improved
+short writenumber(char *c, number_t vi){
+
+	long v;
+	short nd = 0;	
 	short i,j;
 	short s = 1;
 	char c1;
 
+	v=(long)vi;
 
 	if (v<0) {
 		s=-1; 
@@ -2487,11 +2498,11 @@ short writenumber(char *c, number_t v){
 
 	nd++;
 	c[nd]=0;
-
 	return nd;
 } 
 
 // use sbuffer as a char buffer to get a number input 
+// still not float ready
 char innumber(number_t *r) {
 	short i = 1;
 	short s = 1;
@@ -2511,8 +2522,10 @@ again:
 			*r*=s;
 			return 0;
 		} else {
+#ifdef HASERRORMSG
 			printmessage(ENUMBER); 
 			outspc(); 
+#endif
 			printmessage(EGENERAL);
 			outcr();
 			*r=0;
@@ -2529,7 +2542,7 @@ void outnumber(number_t n){
 	short nd;
 
 	nd=writenumber(sbuffer, n);
-	outsc(sbuffer);
+	outsc(sbuffer); 
 
 	// number formats in Palo Alto style
 	while (nd < form) {outspc(); nd++; };
@@ -2622,10 +2635,9 @@ void nexttoken() {
 			return; 
 	}  
 
-
 	// relations
 	// single character relations are their own token
-	// >=, =<, =<, =>, <> ore tokenized
+	// >=, =<, =<, =>, <> are tokenized
 	if (*bi == '=') {
 		bi++;
 		whitespaces();
@@ -2675,7 +2687,6 @@ void nexttoken() {
 	// isolate a word, bi points to the beginning, x is the length of the word
 	// ir points to the end of the word after isolating.
 	// @ is a letter here to make the special @ arrays possible
-
 	// if (DEBUG) printmessage(EVARIABLE);
 	x=0;
 	ir=bi;
@@ -2782,7 +2793,7 @@ void nexttoken() {
 	get* retrieves information
 
 	No matter how long int is in the C implementation
-	we pack into 2 bytes, this is clumsy but portable
+	we pack into bytes, this is clumsy but portable
 	the store and get commands all operate on here 
 	and advance it
 
@@ -2812,13 +2823,15 @@ void storetoken() {
 		case LINENUMBER:
 			if ( nomemory(addrsize+1) ) break;
 			mem[top++]=token;	
-			setnumber(top, x, addrsize);
+			z.a=x;
+			setnumber(top, addrsize);
 			top+=addrsize;
 			return;	
 		case NUMBER:
 			if ( nomemory(numsize+1) ) break;
 			mem[top++]=token;	
-			setnumber(top, x, numsize);
+			z.i=x;
+			setnumber(top, numsize);
 			top+=numsize;
 			return;
 		case ARRAYVAR:
@@ -2874,11 +2887,13 @@ void gettoken() {
 	token=memread(here++);
 	switch (token) {
 		case LINENUMBER:
-			if (st != SERUN) x=getnumber(here, addrsize); else x=egetnumber(here+eheadersize, addrsize);
+			if (st != SERUN) getnumber(here, addrsize); else egetnumber(here+eheadersize, addrsize);
+			x=z.a;
 			here+=addrsize;
 			break;
 		case NUMBER:	
-			if (st !=SERUN) x=getnumber(here, numsize); else x=egetnumber(here+eheadersize, numsize);
+			if (st !=SERUN) getnumber(here, numsize); else egetnumber(here+eheadersize, numsize);
+			x=z.i;
 			here+=numsize;	
 			break;
 		case ARRAYVAR:
@@ -2920,8 +2935,7 @@ void firstline() {
 void nextline() {
 	while (here < top) {
 		gettoken();
-		if (token == LINENUMBER)
-			return;
+		if (token == LINENUMBER) return;
 		if (here >= top) {
 			here=top;
 			x=0;
@@ -3137,7 +3151,7 @@ void storeline() {
 			here2=t2;  // this is the line we are dealing with
 			here=t1;   // this is the next line
 			y=here-here2; // the length of the line as it is 
-			if (linelength == y) {     // no change in line legth
+			if (linelength == y) {     // no change in line length
 				moveblock(top-linelength, linelength, here2);
 				top=top-linelength;
 			} else if (linelength > y) { // the new line is longer than the old one
@@ -3283,13 +3297,16 @@ void parsesubstring() {
 }
 #endif
 
+/*
 // absolute value, 
 number_t babs(number_t n) {
 	if (n<0) return -n; else return n;
 }
+*/
 
 void xabs(){
-	push(babs(pop()));
+	if ((x=pop())<0) { x=-x; }
+	push(x);
 }
 
 // sign
@@ -3305,7 +3322,7 @@ void xsgn(){
 // the EEPROM range -1 .. -1024 on an UNO
 void peek(){
 	address_t amax;
-	number_t a;
+	address_t a;
 	a=pop();
 
 	// this is a hack again, 16 bit numbers can't peek big addresses
@@ -3341,6 +3358,8 @@ void rnd() {
 		push((long)rd*r/0x10000+1);
 }
 
+
+#ifndef HASFLOAT
 // a very simple approximate square root formula. 
 void sqr(){
 	number_t t,r;
@@ -3357,9 +3376,14 @@ void sqr(){
 	do {
 		l=t;
 		t=(t+r/t)/2;
-	} while (babs(t-l)>1);
+	} while (abs(t-l)>1);
 	push(t);
 }
+#else
+void sqr(){
+	push(sqrt(pop()));
+}
+#endif
 
 // evaluates a string value, FALSE if there is no string
 char stringvalue() {
@@ -3391,10 +3415,10 @@ char stringvalue() {
 // (numerical) evaluation of a string expression used for 
 // comparison and for string rightvalues as numbers
 // the token rewind here is needed as streval is called in 
-// factor - no factor function can nextto
+// factor - no factor function can nexttoken
 void streval(){
 	char *irl;
-	number_t xl;
+	address_t xl, x;
 	char xcl;
 	signed char t;
 	address_t h1;
@@ -3429,7 +3453,7 @@ void streval(){
 	nexttoken(); 
 	//debugtoken();
 
-	if (! stringvalue() ){
+	if (!stringvalue() ){
 		error(EUNKNOWN);
 		return;
 	} 
@@ -3598,7 +3622,11 @@ nextfactor:
 		parseoperator(factor);
 		if (er != 0) return;
 		if (y != 0)
+#ifndef HASFLOAT
 			push(x%y);
+#else 
+			push((int)x%(int)y);
+#endif
 		else {
 			error(EDIVIDE);
 			return;	
@@ -3756,7 +3784,6 @@ processsymbol:
 				od=pop();
 				break;
 		}
-		// modifier=0;
 		goto processsymbol;
 	}
 
@@ -3926,9 +3953,9 @@ void assignment() {
 
 			if (DEBUG) {
 				outsc("* assigment stringcode "); outch(xcl); outch(ycl); outcr();
-				outsc("** assignment source string length "); printf("%d ", lensource); outcr();
-				outsc("** assignment old string length "); printf("%d ",lenstring(xcl, ycl)); outcr();
-				outsc("** assignment string dimension "); printf("%d ",stringdim(xcl, ycl)); outcr();
+				outsc("** assignment source string length "); outnumber(lensource); outcr();
+				outsc("** assignment old string length "); outnumber(lenstring(xcl, ycl)); outcr();
+				outsc("** assignment string dimension "); outnumber(stringdim(xcl, ycl)); outcr();
 			};
 
 			// does the source string fit into the destination
@@ -4432,12 +4459,13 @@ void outputtoken() {
 
 void xlist(){
 	number_t b, e;
+	address_t arg;
 	char oflag = FALSE;
 
 	nexttoken();
- 	y=parsearguments();
+ 	arg=parsearguments();
 	if (er != 0) return;
-	switch (y) {
+	switch (arg) {
 		case 0: 
 			b=0;
 			e=32767;
@@ -4584,7 +4612,7 @@ nextvariable:
 			if ( (x>255) && (strindexsize==1) ) {error(ERANGE); return; }
 			createstring(xcl, ycl, x);
 		} else {
-			createarry(xcl, ycl, x);
+			createarray(xcl, ycl, x);
 		}	
 	} else {
 		error(EUNKNOWN);
@@ -4608,7 +4636,7 @@ nextvariable:
 
 void xpoke(){
 	address_t amax;
-	number_t a;
+	address_t a;
 
 	// like in peek
 	// this is a hack again, 16 bit numbers can't peek big addresses
@@ -4653,11 +4681,12 @@ void xtab(){
 #ifdef HASDUMP
 void xdump() {
 	address_t a;
+	address_t arg;
 	
 	nexttoken();
-	y=parsearguments();
+	arg=parsearguments();
 	if (er != 0) return;
-	switch (y) {
+	switch (arg) {
 		case 0: 
 			x=0;
 			a=memsize;
@@ -4721,13 +4750,15 @@ void dumpmem(address_t r, address_t b) {
 #if !defined(ARDUINO) || defined(ARDUINOSD)
 // creates a C string from a BASIC string
 void stringtobuffer(char *buffer) {
-	if (x >= SBUFSIZE) x=SBUFSIZE-1;
-	buffer[x--]=0;
-	while (x >= 0) { buffer[x]=ir2[x]; x--; }
+	short i;
+	i=x;
+	if (i >= SBUFSIZE) i=SBUFSIZE-1;
+	buffer[i--]=0;
+	while (i >= 0) { buffer[i]=ir2[i]; i--; }
 }
 
 // get a file argument (2) nexttoken handling still to be checked
-void getfilename2(char * buffer, char d) {
+void getfilename2(char *buffer, char d) {
 	char s;
 	char *sbuffer;
 
@@ -4735,10 +4766,11 @@ void getfilename2(char * buffer, char d) {
 	s=stringvalue();
 	if (er != 0) return;
 
-	if (DEBUG) {outsc("** in getfilename2 stringvalue delivered it "); outnumber(s); outcr(); }
+	if (DEBUG) {outsc("** in getfilename2 stringvalue delivered"); outnumber(s); outcr(); }
 
 	if (s) {
 		x=pop();
+		if (DEBUG) {outsc("** in getfilename2 copying string of length "); outnumber(x); outcr(); }
 		stringtobuffer(buffer);
 		if (DEBUG) {outsc("** in getfilename2 stringvalue string "); outsc(buffer); outcr(); }
 	} else if (termsymbol()) {
@@ -4870,6 +4902,9 @@ void xload() {
 		}
 
 #ifndef ARDUINO
+
+		if (DEBUG){ outsc("** Opening the file "); outsc(filename); outcr(); };
+
 		ifd=fopen(filename, "r");
 		if (!ifd) {
 			error(EFILE);
@@ -5014,18 +5049,19 @@ void xput(){
 */
 
 void xset(){
+	address_t fn, arg;
 
 	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return;
-	x=pop();
-	y=pop();
-	switch (y) {		
+	arg=pop();
+	fn=pop();
+	switch (fn) {		
 		case 1: // autorun/run flag of the EEPROM 255 for clear, 0 for prog, 1 for autorun
-			eupdate(0, x);
+			eupdate(0, arg);
 			break;
 		case 2: // change the output device 
-			switch (x) {
+			switch (arg) {
 				case 0:
 					od=OSERIAL;
 					break;
@@ -5035,7 +5071,7 @@ void xset(){
 			}		
 			break;
 		case 3: // change the default output device
-			switch (x) {
+			switch (arg) {
 				case 0:
 					od=(odd=OSERIAL);
 					break;
@@ -5045,7 +5081,7 @@ void xset(){
 			}		
 			break;
 		case 4: // change the input device (deprectated use @i instead)
-			switch (x) {
+			switch (arg) {
 				case 0:
 					id=ISERIAL;
 					break;
@@ -5055,7 +5091,7 @@ void xset(){
 			}		
 			break;		
 		case 5: // change the default input device 
-			switch (x) {
+			switch (arg) {
 				case 0:
 					idd=(id=ISERIAL);
 					break;
@@ -5333,13 +5369,14 @@ void xclose() {
 void xusr() {
 	address_t a;
 	number_t n;
+	address_t fn, arg;
 	char* instr=ibuffer;
 
-	y=pop();
-	x=pop();
-	switch(x) {
+	arg=pop();
+	fn=pop();
+	switch(fn) {
 		case 0: // USR(0,y) delivers all the internal constants
-			switch(y) {
+			switch(arg) {
 				case 0: push(numsize); break;
 				case 1: push(maxnum); break;
 				case 2: push(addrsize); break;
@@ -5360,7 +5397,7 @@ void xusr() {
 			}
 			break;	
 		case 1: // access to the variables of the interpreter
-			switch(y) {
+			switch(arg) {
 				case 0: push(top); break;
 				case 1: push(here); break;
 				case 2: push(himem); break;
@@ -5377,7 +5414,7 @@ void xusr() {
 			}
 			break;
 		case 2: // io definitions, somewhat redundant to @ 
-			switch(y) {
+			switch(arg) {
 				case 0: push(id); break;
 				case 1: push(idd); break;
 				case 2: push(od); break;
@@ -5392,7 +5429,7 @@ void xusr() {
 			push(bfind(instr[1], instr[2], instr[3]));
 			break;	
 		case 4: // more evil - allocate an arbitrary object on the heap
-			push(bmalloc(instr[1], instr[2], instr[3], y));
+			push(bmalloc(instr[1], instr[2], instr[3], arg));
 			break;
 		case 5: // find the length of an object on the heap
 			push(blength(instr[1], instr[2], instr[3]));
@@ -5403,10 +5440,10 @@ void xusr() {
 			push(x);
 			break;
 		case 7: // write a number to the input buffer
-			push(*ibuffer=writenumber(ibuffer+1, y));
+			push(*ibuffer=writenumber(ibuffer+1, arg));
 			break;
 		case 8: // maximal evil - store a line into a basic program 
-			x=y;                // the linennumber
+			x=arg;              // the linennumber
 			push(st); st=SINT;  // go to (fake) interactive mode
 			push(here); 		// remember where we were
 			bi=ibuffer+1; 		// go to the beginning of the line
@@ -5606,7 +5643,8 @@ void statement(){
 // the setup routine - Arduino style
 void setup() {
 #if MEMSIZE == 0
-	himem=(memsize=allocmem());
+	allocmem();
+	himem=memsize;
 #endif
 
 #ifndef ARDUINO
@@ -5626,7 +5664,8 @@ void setup() {
 #endif	
 #ifdef ARDUINOEEPROM
   	if (eread(0) == 1){ // autorun from the EEPROM
-  		top=egetnumber(1, addrsize);
+  		egetnumber(1, addrsize);
+  		top=z.a;
 		//top=(unsigned char) eread(1);
 		//top+=((unsigned char) eread(2))*256;
   		st=SERUN;
