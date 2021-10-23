@@ -56,7 +56,7 @@
 #undef ARDUINODUE
 #undef RP2040
 #undef ESP8266
-#define MINGW
+#undef MINGW
 
 // interpreter features
 #define HASFORNEXT
@@ -70,7 +70,7 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#define HASFLOAT
+#undef HASFLOAT
 
 
 // hardcoded memory size set 0 for automatic malloc
@@ -163,7 +163,7 @@ const int printer_baudrate = 0;
 #define FALSE 0
 
 // debug mode switches 
-#define DEBUG  1
+#define DEBUG  0
 
 // various buffer sizes
 #define BUFSIZE 	92
@@ -688,8 +688,10 @@ void outsc(char*);
 void outscf(char *, short);
 char innumber(number_t*);
 short parsenumber(char*, number_t*);
+short parsenumber2(char*, number_t*);
 void outnumber(number_t);
 short writenumber(char*, number_t);
+short writenumber2(char*, number_t);
 
 /*
 	Arduino definitions and code
@@ -701,7 +703,7 @@ short writenumber(char*, number_t);
 #if defined(ARDUINO) && defined(ARDUINOEEPROM)
 address_t elength() { return EEPROM.length(); }
 void eupdate(address_t i, short c) { EEPROM.update(i, c); }
-short eread(address_t i) { return EEPROM.read(i); }
+short eread(address_t i) { return (signed char) EEPROM.read(i); }
 // save a file to EEPROM
 void esave() {
 	address_t a=0;
@@ -712,8 +714,7 @@ void esave() {
 		// store the size of the program in byte 1,2 of the EEPROM	
 		z.a=top;
 		esetnumber(a, addrsize);
-		z.i=top;
-		a+=numsize;
+		a+=addrsize;
 
 		while (a < top+eheadersize){
 			eupdate(a, mem[a-eheadersize]);
@@ -735,7 +736,7 @@ void eload() {
 		// how long is it?
 		egetnumber(a, addrsize);
 		top=z.a;
-		a+=numsize;
+		a+=addrsize;
 
 		while (a < top+eheadersize){
 			mem[a-eheadersize]=eread(a);
@@ -873,7 +874,8 @@ void pinm(number_t p, number_t m){
 }
 void bmillis() {
 	number_t m;
-	m=(number_t) (millis()/pop() % maxnum);
+	// millis is processed as integer and is cyclic mod maxnumber and not cast to float!!
+	m=(number_t) (millis()/(unsigned long)pop() % (unsigned long)maxnum);
 	push(m); 
 };
 void bpulsein() { 
@@ -899,7 +901,8 @@ void bmillis() {
 	number_t m;
 	timespec_get(&ts, TIME_UTC);
 	dt=(ts.tv_sec-start_time.tv_sec)*1000+(ts.tv_nsec-start_time.tv_nsec)/10000000;
-	m=(number_t) ( dt/pop() % maxnum);
+	// millis is processed as integer and is cyclic mod maxnumber and not cast to float!!
+	m=(number_t) ( dt/(unsigned long)pop() % (unsigned long)maxnum);
 	push(m); 
 #else
 	push(0);
@@ -2461,18 +2464,59 @@ short parsenumber(char *c, number_t *r) {
 	}
 	return nd;
 }
+#ifdef HASFLOAT
+// a poor man's atof implementation with character count
+short parsenumber2(char *c, number_t *r) {
+	short nd = 0;
+	short i;
+	number_t fraction = 0;
+	number_t exponent = 0;
+	char nexp = FALSE;
+
+	*r=0;
+
+	i=parsenumber(c, r);
+	c+=i;
+	nd+=i;
+
+	if (*c == '.') {
+		c++; 
+		nd++;
+
+		i=parsenumber(c, &fraction);
+		c+=i;
+		nd+=i;
+
+		if (i > 0) {
+			while ((--i)>=0) fraction=fraction/10;
+			*r+=fraction;
+		} 
+	}
+
+	if (*c == 'E' || *c == 'e') {
+		c++;
+		nd++;
+		if (*c == '-') {c++; nd++; nexp=TRUE;};
+		i=parsenumber(c, &exponent);
+		nd+=i;
+		while ((--exponent)>=0) if (nexp) *r=*r/10; else *r=*r*10;		
+	}
+
+	return nd;
+}
+#endif
 
 // convert a number to a string
 // the use of long v here is a hack related to HASFLOAT 
 // unfinished here and need to be improved
 short writenumber(char *c, number_t vi){
-
-	long v;
 	short nd = 0;	
+	long v;
 	short i,j;
 	short s = 1;
 	char c1;
 
+	// not really needed any more
 	v=(long)vi;
 
 	if (v<0) {
@@ -2501,6 +2545,57 @@ short writenumber(char *c, number_t vi){
 	return nd;
 } 
 
+#ifdef HASFLOAT
+// this is for floats, going back to library functions
+// for a starter.
+short writenumber2(char *c, number_t vi) {
+
+	short i;
+  	number_t f;
+  	short exponent = 0; 
+  	char eflag=0;
+	// pseudo integers are displayed as integer
+	// zero trapped here
+	f=floor(vi);
+	if (f == vi && fabs(vi) < maxnum) {
+		return writenumber(c, vi);
+	}
+
+	// floats are displayed using the libraries
+#ifndef ARDUINO
+	return sprintf(c, "%g", vi);
+#else
+  	f=vi;
+  	while (fabs(f)>=10.0) { f=f/10; exponent++; }
+  	while (fabs(f)<1.0)   { f=f*10; exponent--; }
+
+  	// small numbers
+  	if (exponent > -2 && exponent < 7) { 
+    	dtostrf(vi, 0, 5, c);
+  	} else {
+    	dtostrf(f, 0, 5, c);
+    	eflag=TRUE;
+  	}
+	
+  	// remove trailing zeros
+  	for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
+  	i--;
+	while (c[i] == '0' && i>1) {i--;}
+	i++;
+
+  	// add the exponent
+  	if (eflag) {
+    	c[i++]='E';
+    	i+=writenumber(c+i, exponent);
+  	}
+
+  	c[i]=0;
+	return i;
+
+#endif
+}
+#endif
+
 // use sbuffer as a char buffer to get a number input 
 // still not float ready
 char innumber(number_t *r) {
@@ -2518,7 +2613,11 @@ again:
 			i++;
 		}
 		if (sbuffer[i] >= '0' && sbuffer[i] <= '9') {
+#ifndef HASFLOAT
 			(void) parsenumber(&sbuffer[i], r);
+#else
+			(void) parsenumber2(&sbuffer[i], r);
+#endif
 			*r*=s;
 			return 0;
 		} else {
@@ -2537,11 +2636,16 @@ again:
 	return 0;
 }
 
-// prints a 16 bit number
+// prints a number
 void outnumber(number_t n){
 	short nd;
 
+#ifndef HASFLOAT
 	nd=writenumber(sbuffer, n);
+#else
+	nd=writenumber2(sbuffer, n);
+#endif
+
 	outsc(sbuffer); 
 
 	// number formats in Palo Alto style
@@ -2604,8 +2708,12 @@ void nexttoken() {
 	}
 
 	// unsigned numbers, value returned in x
-	if (*bi <='9' && *bi>= '0'){
+	if (*bi <='9' && *bi >= '0'){
+#ifndef HASFLOAT
 		bi+=parsenumber(bi, &x);
+#else
+		bi+=parsenumber2(bi, &x);
+#endif
 		token=NUMBER;
 		if (DEBUG) debugtoken();
 		return;
@@ -2908,7 +3016,7 @@ void gettoken() {
 			ir=(char *)&mem[here];
 			here+=x;
 #else 
-			if (st == SERUN) { // we run from the EEROM and cannot simply pass a pointer
+			if (st == SERUN) { // we run from EEPROM and cannot simply pass a pointer
 				for(int i=0; i<x; i++) {
 					ibuffer[i]=memread(here+i);   // we (ab)use the input buffer which is not needed here
 				}
