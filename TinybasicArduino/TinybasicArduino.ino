@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.91 2021/10/16 09:23:37 stefan Exp stefan $
+// $Id: basic.c,v 1.93 2021/10/23 18:14:46 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -56,7 +56,7 @@
 #undef ARDUINODUE
 #undef RP2040
 #undef ESP8266
-#define MINGW
+#undef MINGW
 
 // interpreter features
 #define HASFORNEXT
@@ -70,7 +70,8 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#undef HASFLOAT
+#define HASFLOAT
+
 
 // hardcoded memory size set 0 for automatic malloc
 #define MEMSIZE 0
@@ -106,6 +107,7 @@
 #endif
 
 #if defined(ESP8266) || defined(RP2040) || defined(ARDUINODUE)
+#include <avr/dtostrf.h>
 #define PROGMEM
 #define ARDUINO 100
 #undef ARDUINOPROGMEM
@@ -258,14 +260,21 @@ const int printer_baudrate = 0;
 // low level access of internal routines
 #define TUSR	-60
 #define TCALL 	-59
+// mathematical functions 
+#define TSIN 	-58
+#define TCOS    -57
+#define TTAN 	-56
+#define TATAN   -55
+#define TLOG    -54
+#define TEXP    -53
+#define TINT    -52
 // currently unused constants
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
 
-
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+14+11+10+4+2
+#define NKEYWORDS	3+19+14+11+10+4+2+7
 #define BASEKEYWORD -121
 
 /*
@@ -368,6 +377,14 @@ const char sfclose[] PROGMEM = "CLOSE";
 // low level access functions
 const char susr[] PROGMEM = "USR";
 const char scall[] PROGMEM = "CALL";
+// mathematics
+const char ssin[] PROGMEM  = "SIN";
+const char scos[] PROGMEM  = "COS";
+const char stan[] PROGMEM  = "TAN";
+const char satan[] PROGMEM = "ATAN";
+const char slog[] PROGMEM  = "LOG";
+const char sexp[] PROGMEM  = "EXP";
+const char sint[] PROGMEM  = "INT";
 
 const char* const keyword[] PROGMEM = {
 // Palo Alto BASIC
@@ -388,7 +405,9 @@ const char* const keyword[] PROGMEM = {
 // SD Card DOS
     scatalog, sdelete, sfopen, sfclose,
 // low level access
-    susr, scall
+    susr, scall,
+// mathematical functions 
+    ssin, scos, stan, satan, slog, sexp, sint
 // the end 
 };
 
@@ -873,7 +892,8 @@ void pinm(number_t p, number_t m){
 }
 void bmillis() {
 	number_t m;
-	m=(number_t) (millis()/(long)pop() % (long)maxnum);
+	// millis is processed as integer and is cyclic mod maxnumber and not cast to float!!
+	m=(number_t) (millis()/(unsigned long)pop() % (unsigned long)maxnum);
 	push(m); 
 };
 void bpulsein() { 
@@ -899,7 +919,8 @@ void bmillis() {
 	number_t m;
 	timespec_get(&ts, TIME_UTC);
 	dt=(ts.tv_sec-start_time.tv_sec)*1000+(ts.tv_nsec-start_time.tv_nsec)/10000000;
-	m=(number_t) ( dt/pop() % maxnum);
+	// millis is processed as integer and is cyclic mod maxnumber and not cast to float!!
+	m=(number_t) ( dt/(unsigned long)pop() % (unsigned long)maxnum);
 	push(m); 
 #else
 	push(0);
@@ -1337,15 +1358,15 @@ void dspsetcursor(short c, short r) {}
 void allocmem() {
 
 	short i = 0;
-	// 									RP2040  ESP    MK   MEGA   UNO  168  FALLBACK
-	const unsigned short memmodel[7] = {60000, 46000, 28000, 4096, 1024, 512, 128}; 
+	// 									RP2040  ESP    MK       MEGA   UNO  168  FALLBACK
+	const unsigned short memmodel[8] = {60000, 46000, 28000, 6000, 4096, 1024, 512, 128}; 
 
 	if (sizeof(number_t) <= 2) i=2;
 	do {
 		mem=(signed char*)malloc(memmodel[i]);
 		if (mem != NULL) break;
 		i++;
-	} while (i<7);
+	} while (i<8);
 	memsize=memmodel[i]-1;
 }
 #endif
@@ -2280,10 +2301,10 @@ char inch(){
 	}
 #ifdef ARDUINOPS2	
 	if (id == IKEYBOARD) {
-		do 
+		do {
 			if (keyboard.available()) c=keyboard.read();
 			delay(1); // this seems to be needed on an ESP
-		while(c == 0);	
+		} while(c == 0);	
     	if (c == 13) c=10;
     	// check if really needed - DUE vs. MEGA descrepancy 
     	//if (c == '^') c='@';
@@ -2548,9 +2569,9 @@ short writenumber(char *c, number_t vi){
 short writenumber2(char *c, number_t vi) {
 
 	short i;
-  number_t f;
-  short exponent = 0; 
-  char eflag=0;
+  	number_t f;
+  	short exponent = 0; 
+  	char eflag=0;
 	// pseudo integers are displayed as integer
 	// zero trapped here
 	f=floor(vi);
@@ -2563,8 +2584,8 @@ short writenumber2(char *c, number_t vi) {
 	return sprintf(c, "%g", vi);
 #else
   	f=vi;
-  	while (fabs(f)>=10.0) { f=f/10; exponent++; }
-  	while (fabs(f)<1.0)   { f=f*10; exponent--; }
+    while (fabs(f)<1.0)   { f=f*10; exponent--; }
+  	while (fabs(f)>=10.0-0.00001) { f=f/10; exponent++; }
 
   	// small numbers
   	if (exponent > -2 && exponent < 7) { 
@@ -2585,7 +2606,8 @@ short writenumber2(char *c, number_t vi) {
     	c[i++]='E';
     	i+=writenumber(c+i, exponent);
   	}
-  c[i]=0;
+
+  	c[i]=0;
 	return i;
 
 #endif
@@ -3574,6 +3596,37 @@ neq:
 	return;
 }
 
+#ifdef HASFLOAT
+void xsin() {
+	push(sin(pop()));
+}
+
+void xcos() {
+	push(cos(pop()));
+}
+
+void xtan() {
+	push(tan(pop()));
+}
+
+void xatan() {
+	push(atan(pop()));
+}
+
+void xlog() {
+	push(log(pop()));
+}
+
+void xexp() {
+	push(exp(pop()));
+}
+
+void xint() {
+	push(floor(pop()));
+}
+#endif
+
+
 // the factor function - contrary to all other function
 // nothing here should end with a new token - this is handled 
 // in factors calling function
@@ -3691,6 +3744,31 @@ void factor(){
 			push(0);
 #endif			
 			break;
+#endif
+// mathematical functions
+#ifdef HASFLOAT
+		case TSIN:
+			parsefunction(xsin, 1);
+			break;
+		case TCOS:
+			parsefunction(xcos, 1);
+			break;
+		case TTAN:
+			parsefunction(xtan, 1);
+			break;		
+		case TATAN:
+			parsefunction(xatan, 1);
+			break;
+		case TLOG:
+			parsefunction(xlog, 1);
+			break;
+		case TEXP:
+			parsefunction(xexp, 1);
+			break;	
+		case TINT:
+			parsefunction(xint, 1);
+			break;
+
 #endif
 // unknown function
 		default:
