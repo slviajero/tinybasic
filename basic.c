@@ -33,18 +33,6 @@
 	- activating Picoserial is not compatible with keyboard code
 		Picoserial doesn't work on MEGA
 
-
-	SMALLness - Memory footprint of extensions on an UNO
-	
-	          FLASH	    RAM
-	EEPROM    834  		0
-	FOR       804  		34
-	LCD       712  		37
-	PS2       1930      128
-	GOSUB     144  		10
-	DUMP 	  130  		0
-	PICO     -504 		-179
-
 	The extension flags control features and code size
 
 	MEMSIZE sets the BASIC main memory to a fixed value,
@@ -70,7 +58,8 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#define HASFLOAT
+#undef HASFLOAT
+#undef HASGRAPH
 
 
 // hardcoded memory size set 0 for automatic malloc
@@ -268,13 +257,19 @@ const int printer_baudrate = 0;
 #define TLOG    -54
 #define TEXP    -53
 #define TINT    -52
+// graphics - experimental - rudimentary
+#define TCOLOR 	-51
+#define TPLOT   -50
+#define TLINE 	-49
+#define TCIRCLE -48
+#define TRECT   -47
 // currently unused constants
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+14+11+10+4+2+7
+#define NKEYWORDS	3+19+14+11+10+4+2+7+5
 #define BASEKEYWORD -121
 
 /*
@@ -332,6 +327,7 @@ const char srnd[]    PROGMEM = "RND";
 const char ssize[]   PROGMEM = "SIZE";
 const char srem[]    PROGMEM = "REM";
 // Apple 1 language set
+#ifdef HASAPPLE1
 const char snot[]    PROGMEM = "NOT";
 const char sand[]    PROGMEM = "AND";
 const char sor[]     PROGMEM = "OR";
@@ -346,7 +342,9 @@ const char stab[]    PROGMEM = "TAB";
 const char sthen[]   PROGMEM = "THEN";
 const char send[]    PROGMEM = "END";
 const char spoke[]   PROGMEM = "POKE";
+#endif
 // Stefan's tinybasic additions
+#ifdef HASSTEFANSEXT
 const char scont[]   PROGMEM = "CONT";
 const char ssqr[]    PROGMEM = "SQR";
 const char sfre[]    PROGMEM = "FRE";
@@ -358,33 +356,54 @@ const char sget[]    PROGMEM = "GET";
 const char sput[]    PROGMEM = "PUT";
 const char sset[]    PROGMEM = "SET";
 const char scls[]    PROGMEM = "CLS";
+#endif
 // Arduino functions
-const char spinm[]   PROGMEM = "PINM";
-const char sdwrite[] PROGMEM = "DWRITE";
-const char sdread[]  PROGMEM = "DREAD";
-const char sawrite[] PROGMEM = "AWRITE";
-const char saread[]  PROGMEM = "AREAD";
-const char sdelay[]  PROGMEM = "DELAY";
+#ifdef HASARDUINOIO
+const char spinm[]    PROGMEM = "PINM";
+const char sdwrite[]  PROGMEM = "DWRITE";
+const char sdread[]   PROGMEM = "DREAD";
+const char sawrite[]  PROGMEM = "AWRITE";
+const char saread[]   PROGMEM = "AREAD";
+const char sdelay[]   PROGMEM = "DELAY";
 const char smillis[]  PROGMEM = "MILLIS";
-const char stone[]    PROGMEM = "ATONE";
-const char splusein[] PROGMEM = "PULSEIN";
 const char sazero[]   PROGMEM = "AZERO";
+#endif
+#ifdef HASTONE
+const char stone[]    PROGMEM = "ATONE";
+#endif
+#ifdef HASPULSE
+const char splusein[] PROGMEM = "PULSEIN";
+#endif
 // SD Card DOS functions
+#ifdef HASFILEIO
 const char scatalog[] PROGMEM = "CATALOG";
-const char sdelete[] PROGMEM = "DELETE";
-const char sfopen[] PROGMEM = "OPEN";
-const char sfclose[] PROGMEM = "CLOSE";
+const char sdelete[]  PROGMEM = "DELETE";
+const char sfopen[]   PROGMEM = "OPEN";
+const char sfclose[]  PROGMEM = "CLOSE";
+#endif
 // low level access functions
-const char susr[] PROGMEM = "USR";
+#ifdef HASSTEFANSEXT
+const char susr[]  PROGMEM = "USR";
 const char scall[] PROGMEM = "CALL";
+#endif
 // mathematics
-const char ssin[] PROGMEM  = "SIN";
-const char scos[] PROGMEM  = "COS";
-const char stan[] PROGMEM  = "TAN";
+#ifdef HASFLOAT
+const char ssin[]  PROGMEM = "SIN";
+const char scos[]  PROGMEM = "COS";
+const char stan[]  PROGMEM = "TAN";
 const char satan[] PROGMEM = "ATAN";
-const char slog[] PROGMEM  = "LOG";
-const char sexp[] PROGMEM  = "EXP";
-const char sint[] PROGMEM  = "INT";
+const char slog[]  PROGMEM = "LOG";
+const char sexp[]  PROGMEM = "EXP";
+const char sint[]  PROGMEM = "INT";
+#endif
+// graphics
+#ifdef HASGRAPH
+const char scolor[]  PROGMEM  = "COLOR";
+const char splot[]   PROGMEM  = "PLOT";
+const char sline[]   PROGMEM  = "LINE";
+const char scircle[] PROGMEM  = "CIRCLE";
+const char srect[]   PROGMEM  = "RECT";
+#endif
 
 const char* const keyword[] PROGMEM = {
 // Palo Alto BASIC
@@ -393,22 +412,90 @@ const char* const keyword[] PROGMEM = {
 	sstep, snext, sstop, slist, snew, srun,
 	sabs, srnd, ssize, srem,
 // Apple 1 BASIC additions
+#ifdef HASAPPLE1
 	snot, sand, sor, slen, ssgn, speek, sdim,
 	sclr, slomem, shimem, stab, sthen, 
 	send, spoke,
+#endif
 // Stefan's additions
+#ifdef HASSTEFANSEXT
 	scont, ssqr, sfre, sdump, sbreak, ssave,
 	sload, sget, sput, sset, scls,
+#endif
 // Arduino stuff
+#ifdef HASARDUINOIO
     spinm, sdwrite, sdread, sawrite, saread, 
-    sdelay, smillis, stone, splusein, sazero,
+    sdelay, smillis, sazero,  
+#endif
+#ifdef HASTONE
+	stone,
+#endif
+#ifdef HASPULSE
+	splusein,
+#endif
 // SD Card DOS
+#ifdef HASFILEIO
     scatalog, sdelete, sfopen, sfclose,
+#endif
 // low level access
+#ifdef HASSTEFANSEXT
     susr, scall,
+#endif
 // mathematical functions 
-    ssin, scos, stan, satan, slog, sexp, sint
+#ifdef HASFLOAT
+    ssin, scos, stan, satan, slog, sexp, sint,
+#endif
+// graphics 
+#ifdef HASGRAPH
+    scolor, splot, sline, scircle, srect,
+#endif
 // the end 
+};
+
+const char tokens[] = {
+// Palo Alto BASIC
+	GREATEREQUAL, LESSEREQUAL, NOTEQUAL, TPRINT, TLET,    
+    TINPUT, TGOTO, TGOSUB, TRETURN, TIF, TFOR, TTO, TSTEP,
+    TNEXT, TSTOP, TLIST, TNEW, TRUN, TABS, TRND, TSIZE, TREM,
+// this is the Apple 1 language set in addition to Palo Alto (14)
+#ifdef HASAPPLE1
+    TNOT, TAND, TOR, TLEN, TSGN, TPEEK, TDIM, TCLR, TLOMEM,
+    THIMEM, TTAB, TTHEN, TEND, TPOKE,
+#endif
+// Stefan's tinybasic additions (11)
+#ifdef HASSTEFANSEXT
+	TCONT, TSQR, TFRE, TDUMP, TBREAK, TSAVE, TLOAD, TGET, TPUT,
+	TSET, TCLS,
+#endif
+// Arduino functions (10)
+#ifdef HASARDUINOIO
+	TPINM, TDWRITE, TDREAD, TAWRITE, TAREAD, TDELAY, TMILLIS,
+	TAZERO, 
+#endif
+#ifdef HASTONE
+	TTONE, 
+#endif
+#ifdef HASPULSE
+	TPULSEIN, 
+#endif
+// the SD card DOS functions (4)
+#ifdef HASFILEIO
+	TCATALOG, TDELETE, TOPEN, TCLOSE,
+#endif
+// low level access of internal routines
+#ifdef HASSTEFANSEXT
+	TUSR, TCALL,
+#endif
+// mathematical functions 
+#ifdef HASFLOAT
+	TSIN, TCOS, TTAN, TATAN, TLOG, TEXP, TINT,
+#endif
+// graphics - experimental - rudimentary
+#ifdef HASGRAPH
+	TCOLOR, TPLOT, TLINE, TCIRCLE, TRECT,
+#endif
+// the end
+	0
 };
 
 /*
@@ -485,19 +572,16 @@ const char* const message[] PROGMEM = {
 // assume that float >= 4 bytes in the following
 #ifdef HASFLOAT
 typedef float number_t;
+const number_t maxnum=16777216; // we use the maximum accurate(!) integer of a 32 bit float here 
 #else
 typedef int number_t;
+const number_t maxnum=(number_t)~((number_t)1<<(sizeof(number_t)*8-1));
 #endif
 typedef unsigned short address_t;
 const int numsize=sizeof(number_t);
 const int addrsize=sizeof(address_t);
 const int eheadersize=sizeof(address_t)+1;
 const int strindexsize=2; // the index size of strings either 1 byte or 2 bytes - no other values supported
-#ifndef HASFLOAT
-const number_t maxnum=(number_t)~((number_t)1<<(sizeof(number_t)*8-1));
-#else 
-const number_t maxnum=16777216; // we use the maximum accurate(!) integer of a 32 bit float here 
-#endif
 const address_t maxaddr=(address_t)(~0); 
 
 /*
@@ -1895,6 +1979,8 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 		in the code.  
 
 		Same for messages and errors
+
+		(here construction site right now)
 */ 
 
 char* getkeyword(signed char t) {
@@ -2837,10 +2923,11 @@ void nexttoken() {
 	Once a keyword is detected the input buffer is advanced 
 	by its length, and the token value is returned. 
 
-	keywords are an arry of null terminated strings.
+	keywords are an array of null terminated strings.
 
 */
 
+/*
 	token=BASEKEYWORD;
 	while (token < NKEYWORDS+BASEKEYWORD){
 		ir=getkeyword(token);
@@ -2865,6 +2952,36 @@ void nexttoken() {
 			return;
 		}
 	}
+*/
+
+// bad code 
+
+	yc=0;
+	while (tokens[yc] != 0){
+		ir=getkeyword(yc+BASEKEYWORD);
+		xc=0;
+		while (*(ir+xc) != 0) {
+			if (*(ir+xc) != *(bi+xc)){
+				yc++;
+				xc=0;
+				break;
+			} else 
+				xc++;
+		}
+		if (xc == 0)
+			continue;
+		if ( *(bi+xc) < 'A' || *(bi+xc) > 'Z' ) {
+			bi+=xc;
+			token=tokens[yc];
+			if (DEBUG) debugtoken();
+			return;
+		} else {
+			bi+=xc;
+			token=UNKNOWN;
+			return;
+		}
+	}
+
 
 /*
 	a variable has length 1 in the first version
