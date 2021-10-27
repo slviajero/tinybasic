@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.93 2021/10/23 18:14:46 stefan Exp stefan $
+// $Id: basic.c,v 1.94 2021/10/26 20:08:53 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -263,13 +263,15 @@ const int printer_baudrate = 0;
 #define TLINE 	-49
 #define TCIRCLE -48
 #define TRECT   -47
+#define TFCIRCLE -46
+#define TFRECT   -45
 // currently unused constants
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+14+11+10+4+2+7+5
+#define NKEYWORDS	3+19+14+11+10+4+2+7+7
 #define BASEKEYWORD -121
 
 /*
@@ -403,6 +405,8 @@ const char splot[]   PROGMEM  = "PLOT";
 const char sline[]   PROGMEM  = "LINE";
 const char scircle[] PROGMEM  = "CIRCLE";
 const char srect[]   PROGMEM  = "RECT";
+const char sfcircle[] PROGMEM  = "FCIRCLE";
+const char sfrect[]   PROGMEM  = "FRECT";
 #endif
 
 const char* const keyword[] PROGMEM = {
@@ -447,7 +451,8 @@ const char* const keyword[] PROGMEM = {
 #endif
 // graphics 
 #ifdef HASGRAPH
-    scolor, splot, sline, scircle, srect,
+    scolor, splot, sline, scircle, srect, 
+    sfcircle, sfrect
 #endif
 // the end 
 };
@@ -492,7 +497,8 @@ const char tokens[] = {
 #endif
 // graphics - experimental - rudimentary
 #ifdef HASGRAPH
-	TCOLOR, TPLOT, TLINE, TCIRCLE, TRECT,
+	TCOLOR, TPLOT, TLINE, TCIRCLE, TRECT, 
+	TFCIRCLE, TFRECT,
 #endif
 // the end
 	0
@@ -936,6 +942,16 @@ char dspfontsize = 16;
 void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrollmode(1, 4); }
 void dspprintchar(char c, short col, short row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
 void dspclear() { tft.clrScr(); }
+//experimental graphics code 
+#ifdef HASGRAPH
+void color(int r, int g, int b) { tft.setColor(r,g,b); }
+void plot(int x, int y) { tft.drawPixel(x, y); }
+void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1); }
+void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, y0, x1, y1); }
+void frect(int x0, int y0, int x1, int y1)   { tft.fillRect(x0, y0, x1, y1); }
+void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r); }
+void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
+#endif
 #endif
 
 // global variables for an Arduino SD card, chipselect 
@@ -5437,7 +5453,6 @@ void xpinm(){
 }
 
 void xdelay(){
-
 	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
@@ -5445,6 +5460,89 @@ void xdelay(){
 	x=pop();
 	delay(x);	
 }
+
+#ifdef HASGRAPH
+void xcolor() {
+	short r, g, b;
+	nexttoken();
+	parsenarguments(3);
+	if (er != 0) return; 
+	b=pop();
+	g=pop();
+	r=pop();
+	color(r, g, b);
+}
+
+void xplot() {
+	short x0, y0;
+	nexttoken();
+	parsenarguments(2);
+	if (er != 0) return; 
+	y0=pop();
+	x0=pop();
+	plot(x0, y0);
+}
+
+
+void xline() {
+	short x0, y0, x1, y1;
+	nexttoken();
+	parsenarguments(4);
+	if (er != 0) return; 
+	y1=pop(); 
+	x1=pop();
+	y0=pop();
+	x0=pop();
+	line(x0, y0, x1, y1);
+}
+
+void xrect() {
+	short x0, y0, x1, y1;
+	nexttoken();
+	parsenarguments(4);
+	if (er != 0) return; 
+	y1=pop(); 
+	x1=pop();
+	y0=pop();
+	x0=pop();
+	rect(x0, y0, x1, y1);
+}
+
+void xcircle() {
+	short x0, y0, r;
+	nexttoken();
+	parsenarguments(3);
+	if (er != 0) return;  
+	r=pop();
+	y0=pop();
+	x0=pop();
+	circle(x0, y0, r);
+}
+
+void xfrect() {
+	short x0, y0, x1, y1;
+	nexttoken();
+	parsenarguments(4);
+	if (er != 0) return; 
+	y1=pop(); 
+	x1=pop();
+	y0=pop();
+	x0=pop();
+	frect(x0, y0, x1, y1);
+}
+
+void xfcircle() {
+	short x0, y0, r;
+	nexttoken();
+	parsenarguments(3);
+	if (er != 0) return;  
+	r=pop();
+	y0=pop();
+	x0=pop();
+	fcircle(x0, y0, r);
+}
+#endif
+
 
 #ifdef HASTONE
 void xtone(){
@@ -5922,6 +6020,30 @@ void statement(){
 			case TCALL:
 				xcall();
 				break;	
+// graphics 
+#ifdef HASGRAPH
+			case TCOLOR:
+				xcolor();
+				break;
+			case TPLOT:
+				xplot();
+				break;
+			case TLINE:
+				xline();
+				break;
+			case TRECT:
+				xrect();
+				break;
+			case TCIRCLE:
+				xcircle();
+				break;
+			case TFRECT:
+				xfrect();
+				break;
+			case TFCIRCLE:
+				xfcircle();
+				break;
+#endif
 // and all the rest
 			case UNKNOWN:
 				error(EUNKNOWN);
