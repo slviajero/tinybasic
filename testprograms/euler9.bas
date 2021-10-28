@@ -1,10 +1,10 @@
-90 REM "A little test program for the intepreter"
-91 REM "See https://projecteuler.net/problem=9 for details"
-92 REM "This program uses the number theory approach"
-100 INPUT "UMFANG = ",K 
-110 IF K =0 THEN END 
-130 IF K %2 =0 THEN U =K /2 :GOTO 200 
-140 PRINT "UMFANG UNGERADE - KEINE LOESUNG":GOTO 100 
+100 REM "A little test program for the intepreter"
+110 REM "See https://projecteuler.net/problem=9 for details"
+120 REM "This program uses the number theory approach"
+130 INPUT "UMFANG = ",K 
+140 IF K =0 THEN END 
+150 IF K %2 =0 THEN U =K /2 :GOTO 200 
+160 PRINT "UMFANG UNGERADE - KEINE LOESUNG":GOTO 130 
 200 F =0 
 220 X =SQR (U /2 )
 240 FOR I =1 TO X 
@@ -28,7 +28,7 @@
 810 NEXT 
 820 NEXT 
 825 IF F =0 THEN PRINT "KEINE LOESUNG"
-830 GOTO 100 
+830 GOTO 130 
 870 IF R =Q THEN RETURN 
 880 IF R >Q THEN R =R -Q 
 890 IF Q >R THEN Q =Q -R 

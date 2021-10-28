@@ -1,9 +1,9 @@
 100 REM "Dark arts volume 2: writing self modifying programs"
-110 REM "by calling the tokenizer"
+110 REM "by calling the tokenizer with USR(8,)"
 120 DIM A$(80)
 130 INPUT "Input a formula y=f(x) :",A$
 140 PRINT "Formula read : ";A$
-150 IF A$="end" THEN END
+150 IF A$="end" OR A$="" THEN END
 160 @$=A$
 170 A=USR (8,310)
 180 FOR X=1 TO 10

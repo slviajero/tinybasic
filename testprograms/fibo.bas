@@ -1,5 +1,5 @@
 100 REM "Calculates the Fibonacci numbers"
-110 REM "And the Golden Ratio"
+110 REM "And the Golden Ratio on an Integer BASIC"
 210 N=19
 220 DIM A(N)
 230 A(1)=1
@@ -8,7 +8,7 @@
 260 IF A(I)>16000 THEN BREAK 
 270 A(I)=A(I-1)+A(I-2)
 280 Q=A(I):D=A(I-1)
-290 PRINT I,Q,D;
+290 PRINT #4;I,Q,D;
 300 GOSUB 500
 310 NEXT 
 320 END 
