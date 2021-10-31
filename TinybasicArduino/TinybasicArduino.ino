@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.94 2021/10/26 20:08:53 stefan Exp stefan $
+// $Id: basic.c,v 1.96 2021/10/31 05:11:52 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -81,6 +81,7 @@
 #undef ARDUINOTFT
 // storage methods
 #undef ARDUINOSD
+#undef ESPSPIFFS
 // use the methods above as primary i/o devices
 #undef STANDALONE
 
@@ -101,6 +102,10 @@
 #define ARDUINO 100
 #undef ARDUINOPROGMEM
 #undef ARDUINOEEPROM
+#ifdef ESPSPIFFS
+#include <SPI.h>
+#include <FS.h>
+#endif
 #endif
 #ifdef ARDUINO
 #ifdef ARDUINOPS2
@@ -630,9 +635,7 @@ const address_t maxaddr=(address_t)(~0);
 
 	fnc counts the depth of for - next loop nesting
 
-	ifd, ofd are the filedescriptors for input/output
-	ifile and ofile their Arduino SD card analoga
-
+	ifile, ofile are the filedescriptors for input/output
 
 */
 static number_t stack[STACKSIZE];
@@ -699,13 +702,17 @@ static unsigned char odd = OSERIAL;
 #endif
 
 #ifndef ARDUINO
-FILE* ifd;
-FILE* ofd;
+FILE* ifile;
+FILE* ofile;
 #else 
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)
 File ifile;
 File ofile;
+#ifndef ESP8266
 #define FILE_OWRITE (O_READ | O_WRITE | O_CREAT | O_TRUNC)
+#else
+#define FILE_OWRITE (sdfat::O_READ | sdfat::O_WRITE | sdfat::O_CREAT | sdfat::O_TRUNC)
+#endif
 #endif
 #endif
 
@@ -1597,6 +1604,8 @@ number_t getvar(char c, char d){
 				return od;
 			case 'C':
 				if (checkch()) return inch(); else return 0;
+			case 'E':
+				return elength();
 			case 'R':
 				return rd;
 #ifdef DISPLAYDRIVER
@@ -2050,6 +2059,7 @@ void error(signed char e){
 	// set input and output device back to default
 	od=odd;
 	id=idd;
+	form=0;
 	// find the line number
 	if (st != SINT) {
 		outnumber(myline(here));
@@ -2279,9 +2289,9 @@ void iodefaults() {
 // wrapper around file access
 void filewrite(char c) {
 #ifndef ARDUINO
-	if (ofd) fputc(c, ofd); else ert=1;
+	if (ofile) fputc(c, ofile); else ert=1;
 #else
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)
 	if (ofile) ofile.write(c); else ert=1;
 #endif
 #endif
@@ -2291,9 +2301,9 @@ void filewrite(char c) {
 char fileread(){
 	char c;
 #ifndef ARDUINO
-	if (ifd) c=fgetc(ifd); else { ert=1; return 0; }
+	if (ifile) c=fgetc(ifile); else { ert=1; return 0; }
 #else
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)
 	if (ifile) c=ifile.read(); else { ert=1; return 0; }
 #endif
 #endif
@@ -2301,6 +2311,63 @@ char fileread(){
 		ert=-1;
 	}
 	return c;
+}
+
+char ifileopen(char* filename){
+#ifndef ARDUINO
+	ifile=fopen(filename, "r");
+	return (int) ifile;
+#else
+#ifdef ARDUINOSD
+	ifile=SD.open(filename, FILE_READ);
+	return (int) ifile;
+#else
+#ifdef ESPSPIFFS
+	ifile=SPIFFS.open(filename, "r");
+	return (int) ifile;
+#endif
+#endif
+#endif
+	return 0;
+}
+
+void ifileclose(){
+#ifndef ARDUINO
+	fclose(ifile);
+	ifile=NULL;
+#else
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+	ifile.close();
+#endif
+#endif	
+}
+
+char ofileopen(char* filename){
+#ifndef ARDUINO
+	ofile=fopen(filename, "w");
+	return (int) ofile;
+#else
+#ifdef ARDUINOSD
+	ofile=SD.open(filename, FILE_WRITE);
+	return (int) ofile;
+#else
+#ifdef ESPSPIFFS
+	ofile=SPIFFS.open(filename, "w");
+	return (int) ofile;
+#endif
+#endif
+#endif
+	return 0;
+}
+
+void ofileclose(){
+#ifndef ARDUINO
+	fclose(ofile);
+#else
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+    ofile.close();
+#endif
+#endif
 }
 
 // wrapper around console output
@@ -2442,7 +2509,7 @@ void ins(char *b, short nb) {
       		b[i]=0x00;
       		b[0]=i-1;
       		break;
-    	} else if (c == 127 && i>1) {
+    	} else if ( (c == 127 || c == 8) && i>1) {
       		i--;
     	} else {
       		b[i++]=c;
@@ -4074,6 +4141,7 @@ processsymbol:
 		if (! semicolon) outcr();
 		nexttoken();
 		od=oldod;
+		form=0;
 		return;
 	}
 	semicolon=FALSE;
@@ -4284,14 +4352,15 @@ void assignment() {
 				for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
 
 			// classical Apple 1 behaviour would be string truncation in substring logic
-#ifndef HASSTEFANSEXT
+			// immature additional code - leave in peace
+//#ifndef HASSTEFANSEXT
 			newlength = i+lensource-1;	
-#else 
-			if (i+lensource > lendest)
-				newlength = i+lensource-1;	
-			else 
-				newlength = lendest;
-#endif			
+//#else 
+//			if (i+lensource > lendest)
+//				newlength = i+lensource-1;	
+//			else 
+//				newlength = lendest;
+//#endif			
 
 			//printf("Calculated new length %d \n", newlength);	
 
@@ -5062,7 +5131,7 @@ void dumpmem(address_t r, address_t b) {
 }
 #endif
 
-#if !defined(ARDUINO) || defined(ARDUINOSD)
+#if !defined(ARDUINO) || defined(ARDUINOSD) || defined(ESPSPIFFS)
 // creates a C string from a BASIC string
 void stringtobuffer(char *buffer) {
 	short i;
@@ -5081,7 +5150,7 @@ void getfilename2(char *buffer, char d) {
 	s=stringvalue();
 	if (er != 0) return;
 
-	if (DEBUG) {outsc("** in getfilename2 stringvalue delivered"); outnumber(s); outcr(); }
+	if (DEBUG) {outsc("** in getfilename2 stringvalue delivered "); outnumber(s); outcr(); }
 
 	if (s) {
 		x=pop();
@@ -5121,11 +5190,11 @@ void xsave() {
 	if (filename[0] == '!') {
 		esave();
 	} else {		
+		if (DEBUG) { outsc("** Opening the file "); outsc(filename); outcr(); };
 	 	od=OFILE;
 
 #ifndef ARDUINO
-		ofd=fopen(filename, "w");
-		if (!ofd) {
+		if (!ofileopen(filename)) {
 			error(EFILE);
 			nexttoken();
 			return;
@@ -5146,13 +5215,10 @@ void xsave() {
    		here=here2;
 
    		// clean up
-		fclose(ofd);
-		ofd=0;
-
+		ofileclose();
 #else 
-#ifdef ARDUINOSD
-		ofile=SD.open(filename, FILE_WRITE);
-		if (!ofile) {
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+		if (!ofileopen(filename)) {
 			error(EFILE);
 			nexttoken();
 			return;
@@ -5173,7 +5239,7 @@ void xsave() {
    		here=here2;
 
    		// clean up
-		ofile.close();      
+		ofileclose();      
 #endif
 #endif
 
@@ -5219,14 +5285,12 @@ void xload() {
 #ifndef ARDUINO
 
 		if (DEBUG){ outsc("** Opening the file "); outsc(filename); outcr(); };
-
-		ifd=fopen(filename, "r");
-		if (!ifd) {
+		if (!ifileopen(filename)) {
 			error(EFILE);
 			nexttoken();
 			return;
 		}
-		while (fgets(ibuffer+1, BUFSIZE, ifd)) {
+		while (fgets(ibuffer+1, BUFSIZE, ifile)) {
 			bi=ibuffer+1;
 			while(*bi != 0) { if (*bi == '\n' || *bi == '\r') *bi=' '; bi++; };
 				bi=ibuffer+1;
@@ -5234,12 +5298,10 @@ void xload() {
 				if (token == NUMBER) storeline();
 				if (er != 0 ) break;
 		}
-		fclose(ifd);	
-		ifd=0;
+		ifileclose();	
 #else 
-#ifdef ARDUINOSD
-		ifile=SD.open(filename, FILE_READ);
-		if (!ifile) {
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+		if (!ifileopen(filename)) {
 			error(EFILE);
 			nexttoken();
 			return;
@@ -5268,7 +5330,7 @@ void xload() {
         		break;
       		}
 		}   	
-		ifile.close();
+		ifileclose();
 #endif
 #endif
 		// go back to run mode and start from the first line
@@ -5598,10 +5660,28 @@ void xcatalog() {
 	getfilename2(filename, 0);
 	if (er != 0) return; 
 
+#ifndef ARDUINO
+	DIR *dp;
+	struct dirent *ep;     
+  	dp = opendir ("./");
+
+  	if (dp != NULL) {
+    	while ( (ep = readdir(dp)) ) {
+    		if (ep->d_type == DT_REG) {
+    			if (streq(ep->d_name, filename)) {
+        		    outsc(ep->d_name); 
+      				outcr();				
+    			}
+    		}
+    	}
+    	(void) closedir (dp);
+  	} else
+    	ert=1; 
+#else 
 #ifdef ARDUINOSD
 
 	File root, file;
-  	char *n;
+  	const char *n;
 
 	root=SD.open("/");
 	while (TRUE) {
@@ -5623,23 +5703,16 @@ void xcatalog() {
 	root.close();
 
 #else 
-#ifndef ARDUINO 
-	DIR *dp;
-	struct dirent *ep;     
-  	dp = opendir ("./");
+#ifdef ESPSPIFFS
 
-  	if (dp != NULL) {
-    	while ( (ep = readdir(dp)) ) {
-    		if (ep->d_type == DT_REG) {
-    			if (streq(ep->d_name, filename)) {
-        		    outsc(ep->d_name); 
-      				outcr();				
-    			}
-    		}
-    	}
-    	(void) closedir (dp);
-  	} else
-    	ert=1; 
+	Dir root = SPIFFS.openDir("/");
+	while (root.next()) {
+    	outsc((char*) root.fileName().c_str()); outspc();
+    	File f = root.openFile("r");
+    	outnumber(f.size()); outcr();
+	}
+
+#endif
 #endif
 #endif
 
@@ -5652,14 +5725,18 @@ void xdelete() {
 	getfilename2(filename, 0);
 	if (er != 0) return; 
 
+#ifndef ARDUINO
+	remove(filename);
+#else 
 #ifdef ARDUINOSD	
 	SD.remove(filename);
 #else 
-#ifndef ARDUINO
-	remove(filename);
+#ifdef ESPSPIFFS
+	SPIFFS.remove(filename);
+#endif
+#endif
 #endif
 	nexttoken();
-#endif
 }
 
 void xopen() {
@@ -5687,32 +5764,32 @@ void xopen() {
 
 #ifndef ARDUINO
 	if (mode == 1) {
-		if (ofd) fclose(ofd);
-		if ((ofd=fopen(filename, "w"))) {
+		if (ofile) ofileclose();
+		if (ofileopen(filename)) {
 			ert=0;
 		} else {
 			ert=1;
 		}
 	} else if (mode == 0) {
-		if (ifd) fclose(ifd);
-		if ((ifd=fopen(filename, "r"))) {
+		if (ifile) ifileclose();
+		if (ifileopen(filename)) {
 			ert=0;
 		} else {
 			ert=1;
 		}
 	}
 #else 
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)
 	if (mode == 1) {
-		if (ofile) ofile.close();
-		if (ofile=SD.open(filename, FILE_OWRITE)) {
+		if (ofile) ofileclose();
+		if (ofileopen(filename)) {
 			ert=0;
 		} else {
 			ert=1;
 		}
 	} else if (mode == 0) {
-		if (ifile) ifile.close();
-		if (ifile=SD.open(filename, FILE_READ)) {
+		if (ifile) ifileclose();
+		if (ifileopen(filename)) {
 			ert=0;
 		} else {
 			ert=1;
@@ -5733,16 +5810,16 @@ void xclose() {
 
 #ifndef ARDUINO
 	if (mode == 1) {
-		if (ofd) fclose(ofd);
+		if (ofile) ofileclose();
 	} else if (mode == 0) {
-		if (ifd) fclose(ifd);
+		if (ifile) ifileclose();
 	}
 #else 
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)
 	if (mode == 1) {
-		if (ofile) ofile.close();
+		if (ofile) ofileclose();
 	} else if (mode == 0) {
-		if (ifile) ifile.close();
+		if (ifile) ifileclose();
 	}
 #endif
 #endif
@@ -5766,7 +5843,8 @@ void xclose() {
 void xusr() {
 	address_t a;
 	number_t n;
-	address_t fn, arg;
+	address_t fn;
+	int arg;
 	char* instr=ibuffer;
 
 	arg=pop();
@@ -5837,6 +5915,7 @@ void xusr() {
 			push(x);
 			break;
 		case 7: // write a number to the input buffer
+			printf("Number arrived %d \n", arg);
 			push(*ibuffer=writenumber(ibuffer+1, arg));
 			break;
 		case 8: // maximal evil - store a line into a basic program 
@@ -6083,6 +6162,16 @@ void setup() {
 #ifdef ARDUINOSD
  	SD.begin(sd_chipselect);
 #endif	
+#if defined(ESPSPIFFS) && defined(ESP8266)
+ 	SPI.begin();
+ 	if (SPIFFS.begin()) {
+		outsc("SPIFFS opened successfully \n");
+		FSInfo fs_info;
+		SPIFFS.info(fs_info);
+		outsc("File system size "); outnumber(fs_info.totalBytes); outcr();
+		outsc("File system used "); outnumber(fs_info.usedBytes); outcr();
+ 	}
+#endif
 #ifdef ARDUINOEEPROM
   	if (eread(0) == 1){ // autorun from the EEPROM
   		egetnumber(1, addrsize);
