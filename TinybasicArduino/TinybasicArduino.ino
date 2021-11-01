@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.96 2021/10/31 05:11:52 stefan Exp stefan $
+// $Id: basic.c,v 1.97 2021/10/31 22:05:51 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -29,6 +29,7 @@
 			to start with keyboard and lcd as standard devices.
 	- ARDUINOTFT is not yet implemented
 	- ARDUINOEEPROM includes the EEPROM access code
+	- ARDUINOSD and ESPSPIFFS activate filesystem code (rudimentary)
 	- HAS* activates or deactives features of the interpreter
 	- activating Picoserial is not compatible with keyboard code
 		Picoserial doesn't work on MEGA
@@ -48,11 +49,10 @@
 
 // interpreter features
 #define HASFORNEXT
-#define HASGOSUB
 #define HASDUMP
 #define HASAPPLE1
 #define HASARDUINOIO
-#define HASFILEIO
+#undef HASFILEIO
 #define HASTONE
 #define HASPULSE
 #define HASSTEFANSEXT
@@ -663,10 +663,8 @@ static short forsp = 0;
 static char fnc; 
 #endif
 
-#ifdef HASGOSUB
 static address_t gosubstack[GOSUBDEPTH];
 static short gosubsp = 0;
-#endif
 
 static number_t x, y;
 static signed char xc, yc;
@@ -704,10 +702,20 @@ static unsigned char odd = OSERIAL;
 #ifndef ARDUINO
 FILE* ifile;
 FILE* ofile;
+DIR* root;
+struct dirent* file; 
 #else 
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
 File ifile;
 File ofile;
+char tempname[SBUFSIZE];
+#ifdef ARDUINOSD
+File root;
+File file;
+#else
+Dir root;
+File file;
+#endif
 #ifndef ESP8266
 #define FILE_OWRITE (O_READ | O_WRITE | O_CREAT | O_TRUNC)
 #else
@@ -1113,17 +1121,15 @@ void xbreak();
 void pushforstack();
 void popforstack();
 void dropforstack();
-void clrforstack();
 #endif
+void clrforstack();
 
-// optional GOSUB commands
-#ifdef HASGOSUB
+// GOSUB commands
 void xreturn();
 void pushgosubstack();
 void popgosubstack();
 void dropgosubstack();
 void clrgosubstack();
-#endif
 
 // control commands and misc
 void outputtoken();
@@ -1465,15 +1471,15 @@ void dspsetcursor(short c, short r) {}
 void allocmem() {
 
 	short i = 0;
-	// 									RP2040  ESP    MK       MEGA   UNO  168  FALLBACK
-	const unsigned short memmodel[8] = {60000, 46000, 28000, 6000, 4096, 1024, 512, 128}; 
+	// 									RP2040      ESP        MK   MEGA   UNO  168  FALLBACK
+	const unsigned short memmodel[9] = {60000, 48000, 46000, 28000, 6000, 4096, 1024, 512, 128}; 
 
 	if (sizeof(number_t) <= 2) i=2;
 	do {
 		mem=(signed char*)malloc(memmodel[i]);
 		if (mem != NULL) break;
 		i++;
-	} while (i<8);
+	} while (i<9);
 	memsize=memmodel[i]-1;
 }
 #endif
@@ -2073,12 +2079,8 @@ void error(signed char e){
 	printmessage(EGENERAL);
 	outcr();
 	clearst();
-#ifdef HASFORNEXT
 	clrforstack();
-#endif
-#ifdef HASGOSUB
 	clrgosubstack();
-#endif
 	iodefaults();
 }
 
@@ -2225,6 +2227,11 @@ void clrforstack() {
 	forsp=0;
 	fnc=0;
 }
+#else 
+void pushforstack(){}
+void popforstack(){}
+void dropforstack(){}
+void clrforstack(){}
 #endif
 
 
@@ -2283,6 +2290,10 @@ void iodefaults() {
 		- Standard C library
 		- Arduino Serial 
 		- Arduino Picoserial
+		- SD filesystems
+		- SPIFFS filesystems
+
+	Wrappers around the OS functions 
 
 */
 
@@ -2368,6 +2379,127 @@ void ofileclose(){
     ofile.close();
 #endif
 #endif
+}
+
+int fileavailable(){
+#ifndef ARDUINO
+	return !feof(ifile);
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+	return ifile.available();
+#endif
+#endif
+}
+
+void rootopen() {
+#ifndef ARDUINO	
+	root=opendir ("./");
+#else 
+#ifdef ARDUINOSD
+	root=SD.open("/");
+#else 
+#ifdef ESPSPIFFS
+	root=SPIFFS.openDir("/");
+#endif
+#endif
+#endif
+}
+
+int rootnextfile() {
+#ifndef ARDUINO	
+  file = readdir(root);
+  return (file != 0);
+#else 
+#ifdef ARDUINOSD
+  file=root.openNextFile();
+  return (file != 0);
+#else 
+#ifdef ESPSPIFFS
+  if (root.next()) {
+    file=root.openFile("r");
+    return 1;
+  } else {
+    return 0;
+  }
+#endif
+#endif
+#endif
+}
+
+int rootisfile() {
+#ifndef ARDUINO	
+  return (file->d_type == DT_REG);
+#else 
+#ifdef ARDUINOSD
+  return (! file.isDirectory());
+#else 
+#ifdef ESPSPIFFS
+  return TRUE;
+#endif
+#endif
+#endif
+}
+
+
+char* rootfilename() {
+#ifndef ARDUINO 
+  return (file->d_name);
+#else 
+#ifdef ARDUINOSD
+  return (char*) file.name();
+#else 
+#ifdef ESPSPIFFS
+   	// c_str() sometimes broken
+  	int i=0;
+	String s=root.fileName();
+ 	for (i=0; i<s.length(); i++) { tempname[i]=s[i]; }
+ 	tempname[i]=0;
+	return tempname;
+#endif
+#endif
+#endif  
+}
+
+int rootfilesize() {
+#ifndef ARDUINO 
+  return 0;
+#else 
+#ifdef ARDUINOSD
+  return file.size();
+#else 
+#ifdef ESPSPIFFS
+  return file.size();
+#endif
+#endif
+#endif  
+}
+
+
+void rootfileclose() {
+#ifndef ARDUINO 
+  return;
+#else 
+#ifdef ARDUINOSD
+  return file.close();
+#else 
+#ifdef ESPSPIFFS
+  return file.close();
+#endif
+#endif
+#endif  
+}
+
+void rootclose(){
+#ifndef ARDUINO 
+  (void) closedir(root);
+#else 
+#ifdef ARDUINOSD
+  root.close();
+#else 
+#ifdef ESPSPIFFS
+  return;
+#endif
+#endif
+#endif  
 }
 
 // wrapper around console output
@@ -4540,7 +4672,7 @@ nextvariable:
 
 */
 
-#ifdef HASGOSUB
+
 void pushgosubstack(){
 	if (gosubsp < GOSUBDEPTH) {
 		gosubstack[gosubsp]=here;
@@ -4570,7 +4702,7 @@ void dropgosubstack(){
 void clrgosubstack() {
 	gosubsp=0;
 }
-#endif
+
 
 void xgoto() {
 	short t=token;
@@ -4579,10 +4711,8 @@ void xgoto() {
 	expression();
 	if (er != 0) return;
 
-#ifdef HASGOSUB
 	if (t == TGOSUB) pushgosubstack();
 	if (er != 0) return;
-#endif
 
 	x=pop();
 	findline(x);
@@ -4592,10 +4722,8 @@ void xgoto() {
 }
 
 void xreturn(){ 
-#ifdef HASGOSUB
 	popgosubstack();
 	if (er != 0) return;
-#endif
 	nexttoken();
 }
 
@@ -4927,13 +5055,9 @@ void xnew(){ // the general cleanup function
 	reseterror();
 	st=SINT;
 	nvars=0;
-
-#ifdef HASGOSUB
 	clrgosubstack();
-#endif
-#ifdef HASFORNEXT
 	clrforstack();
-#endif
+
 }
 
 
@@ -4956,12 +5080,8 @@ void xrem() {
 
 void xclr() {
 	clrvars();
-#ifdef HASGOSUB
 	clrgosubstack();
-#endif
-#ifdef HASFORNEXT
 	clrforstack();
-#endif
 	nexttoken();
 }
 
@@ -5191,14 +5311,13 @@ void xsave() {
 		esave();
 	} else {		
 		if (DEBUG) { outsc("** Opening the file "); outsc(filename); outcr(); };
-	 	od=OFILE;
-
-#ifndef ARDUINO
+	 	
 		if (!ofileopen(filename)) {
 			error(EFILE);
 			nexttoken();
 			return;
 		} 
+		od=OFILE;
 		
 		// the core list function
 		// we step away from list 
@@ -5216,36 +5335,10 @@ void xsave() {
 
    		// clean up
 		ofileclose();
-#else 
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
-		if (!ofileopen(filename)) {
-			error(EFILE);
-			nexttoken();
-			return;
-		} 
 
-		// the core list function
-		// we step away from list 
-		here2=here;
-		here=0;
-		gettoken();
-		while (here < top) {
-			outputtoken();
-			gettoken();
-			if (token == LINENUMBER) outcr();
-		}
-		if (here == top) outputtoken();
-   		outcr(); 
-   		here=here2;
-
-   		// clean up
-		ofileclose();      
-#endif
-#endif
-
+		// restore the output mode
+		od=pop();
 	}
-	// restore the output mode
-	od=pop();
 
 	// and continue
 	nexttoken();
@@ -5274,33 +5367,10 @@ void xload() {
 			chain=TRUE; 
 			st=SINT; 
 			top=0;
-#ifdef HASGOSUB
 			clrgosubstack();
-#endif
-#ifdef HASFORNEXT
 			clrforstack();
-#endif
 		}
 
-#ifndef ARDUINO
-
-		if (DEBUG){ outsc("** Opening the file "); outsc(filename); outcr(); };
-		if (!ifileopen(filename)) {
-			error(EFILE);
-			nexttoken();
-			return;
-		}
-		while (fgets(ibuffer+1, BUFSIZE, ifile)) {
-			bi=ibuffer+1;
-			while(*bi != 0) { if (*bi == '\n' || *bi == '\r') *bi=' '; bi++; };
-				bi=ibuffer+1;
-				nexttoken();
-				if (token == NUMBER) storeline();
-				if (er != 0 ) break;
-		}
-		ifileclose();	
-#else 
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
 		if (!ifileopen(filename)) {
 			error(EFILE);
 			nexttoken();
@@ -5308,8 +5378,8 @@ void xload() {
 		} 
 
     	bi=ibuffer+1;
-		while (ifile.available()) {
-      		ch=ifile.read();
+		while (fileavailable()) {
+      		ch=fileread();
       		//Serial.print(ch);
       		if (ch == '\n' || ch == '\r') {
         	//Serial.println("<NEWLINE>");
@@ -5331,8 +5401,7 @@ void xload() {
       		}
 		}   	
 		ifileclose();
-#endif
-#endif
+
 		// go back to run mode and start from the first line
 		if (chain) {
 			st=SRUN;
@@ -5656,34 +5725,47 @@ char streq(char *s, char *m){
 void xcatalog() {
 
 	char filename[SBUFSIZE];
+	char *name;
 
 	getfilename2(filename, 0);
 	if (er != 0) return; 
 
-#ifndef ARDUINO
-	DIR *dp;
-	struct dirent *ep;     
-  	dp = opendir ("./");
+	rootopen();
+	while (rootnextfile()) {
+		if( rootisfile()) {
+			name=rootfilename();
+			if (*name != '_' && *name !='.' && streq(name, filename)){
+				outscf(name, 14); outspc();
+				if (rootfilesize()>0) outnumber(rootfilesize()); 
+				outcr();
+				if ( dspwaitonscroll() == 27 ) break;
+			}
+		}
+		rootfileclose();
+	}
+	rootclose();
 
-  	if (dp != NULL) {
-    	while ( (ep = readdir(dp)) ) {
-    		if (ep->d_type == DT_REG) {
-    			if (streq(ep->d_name, filename)) {
-        		    outsc(ep->d_name); 
+
+/*
+#ifndef ARDUINO   
+
+  	if (root != NULL) {
+    	while (rootnextfile()) {
+    		if (file->d_type == DT_REG) {
+    			if (streq(file->d_name, filename)) {
+        		    outsc(file->d_name); 
       				outcr();				
     			}
     		}
     	}
-    	(void) closedir (dp);
+    	(void) closedir (root);
   	} else
     	ert=1; 
 #else 
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD)
 
-	File root, file;
   	const char *n;
-
-	root=SD.open("/");
+;
 	while (TRUE) {
 		file=root.openNextFile();
 		if (! file) break;
@@ -5701,20 +5783,19 @@ void xcatalog() {
 	}
   	file.close();
 	root.close();
-
 #else 
 #ifdef ESPSPIFFS
 
-	Dir root = SPIFFS.openDir("/");
 	while (root.next()) {
     	outsc((char*) root.fileName().c_str()); outspc();
-    	File f = root.openFile("r");
-    	outnumber(f.size()); outcr();
+    	file = root.openFile("r");
+    	outnumber(file.size()); outcr();
 	}
 
 #endif
 #endif
 #endif
+*/
 
 	nexttoken();
 }
@@ -5762,41 +5843,21 @@ void xopen() {
 		return;
 	}
 
-#ifndef ARDUINO
 	if (mode == 1) {
-		if (ofile) ofileclose();
+		ofileclose();
 		if (ofileopen(filename)) {
 			ert=0;
 		} else {
 			ert=1;
 		}
 	} else if (mode == 0) {
-		if (ifile) ifileclose();
+		ifileclose();
 		if (ifileopen(filename)) {
 			ert=0;
 		} else {
 			ert=1;
 		}
 	}
-#else 
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
-	if (mode == 1) {
-		if (ofile) ofileclose();
-		if (ofileopen(filename)) {
-			ert=0;
-		} else {
-			ert=1;
-		}
-	} else if (mode == 0) {
-		if (ifile) ifileclose();
-		if (ifileopen(filename)) {
-			ert=0;
-		} else {
-			ert=1;
-		}
-	}
-#endif
-#endif
 
 	nexttoken();
 }
@@ -5806,27 +5867,16 @@ void xclose() {
 
 	nexttoken();
 	parsenarguments(1);
-	mode=pop();
 
-#ifndef ARDUINO
+	mode=pop();
 	if (mode == 1) {
-		if (ofile) ofileclose();
+		ofileclose();
 	} else if (mode == 0) {
-		if (ifile) ifileclose();
+		ifileclose();
 	}
-#else 
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
-	if (mode == 1) {
-		if (ofile) ofileclose();
-	} else if (mode == 0) {
-		if (ifile) ifileclose();
-	}
-#endif
-#endif
 
 	nexttoken();
 }
-
 #endif
 
 #ifdef HASSTEFANSEXT
@@ -5979,12 +6029,10 @@ void statement(){
 			case TINPUT:
 				xinput();
 				break;
-#ifdef HASGOSUB
 			case TRETURN:
 				xreturn();
 				break;
 			case TGOSUB:
-#endif
 			case TGOTO:
 				xgoto();	
 				break;
