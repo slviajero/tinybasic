@@ -2187,6 +2187,24 @@ void clearst(){
 
 #ifdef HASFORNEXT
 void pushforstack(){
+	short i, j;
+	if (DEBUG) { outsc("** forsp in pushforstack "); outnumber(forsp); outcr(); }
+	// before pushing into the for stack we check is an
+	// old for exists - this is on reentering a for loop
+	for(i=0; i<forsp; i++) {
+		if (forstack[i].varx == xc && forstack[i].vary == yc) {
+			for(j=i; j<forsp-1; j++) {
+				forstack[j].varx=forstack[j+1].varx;
+				forstack[j].vary=forstack[j+1].vary;
+				forstack[j].here=forstack[j+1].here;
+				forstack[j].to=forstack[j+1].to;
+				forstack[j].step=forstack[j+1].step;	
+			}
+			forsp--;
+			break;
+		}
+	}
+
 	if (forsp < FORDEPTH) {
 		forstack[forsp].varx=xc;
 		forstack[forsp].vary=yc;
