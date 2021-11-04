@@ -1,10 +1,10 @@
-5 PRINT "TRAP"
+5 PRINT "Trap from 101 BASIC Games"
+6 PRINT "Originally written by Steve Ullman, 8-1-72"
+8 PRINT "Ported to Stefan's BASIC in 2021"
+9 PRINT
 10 G=6
 20 N=100
 25 DIM Z$(40)
-30 REM "-TRAP"
-40 REM "-STEVE ULLMAN, 8-1-72"
-45 REM "Ported to Stefan's BASIC in 2021"
 50 PRINT "INSTRUCTIONS";
 60 INPUT Z$
 70 IF Z$(1,1)<>"Y" AND Z$(1,1)<>"y" THEN 180

@@ -1,4 +1,5 @@
-10 REM "Lunar Lander from 1975 Basic Games"
+10 PRINT "Rocket from 101 Basic Games"
+13 PRINT "Ported to Stefan's BASIC in 2021"
 20 DIM A$(20)
 50 CLS 
 70 PRINT "LUNAR LANDING SIMULATION"

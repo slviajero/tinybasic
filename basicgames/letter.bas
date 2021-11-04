@@ -1,7 +1,6 @@
-1 REM "Letter from 101 BASIC Games"
-2 REM "Originally written by Bob Albrecht in 1975"
-3 REM "Ported to Stefan's BASIC in 2021"
-10 PRINT "LETTER"
+1 PRINT "Letter from 101 BASIC Games"
+2 PRINT "Originally written by Bob Albrecht in 1975"
+3 PRINT "Ported to Stefan's BASIC in 2021"
 20 PRINT
 30 @R=MILLIS(1)
 100 PRINT "LETTER GUESSING GAME": PRINT

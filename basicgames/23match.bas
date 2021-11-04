@@ -1,10 +1,10 @@
-10 REM "23 Matches from 101 BASIC games"
-20 REM "Originally written by Bob Albrecht in 1975"
-30 REM "Ported to Stefan's BASIC in 2021"
-50 CLS
+10 PRINT "23 Matches from 101 BASIC games"
+20 PRINT "Originally written by Bob Albrecht in 1975"
+30 PRINT "Ported to Stefan's BASIC in 2021"
+50 PRINT
 60 REM "Randomization"
 70 @R=MILLIS(1)
-80 PRINT " THIS IS A GAME CALLED '23 MATCHES'."
+80 PRINT "THIS IS A GAME CALLED '23 MATCHES'."
 90 PRINT
 100 PRINT "WHEN IT IS YOUR TURN, YOU MAY TAKE ONE, TWO, OR THREE"
 110 PRINT "MATCHES. THE OBJECT OF THE GAME IS NOT TO HAVE TO TAKE"

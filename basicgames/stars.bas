@@ -1,9 +1,7 @@
-10 PRINT "STARS"
+10 PRINT "STARS from 101 BASIC games"
+14 PRINT "Originally from Bob Albrecht in 1975"
+18 PRINT "Ported to Stefan's BASIC in 2021"
 30 PRINT
-100 REM "*** STARS - PEOPLE'S COMPUTER CENTER, MENLO PARK, CA"
-140 REM "*** A IS LIMIT ON NUMBER, M IS NUMBER OF GUESSES"
-143 REM "Originally from Bob Albrecht in 1975"
-144 REM "Ported to Stefan's BASIC in 2021"
 145 DIM A$(20)
 146 @R=MILLIS(1)
 150 A=100:M=7
