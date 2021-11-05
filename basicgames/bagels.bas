@@ -2,7 +2,6 @@
 11 PRINT "Originally written by D. Resek and P. Rowe"
 12 PRINT "Ported to Stefan's BASIC in 2021"
 15 @R=MILLIS(1)
-20 DIM A$(20)
 30 DIM A1(6),A(3),B(3)
 40 Y=0:T=255
 50 PRINT

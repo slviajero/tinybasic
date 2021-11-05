@@ -1,7 +1,6 @@
 10 PRINT "Rocket from 101 Basic Games"
-13 PRINT "Ported to Stefan's BASIC in 2021"
-20 DIM A$(20)
-50 CLS 
+20 PRINT "Ported to Stefan's BASIC in 2021"
+30 PRINT
 70 PRINT "LUNAR LANDING SIMULATION"
 80 PRINT "----- ------- ----------":PRINT 
 100 INPUT "DO YOU WANT INSTRUCTIONS (YES OR NO)";A$

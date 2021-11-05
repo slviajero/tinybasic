@@ -2,8 +2,7 @@
 14 PRINT "Originally from Bob Albrecht in 1975"
 18 PRINT "Ported to Stefan's BASIC in 2021"
 30 PRINT
-145 DIM A$(20)
-146 @R=MILLIS(1)
+40 @R=MILLIS(1)
 150 A=100:M=7
 170 INPUT "DO YOU WANT INSTRUCTIONS";A$
 190 IF A$(1)="N" THEN 280
