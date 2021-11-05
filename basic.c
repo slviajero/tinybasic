@@ -270,6 +270,12 @@ const int printer_baudrate = 0;
 #define TRECT   -47
 #define TFCIRCLE -46
 #define TFRECT   -45
+// 5 token values reserved for more graph
+// the dark arts 
+#define TMALLOC -40
+#define TFIND   -39
+#define TEVAL   -38
+#define TITER	-37
 // currently unused constants
 #define TERROR  -3
 #define UNKNOWN -2
@@ -401,8 +407,8 @@ const char stan[]  PROGMEM = "TAN";
 const char satan[] PROGMEM = "ATAN";
 const char slog[]  PROGMEM = "LOG";
 const char sexp[]  PROGMEM = "EXP";
-const char sint[]  PROGMEM = "INT";
 #endif
+const char sint[]  PROGMEM = "INT"; // int is always needed 
 // graphics
 #ifdef HASGRAPH
 const char scolor[]  PROGMEM  = "COLOR";
@@ -452,8 +458,9 @@ const char* const keyword[] PROGMEM = {
 #endif
 // mathematical functions 
 #ifdef HASFLOAT
-    ssin, scos, stan, satan, slog, sexp, sint,
+    ssin, scos, stan, satan, slog, sexp,
 #endif
+    sint,
 // graphics 
 #ifdef HASGRAPH
     scolor, splot, sline, scircle, srect, 
@@ -498,8 +505,9 @@ const char tokens[] = {
 #endif
 // mathematical functions 
 #ifdef HASFLOAT
-	TSIN, TCOS, TTAN, TATAN, TLOG, TEXP, TINT,
+	TSIN, TCOS, TTAN, TATAN, TLOG, TEXP,
 #endif
+	TINT,
 // graphics - experimental - rudimentary
 #ifdef HASGRAPH
 	TCOLOR, TPLOT, TLINE, TCIRCLE, TRECT, 
@@ -755,7 +763,7 @@ void  createarray(char, char, address_t);
 void  array(char, char, char, address_t, number_t*);
 
 // string handling 
-void  createstring(char, char, address_t);
+address_t createstring(char, char, address_t);
 char* getstring(char, char, address_t);
 void  setstring(char, char, address_t, char *, address_t);
 
@@ -1862,12 +1870,16 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 	}
 }
 
-void createstring(char c, char d, address_t i) {
+address_t createstring(char c, char d, address_t i) {
 #ifdef HASAPPLE1
-	if (bfind(STRINGVAR, c, d)) { error(EVARIABLE); return; }
-	(void) bmalloc(STRINGVAR, c, d, i+strindexsize);
-	if (er != 0) return;
+	address_t a;
+	if (bfind(STRINGVAR, c, d)) { error(EVARIABLE); return 0; }
+	a=bmalloc(STRINGVAR, c, d, i+strindexsize);
+	if (er != 0) return 0;
 	if (DEBUG) { outsc("Created string "); outch(c); outch(d); outspc(); outnumber(nvars); outcr(); }
+	return a;
+#else 
+	return 0;	
 #endif
 }
 
@@ -1883,28 +1895,12 @@ char* getstring(char c, char d, address_t b) {
 
 #ifdef HASAPPLE1
 	// dynamically allocated strings
-	a=bfind(STRINGVAR, c, d);
+	if (! (a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, SBUFSIZE);
 
 	if (DEBUG) { outsc("** heap address "); outnumber(a); outcr(); }
 	if (DEBUG) { outsc("** byte length "); outnumber(z.a); outcr(); }
 
-	// the standard APPLE 1 behaviour would be to throw 
-	// an error if the string is not known
-	/*
-	if (a == 0) {
-		error(EVARIABLE);
-		return 0;
-	}
-	*/
-
-	// experimential, do an autocreating also for strings
-	if (a == 0) {
-		createstring(c, d, SBUFSIZE);
-		a=bfind(STRINGVAR, c, d);
-	}
-
 	if (er != 0) return 0;
-
 
 	if ( (b < 1) || (b > z.a-strindexsize ) ) {
 		error(ERANGE); return 0;
@@ -1990,30 +1986,12 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 
 	if (DEBUG) { outsc("* set var string "); outch(c); outch(d); outspc(); outnumber(w); outcr(); }
 
-
 	if ( c == '@') {
 		b=ibuffer;
 	} else {
-		a=bfind(STRINGVAR, c, d);
+		if ( !(a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, SBUFSIZE);
 		if (er != 0) return;
-
-		/*
-		if (a == 0) {
-			error(EVARIABLE);
-			return;
-		}
-		*/
-
-		// experimential, do an autocreating also for strings
-		if (a == 0) {
-			createstring(c, d, SBUFSIZE);
-			a=bfind(STRINGVAR, c, d);
-		}
-
-		if (er != 0) return;
-
 		b=(char *)&mem[a+strindexsize];
-
 	}
 
 	if ( (w+n-1) <= stringdim(c, d) ) {
@@ -3999,6 +3977,8 @@ void xexp() {
 void xint() {
 	push(floor(pop()));
 }
+#else 
+void xint() {}
 #endif
 
 
@@ -4139,12 +4119,12 @@ void factor(){
 			break;
 		case TEXP:
 			parsefunction(xexp, 1);
-			break;	
+			break;
+#endif
 		case TINT:
 			parsefunction(xint, 1);
 			break;
 
-#endif
 // unknown function
 		default:
 			error(EUNKNOWN);
@@ -5158,9 +5138,9 @@ nextvariable:
 		if (x<=0) {error(ERANGE); return; }
 		if (t == STRINGVAR) {
 			if ( (x>255) && (strindexsize==1) ) {error(ERANGE); return; }
-			createstring(xcl, ycl, x);
+			(void) createstring(xcl, ycl, x);
 		} else {
-			createarray(xcl, ycl, x);
+			(void) createarray(xcl, ycl, x);
 		}	
 	} else {
 		error(EUNKNOWN);
