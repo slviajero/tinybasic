@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.98 2021/11/01 17:41:24 stefan Exp stefan $
+// $Id: basic.c,v 1.100 2021/11/05 05:24:56 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -58,7 +58,7 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#undef HASFLOAT
+#define HASFLOAT
 #undef HASGRAPH
 
 
@@ -1888,11 +1888,23 @@ char* getstring(char c, char d, address_t b) {
 	if (DEBUG) { outsc("** heap address "); outnumber(a); outcr(); }
 	if (DEBUG) { outsc("** byte length "); outnumber(z.a); outcr(); }
 
-	if (er != 0) return 0;
+	// the standard APPLE 1 behaviour would be to throw 
+	// an error if the string is not known
+	/*
 	if (a == 0) {
 		error(EVARIABLE);
 		return 0;
 	}
+	*/
+
+	// experimential, do an autocreating also for strings
+	if (a == 0) {
+		createstring(c, d, SBUFSIZE);
+		a=bfind(STRINGVAR, c, d);
+	}
+
+	if (er != 0) return 0;
+
 
 	if ( (b < 1) || (b > z.a-strindexsize ) ) {
 		error(ERANGE); return 0;
@@ -1984,10 +1996,21 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 	} else {
 		a=bfind(STRINGVAR, c, d);
 		if (er != 0) return;
+
+		/*
 		if (a == 0) {
 			error(EVARIABLE);
 			return;
 		}
+		*/
+
+		// experimential, do an autocreating also for strings
+		if (a == 0) {
+			createstring(c, d, SBUFSIZE);
+			a=bfind(STRINGVAR, c, d);
+		}
+
+		if (er != 0) return;
 
 		b=(char *)&mem[a+strindexsize];
 
@@ -3408,7 +3431,7 @@ void firstline() {
 	gettoken();
 }
 
-// goto the next line
+// goto the next line, search forward
 void nextline() {
 	while (here < top) {
 		gettoken();
@@ -3421,7 +3444,7 @@ void nextline() {
 	}
 }
 
-// find a line
+// find a line, search from the beginning
 void findline(address_t l) {
 	here=0;
 	while (here < top) {
@@ -3752,10 +3775,11 @@ void parsesubstring() {
     	bi1=bi;
     else 
     	h1=here; 
+
     nexttoken();
     args=parsesubscripts();
-
     if (er != 0) {return; }
+
     switch(args) {
     	case 2: 
     		break;
@@ -4463,7 +4487,7 @@ void assignment() {
 			break;
 #ifdef HASAPPLE1
 		case STRINGVAR: // the lefthandside is a string 
-			// we try to evaluate as a stringvalue
+			// we try to evaluate the righthandside as a stringvalue
 			s=stringvalue();
 			if (er != 0 ) return;
 
@@ -4488,8 +4512,9 @@ void assignment() {
 			if (DEBUG) {
 				outsc("* assigment stringcode "); outch(xcl); outch(ycl); outcr();
 				outsc("** assignment source string length "); outnumber(lensource); outcr();
+				outsc("** assignment dest string length "); outnumber(lendest); outcr();
 				outsc("** assignment old string length "); outnumber(lenstring(xcl, ycl)); outcr();
-				outsc("** assignment string dimension "); outnumber(stringdim(xcl, ycl)); outcr();
+				outsc("** assignment dest string dimension "); outnumber(stringdim(xcl, ycl)); outcr();
 			};
 
 			// does the source string fit into the destination
@@ -4735,7 +4760,7 @@ void xgoto() {
 
 	x=pop();
 	findline(x);
-	if ( er != 0 ) return;
+	if (er != 0) return;
 	if (st == SINT) st=SRUN;
 	nexttoken();
 }
