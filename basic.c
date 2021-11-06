@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.100 2021/11/05 05:24:56 stefan Exp stefan $
+// $Id: basic.c,v 1.101 2021/11/05 15:13:42 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -58,7 +58,7 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#define HASFLOAT
+#undef HASFLOAT
 #undef HASGRAPH
 
 
@@ -226,51 +226,52 @@ const int printer_baudrate = 0;
 // Stefan's tinybasic additions (11)
 #define TCONT   -85
 #define TSQR	-84
-#define TFRE	-83
-#define TDUMP 	-82
-#define TBREAK  -81
-#define TSAVE   -80
-#define TLOAD   -79
-#define TGET    -78
-#define TPUT    -77
-#define TSET    -76
-#define TCLS    -75
+#define TPOW	-83
+#define TFRE	-82
+#define TDUMP 	-81
+#define TBREAK  -80
+#define TSAVE   -79
+#define TLOAD   -78
+#define TGET    -77
+#define TPUT    -76
+#define TSET    -75
+#define TCLS    -74
 // Arduino functions (10)
-#define TPINM	-74
-#define TDWRITE	-73
-#define TDREAD	-72
-#define TAWRITE	-71
-#define TAREAD  -70
-#define TDELAY  -69
-#define TMILLIS  -68
-#define TTONE   -67
-#define TPULSEIN  -66
-#define TAZERO	  -65
+#define TPINM	-73
+#define TDWRITE	-72
+#define TDREAD	-71
+#define TAWRITE	-70
+#define TAREAD  -69
+#define TDELAY  -68
+#define TMILLIS  -67
+#define TTONE   -66
+#define TPULSEIN  -65
+#define TAZERO	  -64
 // the SD card DOS functions (4)
-#define TCATALOG -64
-#define TDELETE  -63
-#define TOPEN 	-62
-#define TCLOSE  -61
+#define TCATALOG -63
+#define TDELETE  -62
+#define TOPEN 	-61
+#define TCLOSE  -60
 // low level access of internal routines
-#define TUSR	-60
-#define TCALL 	-59
+#define TUSR	-59
+#define TCALL 	-58
 // mathematical functions 
-#define TSIN 	-58
-#define TCOS    -57
-#define TTAN 	-56
-#define TATAN   -55
-#define TLOG    -54
-#define TEXP    -53
-#define TINT    -52
+#define TSIN 	-57
+#define TCOS    -56
+#define TTAN 	-55
+#define TATAN   -54
+#define TLOG    -53
+#define TEXP    -52
+#define TINT    -51
 // graphics - experimental - rudimentary
-#define TCOLOR 	-51
-#define TPLOT   -50
-#define TLINE 	-49
-#define TCIRCLE -48
-#define TRECT   -47
-#define TFCIRCLE -46
-#define TFRECT   -45
-// 5 token values reserved for more graph
+#define TCOLOR 	-50
+#define TPLOT   -49
+#define TLINE 	-48
+#define TCIRCLE -47
+#define TRECT   -46
+#define TFCIRCLE -45
+#define TFRECT   -44
+// 4 token values reserved for more graph
 // the dark arts 
 #define TMALLOC -40
 #define TFIND   -39
@@ -360,6 +361,7 @@ const char spoke[]   PROGMEM = "POKE";
 #ifdef HASSTEFANSEXT
 const char scont[]   PROGMEM = "CONT";
 const char ssqr[]    PROGMEM = "SQR";
+const char spow[]    PROGMEM = "POW";
 const char sfre[]    PROGMEM = "FRE";
 const char sdump[]   PROGMEM = "DUMP";
 const char sbreak[]  PROGMEM = "BREAK";
@@ -434,8 +436,8 @@ const char* const keyword[] PROGMEM = {
 #endif
 // Stefan's additions
 #ifdef HASSTEFANSEXT
-	scont, ssqr, sfre, sdump, sbreak, ssave,
-	sload, sget, sput, sset, scls,
+	scont, ssqr, spow, sfre, sdump, sbreak, 
+	ssave, sload, sget, sput, sset, scls,
 #endif
 // Arduino stuff
 #ifdef HASARDUINOIO
@@ -481,8 +483,8 @@ const char tokens[] = {
 #endif
 // Stefan's tinybasic additions (11)
 #ifdef HASSTEFANSEXT
-	TCONT, TSQR, TFRE, TDUMP, TBREAK, TSAVE, TLOAD, TGET, TPUT,
-	TSET, TCLS,
+	TCONT, TSQR, TPOW, TFRE, TDUMP, TBREAK, TSAVE, TLOAD, 
+	TGET, TPUT, TSET, TCLS,
 #endif
 // Arduino functions (10)
 #ifdef HASARDUINOIO
@@ -1087,6 +1089,7 @@ short parsearguments();
 // mathematics and other functions
 void rnd();
 void sqr();
+void xpow();
 void fre();
 void peek();
 void xabs();
@@ -3864,6 +3867,35 @@ void sqr(){
 }
 #endif
 
+#ifndef HASFLOAT
+// powers 
+void xpow(){
+	number_t n;
+	number_t a;
+
+	n=pop();
+	a=pop();
+
+	x=1;
+	if (n>=0) 
+		for(int i=0; i<n; i++) x*=a; 
+	else 
+		x=0;
+	
+	push(x);
+}
+#else
+void xpow(){
+	number_t n;
+	n=pop();
+	push(pow(pop(),n));
+}
+#endif
+
+
+
+
+
 // evaluates a string value, FALSE if there is no string
 char stringvalue() {
 	char xcl;
@@ -4074,6 +4106,9 @@ void factor(){
 			break;
 		case TUSR:
 			parsefunction(xusr, 2);
+			break;
+		case TPOW:
+			parsefunction(xpow, 2);
 			break;
 #endif
 // Arduino I/O
@@ -4727,7 +4762,7 @@ void clrgosubstack() {
 	gosubsp=0;
 }
 
-
+// goto and gosub function
 void xgoto() {
 	short t=token;
 
@@ -4739,6 +4774,8 @@ void xgoto() {
 	if (er != 0) return;
 
 	x=pop();
+
+	if (DEBUG) { outsc("** goto/gosub evaluated line number "); outnumber(x); outcr(); }
 	findline(x);
 	if (er != 0) return;
 	if (st == SINT) st=SRUN;
