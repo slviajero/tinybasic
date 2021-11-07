@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.101 2021/11/05 15:13:42 stefan Exp stefan $
+// $Id: basic.c,v 1.104 2021/11/07 07:42:55 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -58,7 +58,7 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#undef HASFLOAT
+#define HASFLOAT
 #undef HASGRAPH
 
 
@@ -283,7 +283,7 @@ const int printer_baudrate = 0;
 #define NEWLINE -1
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+14+11+10+4+2+7+7
+#define NKEYWORDS	3+19+14+12+10+4+2+7+7
 #define BASEKEYWORD -121
 
 /*
@@ -4850,7 +4850,11 @@ void findnext(){
 
 void xfor(){
 	char xcl, ycl;
+	number_t b=1;
+	number_t e=maxnum;
+	number_t s=1;
 	
+	// there has to be a variable
 	nexttoken();
 	if (token != VARIABLE) {
 		error(EUNKNOWN);
@@ -4859,47 +4863,45 @@ void xfor(){
 	xcl=xc;
 	ycl=yc;
 
+	// this is not standard BASIC all combinations of 
+	// FOR TO STEP are allowed
 	nexttoken();
-	if (token != '=') { 
-		error(EUNKNOWN); 
-		return; 
+	if (token == '=') { 
+		nexttoken();
+		expression();
+		if (er != 0) return;
+		b=pop();
 	}
 
-	nexttoken();
-	expression();
-	if (er != 0) return;
-
-	x=pop();	
-	setvar(xcl, ycl, x);
-	if (DEBUG) { outch(xcl); outch(ycl); outspc(); outnumber(x); outcr(); }
-
-	if (token != TTO){
-		error(EUNKNOWN);
-		return;
+	if (token == TTO) {
+		nexttoken();
+		expression();
+		if (er != 0) return;
+		e=pop();
 	}
-	nexttoken();
-	expression();
-	if (er != 0) return;
 
 	if (token == TSTEP) {
 		nexttoken();
 		expression();
 		if (er != 0) return;
-		y=pop();
-	} else 
-		y=1;
-	if (DEBUG) { debugtoken(); outnumber(y); outcr(); }
+		s=pop();
+	} 
+
 	if (! termsymbol()) {
 		error(UNKNOWN);
 		return;
 	}
 
-	x=pop();
 	if (st == SINT)
 		here=bi-ibuffer;
 
+	// here we know everything to set up the loop	
+	setvar(xcl, ycl, b);
+	if (DEBUG) { outch(xcl); outch(ycl); outspc(); outnumber(b); outnumber(e); outnumber(s); outcr(); }
 	xc=xcl;
 	yc=ycl;
+	x=e;
+	y=s;
 	pushforstack();
 	if (er != 0) return;
 
@@ -4916,7 +4918,7 @@ void xfor(){
 }
 
 /*
-	an apocryphal feature here is the BREAK command ending a look
+	an apocryphal feature here is the BREAK command ending a loop
 	doesn't work well for nested loops - to be tested carefully
 */
 void xbreak(){
@@ -4932,7 +4934,8 @@ void xnext(){
 	number_t t;
 
 	nexttoken();
-	if (termsymbol()) goto plainnext;
+
+	// one variable is accepted as an argument, no list
 	if (token == VARIABLE) {
 		xcl=xc;
 		ycl=yc;
@@ -4943,34 +4946,34 @@ void xnext(){
 		}
 	}
 
-plainnext:
+	// remember the current position
 	h=here;
 	popforstack();
+	if (er != 0) return;
+	// a variable argument in next clears the for stack 
+	// down as BASIC programs can and do jump out to a outer 
+	// next
 	if (xcl) {
-		if (xcl != xc || ycl != yc ) {
-			error(EFOR);
-			return;
+		while (xcl != xc || ycl != yc ) {
+			popforstack();
+			if (er != 0) return;
 		} 
 	}
-	if (y == 0) goto backtofor;
+
+	// y=0 an infinite loop with step 0
 	t=getvar(xc, yc)+y;
 	setvar(xc, yc, t);
-	if (y > 0 && t <= x) goto backtofor;
-	if (y < 0 && t >= x) goto backtofor;
 
-	// last iteration completed
-	here=h;
+	// do we need another iteration, STEP 0 always triggers an infinite loop
+	if ( (y==0) || (y > 0 && t <= x) || (y < 0 && t >= x) ) {
+		// push the loop with the new values back to the for stack
+		pushforstack();
+		if (st == SINT) bi=ibuffer+here;
+	} else {
+		// last iteration completed we stay here after the next
+		here=h;
+	}
 	nexttoken();
-	return;
-
-	// next iteration
-backtofor:
-	pushforstack();
-	if (st == SINT)
-		bi=ibuffer+here;
-	nexttoken();
-	return;
-
 }
 
 #else
