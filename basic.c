@@ -60,6 +60,8 @@
 #define HASVT52
 #define HASFLOAT
 #undef HASGRAPH
+#undef HASDARTMOUTH
+#undef HASDARKARTS
 
 
 // hardcoded memory size set 0 for automatic malloc
@@ -272,11 +274,17 @@ const int printer_baudrate = 0;
 #define TFCIRCLE -45
 #define TFRECT   -44
 // 4 token values reserved for more graph
-// the dark arts 
+// the dark arts and Dartmouth extensions
+// not yet implemented only tokens reserverd
 #define TMALLOC -40
 #define TFIND   -39
 #define TEVAL   -38
 #define TITER	-37
+#define TDATA	-36
+#define TREAD   -35
+#define TRESTORE -34
+#define DEF      -33
+#define FN 		-32
 // currently unused constants
 #define TERROR  -3
 #define UNKNOWN -2
@@ -2097,45 +2105,33 @@ void reseterror() {
 #ifdef DEBUG
 void debugtoken(){
 	outsc("* token: ");
+
+	if (token == EOL) {
+		outsc("EOL\n");
+		return;	
+	}
 	switch(token) {
 		case LINENUMBER: 
 			outsc("LINE ");
-			outputtoken();
-			outcr();
 			break;
 		case NUMBER:
 			outsc("NUMBER ");
-			outputtoken();
-			outcr();
 			break;
 		case VARIABLE:
 			outsc("VARIABLE ");
-			outputtoken();
-			outcr();
 			break;	
 		case ARRAYVAR:
 			outsc("ARRAYVAR ");
-			outputtoken();
-			outcr();
 			break;		
 		case STRING:
 			outsc("STRING ");
-			outputtoken();
-			outcr();
 			break;
 		case STRINGVAR:
 			outsc("STRINGVAR ");
-			outputtoken();
-			outcr();
 			break;
-		case EOL: 
-			outsc("EOL");
-			outcr();
-			break;	
-		default:
-			outputtoken();
-			outcr();	
 	}
+	outputtoken();
+	outcr();
 }
 
 void debug(char *c){
@@ -4542,90 +4538,14 @@ void assignment() {
 			else
 				for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
 
-			// classical Apple 1 behaviour would be string truncation in substring logic
-			// immature additional code - leave in peace
-//#ifndef HASSTEFANSEXT
+			// classical Apple 1 behaviour is string truncation in substring logic
 			newlength = i+lensource-1;	
-//#else 
-//			if (i+lensource > lendest)
-//				newlength = i+lensource-1;	
-//			else 
-//				newlength = lendest;
-//#endif			
-
-			//printf("Calculated new length %d \n", newlength);	
-
+		
 			setstringlength(xcl, ycl, newlength);
-			// one could clear the string from here on
 			break;
 #endif
 	}
 
-/*
-
-
-	// stringvalue is a nasty function with many side effects
-	// in ir2 and pop() we have the the adress and length of the source string, 
-	// xc is the name, y contains the end and x the beginning index 
-
-
-#ifdef HASAPPLE1
-	s=stringvalue();
-	if (er != 0 ) return;
-
-	if (! s ) {
-#endif 
-
-		expression();
-		if (er != 0 ) return;
-
-		assignnumber(t, xcl, ycl, i, ps);
-
-#ifdef HASAPPLE1	
-	} else {
-		// note that stringvalue sets the ir2 register
-		switch (t) {
-			case VARIABLE: // a scalar variable gets assigned the first string character 
-				setvar(xcl, ycl , ir2[0]);
-				drop();
-				break;
-			case ARRAYVAR: 	
-				x=ir2[0];
-				array('s', xcl, ycl, i, &x);
-				drop();
-				break;
-
-			case STRINGVAR: // a string gets assigned a substring - copy algorithm
-				lensource=pop();
-
-				// the destination adress
-				ir=getstring(xcl, ycl, i);
-				if (er != 0) return;
-
-				if (DEBUG) {
-					outsc("* assigment stringcode "); outch(xcl); outch(ycl); outcr();
-					outsc("** assignment source string length "); printf("%d ", lensource); outcr();
-					outsc("** assignment old string length "); printf("%d ",lenstring(xcl, ycl)); outcr();
-					outsc("** assignment string dimension "); printf("%d ",stringdim(xcl, ycl)); outcr();
-				};
-
-				if ((i+lensource-1) > stringdim(xcl, ycl)) { error(ERANGE); return; }
-
-				// this code is needed to make sure we can copy one string to the same string 
-				// without overwriting stuff, we go either left to right or backwards
-
-				if (x > i) 
-					for (int j=0; j<lensource; j++) { ir[j]=ir2[j];}
-				else
-					for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
-
-				setstringlength(xcl, ycl, i+lensource-1);
-
-		}
-		nexttoken();
-	} 
-#endif
-*/
 	nexttoken();
 }
 
@@ -5808,59 +5728,6 @@ void xcatalog() {
 		rootfileclose();
 	}
 	rootclose();
-
-
-/*
-#ifndef ARDUINO   
-
-  	if (root != NULL) {
-    	while (rootnextfile()) {
-    		if (file->d_type == DT_REG) {
-    			if (streq(file->d_name, filename)) {
-        		    outsc(file->d_name); 
-      				outcr();				
-    			}
-    		}
-    	}
-    	(void) closedir (root);
-  	} else
-    	ert=1; 
-#else 
-#if defined(ARDUINOSD)
-
-  	const char *n;
-;
-	while (TRUE) {
-		file=root.openNextFile();
-		if (! file) break;
-		if (! file.isDirectory()) { 
-        	n=file.name();
-        	if (*n != '_' && streq(n, filename)) { 
-        	    outscf(n, 14); 
-        	    outch(' '); 
-        	    outnumber(file.size()); 
-        	    outcr(); 
-              if ( dspwaitonscroll() == 27 ) break;
-        	}
-		}
-    	file.close(); 
-	}
-  	file.close();
-	root.close();
-#else 
-#ifdef ESPSPIFFS
-
-	while (root.next()) {
-    	outsc((char*) root.fileName().c_str()); outspc();
-    	file = root.openFile("r");
-    	outnumber(file.size()); outcr();
-	}
-
-#endif
-#endif
-#endif
-*/
-
 	nexttoken();
 }
 

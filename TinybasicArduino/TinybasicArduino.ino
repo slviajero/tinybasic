@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.97 2021/10/31 22:05:51 stefan Exp stefan $
+// $Id: basic.c,v 1.104 2021/11/07 07:42:55 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -53,17 +53,19 @@
 #define HASAPPLE1
 #define HASARDUINOIO
 #undef HASFILEIO
-#define HASTONE
-#define HASPULSE
+#undef HASTONE
+#undef HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
 #undef HASFLOAT
 #undef HASGRAPH
+#undef HASDARTMOUTH
+#undef HASDARKARTS
 
 
 // hardcoded memory size set 0 for automatic malloc
-#define MEMSIZE 0
+#define MEMSIZE 1024
 
 // these are the definitions for various arduino extensions
 // computer. All of them are memory hungry
@@ -226,57 +228,70 @@ const int printer_baudrate = 0;
 // Stefan's tinybasic additions (11)
 #define TCONT   -85
 #define TSQR	-84
-#define TFRE	-83
-#define TDUMP 	-82
-#define TBREAK  -81
-#define TSAVE   -80
-#define TLOAD   -79
-#define TGET    -78
-#define TPUT    -77
-#define TSET    -76
-#define TCLS    -75
+#define TPOW	-83
+#define TFRE	-82
+#define TDUMP 	-81
+#define TBREAK  -80
+#define TSAVE   -79
+#define TLOAD   -78
+#define TGET    -77
+#define TPUT    -76
+#define TSET    -75
+#define TCLS    -74
 // Arduino functions (10)
-#define TPINM	-74
-#define TDWRITE	-73
-#define TDREAD	-72
-#define TAWRITE	-71
-#define TAREAD  -70
-#define TDELAY  -69
-#define TMILLIS  -68
-#define TTONE   -67
-#define TPULSEIN  -66
-#define TAZERO	  -65
+#define TPINM	-73
+#define TDWRITE	-72
+#define TDREAD	-71
+#define TAWRITE	-70
+#define TAREAD  -69
+#define TDELAY  -68
+#define TMILLIS  -67
+#define TTONE   -66
+#define TPULSEIN  -65
+#define TAZERO	  -64
 // the SD card DOS functions (4)
-#define TCATALOG -64
-#define TDELETE  -63
-#define TOPEN 	-62
-#define TCLOSE  -61
+#define TCATALOG -63
+#define TDELETE  -62
+#define TOPEN 	-61
+#define TCLOSE  -60
 // low level access of internal routines
-#define TUSR	-60
-#define TCALL 	-59
+#define TUSR	-59
+#define TCALL 	-58
 // mathematical functions 
-#define TSIN 	-58
-#define TCOS    -57
-#define TTAN 	-56
-#define TATAN   -55
-#define TLOG    -54
-#define TEXP    -53
-#define TINT    -52
+#define TSIN 	-57
+#define TCOS    -56
+#define TTAN 	-55
+#define TATAN   -54
+#define TLOG    -53
+#define TEXP    -52
+#define TINT    -51
 // graphics - experimental - rudimentary
-#define TCOLOR 	-51
-#define TPLOT   -50
-#define TLINE 	-49
-#define TCIRCLE -48
-#define TRECT   -47
-#define TFCIRCLE -46
-#define TFRECT   -45
+#define TCOLOR 	-50
+#define TPLOT   -49
+#define TLINE 	-48
+#define TCIRCLE -47
+#define TRECT   -46
+#define TFCIRCLE -45
+#define TFRECT   -44
+// 4 token values reserved for more graph
+// the dark arts and Dartmouth extensions
+// not yet implemented only tokens reserverd
+#define TMALLOC -40
+#define TFIND   -39
+#define TEVAL   -38
+#define TITER	-37
+#define TDATA	-36
+#define TREAD   -35
+#define TRESTORE -34
+#define DEF      -33
+#define FN 		-32
 // currently unused constants
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+14+11+10+4+2+7+7
+#define NKEYWORDS	3+19+14+12+10+4+2+7+7
 #define BASEKEYWORD -121
 
 /*
@@ -354,6 +369,7 @@ const char spoke[]   PROGMEM = "POKE";
 #ifdef HASSTEFANSEXT
 const char scont[]   PROGMEM = "CONT";
 const char ssqr[]    PROGMEM = "SQR";
+const char spow[]    PROGMEM = "POW";
 const char sfre[]    PROGMEM = "FRE";
 const char sdump[]   PROGMEM = "DUMP";
 const char sbreak[]  PROGMEM = "BREAK";
@@ -401,8 +417,8 @@ const char stan[]  PROGMEM = "TAN";
 const char satan[] PROGMEM = "ATAN";
 const char slog[]  PROGMEM = "LOG";
 const char sexp[]  PROGMEM = "EXP";
-const char sint[]  PROGMEM = "INT";
 #endif
+const char sint[]  PROGMEM = "INT"; // int is always needed 
 // graphics
 #ifdef HASGRAPH
 const char scolor[]  PROGMEM  = "COLOR";
@@ -428,8 +444,8 @@ const char* const keyword[] PROGMEM = {
 #endif
 // Stefan's additions
 #ifdef HASSTEFANSEXT
-	scont, ssqr, sfre, sdump, sbreak, ssave,
-	sload, sget, sput, sset, scls,
+	scont, ssqr, spow, sfre, sdump, sbreak, 
+	ssave, sload, sget, sput, sset, scls,
 #endif
 // Arduino stuff
 #ifdef HASARDUINOIO
@@ -452,8 +468,9 @@ const char* const keyword[] PROGMEM = {
 #endif
 // mathematical functions 
 #ifdef HASFLOAT
-    ssin, scos, stan, satan, slog, sexp, sint,
+    ssin, scos, stan, satan, slog, sexp,
 #endif
+    sint,
 // graphics 
 #ifdef HASGRAPH
     scolor, splot, sline, scircle, srect, 
@@ -474,8 +491,8 @@ const char tokens[] = {
 #endif
 // Stefan's tinybasic additions (11)
 #ifdef HASSTEFANSEXT
-	TCONT, TSQR, TFRE, TDUMP, TBREAK, TSAVE, TLOAD, TGET, TPUT,
-	TSET, TCLS,
+	TCONT, TSQR, TPOW, TFRE, TDUMP, TBREAK, TSAVE, TLOAD, 
+	TGET, TPUT, TSET, TCLS,
 #endif
 // Arduino functions (10)
 #ifdef HASARDUINOIO
@@ -498,8 +515,9 @@ const char tokens[] = {
 #endif
 // mathematical functions 
 #ifdef HASFLOAT
-	TSIN, TCOS, TTAN, TATAN, TLOG, TEXP, TINT,
+	TSIN, TCOS, TTAN, TATAN, TLOG, TEXP,
 #endif
+	TINT,
 // graphics - experimental - rudimentary
 #ifdef HASGRAPH
 	TCOLOR, TPLOT, TLINE, TCIRCLE, TRECT, 
@@ -755,7 +773,7 @@ void  createarray(char, char, address_t);
 void  array(char, char, char, address_t, number_t*);
 
 // string handling 
-void  createstring(char, char, address_t);
+address_t createstring(char, char, address_t);
 char* getstring(char, char, address_t);
 void  setstring(char, char, address_t, char *, address_t);
 
@@ -1079,6 +1097,7 @@ short parsearguments();
 // mathematics and other functions
 void rnd();
 void sqr();
+void xpow();
 void fre();
 void peek();
 void xabs();
@@ -1862,12 +1881,16 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 	}
 }
 
-void createstring(char c, char d, address_t i) {
+address_t createstring(char c, char d, address_t i) {
 #ifdef HASAPPLE1
-	if (bfind(STRINGVAR, c, d)) { error(EVARIABLE); return; }
-	(void) bmalloc(STRINGVAR, c, d, i+strindexsize);
-	if (er != 0) return;
+	address_t a;
+	if (bfind(STRINGVAR, c, d)) { error(EVARIABLE); return 0; }
+	a=bmalloc(STRINGVAR, c, d, i+strindexsize);
+	if (er != 0) return 0;
 	if (DEBUG) { outsc("Created string "); outch(c); outch(d); outspc(); outnumber(nvars); outcr(); }
+	return a;
+#else 
+	return 0;	
 #endif
 }
 
@@ -1883,16 +1906,12 @@ char* getstring(char c, char d, address_t b) {
 
 #ifdef HASAPPLE1
 	// dynamically allocated strings
-	a=bfind(STRINGVAR, c, d);
+	if (! (a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, SBUFSIZE);
 
 	if (DEBUG) { outsc("** heap address "); outnumber(a); outcr(); }
 	if (DEBUG) { outsc("** byte length "); outnumber(z.a); outcr(); }
 
 	if (er != 0) return 0;
-	if (a == 0) {
-		error(EVARIABLE);
-		return 0;
-	}
 
 	if ( (b < 1) || (b > z.a-strindexsize ) ) {
 		error(ERANGE); return 0;
@@ -1978,19 +1997,12 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 
 	if (DEBUG) { outsc("* set var string "); outch(c); outch(d); outspc(); outnumber(w); outcr(); }
 
-
 	if ( c == '@') {
 		b=ibuffer;
 	} else {
-		a=bfind(STRINGVAR, c, d);
+		if ( !(a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, SBUFSIZE);
 		if (er != 0) return;
-		if (a == 0) {
-			error(EVARIABLE);
-			return;
-		}
-
 		b=(char *)&mem[a+strindexsize];
-
 	}
 
 	if ( (w+n-1) <= stringdim(c, d) ) {
@@ -2093,45 +2105,33 @@ void reseterror() {
 #ifdef DEBUG
 void debugtoken(){
 	outsc("* token: ");
+
+	if (token == EOL) {
+		outsc("EOL\n");
+		return;	
+	}
 	switch(token) {
 		case LINENUMBER: 
 			outsc("LINE ");
-			outputtoken();
-			outcr();
 			break;
 		case NUMBER:
 			outsc("NUMBER ");
-			outputtoken();
-			outcr();
 			break;
 		case VARIABLE:
 			outsc("VARIABLE ");
-			outputtoken();
-			outcr();
 			break;	
 		case ARRAYVAR:
 			outsc("ARRAYVAR ");
-			outputtoken();
-			outcr();
 			break;		
 		case STRING:
 			outsc("STRING ");
-			outputtoken();
-			outcr();
 			break;
 		case STRINGVAR:
 			outsc("STRINGVAR ");
-			outputtoken();
-			outcr();
 			break;
-		case EOL: 
-			outsc("EOL");
-			outcr();
-			break;	
-		default:
-			outputtoken();
-			outcr();	
 	}
+	outputtoken();
+	outcr();
 }
 
 void debug(char *c){
@@ -2187,6 +2187,24 @@ void clearst(){
 
 #ifdef HASFORNEXT
 void pushforstack(){
+	short i, j;
+	if (DEBUG) { outsc("** forsp in pushforstack "); outnumber(forsp); outcr(); }
+	// before pushing into the for stack we check is an
+	// old for exists - this is on reentering a for loop
+	for(i=0; i<forsp; i++) {
+		if (forstack[i].varx == xc && forstack[i].vary == yc) {
+			for(j=i; j<forsp-1; j++) {
+				forstack[j].varx=forstack[j+1].varx;
+				forstack[j].vary=forstack[j+1].vary;
+				forstack[j].here=forstack[j+1].here;
+				forstack[j].to=forstack[j+1].to;
+				forstack[j].step=forstack[j+1].step;	
+			}
+			forsp--;
+			break;
+		}
+	}
+
 	if (forsp < FORDEPTH) {
 		forstack[forsp].varx=xc;
 		forstack[forsp].vary=yc;
@@ -2384,6 +2402,7 @@ void ofileclose(){
 int fileavailable(){
 #ifndef ARDUINO
 	return !feof(ifile);
+#else
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
 	return ifile.available();
 #endif
@@ -3389,7 +3408,7 @@ void firstline() {
 	gettoken();
 }
 
-// goto the next line
+// goto the next line, search forward
 void nextline() {
 	while (here < top) {
 		gettoken();
@@ -3402,7 +3421,7 @@ void nextline() {
 	}
 }
 
-// find a line
+// find a line, search from the beginning
 void findline(address_t l) {
 	here=0;
 	while (here < top) {
@@ -3733,10 +3752,11 @@ void parsesubstring() {
     	bi1=bi;
     else 
     	h1=here; 
+
     nexttoken();
     args=parsesubscripts();
-
     if (er != 0) {return; }
+
     switch(args) {
     	case 2: 
     		break;
@@ -3842,6 +3862,35 @@ void sqr(){
 	push(sqrt(pop()));
 }
 #endif
+
+#ifndef HASFLOAT
+// powers 
+void xpow(){
+	number_t n;
+	number_t a;
+
+	n=pop();
+	a=pop();
+
+	x=1;
+	if (n>=0) 
+		for(int i=0; i<n; i++) x*=a; 
+	else 
+		x=0;
+	
+	push(x);
+}
+#else
+void xpow(){
+	number_t n;
+	n=pop();
+	push(pow(pop(),n));
+}
+#endif
+
+
+
+
 
 // evaluates a string value, FALSE if there is no string
 char stringvalue() {
@@ -3956,6 +4005,8 @@ void xexp() {
 void xint() {
 	push(floor(pop()));
 }
+#else 
+void xint() {}
 #endif
 
 
@@ -4052,6 +4103,9 @@ void factor(){
 		case TUSR:
 			parsefunction(xusr, 2);
 			break;
+		case TPOW:
+			parsefunction(xpow, 2);
+			break;
 #endif
 // Arduino I/O
 #ifdef HASARDUINOIO
@@ -4096,12 +4150,12 @@ void factor(){
 			break;
 		case TEXP:
 			parsefunction(xexp, 1);
-			break;	
+			break;
+#endif
 		case TINT:
 			parsefunction(xint, 1);
 			break;
 
-#endif
 // unknown function
 		default:
 			error(EUNKNOWN);
@@ -4444,7 +4498,7 @@ void assignment() {
 			break;
 #ifdef HASAPPLE1
 		case STRINGVAR: // the lefthandside is a string 
-			// we try to evaluate as a stringvalue
+			// we try to evaluate the righthandside as a stringvalue
 			s=stringvalue();
 			if (er != 0 ) return;
 
@@ -4469,8 +4523,9 @@ void assignment() {
 			if (DEBUG) {
 				outsc("* assigment stringcode "); outch(xcl); outch(ycl); outcr();
 				outsc("** assignment source string length "); outnumber(lensource); outcr();
+				outsc("** assignment dest string length "); outnumber(lendest); outcr();
 				outsc("** assignment old string length "); outnumber(lenstring(xcl, ycl)); outcr();
-				outsc("** assignment string dimension "); outnumber(stringdim(xcl, ycl)); outcr();
+				outsc("** assignment dest string dimension "); outnumber(stringdim(xcl, ycl)); outcr();
 			};
 
 			// does the source string fit into the destination
@@ -4483,90 +4538,14 @@ void assignment() {
 			else
 				for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
 
-			// classical Apple 1 behaviour would be string truncation in substring logic
-			// immature additional code - leave in peace
-//#ifndef HASSTEFANSEXT
+			// classical Apple 1 behaviour is string truncation in substring logic
 			newlength = i+lensource-1;	
-//#else 
-//			if (i+lensource > lendest)
-//				newlength = i+lensource-1;	
-//			else 
-//				newlength = lendest;
-//#endif			
-
-			//printf("Calculated new length %d \n", newlength);	
-
+		
 			setstringlength(xcl, ycl, newlength);
-			// one could clear the string from here on
 			break;
 #endif
 	}
 
-/*
-
-
-	// stringvalue is a nasty function with many side effects
-	// in ir2 and pop() we have the the adress and length of the source string, 
-	// xc is the name, y contains the end and x the beginning index 
-
-
-#ifdef HASAPPLE1
-	s=stringvalue();
-	if (er != 0 ) return;
-
-	if (! s ) {
-#endif 
-
-		expression();
-		if (er != 0 ) return;
-
-		assignnumber(t, xcl, ycl, i, ps);
-
-#ifdef HASAPPLE1	
-	} else {
-		// note that stringvalue sets the ir2 register
-		switch (t) {
-			case VARIABLE: // a scalar variable gets assigned the first string character 
-				setvar(xcl, ycl , ir2[0]);
-				drop();
-				break;
-			case ARRAYVAR: 	
-				x=ir2[0];
-				array('s', xcl, ycl, i, &x);
-				drop();
-				break;
-
-			case STRINGVAR: // a string gets assigned a substring - copy algorithm
-				lensource=pop();
-
-				// the destination adress
-				ir=getstring(xcl, ycl, i);
-				if (er != 0) return;
-
-				if (DEBUG) {
-					outsc("* assigment stringcode "); outch(xcl); outch(ycl); outcr();
-					outsc("** assignment source string length "); printf("%d ", lensource); outcr();
-					outsc("** assignment old string length "); printf("%d ",lenstring(xcl, ycl)); outcr();
-					outsc("** assignment string dimension "); printf("%d ",stringdim(xcl, ycl)); outcr();
-				};
-
-				if ((i+lensource-1) > stringdim(xcl, ycl)) { error(ERANGE); return; }
-
-				// this code is needed to make sure we can copy one string to the same string 
-				// without overwriting stuff, we go either left to right or backwards
-
-				if (x > i) 
-					for (int j=0; j<lensource; j++) { ir[j]=ir2[j];}
-				else
-					for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
-
-				setstringlength(xcl, ycl, i+lensource-1);
-
-		}
-		nexttoken();
-	} 
-#endif
-*/
 	nexttoken();
 }
 
@@ -4703,7 +4682,7 @@ void clrgosubstack() {
 	gosubsp=0;
 }
 
-
+// goto and gosub function
 void xgoto() {
 	short t=token;
 
@@ -4715,8 +4694,10 @@ void xgoto() {
 	if (er != 0) return;
 
 	x=pop();
+
+	if (DEBUG) { outsc("** goto/gosub evaluated line number "); outnumber(x); outcr(); }
 	findline(x);
-	if ( er != 0 ) return;
+	if (er != 0) return;
 	if (st == SINT) st=SRUN;
 	nexttoken();
 }
@@ -4789,7 +4770,11 @@ void findnext(){
 
 void xfor(){
 	char xcl, ycl;
+	number_t b=1;
+	number_t e=maxnum;
+	number_t s=1;
 	
+	// there has to be a variable
 	nexttoken();
 	if (token != VARIABLE) {
 		error(EUNKNOWN);
@@ -4798,47 +4783,45 @@ void xfor(){
 	xcl=xc;
 	ycl=yc;
 
+	// this is not standard BASIC all combinations of 
+	// FOR TO STEP are allowed
 	nexttoken();
-	if (token != '=') { 
-		error(EUNKNOWN); 
-		return; 
+	if (token == '=') { 
+		nexttoken();
+		expression();
+		if (er != 0) return;
+		b=pop();
 	}
 
-	nexttoken();
-	expression();
-	if (er != 0) return;
-
-	x=pop();	
-	setvar(xcl, ycl, x);
-	if (DEBUG) { outch(xcl); outch(ycl); outspc(); outnumber(x); outcr(); }
-
-	if (token != TTO){
-		error(EUNKNOWN);
-		return;
+	if (token == TTO) {
+		nexttoken();
+		expression();
+		if (er != 0) return;
+		e=pop();
 	}
-	nexttoken();
-	expression();
-	if (er != 0) return;
 
 	if (token == TSTEP) {
 		nexttoken();
 		expression();
 		if (er != 0) return;
-		y=pop();
-	} else 
-		y=1;
-	if (DEBUG) { debugtoken(); outnumber(y); outcr(); }
+		s=pop();
+	} 
+
 	if (! termsymbol()) {
 		error(UNKNOWN);
 		return;
 	}
 
-	x=pop();
 	if (st == SINT)
 		here=bi-ibuffer;
 
+	// here we know everything to set up the loop	
+	setvar(xcl, ycl, b);
+	if (DEBUG) { outch(xcl); outch(ycl); outspc(); outnumber(b); outnumber(e); outnumber(s); outcr(); }
 	xc=xcl;
 	yc=ycl;
+	x=e;
+	y=s;
 	pushforstack();
 	if (er != 0) return;
 
@@ -4855,7 +4838,7 @@ void xfor(){
 }
 
 /*
-	an apocryphal feature here is the BREAK command ending a look
+	an apocryphal feature here is the BREAK command ending a loop
 	doesn't work well for nested loops - to be tested carefully
 */
 void xbreak(){
@@ -4871,7 +4854,8 @@ void xnext(){
 	number_t t;
 
 	nexttoken();
-	if (termsymbol()) goto plainnext;
+
+	// one variable is accepted as an argument, no list
 	if (token == VARIABLE) {
 		xcl=xc;
 		ycl=yc;
@@ -4882,34 +4866,34 @@ void xnext(){
 		}
 	}
 
-plainnext:
+	// remember the current position
 	h=here;
 	popforstack();
+	if (er != 0) return;
+	// a variable argument in next clears the for stack 
+	// down as BASIC programs can and do jump out to a outer 
+	// next
 	if (xcl) {
-		if (xcl != xc || ycl != yc ) {
-			error(EFOR);
-			return;
+		while (xcl != xc || ycl != yc ) {
+			popforstack();
+			if (er != 0) return;
 		} 
 	}
-	if (y == 0) goto backtofor;
+
+	// y=0 an infinite loop with step 0
 	t=getvar(xc, yc)+y;
 	setvar(xc, yc, t);
-	if (y > 0 && t <= x) goto backtofor;
-	if (y < 0 && t >= x) goto backtofor;
 
-	// last iteration completed
-	here=h;
+	// do we need another iteration, STEP 0 always triggers an infinite loop
+	if ( (y==0) || (y > 0 && t <= x) || (y < 0 && t >= x) ) {
+		// push the loop with the new values back to the for stack
+		pushforstack();
+		if (st == SINT) bi=ibuffer+here;
+	} else {
+		// last iteration completed we stay here after the next
+		here=h;
+	}
 	nexttoken();
-	return;
-
-	// next iteration
-backtofor:
-	pushforstack();
-	if (st == SINT)
-		bi=ibuffer+here;
-	nexttoken();
-	return;
-
 }
 
 #else
@@ -5114,9 +5098,9 @@ nextvariable:
 		if (x<=0) {error(ERANGE); return; }
 		if (t == STRINGVAR) {
 			if ( (x>255) && (strindexsize==1) ) {error(ERANGE); return; }
-			createstring(xcl, ycl, x);
+			(void) createstring(xcl, ycl, x);
 		} else {
-			createarray(xcl, ycl, x);
+			(void) createarray(xcl, ycl, x);
 		}	
 	} else {
 		error(EUNKNOWN);
@@ -5744,59 +5728,6 @@ void xcatalog() {
 		rootfileclose();
 	}
 	rootclose();
-
-
-/*
-#ifndef ARDUINO   
-
-  	if (root != NULL) {
-    	while (rootnextfile()) {
-    		if (file->d_type == DT_REG) {
-    			if (streq(file->d_name, filename)) {
-        		    outsc(file->d_name); 
-      				outcr();				
-    			}
-    		}
-    	}
-    	(void) closedir (root);
-  	} else
-    	ert=1; 
-#else 
-#if defined(ARDUINOSD)
-
-  	const char *n;
-;
-	while (TRUE) {
-		file=root.openNextFile();
-		if (! file) break;
-		if (! file.isDirectory()) { 
-        	n=file.name();
-        	if (*n != '_' && streq(n, filename)) { 
-        	    outscf(n, 14); 
-        	    outch(' '); 
-        	    outnumber(file.size()); 
-        	    outcr(); 
-              if ( dspwaitonscroll() == 27 ) break;
-        	}
-		}
-    	file.close(); 
-	}
-  	file.close();
-	root.close();
-#else 
-#ifdef ESPSPIFFS
-
-	while (root.next()) {
-    	outsc((char*) root.fileName().c_str()); outspc();
-    	file = root.openFile("r");
-    	outnumber(file.size()); outcr();
-	}
-
-#endif
-#endif
-#endif
-*/
-
 	nexttoken();
 }
 
@@ -5877,6 +5808,7 @@ void xclose() {
 
 	nexttoken();
 }
+
 #endif
 
 #ifdef HASSTEFANSEXT
