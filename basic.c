@@ -59,10 +59,9 @@
 #define HASERRORMSG
 #define HASVT52
 #define HASFLOAT
-#undef HASGRAPH
-#undef HASDARTMOUTH
-#undef HASDARKARTS
-
+#undef  HASGRAPH
+#define  HASDARTMOUTH
+#undef  HASDARKARTS
 
 // hardcoded memory size set 0 for automatic malloc
 #define MEMSIZE 0
@@ -225,7 +224,7 @@ const int printer_baudrate = 0;
 #define TTHEN   -88
 #define TEND    -87
 #define TPOKE	-86
-// Stefan's tinybasic additions (11)
+// Stefan's tinybasic additions (12)
 #define TCONT   -85
 #define TSQR	-84
 #define TPOW	-83
@@ -273,25 +272,25 @@ const int printer_baudrate = 0;
 #define TRECT   -46
 #define TFCIRCLE -45
 #define TFRECT   -44
-// 4 token values reserved for more graph
 // the dark arts and Dartmouth extensions
 // not yet implemented only tokens reserverd
-#define TMALLOC -40
-#define TFIND   -39
-#define TEVAL   -38
-#define TITER	-37
-#define TDATA	-36
-#define TREAD   -35
-#define TRESTORE -34
-#define DEF      -33
-#define FN 		-32
+#define TDATA	-43
+#define TREAD   -42
+#define TRESTORE -41
+#define TDEF      -40
+#define TFN 	-39
+// darkarts
+#define TMALLOC -38
+#define TFIND   -37
+#define TEVAL   -36
+#define TITER	-35
 // currently unused constants
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+14+12+10+4+2+7+7
+#define NKEYWORDS	3+19+14+12+10+4+2+7+7+5+4
 #define BASEKEYWORD -121
 
 /*
@@ -429,7 +428,23 @@ const char srect[]   PROGMEM  = "RECT";
 const char sfcircle[] PROGMEM  = "FCIRCLE";
 const char sfrect[]   PROGMEM  = "FRECT";
 #endif
+// Dartmouth BASIC extensions 
+#ifdef HASDARTMOUTH
+const char sdata[]  	PROGMEM  = "DATA";
+const char sread[]  	PROGMEM  = "READ";
+const char srestore[]   PROGMEM  = "RESTORE";
+const char sdef[] 	PROGMEM  = "DEF";
+const char sfn[]   	PROGMEM  = "FN";
+#endif
+// The Darkarts commands that shouldn't be there
+#ifdef HASDARKARTS
+const char smalloc[]	PROGMEM  = "MALLOC";
+const char sfind[]		PROGMEM  = "FIND";
+const char seval[]		PROGMEM  = "EVAL";
+const char siter[]		PROGMEM  = "ITER";
+#endif
 
+// the keyword storage
 const char* const keyword[] PROGMEM = {
 // Palo Alto BASIC
 	sge, sle, sne, sprint, slet, sinput, 
@@ -474,12 +489,19 @@ const char* const keyword[] PROGMEM = {
 // graphics 
 #ifdef HASGRAPH
     scolor, splot, sline, scircle, srect, 
-    sfcircle, sfrect
+    sfcircle, sfrect,
+#endif
+#ifdef HASDARTMOUTH
+	sdata, sread, srestore, sdef, sfn,
+#endif
+#ifdef HASDARKARTS
+	smalloc, sfind, seval, siter,
 #endif
 // the end 
+	0
 };
 
-const char tokens[] = {
+const signed char tokens[] = {
 // Palo Alto BASIC
 	GREATEREQUAL, LESSEREQUAL, NOTEQUAL, TPRINT, TLET,    
     TINPUT, TGOTO, TGOSUB, TRETURN, TIF, TFOR, TTO, TSTEP,
@@ -522,6 +544,14 @@ const char tokens[] = {
 #ifdef HASGRAPH
 	TCOLOR, TPLOT, TLINE, TCIRCLE, TRECT, 
 	TFCIRCLE, TFRECT,
+#endif
+// Dartmouth BASIC extensions 
+#ifdef HASDARTMOUTH
+	TDATA, TREAD, TRESTORE, TDEF, TFN,
+#endif
+// The Darkarts commands that shouldn't be there
+#ifdef HASDARKARTS
+	TMALLOC, TFIND, TEVAL, TITER,
 #endif
 // the end
 	0
@@ -784,7 +814,7 @@ number_t lenstring(char, char);
 void setstringlength(char, char, address_t);
 
 // get keyword from PROGMEM
-char* getkeyword(signed char);
+char* getkeyword(unsigned short);
 char* getmessage(char);
 void printmessage(char);
 
@@ -2026,15 +2056,14 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 		(here construction site right now)
 */ 
 
-char* getkeyword(signed char t) {
-	if (t < BASEKEYWORD || t > BASEKEYWORD+NKEYWORDS) {
-		error(EUNKNOWN);
-		return 0;
-	} else 
+char* getkeyword(unsigned short i) {
+
+	if (DEBUG) { outsc("** getkeyword from index "); outnumber(i); outcr(); }
+
 #ifndef ARDUINOPROGMEM
-	return (char *) keyword[t-BASEKEYWORD];
+	return (char *) keyword[i];
 #else
-	strcpy_P(sbuffer, (char*) pgm_read_word(&(keyword[t-BASEKEYWORD]))); 
+	strcpy_P(sbuffer, (char*) pgm_read_word(&(keyword[i]))); 
 	return sbuffer;
 #endif
 }
@@ -3161,38 +3190,11 @@ void nexttoken() {
 
 */
 
-/*
-	token=BASEKEYWORD;
-	while (token < NKEYWORDS+BASEKEYWORD){
-		ir=getkeyword(token);
-		xc=0;
-		while (*(ir+xc) != 0) {
-			if (*(ir+xc) != *(bi+xc)){
-				token++;
-				xc=0;
-				break;
-			} else 
-				xc++;
-		}
-		if (xc == 0)
-			continue;
-		if ( *(bi+xc) < 'A' || *(bi+xc) > 'Z' ) {
-			bi+=xc;
-			if (DEBUG) debugtoken();
-			return;
-		} else {
-			bi+=xc;
-			token=UNKNOWN;
-			return;
-		}
-	}
-*/
-
-// bad code 
+// bad code ;-)
 
 	yc=0;
 	while (tokens[yc] != 0){
-		ir=getkeyword(yc+BASEKEYWORD);
+		ir=getkeyword(yc);
 		xc=0;
 		while (*(ir+xc) != 0) {
 			if (*(ir+xc) != *(bi+xc)){
@@ -4915,6 +4917,7 @@ void xnext(){
 */
 
 void outputtoken() {
+	unsigned short i;
 
 	switch (token) {
 		case NUMBER:
@@ -4939,7 +4942,8 @@ void outputtoken() {
 		default:
 			if (token < -3) {
 				if (token == TTHEN || token == TTO || token == TSTEP) outspc();
-				outsc(getkeyword(token)); 
+				for(i=0; tokens[i]!=0 && tokens[i]!=token; i++);
+				outsc(getkeyword(i)); 
 				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) outspc();
 				return;
 			}	
