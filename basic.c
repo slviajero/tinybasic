@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.104 2021/11/07 07:42:55 stefan Exp stefan $
+// $Id: basic.c,v 1.106 2021/11/11 18:36:03 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -736,6 +736,7 @@ static char form = 0;
 // this is unsigned hence address_t 
 static address_t rd;
 
+// output and input vector
 static unsigned char id;
 static unsigned char od;
 
@@ -745,6 +746,11 @@ static unsigned char odd = ODSP;
 #else
 static unsigned char idd = ISERIAL;
 static unsigned char odd = OSERIAL;
+#endif
+
+// data pointer
+#ifdef HASDARTMOUTH
+address_t data = 0;
 #endif
 
 #ifndef ARDUINO
@@ -1218,6 +1224,19 @@ void xtone();
 // low level access functions
 void xcall();
 void xusr();
+
+// the dartmouth stuff
+void xdata();
+void xread();
+void xrestore();
+void xdef();
+void clrdata();
+
+// the darkarts
+void xmalloc();
+void xfind();
+void xeval();
+void xiter();
 
 // the statement loop
 void statement();
@@ -2206,6 +2225,12 @@ void drop() {
 
 void clearst(){
 	sp=0;
+}
+
+void clrdata() {
+#ifdef HASDARTMOUTH
+	data=0;
+#endif
 }
 
 /* 
@@ -3540,6 +3565,9 @@ void storeline() {
 		return;
 	}
 
+// the data pointer becomes invalid once the code has been changed
+	clrdata();
+
 /*
 	stage 1: append the line at the end of the memory,
 	remember the line number on the stack and the old top in here
@@ -3890,10 +3918,6 @@ void xpow(){
 }
 #endif
 
-
-
-
-
 // evaluates a string value, FALSE if there is no string
 char stringvalue() {
 	char xcl;
@@ -3919,7 +3943,6 @@ char stringvalue() {
 	}
 	return TRUE;
 }
-
 
 // (numerical) evaluation of a string expression used for 
 // comparison and for string rightvalues as numbers
@@ -5070,6 +5093,7 @@ void xclr() {
 	clrvars();
 	clrgosubstack();
 	clrforstack();
+	clrdata();
 	nexttoken();
 }
 
@@ -5425,16 +5449,19 @@ void xget(){
 		nexttoken();
 	}
 
-	// this code evaluates the left hand side
+	// this code evaluates the left hand side - remember type and name
 	ycl=yc;
 	xcl=xc;
 	t=token;
 
+	// find the indices 
 	lefthandside(&i, &ps);
 	if (er != 0) return;
 
+	// get the data
 	if (checkch()) push(inch()); else push(0);
 
+	// store the data element as a number
 	assignnumber(t, xcl, ycl, i, ps);
 
 	nexttoken();
@@ -5926,6 +5953,177 @@ void xcall() {
 }
 
 
+// the dartmouth stuff
+#ifdef HASDARTMOUTH
+
+// data is simply skipped 
+void xdata() {
+	nexttoken();
+	while (!termsymbol() && here<top) nexttoken();
+	nexttoken();
+}
+
+#define DEBUG1 0
+
+
+
+void nextdatarecord() {
+	address_t h;
+
+	// save the location of the interpreter
+	h=here;
+
+	// data at zero means we need to init it, by searching
+	// the first data record
+	if (data == 0) {
+		here=0;
+		while (here<top && token!=TDATA) gettoken();
+		data=here;
+	} 
+
+processdata:
+	// data at top means we have exhausted all data 
+	// nothing more to be done here, however we simulate
+	// a number value of 0 here
+	if (data == top) { 
+		token=NUMBER;
+		x=0;
+		ert=1;
+		here=h;
+		return;
+	}
+	
+	// we process the data record
+	here=data;
+	gettoken();
+	if (token == NUMBER || token == STRING) goto enddatarecord;
+	if (token == ',') {
+		gettoken();
+		if (token!=NUMBER && token!=STRING) {
+			error(EUNKNOWN);  
+			here=h;
+			return;
+		}
+		goto enddatarecord;
+	}
+
+	if (termsymbol()) {
+		while (here<top && token!=TDATA) gettoken();
+		data=here;
+		goto processdata;
+	}
+
+	error(EUNKNOWN);
+
+enddatarecord:
+	data=here;
+	here=h;
+}
+
+
+// this code resembles get 
+void xread(){
+	signed char t;  // remember the left hand side token until the end of the statement, type of the lhs
+	char ps=TRUE;  	// also remember if the left hand side is a pure string of something with an index 
+	char xcl, ycl; 	// to preserve the left hand side variable names
+	address_t i=1;  // and the beginning of the destination string 
+	address_t h;    // something to store the here
+	signed char datat; // the type of the data element
+	address_t lendest, lensource, newlength;
+	
+	nexttoken();
+
+	// this code evaluates the left hand side - remember type and name
+	ycl=yc;
+	xcl=xc;
+	t=token;
+
+	if (DEBUG) {outsc("assigning to variable "); outch(xcl); outch(ycl); outcr();}
+
+	// find the indices and draw the next token of read
+	lefthandside(&i, &ps);
+	if (er != 0) return;
+
+	// if the token after lhs is not a termsymbol, something is wrong
+	if (DEBUG) {outsc("** token after lefthandside in read "); debugtoken(); }
+	if (! termsymbol()) {error(EUNKNOWN); return; }
+
+	nextdatarecord();
+	if (er!=0) return;
+
+	// assigne the value to the lhs - redundant code to assignment
+	switch (token) {
+		case NUMBER:
+			// store the number on the stack
+			push(x);
+			assignnumber(t, xcl, ycl, i, ps);
+			break;
+		case STRING:	
+			// store the source string data
+			ir2=ir;
+			lensource=x;
+
+			// the destination address of the lefthandside, on the fly create
+			// included
+			ir=getstring(xcl, ycl, i);
+			if (er != 0) return;
+
+			// the length of the lefthandsie string
+			lendest=lenstring(xcl, ycl);
+
+			if (DEBUG) {
+				outsc("* read stringcode "); outch(xcl); outch(ycl); outcr();
+				outsc("** read source string length "); outnumber(lensource); outcr();
+				outsc("** read dest string length "); outnumber(lendest); outcr();
+				outsc("** read dest string dimension "); outnumber(stringdim(xcl, ycl)); outcr();
+			};
+
+			// does the source string fit into the destination
+			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(ERANGE); return; }
+
+			// this code is needed to make sure we can copy one string to the same string 
+			// without overwriting stuff, we go either left to right or backwards
+			if (x > i) 
+				for (int j=0; j<lensource; j++) { ir[j]=ir2[j];}
+			else
+				for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
+
+			// classical Apple 1 behaviour is string truncation in substring logic
+			newlength = i+lensource-1;	
+		
+			setstringlength(xcl, ycl, newlength);
+			break;
+		default:
+			error(EUNKNOWN);
+			here=h;
+			return;
+	}
+
+	// no nexttoken here as we have already a termsymbol
+}
+
+void xrestore(){
+	data=0;
+	nexttoken();
+}
+
+void xdef(){
+	nexttoken();
+}
+#endif
+
+// the darkarts
+#ifdef HASDARKARTS
+void xeval(){
+	nexttoken();
+}
+
+void xiter(){
+	nexttoken();
+}
+#endif
+
+
 /* 
 
 	statement processes an entire basic statement until the end 
@@ -6106,6 +6304,28 @@ void statement(){
 			case TFCIRCLE:
 				xfcircle();
 				break;
+#endif
+#ifdef HASDARTMOUTH
+			case TDATA:
+				xdata();
+				break;
+			case TREAD:
+				xread();
+				break;
+			case TRESTORE:
+				xrestore();
+				break;
+			case TDEF:
+				xdef();
+				break;
+#endif
+#ifdef HASDARKARTS
+			case TEVAL:
+				xeval();
+				break;
+			case TITER:
+				xiter();
+				break;	
 #endif
 // and all the rest
 			case UNKNOWN:

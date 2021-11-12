@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.104 2021/11/07 07:42:55 stefan Exp stefan $
+// $Id: basic.c,v 1.106 2021/11/11 18:36:03 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -53,16 +53,15 @@
 #define HASAPPLE1
 #define HASARDUINOIO
 #undef HASFILEIO
-#undef HASTONE
-#undef HASPULSE
+#define HASTONE
+#define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
 #undef HASFLOAT
-#undef HASGRAPH
-#undef HASDARTMOUTH
-#undef HASDARKARTS
-
+#undef  HASGRAPH
+#define  HASDARTMOUTH
+#undef  HASDARKARTS
 
 // hardcoded memory size set 0 for automatic malloc
 #define MEMSIZE 1024
@@ -225,7 +224,7 @@ const int printer_baudrate = 0;
 #define TTHEN   -88
 #define TEND    -87
 #define TPOKE	-86
-// Stefan's tinybasic additions (11)
+// Stefan's tinybasic additions (12)
 #define TCONT   -85
 #define TSQR	-84
 #define TPOW	-83
@@ -273,25 +272,25 @@ const int printer_baudrate = 0;
 #define TRECT   -46
 #define TFCIRCLE -45
 #define TFRECT   -44
-// 4 token values reserved for more graph
 // the dark arts and Dartmouth extensions
 // not yet implemented only tokens reserverd
-#define TMALLOC -40
-#define TFIND   -39
-#define TEVAL   -38
-#define TITER	-37
-#define TDATA	-36
-#define TREAD   -35
-#define TRESTORE -34
-#define DEF      -33
-#define FN 		-32
+#define TDATA	-43
+#define TREAD   -42
+#define TRESTORE -41
+#define TDEF      -40
+#define TFN 	-39
+// darkarts
+#define TMALLOC -38
+#define TFIND   -37
+#define TEVAL   -36
+#define TITER	-35
 // currently unused constants
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+14+12+10+4+2+7+7
+#define NKEYWORDS	3+19+14+12+10+4+2+7+7+5+4
 #define BASEKEYWORD -121
 
 /*
@@ -429,7 +428,23 @@ const char srect[]   PROGMEM  = "RECT";
 const char sfcircle[] PROGMEM  = "FCIRCLE";
 const char sfrect[]   PROGMEM  = "FRECT";
 #endif
+// Dartmouth BASIC extensions 
+#ifdef HASDARTMOUTH
+const char sdata[]  	PROGMEM  = "DATA";
+const char sread[]  	PROGMEM  = "READ";
+const char srestore[]   PROGMEM  = "RESTORE";
+const char sdef[] 	PROGMEM  = "DEF";
+const char sfn[]   	PROGMEM  = "FN";
+#endif
+// The Darkarts commands that shouldn't be there
+#ifdef HASDARKARTS
+const char smalloc[]	PROGMEM  = "MALLOC";
+const char sfind[]		PROGMEM  = "FIND";
+const char seval[]		PROGMEM  = "EVAL";
+const char siter[]		PROGMEM  = "ITER";
+#endif
 
+// the keyword storage
 const char* const keyword[] PROGMEM = {
 // Palo Alto BASIC
 	sge, sle, sne, sprint, slet, sinput, 
@@ -474,12 +489,19 @@ const char* const keyword[] PROGMEM = {
 // graphics 
 #ifdef HASGRAPH
     scolor, splot, sline, scircle, srect, 
-    sfcircle, sfrect
+    sfcircle, sfrect,
+#endif
+#ifdef HASDARTMOUTH
+	sdata, sread, srestore, sdef, sfn,
+#endif
+#ifdef HASDARKARTS
+	smalloc, sfind, seval, siter,
 #endif
 // the end 
+	0
 };
 
-const char tokens[] = {
+const signed char tokens[] = {
 // Palo Alto BASIC
 	GREATEREQUAL, LESSEREQUAL, NOTEQUAL, TPRINT, TLET,    
     TINPUT, TGOTO, TGOSUB, TRETURN, TIF, TFOR, TTO, TSTEP,
@@ -522,6 +544,14 @@ const char tokens[] = {
 #ifdef HASGRAPH
 	TCOLOR, TPLOT, TLINE, TCIRCLE, TRECT, 
 	TFCIRCLE, TFRECT,
+#endif
+// Dartmouth BASIC extensions 
+#ifdef HASDARTMOUTH
+	TDATA, TREAD, TRESTORE, TDEF, TFN,
+#endif
+// The Darkarts commands that shouldn't be there
+#ifdef HASDARKARTS
+	TMALLOC, TFIND, TEVAL, TITER,
 #endif
 // the end
 	0
@@ -706,6 +736,7 @@ static char form = 0;
 // this is unsigned hence address_t 
 static address_t rd;
 
+// output and input vector
 static unsigned char id;
 static unsigned char od;
 
@@ -715,6 +746,11 @@ static unsigned char odd = ODSP;
 #else
 static unsigned char idd = ISERIAL;
 static unsigned char odd = OSERIAL;
+#endif
+
+// data pointer
+#ifdef HASDARTMOUTH
+address_t data = 0;
 #endif
 
 #ifndef ARDUINO
@@ -784,7 +820,7 @@ number_t lenstring(char, char);
 void setstringlength(char, char, address_t);
 
 // get keyword from PROGMEM
-char* getkeyword(signed char);
+char* getkeyword(unsigned short);
 char* getmessage(char);
 void printmessage(char);
 
@@ -1188,6 +1224,19 @@ void xtone();
 // low level access functions
 void xcall();
 void xusr();
+
+// the dartmouth stuff
+void xdata();
+void xread();
+void xrestore();
+void xdef();
+void clrdata();
+
+// the darkarts
+void xmalloc();
+void xfind();
+void xeval();
+void xiter();
 
 // the statement loop
 void statement();
@@ -2026,15 +2075,14 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 		(here construction site right now)
 */ 
 
-char* getkeyword(signed char t) {
-	if (t < BASEKEYWORD || t > BASEKEYWORD+NKEYWORDS) {
-		error(EUNKNOWN);
-		return 0;
-	} else 
+char* getkeyword(unsigned short i) {
+
+	if (DEBUG) { outsc("** getkeyword from index "); outnumber(i); outcr(); }
+
 #ifndef ARDUINOPROGMEM
-	return (char *) keyword[t-BASEKEYWORD];
+	return (char *) keyword[i];
 #else
-	strcpy_P(sbuffer, (char*) pgm_read_word(&(keyword[t-BASEKEYWORD]))); 
+	strcpy_P(sbuffer, (char*) pgm_read_word(&(keyword[i]))); 
 	return sbuffer;
 #endif
 }
@@ -2177,6 +2225,12 @@ void drop() {
 
 void clearst(){
 	sp=0;
+}
+
+void clrdata() {
+#ifdef HASDARTMOUTH
+	data=0;
+#endif
 }
 
 /* 
@@ -3161,38 +3215,11 @@ void nexttoken() {
 
 */
 
-/*
-	token=BASEKEYWORD;
-	while (token < NKEYWORDS+BASEKEYWORD){
-		ir=getkeyword(token);
-		xc=0;
-		while (*(ir+xc) != 0) {
-			if (*(ir+xc) != *(bi+xc)){
-				token++;
-				xc=0;
-				break;
-			} else 
-				xc++;
-		}
-		if (xc == 0)
-			continue;
-		if ( *(bi+xc) < 'A' || *(bi+xc) > 'Z' ) {
-			bi+=xc;
-			if (DEBUG) debugtoken();
-			return;
-		} else {
-			bi+=xc;
-			token=UNKNOWN;
-			return;
-		}
-	}
-*/
-
-// bad code 
+// bad code ;-)
 
 	yc=0;
 	while (tokens[yc] != 0){
-		ir=getkeyword(yc+BASEKEYWORD);
+		ir=getkeyword(yc);
 		xc=0;
 		while (*(ir+xc) != 0) {
 			if (*(ir+xc) != *(bi+xc)){
@@ -3537,6 +3564,9 @@ void storeline() {
 		error(ELINE);
 		return;
 	}
+
+// the data pointer becomes invalid once the code has been changed
+	clrdata();
 
 /*
 	stage 1: append the line at the end of the memory,
@@ -3888,10 +3918,6 @@ void xpow(){
 }
 #endif
 
-
-
-
-
 // evaluates a string value, FALSE if there is no string
 char stringvalue() {
 	char xcl;
@@ -3917,7 +3943,6 @@ char stringvalue() {
 	}
 	return TRUE;
 }
-
 
 // (numerical) evaluation of a string expression used for 
 // comparison and for string rightvalues as numbers
@@ -4915,6 +4940,7 @@ void xnext(){
 */
 
 void outputtoken() {
+	unsigned short i;
 
 	switch (token) {
 		case NUMBER:
@@ -4939,7 +4965,8 @@ void outputtoken() {
 		default:
 			if (token < -3) {
 				if (token == TTHEN || token == TTO || token == TSTEP) outspc();
-				outsc(getkeyword(token)); 
+				for(i=0; tokens[i]!=0 && tokens[i]!=token; i++);
+				outsc(getkeyword(i)); 
 				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) outspc();
 				return;
 			}	
@@ -5066,6 +5093,7 @@ void xclr() {
 	clrvars();
 	clrgosubstack();
 	clrforstack();
+	clrdata();
 	nexttoken();
 }
 
@@ -5421,16 +5449,19 @@ void xget(){
 		nexttoken();
 	}
 
-	// this code evaluates the left hand side
+	// this code evaluates the left hand side - remember type and name
 	ycl=yc;
 	xcl=xc;
 	t=token;
 
+	// find the indices 
 	lefthandside(&i, &ps);
 	if (er != 0) return;
 
+	// get the data
 	if (checkch()) push(inch()); else push(0);
 
+	// store the data element as a number
 	assignnumber(t, xcl, ycl, i, ps);
 
 	nexttoken();
@@ -5922,6 +5953,177 @@ void xcall() {
 }
 
 
+// the dartmouth stuff
+#ifdef HASDARTMOUTH
+
+// data is simply skipped 
+void xdata() {
+	nexttoken();
+	while (!termsymbol() && here<top) nexttoken();
+	nexttoken();
+}
+
+#define DEBUG1 0
+
+
+
+void nextdatarecord() {
+	address_t h;
+
+	// save the location of the interpreter
+	h=here;
+
+	// data at zero means we need to init it, by searching
+	// the first data record
+	if (data == 0) {
+		here=0;
+		while (here<top && token!=TDATA) gettoken();
+		data=here;
+	} 
+
+processdata:
+	// data at top means we have exhausted all data 
+	// nothing more to be done here, however we simulate
+	// a number value of 0 here
+	if (data == top) { 
+		token=NUMBER;
+		x=0;
+		ert=1;
+		here=h;
+		return;
+	}
+	
+	// we process the data record
+	here=data;
+	gettoken();
+	if (token == NUMBER || token == STRING) goto enddatarecord;
+	if (token == ',') {
+		gettoken();
+		if (token!=NUMBER && token!=STRING) {
+			error(EUNKNOWN);  
+			here=h;
+			return;
+		}
+		goto enddatarecord;
+	}
+
+	if (termsymbol()) {
+		while (here<top && token!=TDATA) gettoken();
+		data=here;
+		goto processdata;
+	}
+
+	error(EUNKNOWN);
+
+enddatarecord:
+	data=here;
+	here=h;
+}
+
+
+// this code resembles get 
+void xread(){
+	signed char t;  // remember the left hand side token until the end of the statement, type of the lhs
+	char ps=TRUE;  	// also remember if the left hand side is a pure string of something with an index 
+	char xcl, ycl; 	// to preserve the left hand side variable names
+	address_t i=1;  // and the beginning of the destination string 
+	address_t h;    // something to store the here
+	signed char datat; // the type of the data element
+	address_t lendest, lensource, newlength;
+	
+	nexttoken();
+
+	// this code evaluates the left hand side - remember type and name
+	ycl=yc;
+	xcl=xc;
+	t=token;
+
+	if (DEBUG) {outsc("assigning to variable "); outch(xcl); outch(ycl); outcr();}
+
+	// find the indices and draw the next token of read
+	lefthandside(&i, &ps);
+	if (er != 0) return;
+
+	// if the token after lhs is not a termsymbol, something is wrong
+	if (DEBUG) {outsc("** token after lefthandside in read "); debugtoken(); }
+	if (! termsymbol()) {error(EUNKNOWN); return; }
+
+	nextdatarecord();
+	if (er!=0) return;
+
+	// assigne the value to the lhs - redundant code to assignment
+	switch (token) {
+		case NUMBER:
+			// store the number on the stack
+			push(x);
+			assignnumber(t, xcl, ycl, i, ps);
+			break;
+		case STRING:	
+			// store the source string data
+			ir2=ir;
+			lensource=x;
+
+			// the destination address of the lefthandside, on the fly create
+			// included
+			ir=getstring(xcl, ycl, i);
+			if (er != 0) return;
+
+			// the length of the lefthandsie string
+			lendest=lenstring(xcl, ycl);
+
+			if (DEBUG) {
+				outsc("* read stringcode "); outch(xcl); outch(ycl); outcr();
+				outsc("** read source string length "); outnumber(lensource); outcr();
+				outsc("** read dest string length "); outnumber(lendest); outcr();
+				outsc("** read dest string dimension "); outnumber(stringdim(xcl, ycl)); outcr();
+			};
+
+			// does the source string fit into the destination
+			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(ERANGE); return; }
+
+			// this code is needed to make sure we can copy one string to the same string 
+			// without overwriting stuff, we go either left to right or backwards
+			if (x > i) 
+				for (int j=0; j<lensource; j++) { ir[j]=ir2[j];}
+			else
+				for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
+
+			// classical Apple 1 behaviour is string truncation in substring logic
+			newlength = i+lensource-1;	
+		
+			setstringlength(xcl, ycl, newlength);
+			break;
+		default:
+			error(EUNKNOWN);
+			here=h;
+			return;
+	}
+
+	// no nexttoken here as we have already a termsymbol
+}
+
+void xrestore(){
+	data=0;
+	nexttoken();
+}
+
+void xdef(){
+	nexttoken();
+}
+#endif
+
+// the darkarts
+#ifdef HASDARKARTS
+void xeval(){
+	nexttoken();
+}
+
+void xiter(){
+	nexttoken();
+}
+#endif
+
+
 /* 
 
 	statement processes an entire basic statement until the end 
@@ -6102,6 +6304,28 @@ void statement(){
 			case TFCIRCLE:
 				xfcircle();
 				break;
+#endif
+#ifdef HASDARTMOUTH
+			case TDATA:
+				xdata();
+				break;
+			case TREAD:
+				xread();
+				break;
+			case TRESTORE:
+				xrestore();
+				break;
+			case TDEF:
+				xdef();
+				break;
+#endif
+#ifdef HASDARKARTS
+			case TEVAL:
+				xeval();
+				break;
+			case TITER:
+				xiter();
+				break;	
 #endif
 // and all the rest
 			case UNKNOWN:
