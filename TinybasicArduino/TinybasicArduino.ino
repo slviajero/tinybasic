@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.106 2021/11/11 18:36:03 stefan Exp stefan $
+// $Id: basic.c,v 1.107 2021/11/14 21:48:02 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -46,13 +46,14 @@
 #undef RP2040
 #undef ESP8266
 #undef MINGW
+#undef MSDOS
 
 // interpreter features
 #define HASFORNEXT
 #define HASDUMP
 #define HASAPPLE1
 #define HASARDUINOIO
-#undef HASFILEIO
+#define HASFILEIO
 #define HASTONE
 #define HASPULSE
 #define HASSTEFANSEXT
@@ -64,7 +65,7 @@
 #undef  HASDARKARTS
 
 // hardcoded memory size set 0 for automatic malloc
-#define MEMSIZE 1024
+#define MEMSIZE 0
 
 // these are the definitions for various arduino extensions
 // computer. All of them are memory hungry
@@ -139,7 +140,11 @@
 #endif
 #include <time.h>
 #include <sys/types.h>
+#ifndef MSDOS
 #include <dirent.h>
+#else
+#include <dir.h>
+#endif
 #endif
 
 // Arduino default serial baudrate
@@ -756,8 +761,14 @@ address_t data = 0;
 #ifndef ARDUINO
 FILE* ifile;
 FILE* ofile;
+#ifndef MSDOS
 DIR* root;
 struct dirent* file; 
+#else
+// to be done 
+void* root;
+void* file;
+#endif 
 #else 
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
 File ifile;
@@ -1080,21 +1091,24 @@ void awrite(number_t p, number_t v){}
 void dwrite(number_t p, number_t v){}
 void pinm(number_t p, number_t m){}
 void delay(number_t t) {}
+#if !defined(MINGW) && !defined(MSDOS)
 struct timespec start_time;
 void bmillis() {
-#ifndef MINGW
 	struct timespec ts;
 	unsigned long dt;
 	number_t m;
 	timespec_get(&ts, TIME_UTC);
 	dt=(ts.tv_sec-start_time.tv_sec)*1000+(ts.tv_nsec-start_time.tv_nsec)/10000000;
-	// millis is processed as integer and is cyclic mod maxnumber and not cast to float!!
+// millis is processed as integer and is cyclic mod maxnumber and not cast to float!!
 	m=(number_t) ( dt/(unsigned long)pop() % (unsigned long)maxnum);
-	push(m); 
+	push(m);
+} 
 #else
+void bmillis() {
 	push(0);
+}
 #endif
-};
+
 void bpulsein() { pop(); pop(); pop(); push(0); }
 #endif
 
@@ -1169,7 +1183,7 @@ void xif();
 
 // optional FOR NEXT loops
 #ifdef HASFORNEXT
-void findnext();
+void findnextcmd();
 void xfor();
 void xnext();
 void xbreak();
@@ -1542,7 +1556,13 @@ void allocmem() {
 	// 									RP2040      ESP        MK   MEGA   UNO  168  FALLBACK
 	const unsigned short memmodel[9] = {60000, 48000, 46000, 28000, 6000, 4096, 1024, 512, 128}; 
 
-	if (sizeof(number_t) <= 2) i=2;
+	if (sizeof(number_t) <= 2) i=3;
+// this is tiny model MSDOS compile
+#ifdef MSDOS
+	i=1;
+#endif
+	if (sizeof(number_t) <= 2) i=3;
+
 	do {
 		mem=(signed char*)malloc(memmodel[i]);
 		if (mem != NULL) break;
@@ -1763,7 +1783,8 @@ void setvar(char c, char d, number_t v){
 
 // clr all variables 
 void clrvars() {
-	for (char i=0; i<VARSIZE; i++) vars[i]=0;
+	int i;
+	for (i=0; i<VARSIZE; i++) vars[i]=0;
 	nvars=0;
 	himem=memsize;
 }
@@ -1772,6 +1793,7 @@ void clrvars() {
 // this can sometimes also access eeproms for autorun through
 // the memread wrapper - still not really redundant to egetnumber
 void getnumber(address_t m, short n){
+	int i;
 
 	z.i=0;
 
@@ -1784,12 +1806,13 @@ void getnumber(address_t m, short n){
 			z.b.h=mem[m];
 			break;
 		default:
-			for (int i=0; i<n; i++) z.c[i]=mem[m++];
+			for (i=0; i<n; i++) z.c[i]=mem[m++];
 	}
 }
 
 // the eeprom memory access 
 void egetnumber(address_t m, short n){
+	int i;
 
 	z.i=0;
 
@@ -1802,13 +1825,14 @@ void egetnumber(address_t m, short n){
 			z.b.h=eread(m);
 			break;
 		default:
-			for (int i=0; i<n; i++) z.c[i]=eread(m++);
+			for (i=0; i<n; i++) z.c[i]=eread(m++);
 	}
 }
 
 // set a number at a memory location
 void setnumber(address_t m, short n){
-	
+	int i;
+
 	switch (n) {
 		case 1:
 			mem[m]=z.i;
@@ -1818,12 +1842,13 @@ void setnumber(address_t m, short n){
 			mem[m]=z.b.h;
 			break;
 		default:
- 			for (int i=0; i<n; i++) mem[m++]=z.c[i];
+ 			for (i=0; i<n; i++) mem[m++]=z.c[i];
 	}
 }
 
 void esetnumber(address_t m, short n){
-	
+	int i; 
+
 	switch (n) {
 		case 1:
 			eupdate(m, z.i);
@@ -1833,7 +1858,7 @@ void esetnumber(address_t m, short n){
 			eupdate(m, z.b.h);
 			break;
 		default:
- 			for (int i=0; i<n; i++) eupdate(m++, z.c[i]);
+ 			for (i=0; i<n; i++) eupdate(m++, z.c[i]);
 	}
 }
 
@@ -2043,6 +2068,7 @@ void setstringlength(char c, char d, address_t l) {
 void setstring(char c, char d, address_t w, char* s, address_t n) {
 	char *b;
 	address_t a;
+	int i;
 
 	if (DEBUG) { outsc("* set var string "); outch(c); outch(d); outspc(); outnumber(w); outcr(); }
 
@@ -2055,7 +2081,7 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 	}
 
 	if ( (w+n-1) <= stringdim(c, d) ) {
-		for (int i=0; i<n; i++) { b[i+w]=s[i]; } 
+		for (i=0; i<n; i++) { b[i+w]=s[i]; } 
 		z.a=w+n-1;
 		setnumber(a, strindexsize);
 		//b[0]=w+n-1; 	
@@ -2242,7 +2268,7 @@ void clrdata() {
 #ifdef HASFORNEXT
 void pushforstack(){
 	short i, j;
-	if (DEBUG) { outsc("** forsp in pushforstack "); outnumber(forsp); outcr(); }
+	if (DEBUG) { outsc("** forsp and here in pushforstack "); outnumber(forsp); outspc(); outnumber(here); outcr(); }
 	// before pushing into the for stack we check is an
 	// old for exists - this is on reentering a for loop
 	for(i=0; i<forsp; i++) {
@@ -2465,7 +2491,9 @@ int fileavailable(){
 
 void rootopen() {
 #ifndef ARDUINO	
+#ifndef MSDOS
 	root=opendir ("./");
+#endif
 #else 
 #ifdef ARDUINOSD
 	root=SD.open("/");
@@ -2479,8 +2507,12 @@ void rootopen() {
 
 int rootnextfile() {
 #ifndef ARDUINO	
+#ifndef MSDOS
   file = readdir(root);
   return (file != 0);
+#else 
+  return FALSE;
+#endif
 #else 
 #ifdef ARDUINOSD
   file=root.openNextFile();
@@ -2500,7 +2532,11 @@ int rootnextfile() {
 
 int rootisfile() {
 #ifndef ARDUINO	
+#ifndef MSDOS
   return (file->d_type == DT_REG);
+#else
+  return FALSE;
+#endif
 #else 
 #ifdef ARDUINOSD
   return (! file.isDirectory());
@@ -2515,7 +2551,11 @@ int rootisfile() {
 
 char* rootfilename() {
 #ifndef ARDUINO 
+#ifndef MSDOS
   return (file->d_name);
+#else
+  return 0;
+#endif
 #else 
 #ifdef ARDUINOSD
   return (char*) file.name();
@@ -2563,7 +2603,9 @@ void rootfileclose() {
 
 void rootclose(){
 #ifndef ARDUINO 
+#ifndef MSDOS
   (void) closedir(root);
+#endif
 #else 
 #ifdef ARDUINOSD
   root.close();
@@ -2823,7 +2865,8 @@ void outspc() {
 
 // output a string of length x at index ir - basic style
 void outs(char *ir, short l){
-	for(int i=0; i<l; i++) outch(ir[i]);
+	int i;
+	for(i=0; i<l; i++) outch(ir[i]);
 }
 
 // output a zero terminated string at ir - c style
@@ -3898,13 +3941,14 @@ void sqr(){
 void xpow(){
 	number_t n;
 	number_t a;
+	int i;
 
 	n=pop();
 	a=pop();
 
 	x=1;
 	if (n>=0) 
-		for(int i=0; i<n; i++) x*=a; 
+		for(i=0; i<n; i++) x*=a; 
 	else 
 		x=0;
 	
@@ -4494,6 +4538,7 @@ void assignment() {
 	address_t lensource, lendest, newlength;
 	short args;
 	char s;
+	int j;
 
 	// this code evaluates the left hand side
 	ycl=yc;
@@ -4559,9 +4604,9 @@ void assignment() {
 			// this code is needed to make sure we can copy one string to the same string 
 			// without overwriting stuff, we go either left to right or backwards
 			if (x > i) 
-				for (int j=0; j<lensource; j++) { ir[j]=ir2[j];}
+				for (j=0; j<lensource; j++) { ir[j]=ir2[j];}
 			else
-				for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
+				for (j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
 
 			// classical Apple 1 behaviour is string truncation in substring logic
 			newlength = i+lensource-1;	
@@ -4770,7 +4815,7 @@ void xif() {
 #ifdef HASFORNEXT
 
 // find the NEXT token or the end of the program
-void findnext(){
+void findnextcmd(){
 	while (TRUE) {
 	    if (token == TNEXT) {
 	    	if (fnc == 0) return;
@@ -4842,7 +4887,9 @@ void xfor(){
 
 	// here we know everything to set up the loop	
 	setvar(xcl, ycl, b);
-	if (DEBUG) { outch(xcl); outch(ycl); outspc(); outnumber(b); outnumber(e); outnumber(s); outcr(); }
+	if (DEBUG) { 
+		outsc("** for loop with parameters var begin end step : ");
+		outch(xcl); outch(ycl); outspc(); outnumber(b); outspc(); outnumber(e); outspc(); outnumber(s); outcr(); }
 	xc=xcl;
 	yc=ycl;
 	x=e;
@@ -4856,8 +4903,9 @@ void xfor(){
 */
 	if ( (y > 0 && getvar(xc, yc)>x) || (y < 0 && getvar(xc, yc)<x ) ) { 
 		dropforstack();
-		findnext();
+		findnextcmd();
 		nexttoken();
+		if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
 		return;
 	}
 }
@@ -4868,10 +4916,11 @@ void xfor(){
 */
 void xbreak(){
 	dropforstack();
-	findnext();
+	findnextcmd();
 	nexttoken();
 }
 
+/* next variable statement */
 void xnext(){
 	char xcl=0;
 	char ycl;
@@ -4882,6 +4931,7 @@ void xnext(){
 
 	// one variable is accepted as an argument, no list
 	if (token == VARIABLE) {
+		if (DEBUG) { outsc("** variable argument "); outch(xc); outch(yc); outcr(); }
 		xcl=xc;
 		ycl=yc;
 		nexttoken();
@@ -4919,6 +4969,7 @@ void xnext(){
 		here=h;
 	}
 	nexttoken();
+	if (DEBUG) {outsc("** after next found token "); debugtoken(); }
 }
 
 #else
@@ -5963,12 +6014,10 @@ void xdata() {
 	nexttoken();
 }
 
-#define DEBUG1 0
-
-
-
+// function to find the next data record
 void nextdatarecord() {
 	address_t h;
+	signed char s=1;
 
 	// save the location of the interpreter
 	h=here;
@@ -5996,9 +6045,11 @@ processdata:
 	// we process the data record
 	here=data;
 	gettoken();
+	if (token == '-') {s=-1; gettoken();}
 	if (token == NUMBER || token == STRING) goto enddatarecord;
 	if (token == ',') {
 		gettoken();
+		if (token == '-') {s=-1; gettoken();}
 		if (token!=NUMBER && token!=STRING) {
 			error(EUNKNOWN);  
 			here=h;
@@ -6013,23 +6064,32 @@ processdata:
 		goto processdata;
 	}
 
+	if (DEBUG) { outsc("** error in nextdata after termsymbol "); outnumber(data); outcr(); }
 	error(EUNKNOWN);
 
 enddatarecord:
+	if (token == NUMBER && s == -1) {x=-x; s=1; }
 	data=here;
 	here=h;
+
+	if (DEBUG) { 
+		outsc("** leaving nextdata with data and here "); 
+		outnumber(data); outspc(); 
+		outnumber(here); outcr(); 
+	}
+
 }
 
 
 // this code resembles get 
 void xread(){
-	signed char t;  // remember the left hand side token until the end of the statement, type of the lhs
+	signed char t, t0;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  	// also remember if the left hand side is a pure string of something with an index 
 	char xcl, ycl; 	// to preserve the left hand side variable names
 	address_t i=1;  // and the beginning of the destination string 
-	address_t h;    // something to store the here
 	signed char datat; // the type of the data element
 	address_t lendest, lensource, newlength;
+	int j;
 	
 	nexttoken();
 
@@ -6038,15 +6098,15 @@ void xread(){
 	xcl=xc;
 	t=token;
 
-	if (DEBUG) {outsc("assigning to variable "); outch(xcl); outch(ycl); outcr();}
+	if (DEBUG) {outsc("assigning to variable "); outch(xcl); outch(ycl); outsc(" type "); outnumber(t); outcr();}
 
 	// find the indices and draw the next token of read
 	lefthandside(&i, &ps);
 	if (er != 0) return;
 
 	// if the token after lhs is not a termsymbol, something is wrong
-	if (DEBUG) {outsc("** token after lefthandside in read "); debugtoken(); }
 	if (! termsymbol()) {error(EUNKNOWN); return; }
+	t0=token;
 
 	nextdatarecord();
 	if (er!=0) return;
@@ -6084,9 +6144,9 @@ void xread(){
 			// this code is needed to make sure we can copy one string to the same string 
 			// without overwriting stuff, we go either left to right or backwards
 			if (x > i) 
-				for (int j=0; j<lensource; j++) { ir[j]=ir2[j];}
+				for (j=0; j<lensource; j++) { ir[j]=ir2[j];}
 			else
-				for (int j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
+				for (j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
 
 			// classical Apple 1 behaviour is string truncation in substring logic
 			newlength = i+lensource-1;	
@@ -6095,11 +6155,16 @@ void xread(){
 			break;
 		default:
 			error(EUNKNOWN);
-			here=h;
 			return;
 	}
 
 	// no nexttoken here as we have already a termsymbol
+	if (DEBUG) {
+		outsc("** leaving xread with "); outnumber(token); outcr();
+		outsc("** at here "); outnumber(here); outcr();
+		outsc("** and data pointer "); outnumber(data); outcr();
+	}
+	token=t0;
 }
 
 void xrestore(){
@@ -6335,6 +6400,7 @@ void statement(){
 				nexttoken();
 				break;
 			default: // very tolerant - tokens are just skipped 
+				if (DEBUG) outsc("** hoppla - unexpected token, skipped "); debugtoken();
 				nexttoken();
 		}
 #ifdef ARDUINO
@@ -6352,7 +6418,7 @@ void setup() {
 #endif
 
 #ifndef ARDUINO
-#ifndef MINGW
+#if !defined(MINGW) && !defined(MSDOS)
 	timespec_get(&start_time, TIME_UTC);
 #endif
 #endif
