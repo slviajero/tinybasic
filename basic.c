@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.106 2021/11/11 18:36:03 stefan Exp $
+// $Id: basic.c,v 1.107 2021/11/14 21:48:02 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -2268,7 +2268,7 @@ void clrdata() {
 #ifdef HASFORNEXT
 void pushforstack(){
 	short i, j;
-	if (DEBUG) { outsc("** forsp in pushforstack "); outnumber(forsp); outcr(); }
+	if (DEBUG) { outsc("** forsp and here in pushforstack "); outnumber(forsp); outspc(); outnumber(here); outcr(); }
 	// before pushing into the for stack we check is an
 	// old for exists - this is on reentering a for loop
 	for(i=0; i<forsp; i++) {
@@ -4887,7 +4887,9 @@ void xfor(){
 
 	// here we know everything to set up the loop	
 	setvar(xcl, ycl, b);
-	if (DEBUG) { outch(xcl); outch(ycl); outspc(); outnumber(b); outnumber(e); outnumber(s); outcr(); }
+	if (DEBUG) { 
+		outsc("** for loop with parameters var begin end step : ");
+		outch(xcl); outch(ycl); outspc(); outnumber(b); outspc(); outnumber(e); outspc(); outnumber(s); outcr(); }
 	xc=xcl;
 	yc=ycl;
 	x=e;
@@ -4903,6 +4905,7 @@ void xfor(){
 		dropforstack();
 		findnextcmd();
 		nexttoken();
+		if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
 		return;
 	}
 }
@@ -4917,6 +4920,7 @@ void xbreak(){
 	nexttoken();
 }
 
+/* next variable statement */
 void xnext(){
 	char xcl=0;
 	char ycl;
@@ -4927,6 +4931,7 @@ void xnext(){
 
 	// one variable is accepted as an argument, no list
 	if (token == VARIABLE) {
+		if (DEBUG) { outsc("** variable argument "); outch(xc); outch(yc); outcr(); }
 		xcl=xc;
 		ycl=yc;
 		nexttoken();
@@ -4964,6 +4969,7 @@ void xnext(){
 		here=h;
 	}
 	nexttoken();
+	if (DEBUG) {outsc("** after next found token "); debugtoken(); }
 }
 
 #else
@@ -6008,10 +6014,7 @@ void xdata() {
 	nexttoken();
 }
 
-#define DEBUG1 0
-
-
-
+// function to find the next data record
 void nextdatarecord() {
 	address_t h;
 	signed char s=1;
@@ -6061,22 +6064,29 @@ processdata:
 		goto processdata;
 	}
 
+	if (DEBUG) { outsc("** error in nextdata after termsymbol "); outnumber(data); outcr(); }
 	error(EUNKNOWN);
 
 enddatarecord:
 	if (token == NUMBER && s == -1) {x=-x; s=1; }
 	data=here;
 	here=h;
+
+	if (DEBUG) { 
+		outsc("** leaving nextdata with data and here "); 
+		outnumber(data); outspc(); 
+		outnumber(here); outcr(); 
+	}
+
 }
 
 
 // this code resembles get 
 void xread(){
-	signed char t;  // remember the left hand side token until the end of the statement, type of the lhs
+	signed char t, t0;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  	// also remember if the left hand side is a pure string of something with an index 
 	char xcl, ycl; 	// to preserve the left hand side variable names
 	address_t i=1;  // and the beginning of the destination string 
-	address_t h;    // something to store the here
 	signed char datat; // the type of the data element
 	address_t lendest, lensource, newlength;
 	int j;
@@ -6088,15 +6098,15 @@ void xread(){
 	xcl=xc;
 	t=token;
 
-	if (DEBUG) {outsc("assigning to variable "); outch(xcl); outch(ycl); outcr();}
+	if (DEBUG) {outsc("assigning to variable "); outch(xcl); outch(ycl); outsc(" type "); outnumber(t); outcr();}
 
 	// find the indices and draw the next token of read
 	lefthandside(&i, &ps);
 	if (er != 0) return;
 
 	// if the token after lhs is not a termsymbol, something is wrong
-	if (DEBUG) {outsc("** token after lefthandside in read "); debugtoken(); }
 	if (! termsymbol()) {error(EUNKNOWN); return; }
+	t0=token;
 
 	nextdatarecord();
 	if (er!=0) return;
@@ -6145,11 +6155,16 @@ void xread(){
 			break;
 		default:
 			error(EUNKNOWN);
-			here=h;
 			return;
 	}
 
 	// no nexttoken here as we have already a termsymbol
+	if (DEBUG) {
+		outsc("** leaving xread with "); outnumber(token); outcr();
+		outsc("** at here "); outnumber(here); outcr();
+		outsc("** and data pointer "); outnumber(data); outcr();
+	}
+	token=t0;
 }
 
 void xrestore(){
@@ -6385,6 +6400,7 @@ void statement(){
 				nexttoken();
 				break;
 			default: // very tolerant - tokens are just skipped 
+				if (DEBUG) outsc("** hoppla - unexpected token, skipped "); debugtoken();
 				nexttoken();
 		}
 #ifdef ARDUINO
