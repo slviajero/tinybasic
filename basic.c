@@ -59,10 +59,10 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#define HASFLOAT
+#define  HASFLOAT
 #undef  HASGRAPH
 #define  HASDARTMOUTH
-#undef  HASDARKARTS
+#define  HASDARKARTS
 
 // hardcoded memory size set 0 for automatic malloc
 #define MEMSIZE 0
@@ -167,7 +167,7 @@ const int printer_baudrate = 0;
 #define DEBUG  0
 
 // various buffer sizes
-#define BUFSIZE 	92
+#define BUFSIZE 	128
 #define SBUFSIZE	32
 #define VARSIZE		26
 #define STACKSIZE 	15
@@ -284,18 +284,22 @@ const int printer_baudrate = 0;
 #define TRESTORE -41
 #define TDEF      -40
 #define TFN 	-39
+#define TON     -38
 // darkarts
-#define TMALLOC -38
-#define TFIND   -37
-#define TEVAL   -36
-#define TITER	-35
-// currently unused constants
+#define TMALLOC -37
+#define TFIND   -36
+#define TEVAL   -35
+#define TITER	-34
+#define TAVAIL	-33
+// constants used for some obscure purposes 
+#define TBUFFER -4
+// unused right now from earlier code to be removed soon
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+14+12+10+4+2+7+7+5+4
+#define NKEYWORDS	3+19+14+12+10+4+2+7+7+6+5
 #define BASEKEYWORD -121
 
 /*
@@ -423,7 +427,7 @@ const char slog[]  PROGMEM = "LOG";
 const char sexp[]  PROGMEM = "EXP";
 #endif
 const char sint[]  PROGMEM = "INT"; // int is always needed 
-// graphics
+// elemetars graphics for tft display
 #ifdef HASGRAPH
 const char scolor[]  PROGMEM  = "COLOR";
 const char splot[]   PROGMEM  = "PLOT";
@@ -440,13 +444,15 @@ const char sread[]  	PROGMEM  = "READ";
 const char srestore[]   PROGMEM  = "RESTORE";
 const char sdef[] 	PROGMEM  = "DEF";
 const char sfn[]   	PROGMEM  = "FN";
+const char son[]   	PROGMEM  = "ON";
 #endif
-// The Darkarts commands that shouldn't be there
+// The Darkarts commands unthinkable in Dartmouth
 #ifdef HASDARKARTS
 const char smalloc[]	PROGMEM  = "MALLOC";
 const char sfind[]		PROGMEM  = "FIND";
 const char seval[]		PROGMEM  = "EVAL";
 const char siter[]		PROGMEM  = "ITER";
+const char savail[]		PROGMEM  = "AVAIL";
 #endif
 
 // the keyword storage
@@ -497,10 +503,10 @@ const char* const keyword[] PROGMEM = {
     sfcircle, sfrect,
 #endif
 #ifdef HASDARTMOUTH
-	sdata, sread, srestore, sdef, sfn,
+	sdata, sread, srestore, sdef, sfn, son,
 #endif
 #ifdef HASDARKARTS
-	smalloc, sfind, seval, siter,
+	smalloc, sfind, seval, siter, savail,
 #endif
 // the end 
 	0
@@ -552,11 +558,11 @@ const signed char tokens[] = {
 #endif
 // Dartmouth BASIC extensions 
 #ifdef HASDARTMOUTH
-	TDATA, TREAD, TRESTORE, TDEF, TFN,
+	TDATA, TREAD, TRESTORE, TDEF, TFN, TON,
 #endif
 // The Darkarts commands that shouldn't be there
 #ifdef HASDARKARTS
-	TMALLOC, TFIND, TEVAL, TITER,
+	TMALLOC, TFIND, TEVAL, TITER, TAVAIL,
 #endif
 // the end
 	0
@@ -1244,6 +1250,7 @@ void xdata();
 void xread();
 void xrestore();
 void xdef();
+void xon();
 void clrdata();
 
 // the darkarts
@@ -1613,8 +1620,8 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 	mem[b--]=d;
 	mem[b--]=t;
 
-	// for strings and arrays write the (maximum) length
-	if (t == ARRAYVAR || t == STRINGVAR) {
+	// for strings, arrays and buffers write the (maximum) length
+	if (t == ARRAYVAR || t == STRINGVAR || t == TBUFFER) {
 
 		// store the maximum length of the array of string
 		b=b-addrsize+1;
@@ -1915,11 +1922,12 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 				return;
 			}
 
-			// Dr. Wangs end of memory array
+			// Dr. Wangs end of memory array 
+			// starts at 0
 			case 0: 
 			default: {
 				h=(himem-top)/numsize;
-				a=himem-numsize*i+1;
+				a=himem-numsize*(i)+1;
 				break;
 			}
 
@@ -1941,9 +1949,8 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 	}
 
 
-	// is the index in range
+	// is the index in range, check only for normal arrays 
 	if ( (i < 1) || (i > h) ) { error(ERANGE); return; }
-
 
 	// set or get the array
 	if (m == 'g') {
@@ -1997,9 +2004,7 @@ char* getstring(char c, char d, address_t b) {
 
 	return (char *)&mem[a];
 #else 
-
 	return 0;
-
 #endif
 }
  
@@ -3741,8 +3746,10 @@ char termsymbol() {
 }
 
 // parses a list of expression
+/*
 short parsearguments() {
 	char args=0;
+
 	if (termsymbol()) return args;
 
 nextexpression:
@@ -3757,17 +3764,41 @@ nextexpression:
 	} else 
 		return args;
 }
+*/
 
-void parsenarguments(char n) {
+
+short parsearguments() {
 	char args=0;
 
-	args=parsearguments();
-	if (er != 0 ) return;
+	// having 0 args at the end of a command is legal
+	if (termsymbol()) return args;
 
-	if (args == n) {
-		return;
-	}
-	error(EARGS);
+	// list of expressions separated by commas
+	do {
+		expression();
+		if (er != 0) break;
+		args++;
+		if (token != ',') break;
+		nexttoken();
+	} while (TRUE);
+
+	return args;
+}
+
+// expect exactly n arguments
+void parsenarguments(char n) {
+	if (parsearguments() != n ) error(EARGS);
+}
+
+// counts and parses the number of arguments given in brakets
+short parsesubscripts() {
+	char args = 0;
+	if (token != '(') {error(EARGS); return 0; }
+	nexttoken();
+	args=parsearguments();
+	if (er != 0) return 0; 
+	if (token != ')') {error(EARGS); return 0; }
+	return args;
 }
 
 
@@ -3775,17 +3806,10 @@ void parsenarguments(char n) {
 // expected expressions in the argument list
 void parsefunction(void (*f)(), short ae){
 	char args;
-
 	nexttoken();
 	args=parsesubscripts();
 	if (er != 0) return;
-
-	if (args == ae) {
-		f();
-	} else {
-		error(EARGS);
-		return;
-	}
+	if (args == ae) f(); else error(EARGS);
 }
 
 // helper function in the recursive decent parser
@@ -3795,18 +3819,6 @@ void parseoperator(void (*f)()) {
 	if (er !=0 ) return;
 	y=pop();
 	x=pop();
-}
-
-// counts the number of arguments given in brakets
-short parsesubscripts() {
-	char args = 0;
-
-	if (token != '(') {return 0; }
-	nexttoken();
-	args=parsearguments();
-	if (er != 0) {return 0; }
-	if (token != ')') {error(EARGS); return 0; }
-	return args;
 }
 
 // substring evaluation, mind the rewinding here - a bit of a hack
@@ -3828,7 +3840,7 @@ void parsesubstring() {
 
     nexttoken();
     args=parsesubscripts();
-    if (er != 0) {return; }
+    if (er != 0) return; 
 
     switch(args) {
     	case 2: 
@@ -3963,6 +3975,7 @@ void xpow(){
 #endif
 
 // evaluates a string value, FALSE if there is no string
+// ir2 has the string location, the stack has the length
 char stringvalue() {
 	char xcl;
 	char ycl;
@@ -3999,8 +4012,6 @@ void streval(){
 	signed char t;
 	address_t h1;
 
-	//printf("*** streval called \n");
-
 	if ( ! stringvalue()) {
 		error(EUNKNOWN);
 		return;
@@ -4013,14 +4024,10 @@ void streval(){
 	t=token;
 
 	nexttoken();
-	//debugtoken();
 
 	if (token != '=' && token != NOTEQUAL) {
 		here=h1; // rewind one token if not comparison
 		token=t;
-		//debugtoken();
-
-		// printf("*** interpret string as number \n");
 		if (xl == 0) push(0); else push(irl[0]); // a zero string length evaluate to 0
 		return; 
 	}
@@ -4076,6 +4083,28 @@ void xint() {
 }
 #else 
 void xint() {}
+#endif
+
+#ifdef HASDARKARTS
+// allocate a chunk of memory, currently limited to 8 bits
+void xmalloc() {
+	address_t h; 
+	address_t s;
+	s=pop();
+	if (s<1) {error(ERANGE); return; };
+	h=pop();
+	push(bmalloc(TBUFFER, h%256, 0, s));
+}
+// find an object on the heap
+void xfind() {
+	address_t h;
+	h=pop();
+	push(bfind(TBUFFER, h%256, 0));
+}
+// NEXT can be a function in the context of iterators
+void xinext() {
+	push(pop());
+}
 #endif
 
 
@@ -4138,8 +4167,15 @@ void factor(){
 			}
 			nexttoken();
 			if (! stringvalue()) {
+#ifdef HASDARKARTS
+				expression();
+				if (er != 0) return;
+				push(blength(TBUFFER, ((address_t) pop())%256, 0));
+				return;
+#else 
 				error(EUNKNOWN);
 				return;
+#endif
 			}
 			if (er != 0) return;
 			nexttoken();
@@ -4221,9 +4257,21 @@ void factor(){
 			parsefunction(xexp, 1);
 			break;
 #endif
+		// int is always present to make programs compatible
 		case TINT:
 			parsefunction(xint, 1);
 			break;
+#ifdef HASDARKARTS
+		case TMALLOC:
+			parsefunction(xmalloc, 2);
+			break;	
+		case TFIND:
+			parsefunction(xfind, 1);
+			break;
+		case TNEXT:
+			parsefunction(xinext, 1);
+			break;
+#endif
 
 // unknown function
 		default:
@@ -4557,8 +4605,6 @@ void assignment() {
 
 	// here comes the code for the right hand side
 	// rewritten 
-
-
 	switch (t) {
 		case VARIABLE:
 		case ARRAYVAR: // the lefthandside is a scalar, evaluate the righthandside as a number
@@ -4752,7 +4798,7 @@ void clrgosubstack() {
 	gosubsp=0;
 }
 
-// goto and gosub function
+// goto and gosub function for a simple one statement goto
 void xgoto() {
 	short t=token;
 
@@ -4768,10 +4814,15 @@ void xgoto() {
 	if (DEBUG) { outsc("** goto/gosub evaluated line number "); outnumber(x); outcr(); }
 	findline(x);
 	if (er != 0) return;
+
+	// goto in interactive mode switched to RUN mode
+	// no clearing of variables and stacks
 	if (st == SINT) st=SRUN;
+
 	nexttoken();
 }
 
+// return retrieves here from the gosub stack
 void xreturn(){ 
 	popgosubstack();
 	if (er != 0) return;
@@ -4794,9 +4845,11 @@ void xif() {
 
 	x=pop();
 	if (DEBUG) { outnumber(x); outcr(); } 
-	if (! x) // on condition false skip the entire line
-		do nexttoken();	while (token != LINENUMBER && token !=EOL && here <= top);
-		
+
+	// on condition false skip the entire line
+	if (!x) while(!termsymbol()) nexttoken();
+	
+	// a then token is interpreted as simple one statement goto	
 	if (token == TTHEN) {
 		nexttoken();
 		if (token == NUMBER) {
@@ -4935,7 +4988,7 @@ void xnext(){
 		xcl=xc;
 		ycl=yc;
 		nexttoken();
-		if (! termsymbol()) {
+		if (!termsymbol()) {
 			error(EUNKNOWN);
 			return;
 		}
@@ -5015,7 +5068,7 @@ void outputtoken() {
 			return;
 		default:
 			if (token < -3) {
-				if (token == TTHEN || token == TTO || token == TSTEP) outspc();
+				if (token == TTHEN || token == TTO || token == TSTEP || token == TGOTO || token == TGOSUB) outspc();
 				for(i=0; tokens[i]!=0 && tokens[i]!=token; i++);
 				outsc(getkeyword(i)); 
 				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) outspc();
@@ -5962,38 +6015,13 @@ void xusr() {
 				default: push(0);
 			}
 			break;
-#ifdef HASAPPLE1
-		// here the evil part begins - access to the heap
-		case 3: // find a variable from its type and name in ibuffer 
-			push(bfind(instr[1], instr[2], instr[3]));
-			break;	
-		case 4: // more evil - allocate an arbitrary object on the heap
-			push(bmalloc(instr[1], instr[2], instr[3], arg));
-			break;
-		case 5: // find the length of an object on the heap
-			push(blength(instr[1], instr[2], instr[3]));
-			break;
-#endif
 		case 6: // parse a number in the input buffer - less evil
 			(void) parsenumber(ibuffer+1, &x);
 			push(x);
 			break;
 		case 7: // write a number to the input buffer
-			printf("Number arrived %d \n", arg);
 			push(*ibuffer=writenumber(ibuffer+1, arg));
 			break;
-		case 8: // maximal evil - store a line into a basic program 
-			x=arg;              // the linennumber
-			push(st); st=SINT;  // go to (fake) interactive mode
-			push(here); 		// remember where we were
-			bi=ibuffer+1; 		// go to the beginning of the line
-			ibuffer[ibuffer[0]+1]=0; // an end of line 
-			storeline();  		// try to store it
-			here=pop();			// back to our original place (and hope no mod was made)
-			st=pop();			// go back to run mode
-			push(0);
-			break;
-		default: push(0);
 	}
 }
 
@@ -6009,9 +6037,7 @@ void xcall() {
 
 // data is simply skipped 
 void xdata() {
-	nexttoken();
-	while (!termsymbol() && here<top) nexttoken();
-	nexttoken();
+	while (!termsymbol()) nexttoken();
 }
 
 // function to find the next data record
@@ -6081,7 +6107,7 @@ enddatarecord:
 }
 
 
-// this code resembles get 
+// this code resembles get - generic stream read code needed later
 void xread(){
 	signed char t, t0;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  	// also remember if the left hand side is a pure string of something with an index 
@@ -6167,12 +6193,77 @@ void xread(){
 	token=t0;
 }
 
+// restore sets the data pointer to zero right now 
 void xrestore(){
 	data=0;
 	nexttoken();
 }
 
+// def simply skips to the end of line right now
 void xdef(){
+	while (!termsymbol()) nexttoken();
+}
+
+// on is a bit like if 
+void xon(){
+	number_t cr;
+	int ci;
+	short args;
+	signed char t;
+	address_t tmp, line = 0;
+	
+	nexttoken();
+	expression();
+	if (er != 0 ) return;
+
+	// the result of the condition, can be any number
+	// even large
+	cr=pop();
+	if (DEBUG) { outsc("** in on condition found "); outnumber(cr); outcr(); } 
+
+	// is there a goto or gosub
+	if ( token != TGOSUB && token != TGOTO)  {
+		error(UNKNOWN);
+		return;
+	}
+
+	// remember if we do gosub or goto
+	t=token;
+	nexttoken();
+
+	// how many arguments have we got here
+	args=parsearguments();
+	if (er != 0) return;
+	if (args == 0) { error(EARGS); return; }
+	
+	// do we have more arguments then the condition?
+	if (cr > args && cr <= 0) ci=0; else ci=(int)cr;
+
+	// now find the line to jump to and clean the stack
+	while (args) {
+		tmp=pop();
+		if (args == ci) line=tmp;
+		args--;
+	}
+	
+	if (DEBUG) { outsc("** in on found line as target "); outnumber(line); outcr(); }
+	// no line found to jump to
+	if (line == 0) {
+		nexttoken();
+		return;
+	}
+
+	// prepare for the jump	
+	if (t == TGOSUB) pushgosubstack();
+	if (er != 0) return;
+
+	findline(line);
+	if (er != 0) return;
+
+	// goto in interactive mode switched to RUN mode
+	// no clearing of variables and stacks
+	if (st == SINT) st=SRUN;
+
 	nexttoken();
 }
 #endif
@@ -6180,7 +6271,54 @@ void xdef(){
 // the darkarts
 #ifdef HASDARKARTS
 void xeval(){
+	short i, l;
+	address_t mline, line;
+
+
+	// get the line number to store
 	nexttoken();
+	expression(); 
+	if(er != 0) return;
+	line=pop();
+
+	if (token != ',') {
+		error(EUNKNOWN);
+		return;
+	}
+
+	// the line to be stored
+	nexttoken();
+	if (! stringvalue()) {
+		error(EARGS); return; 
+	}
+
+	// here we have the string to evaluate in ir2 and copy it to the ibuffer
+	// only one line allowed, BUFSIZE is the limit
+	l=pop();
+	if (l>BUFSIZE-1) {error(ERANGE); return; }
+	for (i=0; i<l; i++) ibuffer[i+1]=ir2[i];
+	ibuffer[l+1]=0;
+	if (DEBUG) {outsc("** Preparing to store line "); outnumber(line); outspc(); outsc(ibuffer+1); outcr(); }
+
+	// we find the line we are currently at
+	if (st != SINT) {
+		mline=myline(here);
+		if (DEBUG) {outsc("** myline is "); outnumber(mline); outcr(); }
+	}
+
+	
+	// go to interactive mode and try to store the line
+	x=line;             // the linennumber
+	push(st); st=SINT;  // go to (fake) interactive mode
+	bi=ibuffer; 		// go to the beginning of the line
+	storeline();  		// try to store it
+	st=pop();			// go back to run mode
+
+	// find my line - side effects not checked here
+	if (st != SINT) {
+		findline(mline);
+		nextline();
+	}
 }
 
 void xiter(){
@@ -6383,6 +6521,9 @@ void statement(){
 			case TDEF:
 				xdef();
 				break;
+			case TON:
+				xon();
+				break;
 #endif
 #ifdef HASDARKARTS
 			case TEVAL:
@@ -6400,7 +6541,7 @@ void statement(){
 				nexttoken();
 				break;
 			default: // very tolerant - tokens are just skipped 
-				if (DEBUG) outsc("** hoppla - unexpected token, skipped "); debugtoken();
+				if (TRUE) outsc("** hoppla - unexpected token, skipped "); debugtoken();
 				nexttoken();
 		}
 #ifdef ARDUINO
