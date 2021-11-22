@@ -65,7 +65,7 @@
 #define  HASDARKARTS
 
 // hardcoded memory size set 0 for automatic malloc
-#define MEMSIZE 0
+#define MEMSIZE 1014
 
 // these are the definitions for various arduino extensions
 // computer. All of them are memory hungry
@@ -768,10 +768,11 @@ address_t data = 0;
 FILE* ifile;
 FILE* ofile;
 #ifndef MSDOS
+// POSIX like OSes
 DIR* root;
 struct dirent* file; 
 #else
-// to be done 
+// MSDOS to be done 
 void* root;
 void* file;
 #endif 
@@ -1150,7 +1151,7 @@ short parsesubscripts();
 void  parsenarguments(char);
 short parsearguments();
 
-// mathematics and other functions
+// mathematics and other functions / int and float
 void rnd();
 void sqr();
 void xpow();
@@ -1159,7 +1160,7 @@ void peek();
 void xabs();
 void xsgn();
 
-// string values
+// string values 
 char stringvalue();
 void streval();
 
@@ -1258,6 +1259,7 @@ void xmalloc();
 void xfind();
 void xeval();
 void xiter();
+void xavail();
 
 // the statement loop
 void statement();
@@ -1564,7 +1566,8 @@ void allocmem() {
 	const unsigned short memmodel[9] = {60000, 48000, 46000, 28000, 6000, 4096, 1024, 512, 128}; 
 
 	if (sizeof(number_t) <= 2) i=3;
-// this is tiny model MSDOS compile
+// this is tiny model MSDOS compile - dos chrashes on 
+// file access with 60 k allocated in a tiny model
 #ifdef MSDOS
 	i=1;
 #endif
@@ -1595,9 +1598,7 @@ address_t bmalloc(signed char t, char c, char d, short l) {
     /*
 		check if the object already exists
     */
-
-    b=bfind(t, c, d);
-    if (b != 0 ) { error(EVARIABLE); return 0; };
+    if (bfind(t, c, d) != 0 ) { error(EVARIABLE); return 0; };
 
 	/* 
 		how much space is needed
@@ -1691,8 +1692,7 @@ number_t getvar(char c, char d){
 	if (DEBUG) { outsc("* getvar "); outch(c); outch(d); outspc(); outcr(); }
 
 	// the static variable array
-	if (c >= 65 && c<=91 && d == 0)
-			return vars[c-65];
+	if (c >= 65 && c<=91 && d == 0) return vars[c-65];
 
 	// the special variables 
 	if ( c == '@' )
@@ -1718,13 +1718,11 @@ number_t getvar(char c, char d){
 		}
 
 #ifdef HASAPPLE1
-	// dynamically allocated vars
-	a=bfind(VARIABLE, c, d);
-	if ( a == 0) {
-		a=bmalloc(VARIABLE, c, d, 0);
-		if (er != 0) return 0;
-	} 
-
+	// dynamically allocated vars, create them on the fly if needed
+	if (!(a=bfind(VARIABLE, c, d))) a=bmalloc(VARIABLE, c, d, 0);
+	if (er != 0) return 0;
+	
+	// retrieve the value
 	getnumber(a, numsize);
 	return z.i;
 #else
@@ -1804,6 +1802,7 @@ void getnumber(address_t m, short n){
 
 	z.i=0;
 
+
 	switch (n) {
 		case 1:
 			z.i=mem[m];
@@ -1815,6 +1814,9 @@ void getnumber(address_t m, short n){
 		default:
 			for (i=0; i<n; i++) z.c[i]=mem[m++];
 	}
+
+	// for (i=0; i<n; i++) z.c[i]=mem[m++];
+
 }
 
 // the eeprom memory access 
@@ -3766,7 +3768,6 @@ nextexpression:
 }
 */
 
-
 short parsearguments() {
 	char args=0;
 
@@ -3785,6 +3786,7 @@ short parsearguments() {
 	return args;
 }
 
+
 // expect exactly n arguments
 void parsenarguments(char n) {
 	if (parsearguments() != n ) error(EARGS);
@@ -3793,7 +3795,7 @@ void parsenarguments(char n) {
 // counts and parses the number of arguments given in brakets
 short parsesubscripts() {
 	char args = 0;
-	if (token != '(') {error(EARGS); return 0; }
+	if (token != '(') {return 0; } // zero arguments is legal here
 	nexttoken();
 	args=parsearguments();
 	if (er != 0) return 0; 
