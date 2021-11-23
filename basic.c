@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.108 2021/11/21 20:05:44 stefan Exp stefan $
+// $Id: basic.c,v 1.109 2021/11/22 05:13:38 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -4109,6 +4109,31 @@ void xinext() {
 }
 #endif
 
+#ifdef HASDARTMOUTH
+void xfn() {
+	char fxc, fyc;
+	char vxc, vyc;
+
+	// the name of the function
+	nexttoken();
+	if (token != ARRAYVAR) {error(EUNKNOWN); return; }
+	fxc=xc;
+	fyc=yc;
+
+	// and the argument
+	nexttoken();
+	if (token != '(') {error(EUNKNOWN); return; }
+	nexttoken();
+	expression();
+	if (er != 0) return;
+	if (token != ')') {error(EUNKNOWN); return; }
+
+	// a dummy - leave anything on the stacks
+
+	// no nexttoken as this is called in factor
+}
+#endif
+
 
 // the factor function - contrary to all other function
 // nothing here should end with a new token - this is handled 
@@ -4142,7 +4167,6 @@ void factor(){
 			if (er != 0 ) return;
 			if (token != ')') { error(EARGS); return; }
 			break;
-
 // Palo Alto BASIC functions
 		case TABS: 
 			parsefunction(xabs, 1);
@@ -4263,6 +4287,11 @@ void factor(){
 		case TINT:
 			parsefunction(xint, 1);
 			break;
+#ifdef HASDARTMOUTH
+		case TFN:
+			xfn();
+			break;
+#endif
 #ifdef HASDARKARTS
 		case TMALLOC:
 			parsefunction(xmalloc, 2);
