@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.109 2021/11/22 05:13:38 stefan Exp stefan $
+// $Id: basic.c,v 1.110 2021/11/23 19:30:17 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -1111,9 +1111,24 @@ void bmillis() {
 	push(m);
 } 
 #else
+#if defined(MSDOS)
+#include <sys/types.h>
+#include <sys/timeb.h>
+struct timeb start_time;
+void bmillis() {
+	struct timeb thetime;
+	unsigned long dt;
+	number_t m;
+	ftime(&thetime);
+	dt=(thetime.time-start_time.time)*1000+(thetime.millitm-start_time.millitm);
+	m=(number_t) ( dt/(unsigned long)pop() % (unsigned long)maxnum);
+	push(m);
+}
+#else
 void bmillis() {
 	push(0);
 }
+#endif
 #endif
 
 void bpulsein() { pop(); pop(); pop(); push(0); }
@@ -6059,9 +6074,22 @@ void xusr() {
 #endif
 
 void xcall() {
-	nexttoken();
-}
+	int r;
 
+	nexttoken();
+	expression();
+	if (er != 0) return;
+	r=pop();
+	switch(r) {
+		case 0: 
+#ifndef ARDUINO
+			exit(0);
+#endif
+		default:
+			error(UNKNOWN);
+			return;
+	}
+}
 
 // the dartmouth stuff
 #ifdef HASDARTMOUTH
@@ -6592,6 +6620,9 @@ void setup() {
 #ifndef ARDUINO
 #if !defined(MINGW) && !defined(MSDOS)
 	timespec_get(&start_time, TIME_UTC);
+#endif
+#if defined(MSDOS)
+	ftime(&start_time);
 #endif
 #endif
 	ioinit();
