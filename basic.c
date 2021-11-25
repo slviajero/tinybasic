@@ -140,10 +140,16 @@
 #endif
 #include <time.h>
 #include <sys/types.h>
+#include <sys/timeb.h>
 #ifndef MSDOS
 #include <dirent.h>
+#include <unistd.h>
 #else
 #include <dir.h>
+#include <dos.h>
+#endif
+#ifdef MINGW
+#include <windows.h>
 #endif
 #endif
 
@@ -370,7 +376,7 @@ const char slomem[]  PROGMEM = "LOMEM";
 const char shimem[]  PROGMEM = "HIMEM";
 const char stab[]    PROGMEM = "TAB";
 const char sthen[]   PROGMEM = "THEN";
-const char send[]    PROGMEM = "END";
+const char sbend[]    PROGMEM = "END";
 const char spoke[]   PROGMEM = "POKE";
 #endif
 // Stefan's tinybasic additions
@@ -466,7 +472,7 @@ const char* const keyword[] PROGMEM = {
 #ifdef HASAPPLE1
 	snot, sand, sor, slen, ssgn, speek, sdim,
 	sclr, slomem, shimem, stab, sthen, 
-	send, spoke,
+	sbend, spoke,
 #endif
 // Stefan's additions
 #ifdef HASSTEFANSEXT
@@ -1097,40 +1103,23 @@ void dread(){ return; }
 void awrite(number_t p, number_t v){}
 void dwrite(number_t p, number_t v){}
 void pinm(number_t p, number_t m){}
-void delay(number_t t) {}
-#if !defined(MINGW) && !defined(MSDOS)
-struct timespec start_time;
-void bmillis() {
-	struct timespec ts;
-	unsigned long dt;
-	number_t m;
-	timespec_get(&ts, TIME_UTC);
-	dt=(ts.tv_sec-start_time.tv_sec)*1000+(ts.tv_nsec-start_time.tv_nsec)/10000000;
-// millis is processed as integer and is cyclic mod maxnumber and not cast to float!!
-	m=(number_t) ( dt/(unsigned long)pop() % (unsigned long)maxnum);
-	push(m);
-} 
+#ifndef MSDOS
+#ifndef MINGW
+void delay(number_t t) {usleep(t*1000);}
 #else
-#if defined(MSDOS)
-#include <sys/types.h>
-#include <sys/timeb.h>
+void delay(number_t t) {Sleep(t);}
+#endif
+#endif
 struct timeb start_time;
 void bmillis() {
 	struct timeb thetime;
-	unsigned long dt;
+	time_t dt;
 	number_t m;
 	ftime(&thetime);
 	dt=(thetime.time-start_time.time)*1000+(thetime.millitm-start_time.millitm);
-	m=(number_t) ( dt/(unsigned long)pop() % (unsigned long)maxnum);
+	m=(number_t) ( dt/(time_t)pop() % (time_t)maxnum);
 	push(m);
 }
-#else
-void bmillis() {
-	push(0);
-}
-#endif
-#endif
-
 void bpulsein() { pop(); pop(); pop(); push(0); }
 #endif
 
@@ -1171,7 +1160,7 @@ void rnd();
 void sqr();
 void xpow();
 void fre();
-void peek();
+void xpeek();
 void xabs();
 void xsgn();
 
@@ -1574,8 +1563,7 @@ void dspsetcursor(short c, short r) {}
 
 #if MEMSIZE == 0
 // guess the possible basic memory size
-void allocmem() {
-
+void ballocmem() {
 	short i = 0;
 	// 									RP2040      ESP        MK   MEGA   UNO  168  FALLBACK
 	const unsigned short memmodel[9] = {60000, 48000, 46000, 28000, 6000, 4096, 1024, 512, 128}; 
@@ -3281,7 +3269,7 @@ void nexttoken() {
 */
 
 // bad code ;-)
-
+/*
 	yc=0;
 	while (tokens[yc] != 0){
 		ir=getkeyword(yc);
@@ -3307,7 +3295,25 @@ void nexttoken() {
 			return;
 		}
 	}
-
+*/
+	yc=0;
+	while (tokens[yc] != 0){
+		ir=getkeyword(yc);
+		xc=0;
+		while (*(ir+xc) != 0) {
+			if (*(ir+xc) != *(bi+xc)){
+				yc++;
+				xc=0;
+				break;
+			} else 
+				xc++;
+		}
+		if (xc == 0) continue;
+		bi+=xc;
+		token=tokens[yc];
+		if (DEBUG) debugtoken();
+		return;
+	}
 
 /*
 	a variable has length 1 in the first version
@@ -3900,7 +3906,7 @@ void xsgn(){
 
 // on an arduino, negative values of peek address 
 // the EEPROM range -1 .. -1024 on an UNO
-void peek(){
+void xpeek(){
 	address_t amax;
 	address_t a;
 	a=pop();
@@ -4112,16 +4118,19 @@ void xmalloc() {
 	h=pop();
 	push(bmalloc(TBUFFER, h%256, 0, s));
 }
+
 // find an object on the heap
 void xfind() {
 	address_t h;
 	h=pop();
 	push(bfind(TBUFFER, h%256, 0));
 }
+
 // NEXT can be a function in the context of iterators
 void xinext() {
 	push(pop());
 }
+
 #endif
 
 #ifdef HASDARTMOUTH
@@ -4143,7 +4152,7 @@ void xfn() {
 	if (er != 0) return;
 	if (token != ')') {error(EUNKNOWN); return; }
 
-	// a dummy - leave anything on the stacks
+	// a dummy - leave anything on the stack
 
 	// no nexttoken as this is called in factor
 }
@@ -4198,7 +4207,7 @@ void factor(){
 			parsefunction(xsgn, 1);
 			break;
 		case TPEEK: 
-			parsefunction(peek, 1);
+			parsefunction(xpeek, 1);
 			break;
 		case TLEN: 
 			nexttoken();
@@ -6613,17 +6622,12 @@ void statement(){
 // the setup routine - Arduino style
 void setup() {
 #if MEMSIZE == 0
-	allocmem();
+	ballocmem();
 	himem=memsize;
 #endif
-
+// needed for the millis routine
 #ifndef ARDUINO
-#if !defined(MINGW) && !defined(MSDOS)
-	timespec_get(&start_time, TIME_UTC);
-#endif
-#if defined(MSDOS)
 	ftime(&start_time);
-#endif
 #endif
 	ioinit();
 	printmessage(MGREET); outspc();
