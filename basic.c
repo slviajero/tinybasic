@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.110 2021/11/23 19:30:17 stefan Exp stefan $
+// $Id: basic.c,v 1.112 2021/11/26 17:57:22 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -1610,15 +1610,28 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 			one byte for every string character
 	*/
 
-	if ( t == VARIABLE ) vsize=numsize+3; 	
-	else if ( t == ARRAYVAR ) vsize=numsize*l+addrsize+3;
-	else vsize=l+addrsize+3;
+    switch(t) {
+    	case VARIABLE:
+    		vsize=numsize+3;
+    		break;
+    	case ARRAYVAR:
+    		vsize=numsize*l+addrsize+3;
+    		break;
+    	case TFN:
+    		vsize=addrsize+2+3;
+    		break;
+    	default:
+    		vsize=l+addrsize+3;
+    }
+	
+
+
 	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return 0;}
 
 	// here we would create the hash, currently simplified
 	// the hash is the first digit of the variable plus the token
 
-	// write the header - inefficient - 3 bytes for a hash
+	// write the header - inefficient - 3 bytes instead of a hash
 	b=himem;
 	mem[b--]=c;
 	mem[b--]=d;
@@ -1657,12 +1670,17 @@ address_t bfind(signed char t, char c, char d) {
 		d1=mem[b--];
 		t1=mem[b--];
 
-		if (t1 == VARIABLE) {
-			z.a=numsize; 
-		} else {
-			b=b-addrsize+1;
-			getnumber(b, addrsize);
-			b--;
+		switch(t1) {
+			case VARIABLE:
+				z.a=numsize;
+				break;
+			case TFN:
+				z.a=addrsize+2;
+				break;
+			default:
+				b=b-addrsize+1;
+				getnumber(b, addrsize);
+				b--;
 		}
 
 		b-=z.a;
@@ -1804,7 +1822,6 @@ void getnumber(address_t m, short n){
 	int i;
 
 	z.i=0;
-
 
 	switch (n) {
 		case 1:
@@ -3752,8 +3769,6 @@ void storeline() {
 	}
 }
 
-
-
 /* 
  
  calculates an expression, with a recursive descent algorithm
@@ -3767,6 +3782,20 @@ void storeline() {
 char termsymbol() {
 	return ( token == LINENUMBER ||  token == ':' || token == EOL);
 }
+
+// a little helpers - one token expect 
+char expect(char t, char e) {
+	nexttoken();
+	if (token != t) {error(e); return FALSE; } else return TRUE;
+}
+
+// a little helpers - expression expect
+char expectexpr() {
+	nexttoken();
+	expression();
+	if (er != 0) return FALSE; else return TRUE;
+}
+
 
 // parses a list of expression
 /*
@@ -4130,29 +4159,56 @@ void xfind() {
 void xinext() {
 	push(pop());
 }
-
 #endif
 
 #ifdef HASDARTMOUTH
 void xfn() {
 	char fxc, fyc;
 	char vxc, vyc;
+	address_t a;
+	address_t h1, h2;
+	number_t xt;
 
 	// the name of the function
-	nexttoken();
-	if (token != ARRAYVAR) {error(EUNKNOWN); return; }
+
+	if (!expect(ARRAYVAR, EUNKNOWN)) return;
 	fxc=xc;
 	fyc=yc;
 
 	// and the argument
 	nexttoken();
 	if (token != '(') {error(EUNKNOWN); return; }
+
 	nexttoken();
 	expression();
 	if (er != 0) return;
+
 	if (token != ')') {error(EUNKNOWN); return; }
 
-	// a dummy - leave anything on the stack
+	// find the function structure and retrieve the payload
+	if ( (a=bfind(TFN, fxc, fyc)) == 0 ) {error(EUNKNOWN); return; }
+	getnumber(a, addrsize);
+	h1=z.a;
+	vxc=mem[a+addrsize];
+	vyc=mem[a+addrsize+1];
+
+	// remember the original value of the variable and set it
+	xt=getvar(vxc, vyc);
+	if (DEBUG) {outsc("** saving the original running var "); outch(vxc); outch(vyc); outspc(); outnumber(xt); outcr();}
+
+
+	setvar(vxc, vyc, pop());
+
+	// store here and then evaluate the function
+	h2=here;
+	here=h1;
+	if (DEBUG) {outsc("** evaluating expressing at "); outnumber(here); outcr(); }
+
+	if (!expectexpr()) return;
+
+	// restore everything
+	here=h2;
+	setvar(vxc, vyc, xt);
 
 	// no nexttoken as this is called in factor
 }
@@ -4479,6 +4535,8 @@ void expression(){
 
 */
 
+
+
 /*
    print 
 */ 
@@ -4514,9 +4572,13 @@ processsymbol:
 	// modifiers of the print statement
 	if (token == '#' || token == '&') {
 		modifier=token;
+
+
 		nexttoken();
 		expression();
 		if (er != 0) return;
+
+
 		switch(modifier) {
 			case '#':
 				form=pop();
@@ -4733,9 +4795,9 @@ void xinput(){
 
 	// modifiers of the input statement
 	if (token == '&') {
-		nexttoken();
-		expression();
-		if (er != 0) return;
+
+		if(!expectexpr()) return;
+
 		oldid=id;
 		id=pop();
 		if ( token != ',') {
@@ -4857,10 +4919,7 @@ void clrgosubstack() {
 void xgoto() {
 	short t=token;
 
-	nexttoken();
-	expression();
-	if (er != 0) return;
-
+	if (!expectexpr()) return;
 	if (t == TGOSUB) pushgosubstack();
 	if (er != 0) return;
 
@@ -4894,9 +4953,7 @@ void xreturn(){
 
 void xif() {
 	
-	nexttoken();
-	expression();
-	if (er != 0 ) return;
+	if (!expectexpr()) return;
 
 	x=pop();
 	if (DEBUG) { outnumber(x); outcr(); } 
@@ -4924,7 +4981,7 @@ void xif() {
 
 // find the NEXT token or the end of the program
 void findnextcmd(){
-	while (TRUE) {
+	while (DEBUG) {
 	    if (token == TNEXT) {
 	    	if (fnc == 0) return;
 	    	else fnc--;
@@ -4953,11 +5010,7 @@ void xfor(){
 	number_t s=1;
 	
 	// there has to be a variable
-	nexttoken();
-	if (token != VARIABLE) {
-		error(EUNKNOWN);
-		return;
-	}
+	if (!expect(VARIABLE, EUNKNOWN)) return;
 	xcl=xc;
 	ycl=yc;
 
@@ -4965,23 +5018,17 @@ void xfor(){
 	// FOR TO STEP are allowed
 	nexttoken();
 	if (token == '=') { 
-		nexttoken();
-		expression();
-		if (er != 0) return;
+		if (!expectexpr()) return;
 		b=pop();
 	}
 
 	if (token == TTO) {
-		nexttoken();
-		expression();
-		if (er != 0) return;
+		if (!expectexpr()) return;
 		e=pop();
 	}
 
 	if (token == TSTEP) {
-		nexttoken();
-		expression();
-		if (er != 0) return;
+		if (!expectexpr()) return;
 		s=pop();
 	} 
 
@@ -5277,9 +5324,9 @@ nextvariable:
 		ycl=yc;
 
 		nexttoken();
-
 		args=parsesubscripts();
 		if (er != 0) return;
+
 		if (args != 1) {error(EARGS); return; }
 		x=pop();
 		if (x<=0) {error(ERANGE); return; }
@@ -5293,12 +5340,16 @@ nextvariable:
 		error(EUNKNOWN);
 		return;
 	}
-	nexttoken();
 
+
+	nexttoken();
 	if (token == ',') {	
 		nexttoken();
 		goto nextvariable;
 	}
+
+
+
 	nexttoken();
 }
 
@@ -5320,6 +5371,7 @@ void xpoke(){
 	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return;
+
 	y=pop();
 	a=pop();
 	if (a >= 0 && a<amax) 
@@ -5338,9 +5390,11 @@ void xpoke(){
 */
 
 void xtab(){
+
 	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
+
 	x=pop();
 	while (x-- > 0) outspc();	
 }
@@ -5361,6 +5415,8 @@ void xdump() {
 	nexttoken();
 	arg=parsearguments();
 	if (er != 0) return;
+
+
 	switch (arg) {
 		case 0: 
 			x=0;
@@ -5597,9 +5653,8 @@ void xget(){
 
 	// modifiers of the get statement
 	if (token == '&') {
-		nexttoken();
-		expression();
-		if (er != 0) return;
+
+		if (!expectexpr()) return;
 		id=pop();		
 		if (token != ',') {
 			error(EUNKNOWN);
@@ -5640,9 +5695,8 @@ void xput(){
 
 	// modifiers of the put statement
 	if (token == '&') {
-		nexttoken();
-		expression();
-		if (er != 0) return;
+
+		if(!expectexpr()) return;
 		od=pop();
 		if (token != ',') {
 			error(EUNKNOWN);
@@ -5674,6 +5728,7 @@ void xset(){
 	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return;
+
 	arg=pop();
 	fn=pop();
 	switch (fn) {		
@@ -6085,9 +6140,7 @@ void xusr() {
 void xcall() {
 	int r;
 
-	nexttoken();
-	expression();
-	if (er != 0) return;
+	if (!expectexpr()) return;
 	r=pop();
 	switch(r) {
 		case 0: 
@@ -6267,8 +6320,52 @@ void xrestore(){
 	nexttoken();
 }
 
+
 // def simply skips to the end of line right now
 void xdef(){
+	char xcl1, ycl1, xcl2, ycl2;
+	address_t a;
+
+	// do we define a function
+	if (!expect(TFN, EUNKNOWN)) return;
+
+	// the name of the function, it is tokenized as an array
+	if (!expect(ARRAYVAR, EUNKNOWN)) return;
+	xcl1=xc;
+	ycl1=yc;
+
+	// the argument 
+	if (!expect('(', EUNKNOWN)) return;
+	if (!expect(VARIABLE, EUNKNOWN)) return;
+	xcl2=xc;
+	ycl2=yc;
+	if (!expect(')', EUNKNOWN)) return;
+
+	// the assignment
+	if (!expect('=', EUNKNOWN)) return;
+
+	// ready to store the function
+	if (DEBUG) {
+		outsc("** DEF FN with function "); 
+		outch(xcl1); outch(ycl1); 
+		outsc(" and argument ");
+		outch(xcl2); outch(ycl2);
+		outsc(" at here "); 
+		outnumber(here);
+		outcr();
+	}
+
+	// find the function
+	if ( (a=bfind(TFN, xcl1, ycl1)) == 0 ) a=bmalloc(TFN, xcl1, ycl1, 0);
+	if (DEBUG) {outsc("** found function structure at "); outnumber(a); outcr(); }
+
+	// store the payload - the here address - and the name of the variable
+	z.a=here;
+	setnumber(a, addrsize);
+	mem[a+addrsize]=xcl2;
+	mem[a+addrsize+1]=ycl2;
+
+	// skip whatever comes next
 	while (!termsymbol()) nexttoken();
 }
 
@@ -6280,9 +6377,7 @@ void xon(){
 	signed char t;
 	address_t tmp, line = 0;
 	
-	nexttoken();
-	expression();
-	if (er != 0 ) return;
+	if(!expectexpr()) return;
 
 	// the result of the condition, can be any number
 	// even large
@@ -6297,9 +6392,9 @@ void xon(){
 
 	// remember if we do gosub or goto
 	t=token;
-	nexttoken();
 
 	// how many arguments have we got here
+	nexttoken();
 	args=parsearguments();
 	if (er != 0) return;
 	if (args == 0) { error(EARGS); return; }
@@ -6344,9 +6439,7 @@ void xeval(){
 
 
 	// get the line number to store
-	nexttoken();
-	expression(); 
-	if(er != 0) return;
+	if (!expectexpr()) return;
 	line=pop();
 
 	if (token != ',') {
@@ -6609,7 +6702,7 @@ void statement(){
 				nexttoken();
 				break;
 			default: // very tolerant - tokens are just skipped 
-				if (TRUE) outsc("** hoppla - unexpected token, skipped "); debugtoken();
+				if (DEBUG) outsc("** hoppla - unexpected token, skipped "); debugtoken();
 				nexttoken();
 		}
 #ifdef ARDUINO
