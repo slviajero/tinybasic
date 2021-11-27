@@ -59,39 +59,42 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#define  HASFLOAT
+#define HASFLOAT
 #undef  HASGRAPH
 #define  HASDARTMOUTH
 #define  HASDARKARTS
 
-// hardcoded memory size set 0 for automatic malloc
+/* hardcoded memory size set 0 for automatic malloc */
 #define MEMSIZE 0
 
-// these are the definitions for various arduino extensions
-// computer. All of them are memory hungry
-// 
-// Arduino features
+/*
+	these are the definitions for various arduino extensions
+	computer. All of them are memory hungry
+*/
+/* Arduino features */
 #undef USESPICOSERIAL
 #define ARDUINOEEPROM
-// input methods 
+/* input methods */
 #undef ARDUINOPS2
-// output methods
+/* output methods */
 #undef ARDUINOPRT
 #define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef LCDSHIELD
 #undef ARDUINOTFT
-// storage methods
+/* storage methods */
 #undef ARDUINOSD
 #undef ESPSPIFFS
-// use the methods above as primary i/o devices
+/* use the methods above as primary i/o devices */
 #undef STANDALONE
 
-// Don't change the definitions here unless you must
+/* 
+	Don't change the definitions here unless you must
 
-// if PROGMEM is defined we can asssume we compile on 
-// the Arduino IDE. Don't change anything here. 
-// This is a little hack to detect where we compile
+	if PROGMEM is defined we can asssume we compile on 
+	the Arduino IDE. Don't change anything here. 
+	This is a little hack to detect where we compile
+*/
 #ifdef PROGMEM
 #define ARDUINOPROGMEM
 #else
@@ -153,7 +156,7 @@
 #endif
 #endif
 
-// Arduino default serial baudrate
+/* Arduino default serial baudrates */
 #ifdef ARDUINO
 const int serial_baudrate = 9600;
 #else 
@@ -165,14 +168,14 @@ const int printer_baudrate = 9600;
 const int printer_baudrate = 0;
 #endif
 
-// general definitions
+/* general definitions */
 #define TRUE  1
 #define FALSE 0
 
-// debug mode switches 
+/* debug mode switches */
 #define DEBUG  0
 
-// various buffer sizes
+/* various buffer sizes */
 #define BUFSIZE 	128
 #define SBUFSIZE	32
 #define VARSIZE		26
@@ -196,11 +199,11 @@ const int printer_baudrate = 0;
 #define VARIABLE 	 -124
 #define STRINGVAR 	 -123
 #define ARRAYVAR     -122
-// multi character tokens - BASEKEYWORD (3)
+/* multi character tokens - BASEKEYWORD (3) */
 #define GREATEREQUAL -121
 #define LESSEREQUAL  -120
 #define NOTEQUAL	 -119
-// this is the Palo Alto Language Set (19)
+/* this is the Palo Alto Language Set (19) */
 #define TPRINT  -118
 #define TLET    -117
 #define TINPUT  -116
@@ -220,7 +223,7 @@ const int printer_baudrate = 0;
 #define TRND	-102
 #define TSIZE   -101
 #define TREM 	-100
-// this is the Apple 1 language set in addition to Palo Alto (14)
+/* this is the Apple 1 language set in addition to Palo Alto (14) */
 #define TNOT    -99
 #define TAND	-98
 #define TOR  	-97
@@ -235,7 +238,7 @@ const int printer_baudrate = 0;
 #define TTHEN   -88
 #define TEND    -87
 #define TPOKE	-86
-// Stefan's tinybasic additions (12)
+/* Stefan's tinybasic additions (12) */
 #define TCONT   -85
 #define TSQR	-84
 #define TPOW	-83
@@ -248,7 +251,7 @@ const int printer_baudrate = 0;
 #define TPUT    -76
 #define TSET    -75
 #define TCLS    -74
-// Arduino functions (10)
+/* Arduino functions (10) */
 #define TPINM	-73
 #define TDWRITE	-72
 #define TDREAD	-71
@@ -259,15 +262,15 @@ const int printer_baudrate = 0;
 #define TTONE   -66
 #define TPULSEIN  -65
 #define TAZERO	  -64
-// the SD card DOS functions (4)
+/* the SD card DOS functions (4) */
 #define TCATALOG -63
 #define TDELETE  -62
 #define TOPEN 	-61
 #define TCLOSE  -60
-// low level access of internal routines
+/* low level access of internal routines */
 #define TUSR	-59
 #define TCALL 	-58
-// mathematical functions 
+/* mathematical functions */
 #define TSIN 	-57
 #define TCOS    -56
 #define TTAN 	-55
@@ -275,7 +278,7 @@ const int printer_baudrate = 0;
 #define TLOG    -53
 #define TEXP    -52
 #define TINT    -51
-// graphics - experimental - rudimentary
+/* graphics - experimental - rudimentary */
 #define TCOLOR 	-50
 #define TPLOT   -49
 #define TLINE 	-48
@@ -283,28 +286,27 @@ const int printer_baudrate = 0;
 #define TRECT   -46
 #define TFCIRCLE -45
 #define TFRECT   -44
-// the dark arts and Dartmouth extensions
-// not yet implemented only tokens reserverd
+/* the Dartmouth extensions */
 #define TDATA	-43
 #define TREAD   -42
 #define TRESTORE -41
 #define TDEF      -40
 #define TFN 	-39
 #define TON     -38
-// darkarts
+/* darkarts are commands that shouldn't exist in BASIC */
 #define TMALLOC -37
 #define TFIND   -36
 #define TEVAL   -35
 #define TITER	-34
 #define TAVAIL	-33
-// constants used for some obscure purposes 
+/* constants used for some obscure purposes */
 #define TBUFFER -4
-// unused right now from earlier code to be removed soon
+/* unused right now from earlier code to be removed soon */
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
 
-// the number of keywords, and the base index of the keywords
+/* the number of keywords, and the base index of the keywords */
 #define NKEYWORDS	3+19+14+12+10+4+2+7+7+6+5
 #define BASEKEYWORD -121
 
@@ -316,7 +318,6 @@ const int printer_baudrate = 0;
 	(enum would be the right way of doing this.)
 	BREAKCHAR is the character stopping the program on Ardunios
 */
-
 #define SINT 0
 #define SRUN 1
 #define SERUN 2
@@ -325,7 +326,6 @@ const int printer_baudrate = 0;
 /* 
 	Arduino input and output models
 */
-
 #define OSERIAL 1
 #define ODSP 2
 #define OPRT 4
@@ -342,7 +342,7 @@ const int printer_baudrate = 0;
 const char sge[]   PROGMEM = "=>";
 const char sle[]   PROGMEM = "<=";
 const char sne[]   PROGMEM = "<>";
-// Palo Alto language set
+/*  Palo Alto language set */
 const char sprint[]  PROGMEM = "PRINT";
 const char slet[]    PROGMEM = "LET";
 const char sinput[]  PROGMEM = "INPUT";
@@ -362,7 +362,7 @@ const char sabs[]    PROGMEM = "ABS";
 const char srnd[]    PROGMEM = "RND";
 const char ssize[]   PROGMEM = "SIZE";
 const char srem[]    PROGMEM = "REM";
-// Apple 1 language set
+/* Apple 1 language set */
 #ifdef HASAPPLE1
 const char snot[]    PROGMEM = "NOT";
 const char sand[]    PROGMEM = "AND";
@@ -379,7 +379,7 @@ const char sthen[]   PROGMEM = "THEN";
 const char sbend[]    PROGMEM = "END";
 const char spoke[]   PROGMEM = "POKE";
 #endif
-// Stefan's tinybasic additions
+/* Stefan's tinybasic additions */
 #ifdef HASSTEFANSEXT
 const char scont[]   PROGMEM = "CONT";
 const char ssqr[]    PROGMEM = "SQR";
@@ -394,7 +394,7 @@ const char sput[]    PROGMEM = "PUT";
 const char sset[]    PROGMEM = "SET";
 const char scls[]    PROGMEM = "CLS";
 #endif
-// Arduino functions
+/* Arduino functions */
 #ifdef HASARDUINOIO
 const char spinm[]    PROGMEM = "PINM";
 const char sdwrite[]  PROGMEM = "DWRITE";
@@ -411,19 +411,19 @@ const char stone[]    PROGMEM = "ATONE";
 #ifdef HASPULSE
 const char splusein[] PROGMEM = "PULSEIN";
 #endif
-// SD Card DOS functions
+/* file io and disk functions */
 #ifdef HASFILEIO
 const char scatalog[] PROGMEM = "CATALOG";
 const char sdelete[]  PROGMEM = "DELETE";
 const char sfopen[]   PROGMEM = "OPEN";
 const char sfclose[]  PROGMEM = "CLOSE";
 #endif
-// low level access functions
+/* low level access functions */
 #ifdef HASSTEFANSEXT
 const char susr[]  PROGMEM = "USR";
 const char scall[] PROGMEM = "CALL";
 #endif
-// mathematics
+/* mathematics if float is activated */
 #ifdef HASFLOAT
 const char ssin[]  PROGMEM = "SIN";
 const char scos[]  PROGMEM = "COS";
@@ -432,8 +432,8 @@ const char satan[] PROGMEM = "ATAN";
 const char slog[]  PROGMEM = "LOG";
 const char sexp[]  PROGMEM = "EXP";
 #endif
-const char sint[]  PROGMEM = "INT"; // int is always needed 
-// elemetars graphics for tft display
+const char sint[]  PROGMEM = "INT"; 
+/* elemetars graphics for tft displays */
 #ifdef HASGRAPH
 const char scolor[]  PROGMEM  = "COLOR";
 const char splot[]   PROGMEM  = "PLOT";
@@ -443,7 +443,7 @@ const char srect[]   PROGMEM  = "RECT";
 const char sfcircle[] PROGMEM  = "FCIRCLE";
 const char sfrect[]   PROGMEM  = "FRECT";
 #endif
-// Dartmouth BASIC extensions 
+/* Dartmouth BASIC extensions */
 #ifdef HASDARTMOUTH
 const char sdata[]  	PROGMEM  = "DATA";
 const char sread[]  	PROGMEM  = "READ";
@@ -452,7 +452,7 @@ const char sdef[] 	PROGMEM  = "DEF";
 const char sfn[]   	PROGMEM  = "FN";
 const char son[]   	PROGMEM  = "ON";
 #endif
-// The Darkarts commands unthinkable in Dartmouth
+/* the Darkarts commands unthinkable in Dartmouth */
 #ifdef HASDARKARTS
 const char smalloc[]	PROGMEM  = "MALLOC";
 const char sfind[]		PROGMEM  = "FIND";
@@ -461,14 +461,14 @@ const char siter[]		PROGMEM  = "ITER";
 const char savail[]		PROGMEM  = "AVAIL";
 #endif
 
-// the keyword storage
+/* the keyword storage */
 const char* const keyword[] PROGMEM = {
-// Palo Alto BASIC
+/* Palo Alto BASIC */
 	sge, sle, sne, sprint, slet, sinput, 
 	sgoto, sgosub, sreturn, sif, sfor, sto,
 	sstep, snext, sstop, slist, snew, srun,
 	sabs, srnd, ssize, srem,
-// Apple 1 BASIC additions
+/* Apple 1 BASIC additions */
 #ifdef HASAPPLE1
 	snot, sand, sor, slen, ssgn, speek, sdim,
 	sclr, slomem, shimem, stab, sthen, 
@@ -519,21 +519,21 @@ const char* const keyword[] PROGMEM = {
 };
 
 const signed char tokens[] = {
-// Palo Alto BASIC
+/* Palo Alto BASIC */
 	GREATEREQUAL, LESSEREQUAL, NOTEQUAL, TPRINT, TLET,    
     TINPUT, TGOTO, TGOSUB, TRETURN, TIF, TFOR, TTO, TSTEP,
     TNEXT, TSTOP, TLIST, TNEW, TRUN, TABS, TRND, TSIZE, TREM,
-// this is the Apple 1 language set in addition to Palo Alto (14)
+/* this is the Apple 1 language set in addition to Palo Alto (14) */
 #ifdef HASAPPLE1
     TNOT, TAND, TOR, TLEN, TSGN, TPEEK, TDIM, TCLR, TLOMEM,
     THIMEM, TTAB, TTHEN, TEND, TPOKE,
 #endif
-// Stefan's tinybasic additions (11)
+/* Stefan's tinybasic additions (11) */
 #ifdef HASSTEFANSEXT
 	TCONT, TSQR, TPOW, TFRE, TDUMP, TBREAK, TSAVE, TLOAD, 
 	TGET, TPUT, TSET, TCLS,
 #endif
-// Arduino functions (10)
+/* Arduino functions (10) */
 #ifdef HASARDUINOIO
 	TPINM, TDWRITE, TDREAD, TAWRITE, TAREAD, TDELAY, TMILLIS,
 	TAZERO, 
@@ -544,33 +544,33 @@ const signed char tokens[] = {
 #ifdef HASPULSE
 	TPULSEIN, 
 #endif
-// the SD card DOS functions (4)
+/* the SD card DOS functions (4) */
 #ifdef HASFILEIO
 	TCATALOG, TDELETE, TOPEN, TCLOSE,
 #endif
-// low level access of internal routines
+/* low level access of internal routines */
 #ifdef HASSTEFANSEXT
 	TUSR, TCALL,
 #endif
-// mathematical functions 
+/* mathematical functions */
 #ifdef HASFLOAT
 	TSIN, TCOS, TTAN, TATAN, TLOG, TEXP,
 #endif
 	TINT,
-// graphics - experimental - rudimentary
+/* graphics - experimental - rudimentary */
 #ifdef HASGRAPH
 	TCOLOR, TPLOT, TLINE, TCIRCLE, TRECT, 
 	TFCIRCLE, TFRECT,
 #endif
-// Dartmouth BASIC extensions 
+/* Dartmouth BASIC extensions */
 #ifdef HASDARTMOUTH
 	TDATA, TREAD, TRESTORE, TDEF, TFN, TON,
 #endif
-// The Darkarts commands that shouldn't be there
+/* The Darkarts commands that shouldn't be there */
 #ifdef HASDARKARTS
 	TMALLOC, TFIND, TEVAL, TITER, TAVAIL,
 #endif
-// the end
+/* the end */
 	0
 };
 
@@ -578,7 +578,7 @@ const signed char tokens[] = {
 	the message catalogue also moved to progmem
 */
 
-// the messages and errors
+/* the messages and errors */
 #define MFILE        0
 #define MPROMPT      1
 #define MGREET 		 2
@@ -639,16 +639,17 @@ const char* const message[] PROGMEM = {
 #endif
 };
 
-
-// code for variable numbers and addresses sizes
-// the original code was 16 bit but can be extended here
-// works but with the tacit assumption that 
-// sizeof(number_t) >= sizeof(address_t) 
-// floating point here is under construction we always 
-// assume that float >= 4 bytes in the following
+/*
+	code for variable numbers and addresses sizes
+	the original code was 16 bit but can be extended here
+	works but with the tacit assumption that 
+	sizeof(number_t) >= sizeof(address_t) 
+	floating point here is under construction we always 
+	assume that float >= 4 bytes in the following
+*/
 #ifdef HASFLOAT
 typedef float number_t;
-const number_t maxnum=16777216; // we use the maximum accurate(!) integer of a 32 bit float here 
+const number_t maxnum=16777216; /* the maximum accurate(!) integer of a 32 bit float here */
 #else
 typedef int number_t;
 const number_t maxnum=(number_t)~((number_t)1<<(sizeof(number_t)*8-1));
@@ -657,7 +658,7 @@ typedef unsigned short address_t;
 const int numsize=sizeof(number_t);
 const int addrsize=sizeof(address_t);
 const int eheadersize=sizeof(address_t)+1;
-const int strindexsize=2; // the index size of strings either 1 byte or 2 bytes - no other values supported
+const int strindexsize=2; /* the index size of strings either 1 byte or 2 bytes - no other values supported */
 const address_t maxaddr=(address_t)(~0); 
 
 /*
@@ -750,10 +751,10 @@ static address_t nvars = 0;
 
 static char form = 0;
 
-// this is unsigned hence address_t 
+/* this is unsigned hence address_t */
 static address_t rd;
 
-// output and input vector
+/* output and input vectors */
 static unsigned char id;
 static unsigned char od;
 
@@ -765,7 +766,7 @@ static unsigned char idd = ISERIAL;
 static unsigned char odd = OSERIAL;
 #endif
 
-// data pointer
+/* data pointer */
 #ifdef HASDARTMOUTH
 address_t data = 0;
 #endif
@@ -774,11 +775,11 @@ address_t data = 0;
 FILE* ifile;
 FILE* ofile;
 #ifndef MSDOS
-// POSIX like OSes
+/* POSIX like OSes */
 DIR* root;
 struct dirent* file; 
 #else
-// MSDOS to be done 
+/* MSDOS to be done */
 void* root;
 void* file;
 #endif 
@@ -1586,21 +1587,20 @@ void ballocmem() {
 #endif
 
 #ifdef HASAPPLE1
-// allocate a junk of memory for a variable on the heap
-// every objects is identified by name (c,d) and type t
-// 3 bytes are used here but 2 would be enough
-
+/*
+	allocate a junk of memory for a variable on the heap
+	every objects is identified by name (c,d) and type t
+	3 bytes are used here but 2 would be enough
+*/
 address_t bmalloc(signed char t, char c, char d, short l) {
 
-	address_t vsize;     // the length of the header
+	address_t vsize;     /* the length of the header */
 	address_t b;
 
 
     if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
 
-    /*
-		check if the object already exists
-    */
+    /* check if the object already exists */
     if (bfind(t, c, d) != 0 ) { error(EVARIABLE); return 0; };
 
 	/* 
@@ -1609,7 +1609,6 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 			numsize for every number including array length
 			one byte for every string character
 	*/
-
     switch(t) {
     	case VARIABLE:
     		vsize=numsize+3;
@@ -1627,11 +1626,11 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 
 
 	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return 0;}
-
-	// here we would create the hash, currently simplified
-	// the hash is the first digit of the variable plus the token
-
-	// write the header - inefficient - 3 bytes instead of a hash
+/*
+	here we would create the hash, currently simplified
+	the hash is the first digit of the variable plus the token
+	write the header - inefficient - 3 bytes instead of a hash
+*/
 	b=himem;
 	mem[b--]=c;
 	mem[b--]=d;
@@ -2086,7 +2085,6 @@ void setstringlength(char c, char d, address_t l) {
 	if (l < z.a) {
 		z.a=l;
 		setnumber(a, strindexsize);
-		//mem[a]=l;
 	} else
 		error(ERANGE);
 
@@ -2856,7 +2854,6 @@ void ins(char *b, short nb) {
 	picobsize=nb;
 	picoa=FALSE;
 	while (! picoa);
-	//outsc(b+1); 
 	outcr();
 }
 #endif
@@ -3783,13 +3780,13 @@ char termsymbol() {
 	return ( token == LINENUMBER ||  token == ':' || token == EOL);
 }
 
-// a little helpers - one token expect 
+// a little helper - one token expect 
 char expect(char t, char e) {
 	nexttoken();
 	if (token != t) {error(e); return FALSE; } else return TRUE;
 }
 
-// a little helpers - expression expect
+// a little helper - expression expect
 char expectexpr() {
 	nexttoken();
 	expression();
@@ -4572,13 +4569,7 @@ processsymbol:
 	// modifiers of the print statement
 	if (token == '#' || token == '&') {
 		modifier=token;
-
-
-		nexttoken();
-		expression();
-		if (er != 0) return;
-
-
+		if(!expectexpr()) return;
 		switch(modifier) {
 			case '#':
 				form=pop();
@@ -4795,9 +4786,7 @@ void xinput(){
 
 	// modifiers of the input statement
 	if (token == '&') {
-
 		if(!expectexpr()) return;
-
 		oldid=id;
 		id=pop();
 		if ( token != ',') {
@@ -4867,15 +4856,12 @@ nextvariable:
 		}
  	}
 #endif
-
 	nexttoken();
 	if (token == ',' || token == ';') {
 		nexttoken();
 		goto nextstring;
 	}
-
 	if (oldid != -1) id=oldid;
-
 }
 
 /*
@@ -4954,7 +4940,6 @@ void xreturn(){
 void xif() {
 	
 	if (!expectexpr()) return;
-
 	x=pop();
 	if (DEBUG) { outnumber(x); outcr(); } 
 
@@ -5044,7 +5029,8 @@ void xfor(){
 	setvar(xcl, ycl, b);
 	if (DEBUG) { 
 		outsc("** for loop with parameters var begin end step : ");
-		outch(xcl); outch(ycl); outspc(); outnumber(b); outspc(); outnumber(e); outspc(); outnumber(s); outcr(); }
+		outch(xcl); outch(ycl); outspc(); outnumber(b); outspc(); outnumber(e); outspc(); outnumber(s); outcr(); 
+	}
 	xc=xcl;
 	yc=ycl;
 	x=e;
@@ -5607,15 +5593,10 @@ void xload() {
     	bi=ibuffer+1;
 		while (fileavailable()) {
       		ch=fileread();
-      		//Serial.print(ch);
       		if (ch == '\n' || ch == '\r') {
-        	//Serial.println("<NEWLINE>");
         		*bi=0;
         		bi=ibuffer+1;
         		nexttoken();
-        		//Serial.println("After nexttoken :");
-        		//Serial.println((int) token);
-        		//Serial.println(x);
         		if (token == NUMBER) storeline();
         		if (er != 0 ) break;
         		bi=ibuffer+1;
@@ -5695,7 +5676,6 @@ void xput(){
 
 	// modifiers of the put statement
 	if (token == '&') {
-
 		if(!expectexpr()) return;
 		od=pop();
 		if (token != ',') {
@@ -5732,10 +5712,12 @@ void xset(){
 	arg=pop();
 	fn=pop();
 	switch (fn) {		
-		case 1: // autorun/run flag of the EEPROM 255 for clear, 0 for prog, 1 for autorun
+		case 1: 
+			/* autorun/run flag of the EEPROM 255 for clear, 0 for prog, 1 for autorun */
 			eupdate(0, arg);
 			break;
-		case 2: // change the output device 
+		case 2: 
+			/* change the output device (deprectated use @o instead)*/
 			switch (arg) {
 				case 0:
 					od=OSERIAL;
@@ -5745,7 +5727,9 @@ void xset(){
 					break;
 			}		
 			break;
-		case 3: // change the default output device
+		case 3: 
+			/* change the default output device, interpreter returnd to default 
+			in interactive mode */
 			switch (arg) {
 				case 0:
 					od=(odd=OSERIAL);
@@ -5755,7 +5739,8 @@ void xset(){
 					break;
 			}		
 			break;
-		case 4: // change the input device (deprectated use @i instead)
+		case 4: 
+			/* change the input device (deprectated use @i instead) */
 			switch (arg) {
 				case 0:
 					id=ISERIAL;
@@ -5765,7 +5750,9 @@ void xset(){
 					break;
 			}		
 			break;		
-		case 5: // change the default input device 
+		case 5: 
+			/* change the default input device, interpreter returnd to default 
+			in interactive mode */
 			switch (arg) {
 				case 0:
 					idd=(id=ISERIAL);
@@ -5961,7 +5948,7 @@ void xcatalog() {
 
 	rootopen();
 	while (rootnextfile()) {
-		if( rootisfile()) {
+		if(rootisfile()) {
 			name=rootfilename();
 			if (*name != '_' && *name !='.' && streq(name, filename)){
 				outscf(name, 14); outspc();
@@ -6019,6 +6006,7 @@ void xopen() {
 		return;
 	}
 
+	/* modes other than 1,0 ignored and reserved for future use */
 	if (mode == 1) {
 		ofileclose();
 		if (ofileopen(filename)) {
@@ -6153,10 +6141,13 @@ void xcall() {
 	}
 }
 
-// the dartmouth stuff
+/* 
+	The dartmouth stuff for compatibility with older BASICS and 
+	MS basics
+*/
 #ifdef HASDARTMOUTH
 
-// data is simply skipped 
+/* data lines are simply skipped */
 void xdata() {
 	while (!termsymbol()) nexttoken();
 }
@@ -6166,11 +6157,12 @@ void nextdatarecord() {
 	address_t h;
 	signed char s=1;
 
-	// save the location of the interpreter
+/*	save the location of the interpreter, we use gettoken 
+	here to scan the stored program code */
 	h=here;
 
-	// data at zero means we need to init it, by searching
-	// the first data record
+/* data at zero means we need to init it, by searching
+   the first data record */
 	if (data == 0) {
 		here=0;
 		while (here<top && token!=TDATA) gettoken();
@@ -6178,9 +6170,11 @@ void nextdatarecord() {
 	} 
 
 processdata:
-	// data at top means we have exhausted all data 
-	// nothing more to be done here, however we simulate
-	// a number value of 0 here
+/*	data at top means we have exhausted all data 
+	nothing more to be done here, however we simulate
+	a number value of 0 here at every call and set the 
+	ert. This is different to standard Dartmouth basic 
+	needed for the AVAIL function in the Darkarts section */
 	if (data == top) { 
 		token=NUMBER;
 		x=0;
@@ -6189,7 +6183,7 @@ processdata:
 		return;
 	}
 	
-	// we process the data record
+/* we process the data record */
 	here=data;
 	gettoken();
 	if (token == '-') {s=-1; gettoken();}
@@ -6355,7 +6349,7 @@ void xdef(){
 		outcr();
 	}
 
-	// find the function
+	// find the function, this code allows redefinition
 	if ( (a=bfind(TFN, xcl1, ycl1)) == 0 ) a=bmalloc(TFN, xcl1, ycl1, 0);
 	if (DEBUG) {outsc("** found function structure at "); outnumber(a); outcr(); }
 
@@ -6365,7 +6359,7 @@ void xdef(){
 	mem[a+addrsize]=xcl2;
 	mem[a+addrsize+1]=ycl2;
 
-	// skip whatever comes next
+	// skip whatever comes next as the function is used only on FN in factor
 	while (!termsymbol()) nexttoken();
 }
 
@@ -6431,14 +6425,23 @@ void xon(){
 }
 #endif
 
-// the darkarts
+/*
+	the darkarts: commands and features that no one 
+	thought about in standard basic
+	- eval enters new lines into programs from a string
+	- iter creates iterator variables 
+
+*/
 #ifdef HASDARKARTS
+/*	eval uses storeline to convert a string, it doesn't check
+	or fix the pointers of for, data, def fn and gosub. Active 
+	loops subroutines, and data statements break if eval inserts code
+	before active loops, gosubs, and data statements, */
 void xeval(){
 	short i, l;
 	address_t mline, line;
 
-
-	// get the line number to store
+	/* get the line number to store */
 	if (!expectexpr()) return;
 	line=pop();
 
@@ -6447,35 +6450,34 @@ void xeval(){
 		return;
 	}
 
-	// the line to be stored
+	/* the line to be stored */
 	nexttoken();
 	if (! stringvalue()) {
 		error(EARGS); return; 
 	}
 
-	// here we have the string to evaluate in ir2 and copy it to the ibuffer
-	// only one line allowed, BUFSIZE is the limit
+	/* here we have the string to evaluate in ir2 and copy it to the ibuffer
+	   only one line allowed, BUFSIZE is the limit */
 	l=pop();
 	if (l>BUFSIZE-1) {error(ERANGE); return; }
 	for (i=0; i<l; i++) ibuffer[i+1]=ir2[i];
 	ibuffer[l+1]=0;
 	if (DEBUG) {outsc("** Preparing to store line "); outnumber(line); outspc(); outsc(ibuffer+1); outcr(); }
 
-	// we find the line we are currently at
+	/* we find the line we are currently at */
 	if (st != SINT) {
 		mline=myline(here);
 		if (DEBUG) {outsc("** myline is "); outnumber(mline); outcr(); }
 	}
 
-	
-	// go to interactive mode and try to store the line
-	x=line;             // the linennumber
-	push(st); st=SINT;  // go to (fake) interactive mode
-	bi=ibuffer; 		// go to the beginning of the line
-	storeline();  		// try to store it
-	st=pop();			// go back to run mode
+	/* go to interactive mode and try to store the line */
+	x=line;            
+	push(st); st=SINT; 
+	bi=ibuffer; 		
+	storeline();  	
+	st=pop();			
 
-	// find my line - side effects not checked here
+	/* find my line - side effects not checked here */
 	if (st != SINT) {
 		findline(mline);
 		nextline();
@@ -6592,7 +6594,7 @@ void statement(){
 				break;
 			case TLOAD: 
 				xload();
-				return; // load doesn't like break as the ibuffer is messed up;
+				return; /* load doesn't like break as the ibuffer is messed up; */
 			case TGET:
 				xget();
 				break;
@@ -6606,7 +6608,7 @@ void statement(){
 				outch(12);
 				nexttoken();
 				break;
-// Arduino IO
+/* Arduino IO */
 #ifdef HASARDUINOIO
 			case TDWRITE:
 				xdwrite();
@@ -6626,7 +6628,7 @@ void statement(){
 				break;	
 #endif
 #endif
-// SD card DOS function 
+/* SD card DOS function */
 #ifdef HASFILEIO
 			case TCATALOG:
 				xcatalog();
@@ -6641,11 +6643,11 @@ void statement(){
 				xclose();
 				break;
 #endif
-// low level functions 
+/* low level functions */
 			case TCALL:
 				xcall();
 				break;	
-// graphics 
+/* graphics */
 #ifdef HASGRAPH
 			case TCOLOR:
 				xcolor();
@@ -6694,19 +6696,21 @@ void statement(){
 				xiter();
 				break;	
 #endif
-// and all the rest
+			/* and all the rest */
 			case UNKNOWN:
 				error(EUNKNOWN);
 				return;
 			case ':':
 				nexttoken();
 				break;
-			default: // very tolerant - tokens are just skipped 
-				if (DEBUG) outsc("** hoppla - unexpected token, skipped "); debugtoken();
+			default: 
+				/* very tolerant - tokens are just skipped */
+				if (DEBUG) { outsc("** hoppla - unexpected token, skipped "); debugtoken(); }
 				nexttoken();
 		}
 #ifdef ARDUINO
-		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;};  // on an Arduino entering "#" at runtime stops the program
+		/* on an Arduino entering "#" at runtime stops the program */
+		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;};  
 #endif
 		if (er) return;
 	}
@@ -6718,7 +6722,7 @@ void setup() {
 	ballocmem();
 	himem=memsize;
 #endif
-// needed for the millis routine
+/* needed for the millis routine */
 #ifndef ARDUINO
 	ftime(&start_time);
 #endif
@@ -6743,17 +6747,15 @@ void setup() {
  	}
 #endif
 #ifdef ARDUINOEEPROM
-  	if (eread(0) == 1){ // autorun from the EEPROM
+  	if (eread(0) == 1){ /* autorun from the EEPROM */
   		egetnumber(1, addrsize);
   		top=z.a;
-		//top=(unsigned char) eread(1);
-		//top+=((unsigned char) eread(2))*256;
   		st=SERUN;
   	} 
 #endif
 }
 
-// the loop routine for interactive input 
+/* the loop routine for interactive input */
 void loop() {
 
 	if (st != SERUN) {
@@ -6773,12 +6775,12 @@ void loop() {
       		statement();   
     	}
 
-    	// here, at last, all errors need to be catched
+    	/* here, at last, all errors need to be catched */
     	if (er) reseterror();
 
 	} else {
 		xrun();
-		// cleanup needed after autorun, top is the EEPROM top
+		/* cleanup needed after autorun, top is the EEPROM top */
     	top=0;
 	}
 }
