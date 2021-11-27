@@ -1,1 +1,1 @@
-cat $1 | sed 's/\/\/.*$//g' | perl -pe 's/\r\n|\n|\r/\r\n/g' 
+cat $1 | sed 's/\/\/.*$//g' | perl -pe 's/\r\n|\n|\r/\r\n/g' | sed 's/^#undef.*MSDOS/#define MSDOS/'
