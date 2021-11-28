@@ -6,9 +6,9 @@ My attempt to create a small basic interpreter from scratch using frugal program
 
 The program is written in C but only putchar and getchar are used from the libraries. All other code is done by hand. The C stack is not used for arithmetic to keep it minimal. The interpreter uses a set of global variables, an own stack and a static memory and variable array to emulate the low memory environment of the early microcomputers. 
 
-Arithmetic is 16 bit. The full set of logical expresssions with NOT, AND, OR is implemented C style. Conditions are part of the arithemtic and not separate like in many basic dialects. This makes the call stack of the recursive descent deeper but simplifies other code. To reduce the memory footprint of this part of the runtime code no arguments are passed in the C functions. Instead, an own multi purpose 16 bit stack is added. 
+Arithmetic is 16 bit, 32bit or float. The full set of logical expresssions with NOT, AND, OR is implemented C style. Conditions are part of the arithemtic and not separate like in many basic dialects. This makes the call stack of the recursive descent deeper but simplifies other code. To reduce the memory footprint of this part of the runtime code no arguments are passed in the C functions. Instead, an own multi purpose 16 bit stack is added. 
 
-Memory access is strictly 16bit and 8bit. For memory, stack and variable access, array logic is used and not C pointers. This allows all pointers to be short integers which can be stored on the arithmetic stack if needed. 
+Memory access by default is strictly 8bit. For memory, stack and variable access, array logic is used and not C pointers. This allows all pointers to be integers which can be stored on the arithmetic stack if needed. 
 
 The interpreted can be compliled with standard gcc on almost any architecture or in the Arduino IDE without changes. 
 
@@ -31,16 +31,24 @@ I have never worked with a computer running any of the two BASIC dialects. All t
 
 A few things have been added by myself. As the main target hardware is Arduino microcontrollers, I added EEPROM access, EEPROM program storage and autorun, control of digital and analog I/O as well as the delay function.
 
+In the meantime the interpreter has grown to include the full Dartmouth language set like READ/DATA, DEFFN and ON/GOTO. 
+
 For further information, please look at: https://github.com/slviajero/tinybasic/wiki
 
 ## Files in this archive 
 
-basic.c is the program source. It can be compiled directly with gcc. No header is needed or supplied.
+basic.c is the program source. It can be compiled directly with gcc. No header or makefile is needed.
 
-TinybasicArduino/TinybasicArduino.ino is an exact copy of basic.c, nothing needs to be added or adapted.
+TinybasicArduino/TinybasicArduino.ino is an exact copy of basic.c, nothing needs to be added or adapted except the defs at the beginning of the code.
 
 monitor.py is a little serial monitor to interact with the running BASIC interpreter on the Arduino. It allows very simple loading of files into the Arduino and saving of output to a file on a computer. arduinoterm is a wrapper of monitor.py.
 
+dosify converts the code to tcc 2.01 ready format to be compiled in DOSBOX.
+
 The various programs with the extension .bas are test files for the interpreter. 
+
+## What's next
+
+A FreeRTOS port without the need of the Arduino toolchain.
 
 
