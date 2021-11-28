@@ -53,19 +53,19 @@
 #define HASDUMP
 #define HASAPPLE1
 #define HASARDUINOIO
-#define HASFILEIO
-#define HASTONE
-#define HASPULSE
+#undef  HASFILEIO
+#undef HASTONE
+#undef HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#define HASVT52
-#undef  HASFLOAT
-#undef  HASGRAPH
-#define  HASDARTMOUTH
-#define  HASDARKARTS
+#undef HASVT52
+#undef HASFLOAT
+#undef HASGRAPH
+#undef HASDARTMOUTH
+#undef HASDARKARTS
 
 // hardcoded memory size set 0 for automatic malloc
-#define MEMSIZE 1014
+#define MEMSIZE 1024
 
 // these are the definitions for various arduino extensions
 // computer. All of them are memory hungry
@@ -77,7 +77,7 @@
 #undef ARDUINOPS2
 // output methods
 #undef ARDUINOPRT
-#define DISPLAYCANSCROLL
+#undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef LCDSHIELD
 #undef ARDUINOTFT
