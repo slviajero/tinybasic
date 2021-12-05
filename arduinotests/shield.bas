@@ -1,7 +1,8 @@
-10 PRINT &2,"LCD shield test"
-20 PRINT &2,"Key code: ";
-30 @X=8:@Y=1
-40 GET &2,A
-50 IF A<>0 THEN PRINT &2,A;
-60 DELAY 10
-70 GOTO 30
+10 PUT &2, 12
+20 PRINT &2,"LCD shield test"
+30 PRINT &2,"Key code: ";
+40 @X=8:@Y=1
+50 GET &2,A
+60 IF A<>0 THEN PRINT &2,A;
+70 DELAY 10
+80 GOTO 30
