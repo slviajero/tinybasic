@@ -12,8 +12,7 @@
 	- for any Arduino with serial I/O or a Mac nothing has 
 		to be set here. The default settings are correct
 		for Arduino boards including MK. 
-	- MINGW disables the timing functions for a MINGW Windows
-	 	executable.
+	- MINGW switches on Windows calls. MSDOS for MSDOS file access.
 	- DUE unfortunately needs a special setting as it has no 
 		tone() function
 	- for ESP8266 boards define this macro (#define ESP8266)
@@ -27,7 +26,6 @@
 			below. 
 	- _if_  and PS2 are both activated STANDALONE cause the Arduino
 			to start with keyboard and lcd as standard devices.
-	- ARDUINOTFT is not yet implemented
 	- ARDUINOEEPROM includes the EEPROM access code
 	- ARDUINOSD and ESPSPIFFS activate filesystem code (rudimentary)
 	- HAS* activates or deactives features of the interpreter
@@ -41,14 +39,18 @@
 		from 60000 to 128 bytes.
 */ 
 
-// architectures 
+/*
+	 architectures with special needs
+*/
 #undef ARDUINODUE
 #undef RP2040
 #undef ESP8266
 #undef MINGW
 #undef MSDOS
 
-// interpreter features
+/*
+	interpreter features
+*/
 #define HASFORNEXT
 #define HASDUMP
 #define HASAPPLE1
@@ -64,13 +66,12 @@
 #define  HASDARTMOUTH
 #define  HASDARKARTS
 
-// hardcoded memory size set 0 for automatic malloc
+/* hardcoded memory size set 0 for automatic malloc */
 #define MEMSIZE 0
 
-// these are the definitions for various arduino extensions
-// computer. All of them are memory hungry
-// 
-// Arduino features
+/* 
+	Arduino hardware settings 
+*/
 #undef USESPICOSERIAL
 #define ARDUINOEEPROM
 // input methods 
@@ -4959,7 +4960,7 @@ void xif() {
 	if (DEBUG) { outnumber(x); outcr(); } 
 
 	// on condition false skip the entire line
-	if (!x) while(!termsymbol()) nexttoken();
+	if (!x) while(token != LINENUMBER && token != EOL) nexttoken();
 	
 	// a then token is interpreted as simple one statement goto	
 	if (token == TTHEN) {
