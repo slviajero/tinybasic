@@ -4959,7 +4959,7 @@ void xif() {
 	x=pop();
 	if (DEBUG) { outnumber(x); outcr(); } 
 
-	// on condition false skip the entire line
+	// on condition false skip the entire line 
 	if (!x) while(token != LINENUMBER && token != EOL) nexttoken();
 	
 	// a then token is interpreted as simple one statement goto	
