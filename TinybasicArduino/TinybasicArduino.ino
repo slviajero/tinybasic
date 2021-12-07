@@ -67,7 +67,7 @@
 #undef  HASDARKARTS
 
 /* hardcoded memory size set 0 for automatic malloc */
-#define MEMSIZE 1024
+#define MEMSIZE 0
 
 /* 
 	Arduino hardware settings 
@@ -80,7 +80,7 @@
 #undef ARDUINOPRT
 #define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
-#define LCDSHIELD
+#undef LCDSHIELD
 #undef ARDUINOTFT
 // storage methods
 #undef ARDUINOSD
@@ -161,9 +161,9 @@ const int serial_baudrate = 9600;
 const int serial_baudrate = 0;
 #endif
 #ifdef ARDUINOPRT
-const int printer_baudrate = 9600;
+const int serial1_baudrate = 9600;
 #else
-const int printer_baudrate = 0;
+const int serial1_baudrate = 0;
 #endif
 
 // general definitions
@@ -334,6 +334,7 @@ const int printer_baudrate = 0;
 
 #define ISERIAL 1
 #define IKEYBOARD 2
+#define ISERIAL1 4
 #define IFILE 16
 
 /*
@@ -1122,6 +1123,18 @@ void bmillis() {
 	push(m);
 }
 void bpulsein() { pop(); pop(); pop(); push(0); }
+#endif
+
+/* start a secondary serial port for printing and/or networking */
+#ifdef ARDUINOPRT
+#ifndef ARDUINO_AVR_MEGA2560
+#include <SoftwareSerial.h>
+/* definition of the serial port pins from "pretzel board"
+for UNO 11 is not good for rx */
+const int software_serial_rx = 11;
+const int software_serial_tx = 12;
+SoftwareSerial Serial1(software_serial_rx, software_serial_tx);
+#endif
 #endif
 
 /* 	
@@ -2485,7 +2498,7 @@ char ofileopen(char* filename){
 	return (int) ofile;
 #else
 #ifdef ARDUINOSD
-	ofile=SD.open(filename, FILE_WRITE);
+	ofile=SD.open(filename, FILE_OWRITE);
 	return (int) ofile;
 #else
 #ifdef ESPSPIFFS
@@ -2662,7 +2675,7 @@ void serialwrite(char c) {
 // printer wrappers
 void prtbegin() {
 #ifdef ARDUINOPRT
-	Serial1.begin(printer_baudrate);
+	Serial1.begin(serial1_baudrate);
 #endif
 }
 
@@ -2743,6 +2756,15 @@ char inch(){
 		while(c == 0); 
 		return c;
 	}
+	if (id == IFILE) return fileread();
+#ifdef ARDUINOPRT
+	if (id == ISERIAL1) {
+		do 
+			if (Serial1.available()) c=Serial1.read();
+		while(c == 0); 
+		return c;
+	}
+#endif
 #ifdef ARDUINOPS2	
 	if (id == IKEYBOARD) {
 		do {
@@ -2764,7 +2786,12 @@ char inch(){
 }
 
 char checkch(){
-	 if (Serial.available() && id == ISERIAL) return Serial.peek(); 
+	if (id == IFILE) return TRUE; 
+	if (Serial.available() && id == ISERIAL) return Serial.peek(); 
+#ifdef ARDUINOPRT
+	 // Software Serial bug Serial1.peek() doesn't work on some platforms
+	if (Serial1.available() && id == ISERIAL1) return TRUE; 
+#endif
 #ifdef ARDUINOPS2
 	if (keyboard.available() && id == IKEYBOARD) return keyboard.read();
 #else 
@@ -2779,7 +2806,7 @@ void ins(char *b, short nb) {
   	short i = 1;
   	while(i < nb-1) {
     	c=inch();
-    	outch(c);
+    	if (id != IFILE) outch(c);
     	if (c == '\n' || c == '\r') {
       		b[i]=0x00;
       		b[0]=i-1;
@@ -4959,7 +4986,7 @@ void xif() {
 	x=pop();
 	if (DEBUG) { outnumber(x); outcr(); } 
 
-	// on condition false skip the entire line
+	// on condition false skip the entire line 
 	if (!x) while(token != LINENUMBER && token != EOL) nexttoken();
 	
 	// a then token is interpreted as simple one statement goto	
@@ -6093,7 +6120,7 @@ void xusr() {
 				case 10: push(BUFSIZE); break;
 				case 11: push(SBUFSIZE); break;
 				case 12: push(serial_baudrate); break;
-				case 13: push(printer_baudrate); break;
+				case 13: push(serial1_baudrate); break;
 				case 14: push(dsp_rows); break;
 				case 15: push(dsp_columns); break;
 				default: push(0);
