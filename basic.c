@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.111 2021/11/25 05:02:34 stefan Exp stefan $
+// $Id: basic.c,v 1.113 2021/12/09 18:13:03 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -161,9 +161,13 @@ const int serial_baudrate = 9600;
 const int serial_baudrate = 0;
 #endif
 #ifdef ARDUINOPRT
-const int serial1_baudrate = 9600;
+const int serial1_baudrate = 19200;
+char sendcr = 0;
+short blockmode = 0;
 #else
 const int serial1_baudrate = 0;
+char sendcr = 0;
+short blockmode = 0;
 #endif
 
 // general definitions
@@ -880,6 +884,7 @@ void picogetchar(int);
 void outch(char);
 char inch();
 char checkch();
+short availch();
 void ins(char*, short); 
 
 // from here on the functions only use the functions above
@@ -1739,7 +1744,7 @@ number_t getvar(char c, char d){
 			case 'O':
 				return od;
 			case 'C':
-				if (checkch()) return inch(); else return 0;
+				if (availch()) return inch(); else return 0;
 			case 'E':
 				return elength();
 			case 'R':
@@ -2672,6 +2677,7 @@ void serialwrite(char c) {
 	return;	
 }
 
+
 // printer wrappers
 void prtbegin() {
 #ifdef ARDUINOPRT
@@ -2706,12 +2712,17 @@ char checkch(){
 	return TRUE;
 }
 
+short availch(){
+  return 1;
+}
+
 void ins(char *b, short nb) {
 	char c;
 	short i = 1;
 	while(i < nb-1) {
 		c=inch();
-		if (c == '\n' || c == '\r') {
+		if (c == '\r') c=inch();
+		if (c == '\n') {
 			b[i]=0x00;
 			b[0]=i-1;
 			break;
@@ -2750,73 +2761,148 @@ void serialbegin() {
 
 char inch(){
 	char c=0;
-	if (id == ISERIAL) {
-		do 
-			if (Serial.available()) c=Serial.read();
-		while(c == 0); 
-		return c;
-	}
-	if (id == IFILE) return fileread();
+
+	switch(id) {
+		case ISERIAL:
+			while (!Serial.available());
+			return Serial.read();		
+		case IFILE:
+			return fileread();
 #ifdef ARDUINOPRT
-	if (id == ISERIAL1) {
-		do 
-			if (Serial1.available()) c=Serial1.read();
-		while(c == 0); 
-		return c;
-	}
+		case ISERIAL1:
+			while (!Serial1.available());
+			return Serial1.read();
+#endif				
+		case IKEYBOARD:
+#ifdef ARDUINOPS2		
+			do {
+				if (keyboard.available()) c=keyboard.read();
+				delay(1); // this seems to be needed on an ESP
+			} while(c == 0);	
+    		if (c == 13) c=10;
+    		// check if really needed - DUE vs. MEGA descrepancy 
+    		//if (c == '^') c='@';
+			return c;
 #endif
-#ifdef ARDUINOPS2	
-	if (id == IKEYBOARD) {
-		do {
-			if (keyboard.available()) c=keyboard.read();
-			delay(1); // this seems to be needed on an ESP
-		} while(c == 0);	
-    	if (c == 13) c=10;
-    	// check if really needed - DUE vs. MEGA descrepancy 
-    	//if (c == '^') c='@';
-		return c;
-	}
-#else 
 #ifdef LCDSHIELD
-	if (id == IKEYBOARD) {
-		return keypadread();
+			return keypadread();
+#endif
+			break;
 	}
-#endif
-#endif
 }
 
 char checkch(){
-	if (id == IFILE) return TRUE; 
-	if (Serial.available() && id == ISERIAL) return Serial.peek(); 
+	switch (id) {
+		case ISERIAL:
+			if (Serial.available()) return Serial.peek(); 
+			break;
+		case IFILE:
+			return fileavailable();
+			break;
 #ifdef ARDUINOPRT
-	 // Software Serial bug Serial1.peek() doesn't work on some platforms
-	if (Serial1.available() && id == ISERIAL1) return TRUE; 
+		case ISERIAL1:
+			if (Serial1.available()) return Serial1.peek();
+			break; 
 #endif
-#ifdef ARDUINOPS2
-	if (keyboard.available() && id == IKEYBOARD) return keyboard.read();
-#else 
+		case IKEYBOARD:
+#ifdef ARDUINOPS2		
+			if (keyboard.available()) return keyboard.read();
+#endif
 #ifdef LCDSHIELD
-	return keypadread();
+			return keypadread();
 #endif
-#endif
+			break;
+	}
+	return 0;
 }
+
+short availch(){
+  switch (id) {
+    case ISERIAL:
+      return Serial.available(); 
+    case IFILE:
+      return fileavailable();
+#ifdef ARDUINOPRT
+    case ISERIAL1:
+      return Serial1.available();
+#endif
+    case IKEYBOARD:
+#ifdef ARDUINOPS2   
+      return keyboard.available());
+#endif
+#ifdef LCDSHIELD
+      return (keypadread() != 0);
+#endif
+      break;
+  	}
+}
+
+
+/* 
+	ins is the generic reader into a string, by default 
+	it works in line mode and ends reading after newline
+	this version can only read max 256 bytes
+*/
 
 void ins(char *b, short nb) {
   	char c;
   	short i = 1;
-  	while(i < nb-1) {
-    	c=inch();
-    	if (id != IFILE) outch(c);
-    	if (c == '\n' || c == '\r') {
-      		b[i]=0x00;
-      		b[0]=i-1;
-      		break;
-    	} else if ( (c == 127 || c == 8) && i>1) {
-      		i--;
-    	} else {
-      		b[i++]=c;
-    	} 
-  	}
+    // only ISERIAL 1 can be switched to block mode right now
+    if (blockmode > 0 && id == ISERIAL1 ) {
+    	inb(b, nb);
+    } else {
+      // line mode 
+  	  while(i < nb-1) {
+    	  c=inch();
+    	  if (id == ISERIAL || id == IKEYBOARD) outch(c);
+    	  if (c == '\r') c=inch(); /* skip carriage return */
+    	  if (c == '\n') {
+      		  b[i]=0x00;
+      		  b[0]=i-1;
+      		  break;
+    	  }   else if ( (c == 127 || c == 8) && i>1) {
+      		  i--;
+    	  } else {
+      		  b[i++]=c;
+    	  } 
+  	  }
+    }  
+}
+
+/* 
+	the block mode reader for esp and sensor modules 
+ 	on a serial interface, it tries to read as many 
+ 	characters as possible into a buffer
+ 	blockmode = 1 reads once availch() bytes
+ 	blockmode > 1 implements a timeout mechanism and tries 
+ 		to read until blockmode milliseconds have expired
+ 		this is needed for esps and other sensors without
+ 		flow control and volatile timing to receive more 
+ 		then 64 bytes 
+*/
+void inb(char *b, short nb) {
+	long m;
+	short i = 0;
+	if (blockmode == 1 ) {
+	    i=availch();
+    	if (i>nb-1) i=nb-1;
+    	b[0]=i;
+    	b[i+1]=0;
+    	b++;
+    	while (i--) {*b++=inch();} 	
+	} else if (blockmode > 1) {
+		m=millis();
+		while (i < nb-1) {
+			if (availch()) b[++i]=inch();
+			if (millis() > m+blockmode) break;
+		}
+		b[0]=i;
+		b[i+1]=0;
+	} else {
+		b[0]=0;
+		b[1]=0;
+	}
+	
 }
 
 #else 
@@ -2873,12 +2959,20 @@ char inch(){
 }
 
 char checkch(){
-    if (id == ISERIAL) return picochar;
+    if (id == ISERIAL) return picoi;
+#ifdef LCDSHIELD
+	if (id =IKEYBOARD) return (keypadread()!=0);
+#endif
+}
+
+short availch(){
+	if (id == ISERIAL) return picochar;
 #ifdef LCDSHIELD
 	if (id =IKEYBOARD) return keypadread();
 #endif
 }
 
+/* serial pico code only implements serial input and no input channels */
 void ins(char *b, short nb) {
 	picob=b;
 	picobsize=nb;
@@ -2910,6 +3004,9 @@ void outch(char c) {
 
 // send a newline
 void outcr() {
+#ifdef ARDUINOPRT
+	if (sendcr) outch('\r');
+#endif
 	outch('\n');
 } 
 
@@ -4849,7 +4946,7 @@ nextstring:
 
 nextvariable:
 	if (token == VARIABLE) {   
-		if (id != IFILE) outsc("? ");
+		if (id == ISERIAL || id == IKEYBOARD) outsc("? ");
 		if (innumber(&x) == BREAKCHAR) {
 			setvar(xc, yc, 0);
 			st=SINT;
@@ -4871,7 +4968,7 @@ nextvariable:
 			return;
 		}
 
-		if (id != IFILE) outsc("? ");
+		if (id == ISERIAL || id == IKEYBOARD) outsc("? ");
 		if (innumber(&x) == BREAKCHAR) {
 			x=0;
 			array('s', xc, yc, pop(), &x);
@@ -4887,9 +4984,9 @@ nextvariable:
 #ifdef HASAPPLE1
 	if (token == STRINGVAR) {
 		ir=getstring(xc, yc, 1); 
-		if (id != IFILE) outsc("? ");
+		if (id == ISERIAL || id == IKEYBOARD) outsc("? ");
 		ins(ir-1, stringdim(xc, yc));
-		if (xc != '@' && strindexsize == 2) { // hack hack
+		if (xc != '@' && strindexsize == 2) { // hack hack limits string length on input
 			*(ir-2)=*(ir-1);
 			*(ir-1)=0;
 		}
@@ -5701,7 +5798,7 @@ void xget(){
 	if (er != 0) return;
 
 	// get the data
-	if (checkch()) push(inch()); else push(0);
+	if (availch()) push(inch()); else push(0);
 
 	// store the data element as a number
 	assignnumber(t, xcl, ycl, i, ps);
@@ -5803,6 +5900,14 @@ void xset(){
 					break;
 			}		
 			break;	
+#ifdef ARDUINOPRT
+		case 6: // set the cr behaviour
+			sendcr=(char)arg;
+			break;
+		case 7: // set the blockmode behaviour
+      		blockmode=arg;
+      		break;
+#endif
 	}
 }
 
