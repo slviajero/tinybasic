@@ -63,8 +63,9 @@
 #define HASVT52
 #define  HASFLOAT
 #undef  HASGRAPH
-#define  HASDARTMOUTH
-#define  HASDARKARTS
+#define HASDARTMOUTH
+#define HASDARKARTS
+#define HASIOT
 
 /* hardcoded memory size set 0 for automatic malloc */
 #define MEMSIZE 0
@@ -300,6 +301,7 @@ short blockmode = 0;
 #define TMALLOC -37
 #define TFIND   -36
 #define TEVAL   -35
+// iot extensions
 #define TITER	-34
 #define TAVAIL	-33
 // constants used for some obscure purposes 
@@ -463,6 +465,9 @@ const char son[]   	PROGMEM  = "ON";
 const char smalloc[]	PROGMEM  = "MALLOC";
 const char sfind[]		PROGMEM  = "FIND";
 const char seval[]		PROGMEM  = "EVAL";
+#endif
+// iot extensions
+#ifdef HASIOT
 const char siter[]		PROGMEM  = "ITER";
 const char savail[]		PROGMEM  = "AVAIL";
 #endif
@@ -518,7 +523,10 @@ const char* const keyword[] PROGMEM = {
 	sdata, sread, srestore, sdef, sfn, son,
 #endif
 #ifdef HASDARKARTS
-	smalloc, sfind, seval, siter, savail,
+	smalloc, sfind, seval, 
+#endif
+#ifdef HASIOT
+	siter, savail,
 #endif
 // the end 
 	0
@@ -572,9 +580,13 @@ const signed char tokens[] = {
 #ifdef HASDARTMOUTH
 	TDATA, TREAD, TRESTORE, TDEF, TFN, TON,
 #endif
-// The Darkarts commands that shouldn't be there
+// the Darkarts commands that shouldn't be there
 #ifdef HASDARKARTS
-	TMALLOC, TFIND, TEVAL, TITER, TAVAIL,
+	TMALLOC, TFIND, TEVAL, 
+#endif
+// IOT extensions
+#ifdef HASIOT
+	TITER, TAVAIL,
 #endif
 // the end
 	0
@@ -2713,23 +2725,28 @@ char checkch(){
 }
 
 short availch(){
-  return 1;
+	if (id == ISERIAL)
+		return 1; 
+	if (id == IFILE) 
+		return fileavailable();
+	return 0;
 }
 
 void ins(char *b, short nb) {
 	char c;
 	short i = 1;
-	while(i < nb-1) {
+	while(i < nb) {
 		c=inch();
 		if (c == '\r') c=inch();
-		if (c == '\n') {
-			b[i]=0x00;
-			b[0]=i-1;
+		if (c == '\n' ) {
 			break;
 		} else {
 			b[i++]=c;
 		} 
 	}
+	b[i]=0x00;
+	b[0]=(unsigned char)i-1;
+	z.a=i-1;
 }
 
 #else 
@@ -2828,7 +2845,7 @@ short availch(){
 #endif
     case IKEYBOARD:
 #ifdef ARDUINOPS2   
-      return keyboard.available());
+      return keyboard.available();
 #endif
 #ifdef LCDSHIELD
       return (keypadread() != 0);
@@ -2852,13 +2869,11 @@ void ins(char *b, short nb) {
     	inb(b, nb);
     } else {
       // line mode 
-  	  while(i < nb-1) {
+  	  while(i < nb) {
     	  c=inch();
     	  if (id == ISERIAL || id == IKEYBOARD) outch(c);
     	  if (c == '\r') c=inch(); /* skip carriage return */
     	  if (c == '\n') {
-      		  b[i]=0x00;
-      		  b[0]=i-1;
       		  break;
     	  }   else if ( (c == 127 || c == 8) && i>1) {
       		  i--;
@@ -2866,6 +2881,9 @@ void ins(char *b, short nb) {
       		  b[i++]=c;
     	  } 
   	  }
+  	  b[i]=0x00;
+      b[0]=(unsigned char)i-1;
+      z.a=i-1; 
     }  
 }
 
@@ -2886,7 +2904,8 @@ void inb(char *b, short nb) {
 	if (blockmode == 1 ) {
 	    i=availch();
     	if (i>nb-1) i=nb-1;
-    	b[0]=i;
+    	b[0]=(unsigned char)i;
+    	z.a=i;
     	b[i+1]=0;
     	b++;
     	while (i--) {*b++=inch();} 	
@@ -2896,10 +2915,12 @@ void inb(char *b, short nb) {
 			if (availch()) b[++i]=inch();
 			if (millis() > m+blockmode) break;
 		}
-		b[0]=i;
+		b[0]=(unsigned char)i;
+		z.a=i;
 		b[i+1]=0;
 	} else {
 		b[0]=0;
+		z.a=0;
 		b[1]=0;
 	}
 	
@@ -2935,6 +2956,7 @@ void picogetchar(int c){
 			picoa = TRUE;
 			picob[picoi]=0;
 			picob[0]=picoi;
+			z.a=picoi;
 			picoi=1;
 		}
 		picochar=0; // every buffered byte is deleted
@@ -2959,16 +2981,16 @@ char inch(){
 }
 
 char checkch(){
-    if (id == ISERIAL) return picoi;
+    if (id == ISERIAL) return picochar;
 #ifdef LCDSHIELD
 	if (id =IKEYBOARD) return (keypadread()!=0);
 #endif
 }
 
 short availch(){
-	if (id == ISERIAL) return picochar;
+	if (id == ISERIAL) return picoi;
 #ifdef LCDSHIELD
-	if (id =IKEYBOARD) return keypadread();
+	if (id =IKEYBOARD) return (keypadread()!=0);
 #endif
 }
 
@@ -4279,7 +4301,9 @@ void xfind() {
 	h=pop();
 	push(bfind(TBUFFER, h%256, 0));
 }
+#endif
 
+#ifdef HASIOT
 // NEXT can be a function in the context of iterators
 void xinext() {
 	push(pop());
@@ -4336,6 +4360,15 @@ void xfn() {
 	setvar(vxc, vyc, xt);
 
 	// no nexttoken as this is called in factor
+}
+#endif
+
+#ifdef HASIOT
+void xavail() {
+	short oid=id;
+	id=pop();
+	push(availch());
+	id=oid;
 }
 #endif
 
@@ -4415,6 +4448,11 @@ void factor(){
 				return;	
 			}
 			break;
+#ifdef HASIOT
+		case TAVAIL:
+			parsefunction(xavail, 1);
+			break;	
+#endif
 		case TLOMEM:
 			push(0);
 			break;
@@ -4504,6 +4542,8 @@ void factor(){
 		case TFIND:
 			parsefunction(xfind, 1);
 			break;
+#endif
+#ifdef HASIOT
 		case TNEXT:
 			parsefunction(xinext, 1);
 			break;
@@ -4982,13 +5022,17 @@ nextvariable:
 	}
 
 #ifdef HASAPPLE1
+	/* strings are not passed through the input buffer but inputed directly 
+	   in the string memory location */
 	if (token == STRINGVAR) {
 		ir=getstring(xc, yc, 1); 
 		if (id == ISERIAL || id == IKEYBOARD) outsc("? ");
 		ins(ir-1, stringdim(xc, yc));
-		if (xc != '@' && strindexsize == 2) { // hack hack limits string length on input
-			*(ir-2)=*(ir-1);
-			*(ir-1)=0;
+		/* this is the length information correction for large strings, ins
+			stored the string length in z.a as a side effect */
+		if (xc != '@' && strindexsize == 2) { 
+			*(ir-2)=z.b.l;
+			*(ir-1)=z.b.h;
 		}
  	}
 #endif
@@ -5106,7 +5150,7 @@ void xif() {
 
 // find the NEXT token or the end of the program
 void findnextcmd(){
-	while (DEBUG) {
+	while (TRUE) {
 	    if (token == TNEXT) {
 	    	if (fnc == 0) return;
 	    	else fnc--;
@@ -6614,7 +6658,9 @@ void xeval(){
 		nextline();
 	}
 }
+#endif
 
+#ifdef HASIOT
 void xiter(){
 	nexttoken();
 }
@@ -6823,6 +6869,8 @@ void statement(){
 			case TEVAL:
 				xeval();
 				break;
+#endif
+#ifdef HASIOT
 			case TITER:
 				xiter();
 				break;	
@@ -6894,7 +6942,7 @@ void loop() {
 		iodefaults();
 
 		printmessage(MPROMPT);
-    	ins(ibuffer, BUFSIZE);
+    	ins(ibuffer, BUFSIZE-2);
         
         bi=ibuffer;
 		nexttoken();
