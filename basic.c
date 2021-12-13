@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.113 2021/12/09 18:13:03 stefan Exp stefan $
+// $Id: basic.c,v 1.114 2021/12/13 19:29:45 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -1595,7 +1595,7 @@ void dspsetcursor(short c, short r) {}
 #if MEMSIZE == 0
 // guess the possible basic memory size
 void ballocmem() {
-	short i = 0;
+	signed char i = 0;
 	// 									RP2040      ESP        MK   MEGA   UNO  168  FALLBACK
 	const unsigned short memmodel[9] = {60000, 48000, 46000, 28000, 6000, 4096, 1024, 512, 128}; 
 
@@ -1840,7 +1840,7 @@ void setvar(char c, char d, number_t v){
 
 // clr all variables 
 void clrvars() {
-	int i;
+	signed char i;
 	for (i=0; i<VARSIZE; i++) vars[i]=0;
 	nvars=0;
 	himem=memsize;
@@ -1850,7 +1850,7 @@ void clrvars() {
 // this can sometimes also access eeproms for autorun through
 // the memread wrapper - still not really redundant to egetnumber
 void getnumber(address_t m, short n){
-	int i;
+	signed char i;
 
 	z.i=0;
 
@@ -1872,7 +1872,7 @@ void getnumber(address_t m, short n){
 
 // the eeprom memory access 
 void egetnumber(address_t m, short n){
-	int i;
+	signed char i;
 
 	z.i=0;
 
@@ -1891,7 +1891,7 @@ void egetnumber(address_t m, short n){
 
 // set a number at a memory location
 void setnumber(address_t m, short n){
-	int i;
+	signed char i;
 
 	switch (n) {
 		case 1:
@@ -1907,7 +1907,7 @@ void setnumber(address_t m, short n){
 }
 
 void esetnumber(address_t m, short n){
-	int i; 
+	signed char i; 
 
 	switch (n) {
 		case 1:
@@ -3787,7 +3787,6 @@ void diag(){
 #endif
 
 void storeline() {
-
 	const short lnlength=addrsize+1;
 	short linelength;
 	number_t newline; 
@@ -4024,7 +4023,7 @@ void parseoperator(void (*f)()) {
 #ifdef HASAPPLE1
 void parsesubstring() {
 	char xc1, yc1; 
-	short args;
+	char args;
 	address_t h1; // remember the here
 	char * bi1;
 
@@ -4365,7 +4364,7 @@ void xfn() {
 
 #ifdef HASIOT
 void xavail() {
-	short oid=id;
+	unsigned char oid=id;
 	id=pop();
 	push(availch());
 	id=oid;
@@ -4377,7 +4376,7 @@ void xavail() {
 // nothing here should end with a new token - this is handled 
 // in factors calling function
 void factor(){
-	short args;
+	char args;
 	if (DEBUG) debug("factor\n");
 	switch (token) {
 		case NUMBER: 
@@ -4789,7 +4788,7 @@ separators:
 */
 
 void lefthandside(address_t* i, char* ps) {
-	short args;
+	char args;
 
 	switch (token) {
 		case VARIABLE:
@@ -4866,7 +4865,6 @@ void assignment() {
 	char xcl, ycl; // to preserve the left hand side variable names
 	address_t i=1;      // and the beginning of the destination string  
 	address_t lensource, lendest, newlength;
-	short args;
 	char s;
 	int j;
 
@@ -4953,8 +4951,8 @@ void assignment() {
 */
 
 void xinput(){
-	short args;
-	short oldid = -1;
+	char args;
+	char oldid = 0;
 
 	nexttoken();
 
@@ -5043,7 +5041,7 @@ nextvariable:
 		goto nextstring;
 	}
 
-	if (oldid != -1) id=oldid;
+	if (oldid != 0) id=oldid;
 
 }
 
@@ -5086,7 +5084,7 @@ void clrgosubstack() {
 
 // goto and gosub function for a simple one statement goto
 void xgoto() {
-	short t=token;
+	signed char t=token;
 
 	if (!expectexpr()) return;
 	if (t == TGOSUB) pushgosubstack();
@@ -5517,8 +5515,6 @@ nextvariable:
 		goto nextvariable;
 	}
 
-
-
 	nexttoken();
 }
 
@@ -5579,7 +5575,7 @@ void xtab(){
 #ifdef HASDUMP
 void xdump() {
 	address_t a;
-	address_t arg;
+	char arg;
 	
 	nexttoken();
 	arg=parsearguments();
@@ -5816,7 +5812,7 @@ void xget(){
 	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
 	char xcl, ycl; // to preserve the left hand side variable names
 	address_t i=1;      // and the beginning of the destination string  
-	short oid=id;
+	unsigned char oid=id;
 
 	nexttoken();
 
@@ -5857,8 +5853,9 @@ void xget(){
 */
 
 void xput(){
-	short ood=od;
-	short args, i;
+	unsigned char ood=od;
+	char args;
+	short i;
 
 	nexttoken();
 
@@ -6083,7 +6080,7 @@ void xfcircle() {
 
 #ifdef HASTONE
 void xtone(){
-	short args;
+	char args;
 
 	nexttoken();
 	args=parsearguments();
@@ -6175,7 +6172,7 @@ void xdelete() {
 
 void xopen() {
 	char filename[SBUFSIZE];
-	short args=0;
+	char args=0;
 	char mode;
 
 	getfilename2(filename, 0);
@@ -6883,7 +6880,7 @@ void statement(){
 				nexttoken();
 				break;
 			default: // very tolerant - tokens are just skipped 
-				if (DEBUG) outsc("** hoppla - unexpected token, skipped "); debugtoken();
+				if (DEBUG) { outsc("** hoppla - unexpected token, skipped "); debugtoken(); }
 				nexttoken();
 		}
 #ifdef ARDUINO
