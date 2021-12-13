@@ -1,5 +1,5 @@
 10 PRINT "HURKLE from 101 BASIC games"
-20 PRINT "Ported to Stefan's BASIC in 2021
+20 PRINT "Ported to Stefan's BASIC in 2021"
 30 PRINT
 50 @R=MILLIS(1)
 110 N=5
