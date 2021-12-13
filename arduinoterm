@@ -1,7 +1,2 @@
 #!/bin/sh
-#
-# $Id: arduinoterm,v 1.2 2021/08/08 17:34:15 stefan Exp stefan $
-#
-# Wrapper around the monitor command
-#
-python3 monitor.py
+python3 /Users/stefan/Documents/Technology/tinybasic/monitor.py
