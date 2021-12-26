@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.114 2021/12/13 19:29:45 stefan Exp stefan $
+// $Id: basic.c,v 1.116 2021/12/26 07:42:38 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -43,6 +43,8 @@
 	 architectures with special needs
 */
 #undef ARDUINODUE
+#undef SEEEDUINO
+#undef ARDUINOMKR
 #undef RP2040
 #undef ESP8266
 #undef MINGW
@@ -63,12 +65,12 @@
 #define HASVT52
 #undef  HASFLOAT
 #undef  HASGRAPH
-#undef  HASDARTMOUTH
-#undef  HASDARKARTS
-#undef  HASIOT
+#undef HASDARTMOUTH
+#undef HASDARKARTS
+#undef HASIOT
 
 /* hardcoded memory size set 0 for automatic malloc */
-#define MEMSIZE 1024
+#define MEMSIZE 0
 
 /* 
 	Arduino hardware settings 
@@ -100,24 +102,28 @@
 #undef ARDUINO
 #endif
 
-#if defined(ESP8266) || defined(RP2040) || defined(ARDUINODUE)
+
+#if defined(ESP8266) || defined(RP2040) || defined(ARDUINODUE) || defined(ARDUINOMKR) || defined(SEEEDUINO)
 #include <avr/dtostrf.h>
+#define ARDUINO 100
+/*
 #define PROGMEM
 #define ARDUINO 100
 #undef ARDUINOPROGMEM
+*/
 #undef ARDUINOEEPROM
 #ifdef ESPSPIFFS
 #include <SPI.h>
 #include <FS.h>
 #endif
 #endif
+
+
+
+
 #ifdef ARDUINO
 #ifdef ARDUINOPS2
-#ifndef ESP8266
 #include <PS2Keyboard.h>
-#else 
-#include <PS2Kbd.h>
-#endif
 #endif
 #ifdef ARDUINOPROGMEM
 #include <avr/pgmspace.h>
@@ -162,7 +168,7 @@ const int serial_baudrate = 9600;
 const int serial_baudrate = 0;
 #endif
 #ifdef ARDUINOPRT
-const int serial1_baudrate = 19200;
+const int serial1_baudrate = 9600;
 char sendcr = 0;
 short blockmode = 0;
 #else
@@ -185,6 +191,8 @@ short blockmode = 0;
 #define STACKSIZE 	15
 #define GOSUBDEPTH 	4
 #define FORDEPTH 	4
+#define ARRAYSIZEDEF 10
+#define STRSIZEDEF   32
 
 /*
 
@@ -1070,7 +1078,8 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
 // depends on the shield. 
 #ifdef ARDUINOSD
 // the SD chip select, set 4 for the Ethernet/SD shield
-#ifdef ARDUINOTFT
+// and 53 for all configurations of a MEGA
+#if defined(ARDUINOTFT) || defined(ARDUINO_AVR_MEGA2560)
 const char sd_chipselect = 53;
 #else
 const char sd_chipselect = 4;
@@ -1144,7 +1153,7 @@ void bpulsein() { pop(); pop(); pop(); push(0); }
 
 /* start a secondary serial port for printing and/or networking */
 #ifdef ARDUINOPRT
-#ifndef ARDUINO_AVR_MEGA2560
+#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINODUE)
 #include <SoftwareSerial.h>
 /* definition of the serial port pins from "pretzel board"
 for UNO 11 is not good for rx */
@@ -1597,7 +1606,7 @@ void dspsetcursor(short c, short r) {}
 void ballocmem() {
 	signed char i = 0;
 	// 									RP2040      ESP        MK   MEGA   UNO  168  FALLBACK
-	const unsigned short memmodel[9] = {60000, 48000, 46000, 28000, 6000, 4096, 1024, 512, 128}; 
+	const unsigned short memmodel[9] = {60000, 44000, 32000, 28000, 6000, 4096, 1024, 512, 128}; 
 
 	if (sizeof(number_t) <= 2) i=3;
 // this is tiny model MSDOS compile - dos chrashes on 
@@ -1617,9 +1626,11 @@ void ballocmem() {
 #endif
 
 #ifdef HASAPPLE1
-// allocate a junk of memory for a variable on the heap
-// every objects is identified by name (c,d) and type t
-// 3 bytes are used here but 2 would be enough
+/*
+	allocate a junk of memory for a variable on the heap
+	every objects is identified by name (c,d) and type t
+	3 bytes are used here but 2 would be enough
+*/
 
 address_t bmalloc(signed char t, char c, char d, short l) {
 
@@ -1655,30 +1666,27 @@ address_t bmalloc(signed char t, char c, char d, short l) {
     		vsize=l+addrsize+3;
     }
 	
-
-
+    /* enough memory ? */ 
 	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return 0;}
 
-	// here we would create the hash, currently simplified
-	// the hash is the first digit of the variable plus the token
+	/* here we could create a hash, currently simplified
+	 the hash is the first digit of the variable plus the token */
 
-	// write the header - inefficient - 3 bytes instead of a hash
 	b=himem;
 	mem[b--]=c;
 	mem[b--]=d;
 	mem[b--]=t;
 
-	// for strings, arrays and buffers write the (maximum) length
+	/* for strings, arrays and buffers write the (maximum) length 
+	   directly after the header */
 	if (t == ARRAYVAR || t == STRINGVAR || t == TBUFFER) {
-
-		// store the maximum length of the array of string
 		b=b-addrsize+1;
 		z.a=vsize-(addrsize+3);
 		setnumber(b, addrsize);
 		b--;
 	}
 
-	// reserve space for the payload
+	/* reserve space for the payload */
 	himem-=vsize;
 	nvars++;
 
@@ -1726,8 +1734,7 @@ address_t bfind(signed char t, char c, char d) {
 
 // the length of an object
 address_t blength (signed char t, char c, char d) {
-	if (! bfind(t, c, d)) return 0;
-	return z.a;
+	if (bfind(t, c, d)) return z.a; else return 0;
 }
 #endif
 
@@ -1770,11 +1777,11 @@ number_t getvar(char c, char d){
 		}
 
 #ifdef HASAPPLE1
-	// dynamically allocated vars, create them on the fly if needed
+	/* dynamically allocated vars, create them on the fly if needed */
 	if (!(a=bfind(VARIABLE, c, d))) a=bmalloc(VARIABLE, c, d, 0);
 	if (er != 0) return 0;
 	
-	// retrieve the value
+	/* retrieve the value */
 	getnumber(a, numsize);
 	return z.i;
 #else
@@ -1824,13 +1831,11 @@ void setvar(char c, char d, number_t v){
 		}
 
 #ifdef HASAPPLE1
-	// dynamically allocated vars
-	a=bfind(VARIABLE, c, d);
-	if ( a == 0) {
-		a=bmalloc(VARIABLE, c, d, 0);
-		if (er != 0) return;
-	} 
+	/* dynamically allocated vars */
+	if ( !(a=bfind(VARIABLE, c, d))) a=bmalloc(VARIABLE, c, d, 0);
+	if (er != 0) return;
 
+	/* set the valus */
 	z.i=v;
 	setnumber(a, numsize);
 #else 	
@@ -1846,9 +1851,7 @@ void clrvars() {
 	himem=memsize;
 }
 
-// the program memory access - attention there is a hack here
-// this can sometimes also access eeproms for autorun through
-// the memread wrapper - still not really redundant to egetnumber
+/*  the program memory access */
 void getnumber(address_t m, short n){
 	signed char i;
 
@@ -1870,7 +1873,7 @@ void getnumber(address_t m, short n){
 
 }
 
-// the eeprom memory access 
+/* the eeprom memory access */
 void egetnumber(address_t m, short n){
 	signed char i;
 
@@ -1889,7 +1892,7 @@ void egetnumber(address_t m, short n){
 	}
 }
 
-// set a number at a memory location
+/* set a number at a memory location */
 void setnumber(address_t m, short n){
 	signed char i;
 
@@ -1906,6 +1909,7 @@ void setnumber(address_t m, short n){
 	}
 }
 
+/* set a number at a eepromlocation */
 void esetnumber(address_t m, short n){
 	signed char i; 
 
@@ -1922,17 +1926,15 @@ void esetnumber(address_t m, short n){
 	}
 }
 
-
+/* create an array */
 void createarray(char c, char d, address_t i) {
 #ifdef HASAPPLE1
-	if (bfind(ARRAYVAR, c, d)) { error(EVARIABLE); return; }
-	(void) bmalloc(ARRAYVAR, c, d, i);
-	if (er != 0) return;
-	if (DEBUG) { outsc("* created array "); outch(c); outspc(); outnumber(nvars); outcr(); }
+	if (DEBUG) { outsc("* create array "); outch(c); outspc(); outnumber(nvars); outcr(); }
+	if (bfind(ARRAYVAR, c, d)) error(EVARIABLE); else (void) bmalloc(ARRAYVAR, c, d, i);
 #endif
 }
 
-// generic array access function 
+/* generic array access function */
 void array(char m, char c, char d, address_t i, number_t* v) {
 
 	address_t a;
@@ -1941,21 +1943,15 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 
 	if (DEBUG) { outsc("* get/set array "); outch(c); outspc(); outnumber(i); outcr(); }
 
-	// special arrays 
+	/* special arrays EEPROM, Display and Wang */
 	if (c == '@') {
-
 		switch(d) {
-
-			// EEPROM access 
 			case 'E': {
 				h=elength()/numsize;
 				a=elength()-numsize*i;
 				e=TRUE;
 				break;
 			}
-
-
-			// display access, write directly to the buffer (ugly needs rework)
 			case 'D': {
 #if defined(DISPLAYDRIVER) && defined(DISPLAYCANSCROLL)
         		if (dsp_rows == 0 || dsp_columns == 0) { return; }
@@ -1974,25 +1970,18 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 #endif
 				return;
 			}
-
-			// Dr. Wangs end of memory array 
-			// starts at 0
 			case 0: 
 			default: {
 				h=(himem-top)/numsize;
 				a=himem-numsize*(i)+1;
 				break;
 			}
-
 		}
-
-	} 
-
-	else {
+	} else {
 #ifdef HASAPPLE1
-		// dynamically allocated arrays
-		a=bfind(ARRAYVAR, c, d);
-		if (a == 0) { error(EVARIABLE); return; }
+		/* dynamically allocated arrays autocreated if needed */ 
+		if ( !(a=bfind(ARRAYVAR, c, d)) ) createarray(c, d, ARRAYSIZEDEF);
+		if (er != 0) return;
 		h=z.a/numsize;
 		a=a+(i-1)*numsize;
 #else
@@ -2002,7 +1991,7 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 	}
 
 
-	// is the index in range, check only for normal arrays 
+	// is the index in range 
 	if ( (i < 1) || (i > h) ) { error(ERANGE); return; }
 
 	// set or get the array
@@ -2018,10 +2007,9 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 address_t createstring(char c, char d, address_t i) {
 #ifdef HASAPPLE1
 	address_t a;
-	if (bfind(STRINGVAR, c, d)) { error(EVARIABLE); return 0; }
-	a=bmalloc(STRINGVAR, c, d, i+strindexsize);
+	if (DEBUG) { outsc("Create string "); outch(c); outch(d); outspc(); outnumber(nvars); outcr(); }
+	if (bfind(STRINGVAR, c, d)) error(EVARIABLE); else a=bmalloc(STRINGVAR, c, d, i+strindexsize);
 	if (er != 0) return 0;
-	if (DEBUG) { outsc("Created string "); outch(c); outch(d); outspc(); outnumber(nvars); outcr(); }
 	return a;
 #else 
 	return 0;	
@@ -2040,7 +2028,7 @@ char* getstring(char c, char d, address_t b) {
 
 #ifdef HASAPPLE1
 	// dynamically allocated strings
-	if (! (a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, SBUFSIZE);
+	if (! (a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, STRSIZEDEF);
 
 	if (DEBUG) { outsc("** heap address "); outnumber(a); outcr(); }
 	if (DEBUG) { outsc("** byte length "); outnumber(z.a); outcr(); }
@@ -2133,7 +2121,7 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 	if ( c == '@') {
 		b=ibuffer;
 	} else {
-		if ( !(a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, SBUFSIZE);
+		if ( !(a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, STRSIZEDEF);
 		if (er != 0) return;
 		b=(char *)&mem[a+strindexsize];
 	}
@@ -2166,7 +2154,7 @@ char* getkeyword(unsigned short i) {
 #ifndef ARDUINOPROGMEM
 	return (char *) keyword[i];
 #else
-	strcpy_P(sbuffer, (char*) pgm_read_word(&(keyword[i]))); 
+	strcpy_P(sbuffer, (char*) pgm_read_ptr(&(keyword[i]))); 
 	return sbuffer;
 #endif
 }
@@ -2178,7 +2166,7 @@ char* getmessage(char i) {
 #ifndef ARDUINOPROGMEM
 	return (char *) message[i];
 #else
-	strcpy_P(sbuffer, (char*) pgm_read_word(&(message[i]))); 
+	strcpy_P(sbuffer, (char*) pgm_read_ptr(&(message[i]))); 
 	return sbuffer;
 #endif
 }
@@ -2276,7 +2264,7 @@ void debug(char *c){
 
 /*
 	Arithmetic and runtime operations are mostly done
-	on a stack of 16 bit objects.
+	on a stack of number_t.
 */
 
 void push(number_t t){
@@ -2296,16 +2284,6 @@ number_t pop(){
 	else
 		return stack[--sp];	
 }
-
-/* unused - can be replaced by (void) pop();
-void drop() {
-	if (DEBUG) {outsc("** drop sp= "); outnumber(sp); outcr(); }
-	if (sp == 0)
-		error(ESTACK);
-	else
-		--sp;	
-}
-*/
 
 void clearst(){
 	sp=0;
@@ -3930,7 +3908,7 @@ char termsymbol() {
 }
 
 // a little helpers - one token expect 
-char expect(char t, char e) {
+char expect(signed char t, char e) {
 	nexttoken();
 	if (token != t) {error(e); return FALSE; } else return TRUE;
 }
