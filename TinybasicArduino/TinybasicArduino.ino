@@ -9,15 +9,10 @@
 	Author: Stefan Lenz, sl001@serverfabrik.de
 
 	The first set of definions define the target.
-	- for any Arduino with serial I/O or a Mac nothing has 
-		to be set here. The default settings are correct
-		for Arduino boards including MK. 
-	- MINGW switches on Windows calls. MSDOS for MSDOS file access.
-	- DUE unfortunately needs a special setting as it has no 
-		tone() function
-	- for ESP8266 boards define this macro (#define ESP8266)
-    - for RP2040 boards define this macros (#define RP2040)
-      (for both cases PROGMEM is disabled and EEPROM ignored)
+	- for any Arduino ARCH or a Mac the default settings are correct
+		and architectures #defines of the IDE are used.
+	- MINGW switches on Windows calls. 
+	- MSDOS for MSDOS file access.
 	- ARDUINOLCD, ARDUINOTFT and LCDSHIELD active the LCD code, 
 		LCDSHIELD automatically defines the right settings for 
 		the classical shield modules
@@ -27,7 +22,7 @@
 	- _if_  and PS2 are both activated STANDALONE cause the Arduino
 			to start with keyboard and lcd as standard devices.
 	- ARDUINOEEPROM includes the EEPROM access code
-	- ARDUINOSD and ESPSPIFFS activate filesystem code (rudimentary)
+	- ARDUINOSD and ESPSPIFFS activate filesystem code 
 	- HAS* activates or deactives features of the interpreter
 	- activating Picoserial is not compatible with keyboard code
 		Picoserial doesn't work on MEGA
@@ -37,16 +32,20 @@
 	MEMSIZE sets the BASIC main memory to a fixed value,
 		if MEMSIZE=0 a heuristic is used stepping down 
 		from 60000 to 128 bytes.
-*/ 
 
-/*
-	 architectures with special needs
+	Architectures and the definitions from the Arduino IDE
+
+	 	ARDUINO_ARCH_SAM: no tone command, dtostrf
+	 	ARDUINO_ARCH_RP2040: dtostrf (for ARDUINO_NANO_RP2040_CONNECT)
+	 	ARDUINO_ARCH_SAMD: dtostrf (for ARDUINO_SAMD_MKRWIFI1010, ARDUINO_SEEED_XIAO_M0)
+		ARDUINO_ARCH_ESP8266: SPIFFS, dtostrf (ESP8266)
+ 		ARDUINO_AVR_MEGA2560, ARDUARDUINO_SAM_DUE: second serial port is Serial1 - no software serial
+ 		ARDUARDUINO_SAM_DUE: hardware heuristics
+ 		ARDUINO_ARCH_AVR: nothing
+
+ 	The code still contains hardware hueristics from my own projects, will be removed in the future
 */
-#undef ARDUINODUE
-#undef SEEEDUINO
-#undef ARDUINOMKR
-#undef RP2040
-#undef ESP8266
+
 #undef MINGW
 #undef MSDOS
 
@@ -63,11 +62,11 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#undef  HASFLOAT
+#define  HASFLOAT
 #undef  HASGRAPH
-#undef HASDARTMOUTH
-#undef HASDARKARTS
-#undef HASIOT
+#define HASDARTMOUTH
+#define HASDARKARTS
+#define HASIOT
 
 /* hardcoded memory size set 0 for automatic malloc */
 #define MEMSIZE 0
@@ -93,24 +92,21 @@
 
 // Don't change the definitions here unless you must
 
-// if PROGMEM is defined we can asssume we compile on 
-// the Arduino IDE. Don't change anything here. 
-// This is a little hack to detect where we compile
+/* 
+   if PROGMEM is defined we can asssume we compile on 
+   the Arduino IDE. Don't change anything here. 
+   This is a little hack to detect where we compile
+*/
 #ifdef PROGMEM
 #define ARDUINOPROGMEM
 #else
 #undef ARDUINO
 #endif
 
-
-#if defined(ESP8266) || defined(RP2040) || defined(ARDUINODUE) || defined(ARDUINOMKR) || defined(SEEEDUINO)
+/* the non AVR arcitectures */
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040)
 #include <avr/dtostrf.h>
 #define ARDUINO 100
-/*
-#define PROGMEM
-#define ARDUINO 100
-#undef ARDUINOPROGMEM
-*/
 #undef ARDUINOEEPROM
 #ifdef ESPSPIFFS
 #include <SPI.h>
@@ -119,8 +115,7 @@
 #endif
 
 
-
-
+/* all microcontrollers and their hardware */
 #ifdef ARDUINO
 #ifdef ARDUINOPS2
 #include <PS2Keyboard.h>
@@ -138,6 +133,7 @@
 #include <SPI.h>
 #include <SD.h>
 #endif
+/* MSDOS, Mac, Linux and Windows */
 #else 
 #define PROGMEM
 #include <stdio.h>
@@ -988,7 +984,7 @@ void eload() { error(EEEPROM); return; }
 // ESP added as well making it even more complex
 #ifdef ARDUINOPS2
 #ifdef ARDUINOTFT 
-#ifdef ARDUINODUE
+#ifdef ARDUINO_SAM_DUE
 const int PS2DataPin = 9;
 const int PS2IRQpin =  8;
 PS2Keyboard keyboard;
@@ -1051,7 +1047,7 @@ void dspclear() { lcd.clear(); }
 #define DISPLAYDRIVER
 extern uint8_t SmallFont[];
 extern uint8_t BigFont[];
-#ifdef ARDUINODUE
+#ifdef ARDUINO_SAM_DUE
 UTFT tft(CTE70,25,26,27,28);
 #else 
 UTFT tft(CTE70,38,39,40,41);
@@ -1153,7 +1149,7 @@ void bpulsein() { pop(); pop(); pop(); push(0); }
 
 /* start a secondary serial port for printing and/or networking */
 #ifdef ARDUINOPRT
-#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINODUE)
+#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE)
 #include <SoftwareSerial.h>
 /* definition of the serial port pins from "pretzel board"
 for UNO 11 is not good for rx */
@@ -1606,7 +1602,7 @@ void dspsetcursor(short c, short r) {}
 void ballocmem() {
 	signed char i = 0;
 	// 									RP2040      ESP        MK   MEGA   UNO  168  FALLBACK
-	const unsigned short memmodel[9] = {60000, 44000, 32000, 28000, 6000, 4096, 1024, 512, 128}; 
+	const unsigned short memmodel[9] = {60000, 44000, 32000, 24000, 6000, 4096, 1024, 512, 128}; 
 
 	if (sizeof(number_t) <= 2) i=3;
 // this is tiny model MSDOS compile - dos chrashes on 
@@ -2775,8 +2771,6 @@ char inch(){
 				delay(1); // this seems to be needed on an ESP
 			} while(c == 0);	
     		if (c == 13) c=10;
-    		// check if really needed - DUE vs. MEGA descrepancy 
-    		//if (c == '^') c='@';
 			return c;
 #endif
 #ifdef LCDSHIELD
@@ -6068,7 +6062,7 @@ void xtone(){
 		return;
 	}
 
-#if !defined(ARDUINO) || defined(ARDUINODUE)
+#if !defined(ARDUINO) || defined(ARDUINO_ARCH_SAM)
 	clearst();
 	return;
 #else 
