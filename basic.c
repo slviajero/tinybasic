@@ -1,4 +1,4 @@
-// $Id: basic.c,v 1.116 2021/12/26 07:42:38 stefan Exp stefan $
+// $Id: basic.c,v 1.118 2021/12/28 05:22:23 stefan Exp stefan $
 /*
 	Stefan's tiny basic interpreter 
 
@@ -89,6 +89,8 @@
 #undef ESPSPIFFS
 // use the methods above as primary i/o devices
 #undef STANDALONE
+// networking methods
+#undef ARDUINORF24
 
 // Don't change the definitions here unless you must
 
@@ -114,7 +116,6 @@
 #endif
 #endif
 
-
 /* all microcontrollers and their hardware */
 #ifdef ARDUINO
 #ifdef ARDUINOPS2
@@ -133,6 +134,8 @@
 #include <SPI.h>
 #include <SD.h>
 #endif
+
+
 /* MSDOS, Mac, Linux and Windows */
 #else 
 #define PROGMEM
@@ -340,11 +343,13 @@ short blockmode = 0;
 #define OSERIAL 1
 #define ODSP 2
 #define OPRT 4
+#define ORADIO 8
 #define OFILE 16
 
 #define ISERIAL 1
 #define IKEYBOARD 2
 #define ISERIAL1 4
+#define IRADIO 8
 #define IFILE 16
 
 /*
@@ -1082,9 +1087,14 @@ const char sd_chipselect = 4;
 #endif
 #endif
 
-// global variables for an Ethernet shield
-#ifdef ARDUINOETH
-const char eth_chipselect = 10;
+// definitions for the nearfield module 
+#if defined(ARDUINORF24) && defined(ARDUINO) 
+const char rf24_ce = 9;
+const char rf24_csn = 10;
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+RF24 radio(rf24_ce, rf24_csn);
 #endif
 
 // the wrappers of the arduino io functions, to avoid 
@@ -1261,7 +1271,6 @@ void xdump();
 
 // file access 
 void stringtosbuffer();
-char* getfilename();
 void getfilename2(char*, char);
 void xsave();
 void xload();
@@ -1601,7 +1610,7 @@ void dspsetcursor(short c, short r) {}
 // guess the possible basic memory size
 void ballocmem() {
 	signed char i = 0;
-	// 									RP2040      ESP        MK   MEGA   UNO  168  FALLBACK
+	// 									RP2040      ESP        MK       MEGA    UNO  168  FALLBACK
 	const unsigned short memmodel[9] = {60000, 44000, 32000, 24000, 6000, 4096, 1024, 512, 128}; 
 
 	if (sizeof(number_t) <= 2) i=3;
@@ -2474,7 +2483,7 @@ char ifileopen(char* filename){
 
 void ifileclose(){
 #ifndef ARDUINO
-	fclose(ifile);
+	if (ifile) fclose(ifile);
 	ifile=NULL;
 #else
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
@@ -2503,7 +2512,7 @@ char ofileopen(char* filename){
 
 void ofileclose(){
 #ifndef ARDUINO
-	fclose(ofile);
+	if (ofile) fclose(ofile);
 #else
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
     ofile.close();
@@ -2808,9 +2817,13 @@ char checkch(){
 short availch(){
   switch (id) {
     case ISERIAL:
-      return Serial.available(); 
+      	return Serial.available(); 
     case IFILE:
-      return fileavailable();
+    	return fileavailable();
+#ifdef ARDUINORF24
+    case IRADIO:
+    	return radio.available();
+#endif
 #ifdef ARDUINOPRT
     case ISERIAL1:
       return Serial1.available();
@@ -2827,10 +2840,16 @@ short availch(){
 }
 
 
+
 /* 
 	ins is the generic reader into a string, by default 
 	it works in line mode and ends reading after newline
-	this version can only read max 256 bytes
+
+  the first element of the buffer is the lower byte of the length
+
+  this is corrected later in xinput, z.a has to be set as 
+  a side effect
+  
 */
 
 void ins(char *b, short nb) {
@@ -2839,8 +2858,18 @@ void ins(char *b, short nb) {
     // only ISERIAL 1 can be switched to block mode right now
     if (blockmode > 0 && id == ISERIAL1 ) {
     	inb(b, nb);
+    // radio mode, a fixed number of bytes is read from the radio
+    } else if (id == IRADIO) {
+#ifdef ARDUINORF24
+    	// we assume that startlistening has been done
+    	// all this experimental
+    	if (radio.available()) radio.read(b+1, nb);
+    	z.a=radio.getPayloadSize();
+      	if (z.a > nb) z.a=nb;
+      	b[0]=z.a;
+#endif
     } else {
-      // line mode 
+      // line mode from the actual input channel with echo
   	  while(i < nb) {
     	  c=inch();
     	  if (id == ISERIAL || id == IKEYBOARD) outch(c);
@@ -2985,6 +3014,7 @@ void ins(char *b, short nb) {
 */ 
 
 // output one character to a stream
+// block oriented i/o like in radio not implemented here
 void outch(char c) {
 	if (od == OSERIAL)
 		serialwrite(c);
@@ -3012,7 +3042,16 @@ void outspc() {
 // output a string of length x at index ir - basic style
 void outs(char *ir, short l){
 	int i;
-	for(i=0; i<l; i++) outch(ir[i]);
+	if (od != ORADIO)
+		for(i=0; i<l; i++) outch(ir[i]);
+#ifdef ARDUINORF24
+	// experimental radio code
+	else {
+		radio.stopListening();
+		if (radio.write(ir, l)) ert=0; else ert=1;
+		radio.startListening();
+	}
+#endif
 }
 
 // output a zero terminated string at ir - c style
@@ -5615,8 +5654,11 @@ void dumpmem(address_t r, address_t b) {
 }
 #endif
 
-#if !defined(ARDUINO) || defined(ARDUINOSD) || defined(ESPSPIFFS)
-// creates a C string from a BASIC string
+/*
+	creates a C string from a BASIC string
+	after reading a BASIC string ir2 contains a pointer
+	to the data and x the string length
+ */
 void stringtobuffer(char *buffer) {
 	short i;
 	i=x;
@@ -5625,15 +5667,13 @@ void stringtobuffer(char *buffer) {
 	while (i >= 0) { buffer[i]=ir2[i]; i--; }
 }
 
-// get a file argument (2) nexttoken handling still to be checked
+/* get a file argument */
 void getfilename2(char *buffer, char d) {
 	char s;
 	char *sbuffer;
 
-	nexttoken();
 	s=stringvalue();
 	if (er != 0) return;
-
 	if (DEBUG) {outsc("** in getfilename2 stringvalue delivered "); outnumber(s); outcr(); }
 
 	if (s) {
@@ -5653,23 +5693,19 @@ void getfilename2(char *buffer, char d) {
 		error(EUNKNOWN);
 	}
 }
-#else
-// simplified file name code for EEPROM only
-void getfilename2(char * buffer, char d) {
-	*buffer='!';
-}
-#endif
 
 // save a file either to disk or to EEPROM
 void xsave() {
 	char filename[SBUFSIZE];
 	address_t here2;
 
+#if !defined(ARDUINO) || defined(ARDUINOSD) || defined(ESPSPIFFS)
+	nexttoken();
 	getfilename2(filename, 1);
 	if (er != 0) return;
-
-	// save the output mode
-	push(od);
+#else 
+	filename[0]='!';
+#endif
 
 	if (filename[0] == '!') {
 		esave();
@@ -5681,6 +5717,9 @@ void xsave() {
 			nexttoken();
 			return;
 		} 
+
+		// save the output mode and then save
+		push(od);
 		od=OFILE;
 		
 		// the core list function
@@ -5716,8 +5755,13 @@ void xload() {
 	address_t here2;
 	char chain = FALSE;
 
+#if !defined(ARDUINO) || defined(ARDUINOSD) || defined(ESPSPIFFS)
+	nexttoken();
 	getfilename2(filename, 1);
-	if (er != 0) return; 
+	if (er != 0) return;
+#else 
+	filename[0]='!';
+#endif
 
 	if (filename[0] == '!') {
 		eload();
@@ -5744,15 +5788,10 @@ void xload() {
     	bi=ibuffer+1;
 		while (fileavailable()) {
       		ch=fileread();
-      		//Serial.print(ch);
       		if (ch == '\n' || ch == '\r') {
-        	//Serial.println("<NEWLINE>");
         		*bi=0;
         		bi=ibuffer+1;
         		nexttoken();
-        		//Serial.println("After nexttoken :");
-        		//Serial.println((int) token);
-        		//Serial.println(x);
         		if (token == NUMBER) storeline();
         		if (er != 0 ) break;
         		bi=ibuffer+1;
@@ -5847,7 +5886,7 @@ void xput(){
 	if (er != 0) return;
 
 	for (i=args-1; i>=0; i--) sbuffer[i]=pop();
-	for (i=0; i<args; i++) outch(sbuffer[i]);
+	outs(sbuffer, args);
 
 	od=ood;
 }
@@ -6084,7 +6123,7 @@ void xtone(){
 
 */
 
-#ifdef HASFILEIO
+#if defined(HASFILEIO) || defined(ARDUINORF24)
 
 // string equal helper in catalog 
 char streq(char *s, char *m){
@@ -6102,6 +6141,7 @@ void xcatalog() {
 	char filename[SBUFSIZE];
 	char *name;
 
+	nexttoken();
 	getfilename2(filename, 0);
 	if (er != 0) return; 
 
@@ -6125,6 +6165,7 @@ void xcatalog() {
 void xdelete() {
 	char filename[SBUFSIZE];
 
+	nexttoken();
 	getfilename2(filename, 0);
 	if (er != 0) return; 
 
@@ -6142,14 +6183,40 @@ void xdelete() {
 	nexttoken();
 }
 
+
+#ifdef ARDUINORF24
+/*
+	generate a uint64_t pipe address from the filename string
+	for RF64, horner schema to be on the save side
+*/
+uint64_t pipeaddr(char * f){
+	uint64_t t = 0;
+	t=(uint8_t)f[0];
+	for(short i=1; i<=4; i++) t=t*256+(uint8_t)f[i];
+	return t;
+} 
+#endif
+
 void xopen() {
+	char stream = IFILE; // default is file operation
 	char filename[SBUFSIZE];
 	char args=0;
 	char mode;
 
+	// which stream do we open? default is FILE
+	nexttoken();
+	if (token == '&') {
+		if (!expectexpr()) return;
+		stream=pop();
+		if (token != ',') {error(EUNKNOWN); return; }
+		nexttoken();
+	}
+	
+	// the filename
 	getfilename2(filename, 0);
 	if (er != 0) return; 
 
+	// and the arguments
 	nexttoken();
 	if (token == ',') { 
 		nexttoken(); 
@@ -6165,32 +6232,65 @@ void xopen() {
 		return;
 	}
 
-	if (mode == 1) {
-		ofileclose();
-		if (ofileopen(filename)) {
-			ert=0;
-		} else {
-			ert=1;
-		}
-	} else if (mode == 0) {
-		ifileclose();
-		if (ifileopen(filename)) {
-			ert=0;
-		} else {
-			ert=1;
-		}
+	switch(stream) {
+		case IFILE:
+			if (mode == 1) {
+				ofileclose();
+				if (ofileopen(filename)) ert=0; else ert=1;
+			} else if (mode == 0) {
+				ifileclose();
+				if (ifileopen(filename)) ert=0; else ert=1;
+			}
+			break;
+#ifdef ARDUINORF24
+/* 
+	experiemental radio code, we always read from pipe 1 
+	and use pipe 0 for reading, the filename is the pipe 
+	address, by default the radio goes to reading mode 
+	after open and is only stopped after write
+*/
+		case IRADIO:
+			if (mode == 0) {
+				radio.begin();
+				radio.openReadingPipe(1, pipeaddr(filename));
+				radio.setPALevel(RF24_PA_MIN);
+				radio.startListening();
+			} else if (mode == 1) {
+				radio.begin();
+				radio.openWritingPipe(pipeaddr(filename));
+			}
+			break;
+#endif
+		default:
+			error(ERANGE);
+			return;
 	}
-
 	nexttoken();
 }
 
 void xclose() {
+	char stream = IFILE;
 	char mode;
+	char args=0;
+
+	if (token == '&') {
+		if (!expectexpr()) return;
+		stream=pop();
+		if (token != ',') {error(EUNKNOWN); return; }
+	}
 
 	nexttoken();
-	parsenarguments(1);
+	args=parsearguments();
 
-	mode=pop();
+	if (args == 0 ) { 
+		mode=0; 
+	} else if (args == 1) {
+		mode=pop();
+	} else {
+		error(EARGS);
+		return;
+	}
+
 	if (mode == 1) {
 		ofileclose();
 	} else if (mode == 0) {
