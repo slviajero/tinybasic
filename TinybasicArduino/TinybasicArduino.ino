@@ -1,5 +1,7 @@
-// $Id: basic.c,v 1.118 2021/12/28 05:22:23 stefan Exp stefan $
 /*
+
+	$Id: basic.c,v 1.118 2021/12/28 05:22:23 stefan Exp stefan $
+
 	Stefan's tiny basic interpreter 
 
 	Playing around with frugal programming. See the licence file on 
@@ -43,7 +45,9 @@
  		ARDUARDUINO_SAM_DUE: hardware heuristics
  		ARDUINO_ARCH_AVR: nothing
 
- 	The code still contains hardware hueristics from my own projects, will be removed in the future
+ 	The code still contains hardware hueristics from my own projects, 
+ 	will be removed in the future
+
 */
 
 #undef MINGW
@@ -57,55 +61,58 @@
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
-#undef HASTONE
-#undef HASPULSE
+#define HASTONE
+#define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#undef HASVT52
-#undef HASFLOAT
+#define HASVT52
+#undef  HASFLOAT
 #undef  HASGRAPH
-#undef HASDARTMOUTH
+#define HASDARTMOUTH
 #undef HASDARKARTS
 #define HASIOT
 
 /* hardcoded memory size set 0 for automatic malloc */
-#define MEMSIZE 1024
-
+#define MEMSIZE 0
 /* 
 	Arduino hardware settings 
+
+	input/output methods USERPICOSERIAL, ARDUINOPS2
+		ARDUINOPRT, DISPLAYCANSCROLL, ARDUINOLCDI2C,
+		ARDUINOTFT
+	storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS
+	network ARDUINORF24
+
 */
-#undef USESPICOSERIAL
-#define ARDUINOEEPROM
-// input methods 
+#undef USESPICOSERIAL 
 #undef ARDUINOPS2
-// output methods
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
+#define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef LCDSHIELD
 #undef ARDUINOTFT
-// storage methods
+#define ARDUINOEEPROM
 #undef ARDUINOSD
 #undef ESPSPIFFS
-// use the methods above as primary i/o devices
+#undef ARDUINORF24
 #undef STANDALONE
-// networking methods
-#define ARDUINORF24
-
-// Don't change the definitions here unless you must
-
 /* 
-   if PROGMEM is defined we can asssume we compile on 
-   the Arduino IDE. Don't change anything here. 
-   This is a little hack to detect where we compile
+	Don't change the definitions here unless you must
+
+	If PROGMEM is defined we can asssume we compile on 
+	the Arduino IDE. Don't change anything here. 
+  	This is a little hack to detect where we compile
 */
 #ifdef PROGMEM
 #define ARDUINOPROGMEM
 #else
 #undef ARDUINO
+#undef ARDUINOSD
+#undef ARDUINORF24
 #endif
-
-/* the non AVR arcitectures */
+/* 
+	the non AVR arcitectures 
+*/
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040)
 #include <avr/dtostrf.h>
 #define ARDUINO 100
@@ -115,8 +122,9 @@
 #include <FS.h>
 #endif
 #endif
-
-/* all microcontrollers and their hardware */
+/* 
+	all microcontrollers and their hardware 
+*/
 #ifdef ARDUINO
 #ifdef ARDUINOPS2
 #include <PS2Keyboard.h>
@@ -134,9 +142,9 @@
 #include <SPI.h>
 #include <SD.h>
 #endif
-
-
-/* MSDOS, Mac, Linux and Windows */
+/* 
+	MSDOS, Mac, Linux and Windows 
+*/
 #else 
 #define PROGMEM
 #include <stdio.h>
@@ -159,8 +167,9 @@
 #include <windows.h>
 #endif
 #endif
-
-// Arduino default serial baudrate
+/* 
+	Arduino default serial baudrate 
+*/
 #ifdef ARDUINO
 const int serial_baudrate = 9600;
 #else 
@@ -604,8 +613,6 @@ const signed char tokens[] = {
 /*
 	the message catalogue also moved to progmem
 */
-
-// the messages and errors
 #define MFILE        0
 #define MPROMPT      1
 #define MGREET 		 2
@@ -665,17 +672,23 @@ const char* const message[] PROGMEM = {
 	eeeprom, esdcard
 #endif
 };
+/*
+	code for variable numbers and addresses sizes
+	the original code was 16 bit but can be extended here
+	works but with the tacit assumption that 
+	sizeof(number_t) >= sizeof(address_t) 
+	floating point here is under construction we always 
+	assume that float >= 4 bytes in the following
 
+	maxnum: the maximum accurate(!) integer of a 
+		32 bit float 
+	strindexsize: the index size of strings either 
+		1 byte or 2 bytes - no other values supported
 
-// code for variable numbers and addresses sizes
-// the original code was 16 bit but can be extended here
-// works but with the tacit assumption that 
-// sizeof(number_t) >= sizeof(address_t) 
-// floating point here is under construction we always 
-// assume that float >= 4 bytes in the following
+*/
 #ifdef HASFLOAT
 typedef float number_t;
-const number_t maxnum=16777216; // we use the maximum accurate(!) integer of a 32 bit float here 
+const number_t maxnum=16777216; 
 #else
 typedef int number_t;
 const number_t maxnum=(number_t)~((number_t)1<<(sizeof(number_t)*8-1));
@@ -684,7 +697,7 @@ typedef unsigned short address_t;
 const int numsize=sizeof(number_t);
 const int addrsize=sizeof(address_t);
 const int eheadersize=sizeof(address_t)+1;
-const int strindexsize=2; // the index size of strings either 1 byte or 2 bytes - no other values supported
+const int strindexsize=2; // 
 const address_t maxaddr=(address_t)(~0); 
 
 /*
@@ -907,6 +920,9 @@ char inch();
 char checkch();
 short availch();
 void ins(char*, short); 
+void radioins(char *, short);
+void radioouts(char* , short);
+void inb(char *, short);
 
 // from here on the functions only use the functions above
 // there should be no platform depended code here
@@ -983,10 +999,12 @@ void esave() { error(EEEPROM); return; }
 void eload() { error(EEEPROM); return; }
 #endif
 
-// global variables for the keyboard
-// heuristic here - with and without TFT shield 
-// needs to be changed according to hw config
-// ESP added as well making it even more complex
+/*
+	global variables for the keyboard
+	heuristic here - with and without TFT shield 
+	needs to be changed according to hw config
+	ESP added as well making it even more complex
+*/
 #ifdef ARDUINOPS2
 #ifdef ARDUINOTFT 
 #ifdef ARDUINO_SAM_DUE
@@ -1039,13 +1057,14 @@ void dspbegin() {   lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
 void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
 #endif
-
-// global variables for a TFT
-// this is code for a SD1963 800*480 board using the UTFT library
-// it is mainly intended for a MEGA or DUE as a all in one system
-// this is for a MEGA shield and the CTE DUE shield, for the due 
-// you need to read the comment in Arduino/libraries/UTFT/hardware/arm
-// HW_ARM_defines.h -> uncomment the DUE shield
+/*
+	global variables for a TFT
+	this is code for a SD1963 800*480 board using the UTFT library
+	it is mainly intended for a MEGA or DUE as a all in one system
+	this is for a MEGA shield and the CTE DUE shield, for the due 
+	you need to read the comment in Arduino/libraries/UTFT/hardware/arm
+	HW_ARM_defines.h -> uncomment the DUE shield
+*/
 #ifdef ARDUINOTFT
 #include <memorysaver.h>
 #include <UTFT.h>
@@ -1087,13 +1106,14 @@ const char sd_chipselect = 4;
 #endif
 #endif
 
-// definitions for the nearfield module 
+// definitions for the nearfield module, still very experimental
 #if defined(ARDUINORF24) && defined(ARDUINO) 
-const char rf24_ce = 9;
-const char rf24_csn = 10;
+const char rf24_ce = 8;
+const char rf24_csn = 9;
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
+rf24_pa_dbm_e rf24_pa = RF24_PA_HIGH;
 RF24 radio(rf24_ce, rf24_csn);
 #endif
 
@@ -1610,7 +1630,7 @@ void dspsetcursor(short c, short r) {}
 // guess the possible basic memory size
 void ballocmem() {
 	signed char i = 0;
-	// 									RP2040      ESP        MK   MEGA   UNO  168  FALLBACK
+	// 									RP2040      ESP        MK       MEGA    UNO  168  FALLBACK
 	const unsigned short memmodel[9] = {60000, 44000, 32000, 24000, 6000, 4096, 1024, 512, 128}; 
 
 	if (sizeof(number_t) <= 2) i=3;
@@ -1636,7 +1656,6 @@ void ballocmem() {
 	every objects is identified by name (c,d) and type t
 	3 bytes are used here but 2 would be enough
 */
-
 address_t bmalloc(signed char t, char c, char d, short l) {
 
 	address_t vsize;     // the length of the header
@@ -1698,9 +1717,10 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 	return himem+1;
 }
 
-
-// bfind passes back the location of the object as result
-// the length of the object is in z.i as a side effect 
+/*
+	bfind passes back the location of the object as result
+	the length of the object is in z.i as a side effect 
+*/
 address_t bfind(signed char t, char c, char d) {
 
 	address_t b = memsize;
@@ -2686,6 +2706,75 @@ void prtwrite(char c) {
 #endif
 }
 
+
+/* 
+	read from the radio interface, radio is always block 
+	oriented. This function is called from ins for an entire 
+	line.
+
+	In blockmode the entire message is returned in the 
+	receiving string while in line mode the length of the 
+	string is adapted. Blockmode can be used to transfer
+	binary data.
+
+*/
+void radioins(char *b, short nb) {
+#ifdef ARDUINORF24
+    if (radio.available()) {
+    	radio.read(b+1, nb);
+    	if (!blockmode) {
+        	for (z.a=0; z.a<nb; z.a++) if (b[z.a+1]==0) break;		
+    	} else {
+    		z.a=radio.getPayloadSize();
+      		if (z.a > nb) z.a=nb;
+    	}
+      	b[0]=z.a;
+	} else {
+      	b[0]=0; 
+      	b[1]=0;
+      	z.a=0;
+	}
+#else 
+      b[0]=0; 
+      b[1]=0;
+      z.a=0;
+#endif
+}
+
+/* write to radio, no character mode here */
+void radioouts(char *b, short l) {
+#ifdef ARDUINORF24
+	radio.stopListening();
+	if (radio.write(b, l)) ert=0; else ert=1;
+	radio.startListening();
+#endif
+}
+
+/* 
+	we always read from pipe 1 and use pipe 0 for writing, 
+	the filename is the pipe address, by default the radio 
+	goes to reading mode after open and is only stopped for 
+	write
+*/
+
+void iradioopen(char *filename) {
+#ifdef ARDUINORF24
+  radio.setPALevel(rf24_pa);
+	radio.begin();
+	radio.openReadingPipe(1, pipeaddr(filename));
+	radio.startListening();
+#endif
+}
+
+void oradioopen(char *filename) {
+#ifdef ARDUINORF24
+  radio.setPALevel(rf24_pa);
+	radio.begin();
+	radio.openWritingPipe(pipeaddr(filename));
+#endif
+}
+
+
 #ifndef ARDUINO
 /* 
 	this is C standard library stuff, we branch to file input/output
@@ -2768,6 +2857,13 @@ char inch(){
 			return Serial.read();		
 		case IFILE:
 			return fileread();
+#ifdef ARDUINORF24
+		// radio is not character oriented, this is only added to make GET work
+		// for single byte payloads, radio, like file is treated nonblocking here
+		case IRADIO:
+			radioins(sbuffer, SBUFSIZE-1);
+			if (sbuffer[0]>0) return sbuffer[1]; else return 0;
+#endif
 #ifdef ARDUINOPRT
 		case ISERIAL1:
 			while (!Serial1.available());
@@ -2787,6 +2883,8 @@ char inch(){
 #endif
 			break;
 	}
+
+	return 0;
 }
 
 char checkch(){
@@ -2796,7 +2894,10 @@ char checkch(){
 			break;
 		case IFILE:
 			return fileavailable();
-			break;
+#ifdef ARDUINORF24
+    	case IRADIO:
+    		return radio.available();
+#endif
 #ifdef ARDUINOPRT
 		case ISERIAL1:
 			if (Serial1.available()) return Serial1.peek();
@@ -2815,30 +2916,30 @@ char checkch(){
 }
 
 short availch(){
-  switch (id) {
-    case ISERIAL:
-      	return Serial.available(); 
-    case IFILE:
-    	return fileavailable();
+	switch (id) {
+    	case ISERIAL:
+      		return Serial.available(); 
+    	case IFILE:
+    		return fileavailable();
 #ifdef ARDUINORF24
-    case IRADIO:
-    	return radio.available();
+    	case IRADIO:
+    		return radio.available();
 #endif
 #ifdef ARDUINOPRT
-    case ISERIAL1:
-      return Serial1.available();
+    	case ISERIAL1:
+      		return Serial1.available();
 #endif
-    case IKEYBOARD:
+    	case IKEYBOARD:
 #ifdef ARDUINOPS2   
-      return keyboard.available();
+      		return keyboard.available();
 #endif
 #ifdef LCDSHIELD
-      return (keypadread() != 0);
+      		return (keypadread() != 0);
 #endif
-      break;
-  	}
+	    	break;
+	}
+	return 0;
 }
-
 
 /* 
 	ins is the generic reader into a string, by default 
@@ -2850,35 +2951,27 @@ short availch(){
   a side effect
   
 */
+
 void ins(char *b, short nb) {
   	char c;
   	short i = 1;
     // only ISERIAL 1 can be switched to block mode right now
     if (blockmode > 0 && id == ISERIAL1 ) {
     	inb(b, nb);
-    // radio mode, a fixed number of bytes is read from the radio
     } else if (id == IRADIO) {
-#ifdef ARDUINORF24
-    	// we assume that startlistening has been done
-    	// all this experimental
-    	if (radio.available()) radio.read(b+1, nb);
-    	z.a=radio.getPayloadSize();
-      if (z.a > nb) z.a=nb;
-      b[0]=z.a;
-#endif
+    	radioins(b, nb);
     } else {
-      // line mode from the actual input channel with echo
-  	  while(i < nb) {
-    	  c=inch();
-    	  if (id == ISERIAL || id == IKEYBOARD) outch(c);
-    	  if (c == '\r') c=inch(); /* skip carriage return */
-    	  if (c == '\n') {
-      		  break;
-    	  }   else if ( (c == 127 || c == 8) && i>1) {
-      		  i--;
-    	  } else {
-      		  b[i++]=c;
-    	  } 
+  		while(i < nb) {
+    		c=inch();
+    		if (id == ISERIAL || id == IKEYBOARD) outch(c);
+    		if (c == '\r') c=inch(); /* skip carriage return */
+    	 	if (c == '\n') {
+      			break;
+    	  	} else if ( (c == 127 || c == 8) && i>1) {
+      		  	i--;
+    	  	} else {
+      		  	b[i++]=c;
+    	  	} 
   	  }
   	  b[i]=0x00;
       b[0]=(unsigned char)i-1;
@@ -3037,20 +3130,24 @@ void outspc() {
 	outch(' ');
 }
 
-// output a string of length x at index ir - basic style
+/*
+	output a string of length x at index ir - basic style
+	default is a character by character operation, block 
+	oriented write need special functions
+
+*/
 void outs(char *ir, short l){
 	int i;
-	if (od != ORADIO)
-		for(i=0; i<l; i++) outch(ir[i]);
-#ifdef ARDUINORF24
-	// experimental radio code
-	else {
-		radio.stopListening();
-		if (radio.write(ir, l)) ert=0; else ert=1;
-		radio.startListening();
+	switch (od) {
+		case ORADIO:
+			radioouts(ir, l);
+			break;
+		default:
+			for(i=0; i<l; i++) outch(ir[i]);
 	}
-#endif
+
 }
+
 
 // output a zero terminated string at ir - c style
 void outsc(char *c){
@@ -3221,6 +3318,7 @@ char innumber(number_t *r) {
 	short s = 1;
 
 again:
+	*r=0;
 	ins(sbuffer, SBUFSIZE);
 	while (i < SBUFSIZE) {
 		if (sbuffer[i] == ' ' || sbuffer[i] == '\t') i++;
@@ -3239,16 +3337,21 @@ again:
 			*r*=s;
 			return 0;
 		} else {
+			if (id == ISERIAL || id == IKEYBOARD) {
 #ifdef HASERRORMSG
-			printmessage(ENUMBER); 
-			outspc(); 
+				printmessage(ENUMBER); 
+				outspc(); 
 #endif
-			printmessage(EGENERAL);
-			outcr();
-			*r=0;
-			s=1;
-			i=1;
-			goto again;
+				printmessage(EGENERAL);
+				outcr();
+				*r=0;
+				s=1;
+				i=1;
+				goto again; 
+			} else { 
+				ert=1; 
+				return 1; 
+			}
 		}
 	}
 	return 0;
@@ -3264,7 +3367,8 @@ void outnumber(number_t n){
 	nd=writenumber2(sbuffer, n);
 #endif
 
-	outsc(sbuffer); 
+	//outsc(sbuffer); 
+	outs(sbuffer, nd);
 
 	// number formats in Palo Alto style
 	while (nd < form) {outspc(); nd++; };
@@ -4999,6 +5103,7 @@ nextvariable:
 			st=SINT;
 			nexttoken();
 			id=oldid;
+			ert=1;
 			return;
 		} else {
 			setvar(xc, yc, x);
@@ -5022,6 +5127,7 @@ nextvariable:
 			st=SINT;
 			nexttoken();
 			id=oldid;
+			ert=1;
 			return;
 		} else {
 			array('s', xc, yc, pop(), &x);
@@ -5958,6 +6064,12 @@ void xset(){
       		blockmode=arg;
       		break;
 #endif
+#ifdef ARDUINORF24
+      	case 8: // set the power amplifier level of the module
+      		rf24_pa=arg;
+      		radio.setPALevel(rf24_pa);
+      		break;
+#endif
 	}
 }
 
@@ -6185,7 +6297,7 @@ void xdelete() {
 #ifdef ARDUINORF24
 /*
 	generate a uint64_t pipe address from the filename string
-	for RF64
+	for RF64, horner schema to be on the save side
 */
 uint64_t pipeaddr(char * f){
 	uint64_t t = 0;
@@ -6240,25 +6352,13 @@ void xopen() {
 				if (ifileopen(filename)) ert=0; else ert=1;
 			}
 			break;
-#ifdef ARDUINORF24
-/* 
-	experiemental radio code, we always read from pipe 1 
-	and use pipe 0 for reading, the filename is the pipe 
-	address, by default the radio goes to reading mode 
-	after open and is only stopped after write
-*/
 		case IRADIO:
 			if (mode == 0) {
-				radio.begin();
-				radio.openReadingPipe(1, pipeaddr(filename));
-				radio.setPALevel(RF24_PA_MIN);
-				radio.startListening();
+				iradioopen(filename);
 			} else if (mode == 1) {
-				radio.begin();
-				radio.openWritingPipe(pipeaddr(filename));
+				oradioopen(filename);
 			}
 			break;
-#endif
 		default:
 			error(ERANGE);
 			return;
@@ -6274,7 +6374,7 @@ void xclose() {
 	if (token == '&') {
 		if (!expectexpr()) return;
 		stream=pop();
-		if (token != ',') {error(EUNKNOWN); return; }
+		if (token != ',' && ! termsymbol()) {error(EUNKNOWN); return; }
 	}
 
 	nexttoken();
