@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.118 2021/12/28 05:22:23 stefan Exp stefan $
+	$Id: basic.c,v 1.120 2021/12/31 06:24:09 stefan Exp stefan $
 
 	Stefan's tiny basic interpreter 
 
@@ -61,19 +61,19 @@
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
-#define HASTONE
-#define HASPULSE
+#undef HASTONE
+#undef HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
 #undef  HASFLOAT
 #undef  HASGRAPH
 #define HASDARTMOUTH
-#undef HASDARKARTS
+#define HASDARKARTS
 #define HASIOT
 
 /* hardcoded memory size set 0 for automatic malloc */
-#define MEMSIZE 0
+#define MEMSIZE 1024
 /* 
 	Arduino hardware settings 
 
@@ -81,6 +81,7 @@
 		ARDUINOPRT, DISPLAYCANSCROLL, ARDUINOLCDI2C,
 		ARDUINOTFT
 	storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS
+	sensors ARDUINORTC
 	network ARDUINORF24
 
 */
@@ -94,6 +95,7 @@
 #define ARDUINOEEPROM
 #undef ARDUINOSD
 #undef ESPSPIFFS
+#define ARDUINORTC
 #undef ARDUINORF24
 #undef STANDALONE
 /* 
@@ -109,6 +111,8 @@
 #undef ARDUINO
 #undef ARDUINOSD
 #undef ARDUINORF24
+#undef ARDUINORTC
+#undef ARDUINOEEPROM
 #endif
 /* 
 	the non AVR arcitectures 
@@ -908,6 +912,11 @@ char dspactive();
 void dspsetscrollmode(char, short);
 void dspsetcursor(short, short);
 
+// real time clock and wire code 
+void rtcset(char, short);
+short rtcget(char);
+short rtcread(char);
+
 // input output
 // these are the platfrom depended lowlevel functions
 void serialbegin();
@@ -944,7 +953,11 @@ short writenumber2(char*, number_t);
 	Arduino definitions and code
 */
 
-// EEPROM 
+/*
+	 EEPROM handling - currently only for Arduino default
+	 EEPROM
+
+*/
 #if defined(ARDUINO) && defined(ARDUINOEEPROM)
 address_t elength() { return EEPROM.length(); }
 void eupdate(address_t i, short c) { EEPROM.update(i, c); }
@@ -1113,7 +1126,7 @@ const char rf24_csn = 9;
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
-rf24_pa_dbm_e rf24_pa = RF24_PA_HIGH;
+rf24_pa_dbm_e rf24_pa = RF24_PA_MAX;
 RF24 radio(rf24_ce, rf24_csn);
 #endif
 
@@ -1188,6 +1201,20 @@ const int software_serial_tx = 12;
 SoftwareSerial Serial1(software_serial_rx, software_serial_tx);
 #endif
 #endif
+
+/* Arduino Real Time clock code */
+#ifdef ARDUINORTC
+#include <uRTCLib.h>
+uRTCLib rtc(0x68);
+#ifdef ARDUINO_ARCH_ESP8266
+// D3 and D4 on ESP8266 - taken from uRTCLIB examples, needs to be isolated
+const char espwire_sda=0;
+const char espwire_scl=2;
+#endif
+#include <uEEPROMLib.h>
+uEEPROMLib c_eeprom(0x57);
+#endif
+
 
 /* 	
 	Layer 1 function, provide data and do the heavy lifting 
@@ -1995,6 +2022,10 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 #endif
 				return;
 			}
+			case 'T':
+				if (m == 'g') *v=rtcget(i); 
+				else if (m == 's') rtcset(i, *v);
+				return;
 			case 0: 
 			default: {
 				h=(himem-top)/numsize;
@@ -2759,7 +2790,6 @@ void radioouts(char *b, short l) {
 
 void iradioopen(char *filename) {
 #ifdef ARDUINORF24
-  radio.setPALevel(rf24_pa);
 	radio.begin();
 	radio.openReadingPipe(1, pipeaddr(filename));
 	radio.startListening();
@@ -2768,9 +2798,68 @@ void iradioopen(char *filename) {
 
 void oradioopen(char *filename) {
 #ifdef ARDUINORF24
-  radio.setPALevel(rf24_pa);
 	radio.begin();
 	radio.openWritingPipe(pipeaddr(filename));
+#endif
+}
+
+/*
+	real time clock with EEPROM stuff based on uRTC and uEEPROM
+	this is a minimalistic library 
+
+*/ 
+
+void rtcbegin() {
+#ifdef ARDUINORTC
+#ifdef ARDUINO_ARCH_ESP8266
+Wire.begin(0, 2); // D3 and D4 on ESP8266
+#else
+Wire.begin();
+#endif
+#endif
+}
+
+short rtcread(char i) {
+#ifdef ARDUINORTC
+	switch (i) {
+		case 0: 
+			return rtc.second();
+		case 1:
+			return rtc.minute();
+		case 2:
+			return rtc.hour();
+		case 3:
+			return rtc.day();
+		case 4:
+			return rtc.month();
+		case 5:
+			return rtc.year();
+		case 6:
+			return rtc.dayOfWeek();
+		case 7:
+			return rtc.temp();
+	}
+#endif
+	return 0;
+}
+
+short rtcget(char i) {
+#ifdef ARDUINORTC
+	rtc.refresh();
+	return rtcread(i);
+#else
+	return 0;
+#endif
+}
+
+void rtcset(char i, short v) {
+#ifdef ARDUINORTC
+	uint8_t tv[7];
+	char j;
+	rtc.refresh();
+	for (j=0; j<7; j++) tv[j]=rtcread(j);
+	tv[i]=v;
+	rtc.set(tv[0], tv[1], tv[2], tv[6], tv[3], tv[4], tv[5]);
 #endif
 }
 
@@ -6066,6 +6155,7 @@ void xset(){
 #endif
 #ifdef ARDUINORF24
       	case 8: // set the power amplifier level of the module
+      		if ((arg<0) && (arg>3)) {error(ERANGE); return; } 
       		rf24_pa=arg;
       		radio.setPALevel(rf24_pa);
       		break;
