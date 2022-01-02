@@ -873,7 +873,7 @@ void  egetnumber(address_t, short);
 void  esetnumber(address_t, short);
 
 // array handling
-void  createarray(char, char, address_t);
+address_t createarray(char, char, address_t);
 void  array(char, char, char, address_t, number_t*);
 
 // string handling 
@@ -953,15 +953,69 @@ short writenumber2(char*, number_t);
 	Arduino definitions and code
 */
 
-/*
-	 EEPROM handling - currently only for Arduino default
-	 EEPROM
+/* Arduino Real Time clock code */
+#ifdef ARDUINORTC
+#include <uRTCLib.h>
+uRTCLib rtc(0x68);
+#ifdef ARDUINO_ARCH_ESP8266
+// D3 and D4 on ESP8266 - taken from uRTCLIB examples, needs to be isolated
+const char espwire_sda=0;
+const char espwire_scl=2;
+#endif
+// commen DS3231 modules have a build in EEPROM addressable via I2C 0x57
+// this is very raw - definitions set here by hand
+#include <uEEPROMLib.h>
+#define RTCEEPROMSIZE 4096 
+uEEPROMLib c_eeprom(0x57);
+#else
+#define RTCEEPROMSIZE 0
+#endif
 
+/*
+	 EEPROM handling 
 */
-#if defined(ARDUINO) && defined(ARDUINOEEPROM)
+void ebegin(){}
+void eflush(){}
+// the DS3231 module EEPROM is the only one present
+#if defined(ARDUINORTC) && ! defined(ARDUINOEEPROM)
+address_t elength() { return RTCEEPROMSIZE; }
+short eread(address_t i) { return (signed char) c_eeprom.eeprom_read(i); }
+void eupdate(address_t i, short c) { 
+	short b = eread(i);
+	if (b != c) c_eeprom.eeprom_write(i, (signed char) c);
+}
+#endif
+// only the internal Arduino EEPROM
+#if defined(ARDUINOEEPROM) && ! defined(ARDUINORTC)
 address_t elength() { return EEPROM.length(); }
 void eupdate(address_t i, short c) { EEPROM.update(i, c); }
 short eread(address_t i) { return (signed char) EEPROM.read(i); }
+#endif
+// the RTC EEPROM extends the internal EEPROM
+#if defined(ARDUINOEEPROM) && defined(ARDUINORTC)
+address_t elength() { return EEPROM.length()+RTCEEPROMSIZE; }
+void eupdate(address_t i, short c) { 
+	if (i<elength()) 
+		EEPROM.update(i, c); 
+	else {
+		short b = eread(i);
+		if (b != c) c_eeprom.eeprom_write(i, (signed char) c);
+	}	
+}
+short eread(address_t i) { 
+	if (i<elength())
+		return (signed char) EEPROM.read(i); 
+	else
+		return (signed char) c_eeprom.eeprom_read(i); 
+}
+#endif
+// no EEPROM present
+#if ! defined(ARDUINOEEPROM) && !defined(ARDUINORTC)
+address_t elength() { return 0; }
+void eupdate(address_t i, short c) { return; }
+short eread(address_t i) { return 0; }
+#endif
+
 // save a file to EEPROM
 void esave() {
 	address_t a=0;
@@ -988,7 +1042,7 @@ void esave() {
 // load a file from EEPROM
 void eload() {
 	address_t a=0;
-	if (eread(a) == 0 || eread(a) == 1) { // have we stored a program
+	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
 		a++;
 
 		// how long is it?
@@ -1004,13 +1058,6 @@ void eload() {
 		error(EEEPROM);
 	}
 }
-#else
-address_t elength() { return 0; }
-void eupdate(address_t i, short c) { return; }
-short eread(address_t i) { return 0; }
-void esave() { error(EEEPROM); return; }
-void eload() { error(EEEPROM); return; }
-#endif
 
 /*
 	global variables for the keyboard
@@ -1202,19 +1249,6 @@ SoftwareSerial Serial1(software_serial_rx, software_serial_tx);
 #endif
 #endif
 
-/* Arduino Real Time clock code */
-#ifdef ARDUINORTC
-#include <uRTCLib.h>
-uRTCLib rtc(0x68);
-#ifdef ARDUINO_ARCH_ESP8266
-// D3 and D4 on ESP8266 - taken from uRTCLIB examples, needs to be isolated
-const char espwire_sda=0;
-const char espwire_scl=2;
-#endif
-#include <uEEPROMLib.h>
-uEEPROMLib c_eeprom(0x57);
-#endif
-
 
 /* 	
 	Layer 1 function, provide data and do the heavy lifting 
@@ -1361,7 +1395,16 @@ void xavail();
 void statement();
 
 /* 
- 	Layer 0
+ 	Layer 0 - low level IO functions 
+*/
+
+
+
+
+
+
+
+/*
 
 	this is a generic display code 
 	it combines the functions of LCD and TFT drivers
@@ -1688,7 +1731,6 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 	address_t vsize;     // the length of the header
 	address_t b;
 
-
     if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
 
     /*
@@ -1734,6 +1776,7 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 		b=b-addrsize+1;
 		z.a=vsize-(addrsize+3);
 		setnumber(b, addrsize);
+
 		b--;
 	}
 
@@ -1979,11 +2022,12 @@ void esetnumber(address_t m, short n){
 }
 
 /* create an array */
-void createarray(char c, char d, address_t i) {
+address_t createarray(char c, char d, address_t i) {
 #ifdef HASAPPLE1
-	if (DEBUG) { outsc("* create array "); outch(c); outspc(); outnumber(nvars); outcr(); }
-	if (bfind(ARRAYVAR, c, d)) error(EVARIABLE); else (void) bmalloc(ARRAYVAR, c, d, i);
+	if (DEBUG) { outsc("* create array "); outch(c); outch(d); outspc(); outnumber(i); outcr(); }
+	if (bfind(ARRAYVAR, c, d)) error(EVARIABLE); else return bmalloc(ARRAYVAR, c, d, i);
 #endif
+	return 0;
 }
 
 /* generic array access function */
@@ -2036,7 +2080,7 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 	} else {
 #ifdef HASAPPLE1
 		/* dynamically allocated arrays autocreated if needed */ 
-		if ( !(a=bfind(ARRAYVAR, c, d)) ) createarray(c, d, ARRAYSIZEDEF);
+		if ( !(a=bfind(ARRAYVAR, c, d)) ) a=createarray(c, d, ARRAYSIZEDEF);
 		if (er != 0) return;
 		h=z.a/numsize;
 		a=a+(i-1)*numsize;
@@ -2466,6 +2510,7 @@ void ioinit() {
 	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
 #endif
 #endif
+	ebegin();
 	iodefaults();
 }
 
@@ -3154,6 +3199,14 @@ char inch(){
 		picochar=0;
 		return c;	
 	}
+#ifdef ARDUINORF24
+	// radio is not character oriented, this is only added to make GET work
+	// for single byte payloads, radio is treated nonblocking here
+	if (id == IRADIO) {
+			radioins(sbuffer, SBUFSIZE-1);
+			if (sbuffer[0]>0) return sbuffer[1]; else return 0;
+	}
+#endif
 #ifdef LCDSHIELD
 	if (id == IKEYBOARD) {
 		return keypadread();	
@@ -3163,13 +3216,20 @@ char inch(){
 
 char checkch(){
     if (id == ISERIAL) return picochar;
+#ifdef ARDUINORF24
+    if (id == IRADIO)
+    		return radio.available();
+#endif
 #ifdef LCDSHIELD
 	if (id =IKEYBOARD) return (keypadread()!=0);
 #endif
-}
 
+}
 short availch(){
 	if (id == ISERIAL) return picoi;
+#ifdef ARDUINORF24
+   	if (id == IRADIO) return radio.available();
+#endif
 #ifdef LCDSHIELD
 	if (id =IKEYBOARD) return (keypadread()!=0);
 #endif
@@ -3177,12 +3237,17 @@ short availch(){
 
 /* serial pico code only implements serial input and no input channels */
 void ins(char *b, short nb) {
-	picob=b;
-	picobsize=nb;
-	picoa=FALSE;
-	while (! picoa);
-	//outsc(b+1); 
-	outcr();
+	if (id == ISERIAL) {
+		picob=b;
+		picobsize=nb;
+		picoa=FALSE;
+		while (! picoa);
+		//outsc(b+1); 
+		outcr();
+	}
+#ifdef ARDUINORF24
+	if (id == IRADIO) radioins(b, nb);
+#endif
 }
 #endif
 #endif
