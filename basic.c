@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.120 2021/12/31 06:24:09 stefan Exp stefan $
+	$Id: basic.c,v 1.121 2022/01/03 07:25:25 stefan Exp stefan $
 
 	Stefan's tiny basic interpreter 
 
@@ -56,8 +56,6 @@
 /*
 	interpreter features
 */
-#define HASFORNEXT
-#define HASDUMP
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
@@ -617,33 +615,45 @@ const signed char tokens[] = {
 /*
 	the message catalogue also moved to progmem
 */
-#define MFILE        0
-#define MPROMPT      1
-#define MGREET 		 2
-#define EGENERAL 	 3
-#define EUNKNOWN	 4
-#define ENUMBER      5 
-#define EDIVIDE		 6
-#define ELINE        7
-#define ERETURN      8
-#define ENEXT        9
-#define EGOSUB       10 
-#define EFOR         11
-#define EOUTOFMEMORY 12
-#define ESTACK 		 13
-#define EDIM         14
-#define ERANGE 		 15
-#define ESTRING      16
-#define EVARIABLE	 17
-#define EFILE 		 18
-#define EFUN 		 19
-#define EARGS		 20
-#define EEEPROM		 21
-#define ESDCARD		 22
+#define MFILE		0
+#define MPROMPT		1
+#define MGREET		2
+#define MLINE		3
+#define MNUMBER		4
+#define MVARIABLE	5
+#define MARRAY		6
+#define MSTRING		7
+#define MSTRINGVAR	8
+#define EGENERAL 	 9
+#define EUNKNOWN	 10
+#define ENUMBER      11
+#define EDIVIDE		 12
+#define ELINE        13
+#define ERETURN      14
+#define ENEXT        15
+#define EGOSUB       16 
+#define EFOR         17
+#define EOUTOFMEMORY 18
+#define ESTACK 		 19
+#define EDIM         20
+#define ERANGE 		 21
+#define ESTRING      22
+#define EVARIABLE	 23
+#define EFILE 		 24
+#define EFUN 		 25
+#define EARGS		 26
+#define EEEPROM		 27
+#define ESDCARD		 28
 
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "> ";
 const char mgreet[]		PROGMEM = "Stefan's Basic 1.2";
+const char mline[]		PROGMEM = "LINE";
+const char mnumber[]	PROGMEM = "NUMBER";
+const char mvariable[]	PROGMEM = "VARIABLE";
+const char marray[]		PROGMEM = "ARRAY";
+const char mstring[]	PROGMEM = "STRING";
+const char mstringv[]	PROGMEM = "STRINGVAR";
 const char egeneral[]  	PROGMEM = "Error";
 #ifdef HASERRORMSG
 const char eunknown[]  	PROGMEM = "Syntax";
@@ -668,7 +678,10 @@ const char esdcard[]	PROGMEM = "SD card";
 #endif
 
 const char* const message[] PROGMEM = {
-	mfile, mprompt, mgreet, egeneral
+	mfile, mprompt, mgreet, 
+	mline, mnumber, mvariable, marray, 
+	mstring, mstringv,
+	egeneral
 #ifdef HASERRORMSG
 	, eunknown, enumber, edivide, eline, ereturn, 
 	enext, egosub, efor, emem, estack, edim, erange,
@@ -766,11 +779,9 @@ static signed char* mem;
 static address_t himem, memsize;
 #endif
 
-#ifdef HASFORNEXT
 static struct {char varx; char vary; address_t here; number_t to; number_t step;} forstack[FORDEPTH];
 static short forsp = 0;
 static char fnc; 
-#endif
 
 static address_t gosubstack[GOSUBDEPTH];
 static short gosubsp = 0;
@@ -808,6 +819,9 @@ static unsigned char odd = ODSP;
 static unsigned char idd = ISERIAL;
 static unsigned char odd = OSERIAL;
 #endif
+
+// the runtime debuglevel
+char debuglevel = 0;
 
 // data pointer
 #ifdef HASDARTMOUTH
@@ -1320,7 +1334,6 @@ void xreturn();
 void xif();
 
 // optional FOR NEXT loops
-#ifdef HASFORNEXT
 void findnextcmd();
 void xfor();
 void xnext();
@@ -1328,7 +1341,6 @@ void xbreak();
 void pushforstack();
 void popforstack();
 void dropforstack();
-#endif
 void clrforstack();
 
 // GOSUB commands
@@ -2273,7 +2285,7 @@ char* getmessage(char i) {
 
 void printmessage(char i){
 #ifndef HASERRORMSG
-	if (i > 3) return;
+	if (i > EGENERAL) return;
 #endif
 	outsc((char *)getmessage(i));
 }
@@ -2322,9 +2334,8 @@ void reseterror() {
 	st=SINT;
 }
 
-#ifdef DEBUG
 void debugtoken(){
-	outsc("* token: ");
+	outsc("* ");
 
 	if (token == EOL) {
 		outsc("EOL\n");
@@ -2332,26 +2343,26 @@ void debugtoken(){
 	}
 	switch(token) {
 		case LINENUMBER: 
-			outsc("LINE ");
+			printmessage(MLINE);
 			break;
 		case NUMBER:
-			outsc("NUMBER ");
+			printmessage(MNUMBER);
 			break;
 		case VARIABLE:
-			outsc("VARIABLE ");
+			printmessage(MVARIABLE);
 			break;	
 		case ARRAYVAR:
-			outsc("ARRAYVAR ");
+			printmessage(MARRAY);
 			break;		
 		case STRING:
-			outsc("STRING ");
+			printmessage(MSTRING);
 			break;
 		case STRINGVAR:
-			outsc("STRINGVAR ");
+			printmessage(MSTRINGVAR);
 			break;
 	}
+	outspc();
 	outputtoken();
-	outcr();
 }
 
 void debug(char *c){
@@ -2359,8 +2370,8 @@ void debug(char *c){
 	outspc();
 	outsc(c); 
 	debugtoken();
+	outcr();
 }
-#endif
 
 /*
 	Arithmetic and runtime operations are mostly done
@@ -2401,7 +2412,6 @@ void clrdata() {
 
 */
 
-#ifdef HASFORNEXT
 void pushforstack(){
 	short i, j;
 	if (DEBUG) { outsc("** forsp and here in pushforstack "); outnumber(forsp); outspc(); outnumber(here); outcr(); }
@@ -2461,13 +2471,6 @@ void clrforstack() {
 	forsp=0;
 	fnc=0;
 }
-#else 
-void pushforstack(){}
-void popforstack(){}
-void dropforstack(){}
-void clrforstack(){}
-#endif
-
 
 /* 
 
@@ -2987,7 +2990,7 @@ char inch(){
 
 	switch(id) {
 		case ISERIAL:
-			while (!Serial.available());
+			while (!Serial.available()) yield();
 			return Serial.read();		
 		case IFILE:
 			return fileread();
@@ -3000,14 +3003,14 @@ char inch(){
 #endif
 #ifdef ARDUINOPRT
 		case ISERIAL1:
-			while (!Serial1.available());
+			while (!Serial1.available()) yield();
 			return Serial1.read();
 #endif				
 		case IKEYBOARD:
 #ifdef ARDUINOPS2		
 			do {
 				if (keyboard.available()) c=keyboard.read();
-				delay(1); // this seems to be needed on an ESP
+				delay(1); // this seems to be needed on an ESP, probably rather yield()
 			} while(c == 0);	
     		if (c == 13) c=10;
 			return c;
@@ -3492,10 +3495,8 @@ again:
 			return 0;
 		} else {
 			if (id == ISERIAL || id == IKEYBOARD) {
-#ifdef HASERRORMSG
 				printmessage(ENUMBER); 
 				outspc(); 
-#endif
 				printmessage(EGENERAL);
 				outcr();
 				*r=0;
@@ -3567,6 +3568,7 @@ void nexttoken() {
 	// RUN mode vs. INT mode
 	if (st == SRUN || st == SERUN) {
 		gettoken();
+		if (debuglevel>1) debugtoken();
 		return;
 	}
 
@@ -3667,11 +3669,13 @@ void nexttoken() {
 		return;
 	}
 
-	// keyworks and variables
-	// isolate a word, bi points to the beginning, x is the length of the word
-	// ir points to the end of the word after isolating.
-	// @ is a letter here to make the special @ arrays possible
-	// if (DEBUG) printmessage(EVARIABLE);
+	/* 
+		keyworks and variables
+		isolate a word, bi points to the beginning, x is the length of the word
+	 	ir points to the end of the word after isolating.
+	 	@ is a letter here to make the special @ arrays possible 
+	 */
+
 	x=0;
 	ir=bi;
 	while (-1) {
@@ -3699,34 +3703,6 @@ void nexttoken() {
 
 */
 
-// bad code ;-)
-/*
-	yc=0;
-	while (tokens[yc] != 0){
-		ir=getkeyword(yc);
-		xc=0;
-		while (*(ir+xc) != 0) {
-			if (*(ir+xc) != *(bi+xc)){
-				yc++;
-				xc=0;
-				break;
-			} else 
-				xc++;
-		}
-		if (xc == 0)
-			continue;
-		if ( *(bi+xc) < 'A' || *(bi+xc) > 'Z' ) {
-			bi+=xc;
-			token=tokens[yc];
-			if (DEBUG) debugtoken();
-			return;
-		} else {
-			bi+=xc;
-			token=UNKNOWN;
-			return;
-		}
-	}
-*/
 	yc=0;
 	while (tokens[yc] != 0){
 		ir=getkeyword(yc);
@@ -3781,7 +3757,7 @@ void nexttoken() {
 	}
 
 
-// single letters are parsed and stored - not really good
+/* single letters are parsed and stored */
 
 	token=*bi;
 	bi++;
@@ -5413,8 +5389,6 @@ void xif() {
 
 */ 
 
-#ifdef HASFORNEXT
-
 // find the NEXT token or the end of the program
 void findnextcmd(){
 	while (TRUE) {
@@ -5562,18 +5536,6 @@ void xnext(){
 	nexttoken();
 	if (DEBUG) {outsc("** after next found token "); debugtoken(); }
 }
-
-#else
-void xfor(){
-	nexttoken();
-}
-void xbreak(){
-	nexttoken();
-}
-void xnext(){
-	nexttoken();
-}
-#endif
 
 /* 
 	
@@ -5841,7 +5803,6 @@ void xtab(){
 
 */
 
-#ifdef HASDUMP
 void xdump() {
 	address_t a;
 	char arg;
@@ -5910,7 +5871,6 @@ void dumpmem(address_t r, address_t b) {
 	outsc("top: "); outnumber(top); outcr();
 	outsc("himem: "); outnumber(himem); outcr();
 }
-#endif
 
 /*
 	creates a C string from a BASIC string
@@ -6166,7 +6126,10 @@ void xset(){
 
 	arg=pop();
 	fn=pop();
-	switch (fn) {		
+	switch (fn) {	
+		case 0:
+			debuglevel=arg;
+			break;	
 		case 1: // autorun/run flag of the EEPROM 255 for clear, 0 for prog, 1 for autorun
 			eupdate(0, arg);
 			break;
@@ -6526,13 +6489,14 @@ void xclose() {
 	char mode;
 	char args=0;
 
+	nexttoken();
 	if (token == '&') {
 		if (!expectexpr()) return;
 		stream=pop();
 		if (token != ',' && ! termsymbol()) {error(EUNKNOWN); return; }
+		nexttoken();
 	}
 
-	nexttoken();
 	args=parsearguments();
 
 	if (args == 0 ) { 
@@ -6544,10 +6508,10 @@ void xclose() {
 		return;
 	}
 
-	if (mode == 1) {
-		ofileclose();
-	} else if (mode == 0) {
-		ifileclose();
+	switch(stream) {
+		case IFILE:
+			if (mode == 1) ofileclose(); else if (mode == 0) ifileclose();
+			break;
 	}
 
 	nexttoken();
@@ -6607,9 +6571,7 @@ void xusr() {
 				case 5: push(0); break;
 				case 6: push(0); break;
 				case 7: push(gosubsp); break;
-#ifdef HASFORNEXT
 				case 8: push(fnc); break;
-#endif
 				case 9: push(sp); break;
 				default: push(0);
 			}
@@ -7006,6 +6968,8 @@ void xiter(){
 void statement(){
 	if (DEBUG) debug("statement \n"); 
 	while (token != EOL) {
+		if (debuglevel == 1) debugtoken();
+		if (debuglevel) outcr();
 		switch(token){
 			case LINENUMBER:
 				nexttoken();
@@ -7038,7 +7002,6 @@ void statement(){
 			case TIF:
 				xif();
 				break;
-#ifdef HASFORNEXT
 			case TFOR:
 				xfor();
 				break;		
@@ -7048,7 +7011,6 @@ void statement(){
 			case TBREAK:
 				xbreak();
 				break;
-#endif
 			case TSTOP:
 			case TEND: // return here because new input is needed
 				*ibuffer=0; // clear ibuffer - this is a hack
@@ -7083,11 +7045,9 @@ void statement(){
 				break;
 #endif
 // Stefan's tinybasic additions
-#ifdef HASDUMP
 			case TDUMP:
 				xdump();
 				break;
-#endif
 			case TSAVE:
 				xsave();
 				break;
@@ -7210,6 +7170,7 @@ void statement(){
 		}
 #ifdef ARDUINO
 		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;};  // on an Arduino entering "#" at runtime stops the program
+		yield();
 #endif
 		if (er) return;
 	}
@@ -7249,8 +7210,6 @@ void setup() {
   	if (eread(0) == 1){ // autorun from the EEPROM
   		egetnumber(1, addrsize);
   		top=z.a;
-		//top=(unsigned char) eread(1);
-		//top+=((unsigned char) eread(2))*256;
   		st=SERUN;
   	} 
 #endif
@@ -7259,31 +7218,31 @@ void setup() {
 // the loop routine for interactive input 
 void loop() {
 
-	if (st != SERUN) {
-
-		iodefaults();
-
-		printmessage(MPROMPT);
-    	ins(ibuffer, BUFSIZE-2);
-        
-        bi=ibuffer;
-		nexttoken();
-
-    	if (token == NUMBER) {
-         	storeline();		
-    	} else {
-      		st=SINT;
-      		statement();   
-    	}
-
-    	// here, at last, all errors need to be catched
-    	if (er) reseterror();
-
-	} else {
+	// autorun code is run once and then tries to return to interactive
+	// all autorun code must loop in itself
+	if (st == SERUN) {
 		xrun();
-		// cleanup needed after autorun, top is the EEPROM top
     	top=0;
+    	st=SINT;
 	}
+
+	iodefaults();
+
+	printmessage(MPROMPT);
+    ins(ibuffer, BUFSIZE-2);
+        
+	bi=ibuffer;
+	nexttoken();
+
+    if (token == NUMBER) {
+         storeline();		
+    } else {
+      	st=SINT;
+      	statement();   
+    }
+
+    // here, at last, all errors need to be catched
+    if (er) reseterror();
 }
 
 
