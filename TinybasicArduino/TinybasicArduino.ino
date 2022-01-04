@@ -58,20 +58,20 @@
 */
 #define HASAPPLE1
 #define HASARDUINOIO
-#define HASFILEIO
-#define HASTONE
-#define HASPULSE
+#undef HASFILEIO
+#undef HASTONE
+#undef HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
 #undef  HASFLOAT
 #undef  HASGRAPH
-#define HASDARTMOUTH
-#define HASDARKARTS
-#define HASIOT
+#undef HASDARTMOUTH
+#undef HASDARKARTS
+#undef HASIOT
 
 /* hardcoded memory size set 0 for automatic malloc */
-#define MEMSIZE 0
+#define MEMSIZE 1024
 /* 
 	Arduino hardware settings 
 
@@ -83,12 +83,12 @@
 	network ARDUINORF24
 
 */
-#undef USESPICOSERIAL 
+#define USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
+#define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
-#undef LCDSHIELD
+#define LCDSHIELD
 #undef ARDUINOTFT
 #define ARDUINOEEPROM
 #undef ARDUINOSD
@@ -552,7 +552,8 @@ const char* const keyword[] PROGMEM = {
 	0
 };
 
-const signed char tokens[] = {
+// the token dictonary needed for scalability
+const signed char tokens[] PROGMEM = {
 // Palo Alto BASIC
 	GREATEREQUAL, LESSEREQUAL, NOTEQUAL, TPRINT, TLET,    
     TINPUT, TGOTO, TGOSUB, TRETURN, TIF, TFOR, TTO, TSTEP,
@@ -901,9 +902,10 @@ number_t stringdim(char, char);
 number_t lenstring(char, char);
 void setstringlength(char, char, address_t);
 
-// get keyword from PROGMEM
+// get keywords and tokens from PROGMEM
 char* getkeyword(unsigned short);
 char* getmessage(char);
+signed char gettokenvalue(char);
 void printmessage(char);
 
 // error handling
@@ -2272,9 +2274,7 @@ char* getkeyword(unsigned short i) {
 }
 
 char* getmessage(char i) {
-
-	if (i >= NKEYWORDS) return NULL;
-
+	if (i >= sizeof(message)) return 0;
 #ifndef ARDUINOPROGMEM
 	return (char *) message[i];
 #else
@@ -2282,6 +2282,16 @@ char* getmessage(char i) {
 	return sbuffer;
 #endif
 }
+
+signed char gettokenvalue(char i) {
+	if (i >= sizeof(tokens)) return 0;
+#ifndef ARDUINOPROGMEM
+	return tokens[i];
+#else
+	return (signed char) pgm_read_byte(&tokens[i]);
+#endif
+}
+
 
 void printmessage(char i){
 #ifndef HASERRORMSG
@@ -3704,7 +3714,7 @@ void nexttoken() {
 */
 
 	yc=0;
-	while (tokens[yc] != 0){
+	while (gettokenvalue(yc) != 0){
 		ir=getkeyword(yc);
 		xc=0;
 		while (*(ir+xc) != 0) {
@@ -3717,7 +3727,7 @@ void nexttoken() {
 		}
 		if (xc == 0) continue;
 		bi+=xc;
-		token=tokens[yc];
+		token=gettokenvalue(yc);
 		if (DEBUG) debugtoken();
 		return;
 	}
@@ -4187,26 +4197,6 @@ char expectexpr() {
 
 
 // parses a list of expression
-/*
-short parsearguments() {
-	char args=0;
-
-	if (termsymbol()) return args;
-
-nextexpression:
-	expression();
-	if (er != 0) { return 0; }
-
-	args++;
-
-	if (token == ',') {
-		nexttoken();
-		goto nextexpression;
-	} else 
-		return args;
-}
-*/
-
 short parsearguments() {
 	char args=0;
 
@@ -5568,8 +5558,8 @@ void outputtoken() {
 			return;
 		default:
 			if (token < -3) {
-				if (token == TTHEN || token == TTO || token == TSTEP || token == TGOTO || token == TGOSUB) outspc();
-				for(i=0; tokens[i]!=0 && tokens[i]!=token; i++);
+				if (token == TTHEN || token == TTO || token == TSTEP || token == TGOTO || token == TGOSUB) outspc(); 
+				for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 				outsc(getkeyword(i)); 
 				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) outspc();
 				return;
