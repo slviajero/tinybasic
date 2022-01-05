@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.121 2022/01/03 07:25:25 stefan Exp stefan $
+	$Id: basic.c,v 1.122 2022/01/05 17:17:33 stefan Exp stefan $
 
 	Stefan's tiny basic interpreter 
 
@@ -79,7 +79,7 @@
 		ARDUINOPRT, DISPLAYCANSCROLL, ARDUINOLCDI2C,
 		ARDUINOTFT
 	storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS
-	sensors ARDUINORTC
+	sensors ARDUINORTC, ARDUINOWIRE
 	network ARDUINORF24
 
 */
@@ -94,6 +94,7 @@
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #define ARDUINORTC
+#define ARDUINOWIRE
 #undef ARDUINORF24
 #undef STANDALONE
 /* 
@@ -111,6 +112,7 @@
 #undef ARDUINORF24
 #undef ARDUINORTC
 #undef ARDUINOEEPROM
+#undef ARDUINOWIRE
 #endif
 /* 
 	the non AVR arcitectures 
@@ -354,12 +356,14 @@ short blockmode = 0;
 #define OSERIAL 1
 #define ODSP 2
 #define OPRT 4
+#define OWIRE 7
 #define ORADIO 8
 #define OFILE 16
 
 #define ISERIAL 1
 #define IKEYBOARD 2
 #define ISERIAL1 4
+#define IWIRE 7
 #define IRADIO 8
 #define IFILE 16
 
@@ -945,9 +949,19 @@ char inch();
 char checkch();
 short availch();
 void ins(char*, short); 
-void radioins(char *, short);
+void inb(char*, short);
+
+// RF24 radio input 
+void iradioopen(char*);
+void oradioopen(char*);
+void radioins(char*, short);
 void radioouts(char* , short);
-void inb(char *, short);
+
+// generic wire access
+void wirebegin();
+void wireopen(char* s);
+void wireins(char*, uint8_t);
+void wireouts(char*, uint8_t);
 
 // from here on the functions only use the functions above
 // there should be no platform depended code here
@@ -985,6 +999,12 @@ const char espwire_scl=2;
 uEEPROMLib c_eeprom(0x57);
 #else
 #define RTCEEPROMSIZE 0
+#endif
+
+/* the plain Wire library, there is a conflict here as some 
+   other libraries also call Wire, currently unresolved */
+#ifdef ARDUINOWIRE
+#include <Wire.h>
 #endif
 
 /*
@@ -1366,7 +1386,7 @@ void xdump();
 
 // file access 
 void stringtosbuffer();
-void getfilename2(char*, char);
+void getfilename(char*, char);
 void xsave();
 void xload();
 void xcatalog();
@@ -2514,6 +2534,7 @@ void clrforstack() {
 
 void ioinit() {
 	serialbegin();
+	wirebegin();
 	dspbegin();
 	prtbegin();
 #ifdef ARDUINOPS2
@@ -2839,6 +2860,59 @@ void radioouts(char *b, short l) {
 #endif
 }
 
+
+/* this can result in multiple wire begin calls
+ no protection here for user errors from BASIC */ 
+#ifdef ARDUINOWIRE
+uint8_t wire_slaveid = 0;
+uint8_t wire_myid = 0;
+#endif
+
+// default begin is as a master
+void wirebegin() {
+#ifdef ARDUINOWIRE
+	Wire.begin();
+#endif
+}
+
+// as a master open sets the slave id for the communication
+// no extra begin while we stay master
+void wireopen(char* s) {
+#ifdef ARDUINOWIRE
+	if (s[0] == 'm') {
+		wire_slaveid=s[1];
+		wire_myid=0;
+	} else if ( s[0] == 's' ) { 
+		wire_myid=s[1];
+		wire_slaveid=0;
+		Wire.begin(wire_myid);
+		// here the slave code if this Arduino is a slave
+		// to be done
+	} else 
+		error(ERANGE);
+#endif
+}
+
+void wireins(char *b, uint8_t l) {
+#ifdef ARDUINOWIRE
+	z.a=0;
+	Wire.requestFrom(wire_slaveid, l);
+	while (Wire.available() && z.a<l) b[++z.a]=Wire.read();
+	b[0]=z.a;
+#else 
+	b[0]=0;
+	z.a=0;
+#endif
+}
+
+void wireouts(char *b, uint8_t l) {
+#ifdef ARDUINOWIRE
+	  Wire.beginTransmission(wire_slaveid); 
+	  for(z.a=0; z.a<l; z.a++) Wire.write(b[z.a]);     
+	  ert=Wire.endTransmission(); 
+#endif
+}
+
 /* 
 	we always read from pipe 1 and use pipe 0 for writing, 
 	the filename is the pipe address, by default the radio 
@@ -3045,6 +3119,10 @@ char checkch(){
     	case IRADIO:
     		return radio.available();
 #endif
+#ifdef ARDUINOWIRE
+    	case IWIRE:
+    		return Wire.available();
+#endif
 #ifdef ARDUINOPRT
 		case ISERIAL1:
 			if (Serial1.available()) return Serial1.peek();
@@ -3071,6 +3149,10 @@ short availch(){
 #ifdef ARDUINORF24
     	case IRADIO:
     		return radio.available();
+#endif
+#ifdef ARDUINOWIRE
+    	case IWIRE:
+    		return Wire.available();
 #endif
 #ifdef ARDUINOPRT
     	case ISERIAL1:
@@ -3107,6 +3189,8 @@ void ins(char *b, short nb) {
     	inb(b, nb);
     } else if (id == IRADIO) {
     	radioins(b, nb);
+    } else if (id == IWIRE) {
+    	wireins(b, nb);
     } else {
   		while(i < nb) {
     		c=inch();
@@ -3120,7 +3204,7 @@ void ins(char *b, short nb) {
       		  	b[i++]=c;
     	  	} 
   	  }
-  	  b[i]=0x00;
+  	  b[i]=0;
       b[0]=(unsigned char)i-1;
       z.a=i-1; 
     }  
@@ -3230,8 +3314,10 @@ char inch(){
 char checkch(){
     if (id == ISERIAL) return picochar;
 #ifdef ARDUINORF24
-    if (id == IRADIO)
-    		return radio.available();
+    if (id == IRADIO) return radio.available();
+#endif
+#ifdef ARDUINOWIRE
+    if (id == IWIRE) return Wire.available();
 #endif
 #ifdef LCDSHIELD
 	if (id =IKEYBOARD) return (keypadread()!=0);
@@ -3243,6 +3329,9 @@ short availch(){
 #ifdef ARDUINORF24
    	if (id == IRADIO) return radio.available();
 #endif
+ #ifdef ARDUINOWIRE
+    if (id == IWIRE) return Wire.available();
+#endif  	
 #ifdef LCDSHIELD
 	if (id =IKEYBOARD) return (keypadread()!=0);
 #endif
@@ -3257,9 +3346,19 @@ void ins(char *b, short nb) {
 		while (! picoa);
 		//outsc(b+1); 
 		outcr();
+		return;
 	}
 #ifdef ARDUINORF24
-	if (id == IRADIO) radioins(b, nb);
+	if (id == IRADIO) {
+		radioins(b, nb);
+		return;
+	}
+#endif
+#ifdef ARDUINOWIRE
+	if (id == IWIRE) {
+		wireins(b, nb);
+		return;
+	}
 #endif
 }
 #endif
@@ -3308,6 +3407,9 @@ void outs(char *ir, short l){
 	switch (od) {
 		case ORADIO:
 			radioouts(ir, l);
+			break;
+		case OWIRE:
+			wireouts(ir, l);
 			break;
 		default:
 			for(i=0; i<l; i++) outch(ir[i]);
@@ -5876,7 +5978,7 @@ void stringtobuffer(char *buffer) {
 }
 
 /* get a file argument */
-void getfilename2(char *buffer, char d) {
+void getfilename(char *buffer, char d) {
 	char s;
 	char *sbuffer;
 
@@ -5895,8 +5997,10 @@ void getfilename2(char *buffer, char d) {
 			s=0;
 			while ( (sbuffer[s] != 0) && (s<SBUFSIZE-1)) { buffer[s]=sbuffer[s]; s++; }
 			buffer[s]=0;
+			x=s;
 		} else 
 			buffer[0]=0;
+			x=0;
 	} else {
 		error(EUNKNOWN);
 	}
@@ -5909,7 +6013,7 @@ void xsave() {
 
 #if !defined(ARDUINO) || defined(ARDUINOSD) || defined(ESPSPIFFS)
 	nexttoken();
-	getfilename2(filename, 1);
+	getfilename(filename, 1);
 	if (er != 0) return;
 #else 
 	filename[0]='!';
@@ -5965,7 +6069,7 @@ void xload() {
 
 #if !defined(ARDUINO) || defined(ARDUINOSD) || defined(ESPSPIFFS)
 	nexttoken();
-	getfilename2(filename, 1);
+	getfilename(filename, 1);
 	if (er != 0) return;
 #else 
 	filename[0]='!';
@@ -6360,7 +6464,7 @@ void xcatalog() {
 	char *name;
 
 	nexttoken();
-	getfilename2(filename, 0);
+	getfilename(filename, 0);
 	if (er != 0) return; 
 
 	rootopen();
@@ -6384,7 +6488,7 @@ void xdelete() {
 	char filename[SBUFSIZE];
 
 	nexttoken();
-	getfilename2(filename, 0);
+	getfilename(filename, 0);
 	if (er != 0) return; 
 
 #ifndef ARDUINO
@@ -6420,6 +6524,7 @@ void xopen() {
 	char filename[SBUFSIZE];
 	char args=0;
 	char mode;
+	char nlen;
 
 	// which stream do we open? default is FILE
 	nexttoken();
@@ -6430,9 +6535,10 @@ void xopen() {
 		nexttoken();
 	}
 	
-	// the filename
-	getfilename2(filename, 0);
+	// the filename and its length
+	getfilename(filename, 0);
 	if (er != 0) return; 
+	nlen=x;
 
 	// and the arguments
 	nexttoken();
@@ -6449,7 +6555,6 @@ void xopen() {
 		error(EARGS);
 		return;
 	}
-
 	switch(stream) {
 		case IFILE:
 			if (mode == 1) {
@@ -6465,6 +6570,14 @@ void xopen() {
 				iradioopen(filename);
 			} else if (mode == 1) {
 				oradioopen(filename);
+			}
+			break;
+		case IWIRE:
+			if (nlen == 2)
+				wireopen(filename);
+			else {
+				error(ERANGE);
+				return;
 			}
 			break;
 		default:
