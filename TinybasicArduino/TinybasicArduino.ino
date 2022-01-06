@@ -64,7 +64,7 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#define HASFLOAT
+#define  HASFLOAT
 #undef  HASGRAPH
 #define HASDARTMOUTH
 #define HASDARKARTS
@@ -92,7 +92,7 @@
 #undef ARDUINOTFT
 #define ARDUINOEEPROM
 #undef ARDUINOSD
-#define ESPSPIFFS
+#undef ESPSPIFFS
 #define ARDUINORTC
 #define ARDUINOWIRE
 #undef ARDUINORF24
@@ -314,7 +314,7 @@ short blockmode = 0;
 #define TDATA	-43
 #define TREAD   -42
 #define TRESTORE -41
-#define TDEF      -40
+#define TDEF     -40
 #define TFN 	-39
 #define TON     -38
 // darkarts
@@ -1012,7 +1012,7 @@ uEEPROMLib c_eeprom(0x57);
 */
 void ebegin(){}
 void eflush(){}
-// the DS3231 module EEPROM is the only one present
+// the DS3231 module EEPROM is the only EEPROM of the system
 #if defined(ARDUINORTC) && ! defined(ARDUINOEEPROM)
 address_t elength() { return RTCEEPROMSIZE; }
 short eread(address_t a) { return (signed char) c_eeprom.eeprom_read(a); }
@@ -1021,13 +1021,13 @@ void eupdate(address_t a, short c) {
 	if (b != c) c_eeprom.eeprom_write(a, (signed char) c);
 }
 #endif
-// only the internal Arduino EEPROM
+// only the internal Arduino EEPROM, no external EEPROM
 #if defined(ARDUINOEEPROM) && ! defined(ARDUINORTC)
 address_t elength() { return EEPROM.length(); }
 void eupdate(address_t a, short c) { EEPROM.update(a, c); }
 short eread(address_t a) { return (signed char) EEPROM.read(a); }
 #endif
-// the RTC EEPROM extends the internal EEPROM 
+// the RTC EEPROM extends the internal EEPROM / internal is always first
 #if defined(ARDUINOEEPROM) && defined(ARDUINORTC)
 address_t elength() { return EEPROM.length()+RTCEEPROMSIZE; }
 void eupdate(address_t a, short c) { 
@@ -4372,14 +4372,16 @@ void parsesubstring() {
 	char xc1, yc1; 
 	char args;
 	address_t h1; // remember the here
-	char * bi1;
+	char* bi1;
 
 	// remember the string name
     xc1=xc;
     yc1=yc;
 
     if (st == SINT) // this is a hack - we rewind a token !
-    	bi1=bi;
+    { 
+    	bi1=bi; 
+    }
     else 
     	h1=here; 
 
@@ -4394,8 +4396,10 @@ void parsesubstring() {
 			push(lenstring(xc1, yc1));
 			break;
 		case 0: 
-			if ( st == SINT) // this is a hack - we rewind a token !
+			if (st == SINT) // this is a hack - we rewind a token !
+			{
 				bi=bi1;
+			}	
 			else 
 				here=h1; 
 			push(1);
@@ -4405,13 +4409,7 @@ void parsesubstring() {
 }
 #endif
 
-/*
-// absolute value, 
-number_t babs(number_t n) {
-	if (n<0) return -n; else return n;
-}
-*/
-
+// absolute value helper
 void xabs(){
 	if ((x=pop())<0) { x=-x; }
 	push(x);
@@ -4556,6 +4554,7 @@ void streval(){
 	char xcl;
 	signed char t;
 	address_t h1;
+	char* b1;
 
 	if ( ! stringvalue()) {
 		error(EUNKNOWN);
@@ -4565,13 +4564,20 @@ void streval(){
 	irl=ir2;
 	xl=pop();
 
-	h1=here; // get ready for rewind.
+	if (st != SINT)
+		h1=here; // get ready for rewind.
+	else 
+		b1=bi;
+
 	t=token;
 
 	nexttoken();
 
 	if (token != '=' && token != NOTEQUAL) {
-		here=h1; // rewind one token if not comparison
+		if (st != SINT)
+			here=h1; // rewind one token if not comparison
+		else 
+			bi=b1;
 		token=t;
 		if (xl == 0) push(0); else push(irl[0]); // a zero string length evaluate to 0
 		return; 
