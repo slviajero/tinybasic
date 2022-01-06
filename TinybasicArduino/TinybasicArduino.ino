@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.121 2022/01/03 07:25:25 stefan Exp stefan $
+	$Id: basic.c,v 1.122 2022/01/05 17:17:33 stefan Exp stefan $
 
 	Stefan's tiny basic interpreter 
 
@@ -71,7 +71,7 @@
 #define HASIOT
 
 /* hardcoded memory size set 0 for automatic malloc */
-#define MEMSIZE 0
+#define MEMSIZE 1024
 /* 
 	Arduino hardware settings 
 
@@ -83,19 +83,19 @@
 	network ARDUINORF24
 
 */
-#undef USESPICOSERIAL 
+#define USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
+#define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #define ARDUINOEEPROM
 #undef ARDUINOSD
 #undef ESPSPIFFS
-#undef ARDUINORTC
+#define ARDUINORTC
 #undef ARDUINOWIRE
-#undef ARDUINORF24
+#define ARDUINORF24
 #undef STANDALONE
 /* 
 	Don't change the definitions here unless you must
@@ -1015,41 +1015,41 @@ void eflush(){}
 // the DS3231 module EEPROM is the only one present
 #if defined(ARDUINORTC) && ! defined(ARDUINOEEPROM)
 address_t elength() { return RTCEEPROMSIZE; }
-short eread(address_t i) { return (signed char) c_eeprom.eeprom_read(i); }
-void eupdate(address_t i, short c) { 
-	short b = eread(i);
+short eread(address_t a) { return (signed char) c_eeprom.eeprom_read(a); }
+void eupdate(address_t a, short c) { 
+	short b = eread(a);
 	if (b != c) c_eeprom.eeprom_write(i, (signed char) c);
 }
 #endif
 // only the internal Arduino EEPROM
 #if defined(ARDUINOEEPROM) && ! defined(ARDUINORTC)
 address_t elength() { return EEPROM.length(); }
-void eupdate(address_t i, short c) { EEPROM.update(i, c); }
-short eread(address_t i) { return (signed char) EEPROM.read(i); }
+void eupdate(address_t a, short c) { EEPROM.update(a, c); }
+short eread(address_t a) { return (signed char) EEPROM.read(a); }
 #endif
-// the RTC EEPROM extends the internal EEPROM
+// the RTC EEPROM extends the internal EEPROM 
 #if defined(ARDUINOEEPROM) && defined(ARDUINORTC)
 address_t elength() { return EEPROM.length()+RTCEEPROMSIZE; }
-void eupdate(address_t i, short c) { 
-	if (i<elength()) 
-		EEPROM.update(i, c); 
+void eupdate(address_t a, short c) { 
+	if (a<EEPROM.length()) 
+		EEPROM.update(a, c); 
 	else {
-		short b = eread(i);
-		if (b != c) c_eeprom.eeprom_write(i, (signed char) c);
+		short b = c_eeprom.eeprom_read(a-EEPROM.length());
+		if (b != c) c_eeprom.eeprom_write(a-EEPROM.length(), (signed char) c);
 	}	
 }
-short eread(address_t i) { 
-	if (i<elength())
-		return (signed char) EEPROM.read(i); 
+short eread(address_t a) { 
+	if (a<EEPROM.length())
+		return (signed char) EEPROM.read(a); 
 	else
-		return (signed char) c_eeprom.eeprom_read(i); 
+		return (signed char) c_eeprom.eeprom_read(a-EEPROM.length()); 
 }
 #endif
 // no EEPROM present
 #if ! defined(ARDUINOEEPROM) && !defined(ARDUINORTC)
 address_t elength() { return 0; }
-void eupdate(address_t i, short c) { return; }
-short eread(address_t i) { return 0; }
+void eupdate(address_t a, short c) { return; }
+short eread(address_t a) { return 0; }
 #endif
 
 // save a file to EEPROM
@@ -6573,12 +6573,7 @@ void xopen() {
 			}
 			break;
 		case IWIRE:
-			if (nlen == 2)
-				wireopen(filename);
-			else {
-				error(ERANGE);
-				return;
-			}
+			wireopen(filename);
 			break;
 		default:
 			error(ERANGE);
