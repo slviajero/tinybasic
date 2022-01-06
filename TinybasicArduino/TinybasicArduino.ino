@@ -64,14 +64,14 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#undef  HASFLOAT
+#define HASFLOAT
 #undef  HASGRAPH
 #define HASDARTMOUTH
 #define HASDARKARTS
 #define HASIOT
 
 /* hardcoded memory size set 0 for automatic malloc */
-#define MEMSIZE 1024
+#define MEMSIZE 0
 /* 
 	Arduino hardware settings 
 
@@ -83,7 +83,7 @@
 	network ARDUINORF24
 
 */
-#define USESPICOSERIAL 
+#undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
 #define DISPLAYCANSCROLL
@@ -92,10 +92,10 @@
 #undef ARDUINOTFT
 #define ARDUINOEEPROM
 #undef ARDUINOSD
-#undef ESPSPIFFS
+#define ESPSPIFFS
 #define ARDUINORTC
-#undef ARDUINOWIRE
-#define ARDUINORF24
+#define ARDUINOWIRE
+#undef ARDUINORF24
 #undef STANDALONE
 /* 
 	Don't change the definitions here unless you must
@@ -1018,7 +1018,7 @@ address_t elength() { return RTCEEPROMSIZE; }
 short eread(address_t a) { return (signed char) c_eeprom.eeprom_read(a); }
 void eupdate(address_t a, short c) { 
 	short b = eread(a);
-	if (b != c) c_eeprom.eeprom_write(i, (signed char) c);
+	if (b != c) c_eeprom.eeprom_write(a, (signed char) c);
 }
 #endif
 // only the internal Arduino EEPROM
@@ -3078,6 +3078,11 @@ char inch(){
 			return Serial.read();		
 		case IFILE:
 			return fileread();
+#ifdef ARDUINOWIRE
+		case IWIRE:
+			ins(sbuffer, 1);
+			if (sbuffer[0]>0) return sbuffer[1]; else return 0;
+#endif
 #ifdef ARDUINORF24
 		// radio is not character oriented, this is only added to make GET work
 		// for single byte payloads, radio, like file is treated nonblocking here
@@ -3121,7 +3126,7 @@ char checkch(){
 #endif
 #ifdef ARDUINOWIRE
     	case IWIRE:
-    		return Wire.available();
+    		return 0;
 #endif
 #ifdef ARDUINOPRT
 		case ISERIAL1:
@@ -3152,7 +3157,7 @@ short availch(){
 #endif
 #ifdef ARDUINOWIRE
     	case IWIRE:
-    		return Wire.available();
+    		return 1;
 #endif
 #ifdef ARDUINOPRT
     	case ISERIAL1:
@@ -3296,6 +3301,11 @@ char inch(){
 		picochar=0;
 		return c;	
 	}
+#ifdef ARDUINOWIRE
+		case IWIRE:
+			ins(sbuffer, 1);
+			if (sbuffer[0]>0) return sbuffer[1]; else return 0;
+#endif
 #ifdef ARDUINORF24
 	// radio is not character oriented, this is only added to make GET work
 	// for single byte payloads, radio is treated nonblocking here
@@ -3317,24 +3327,26 @@ char checkch(){
     if (id == IRADIO) return radio.available();
 #endif
 #ifdef ARDUINOWIRE
-    if (id == IWIRE) return Wire.available();
+    if (id == IWIRE) return 0;
 #endif
 #ifdef LCDSHIELD
 	if (id =IKEYBOARD) return (keypadread()!=0);
 #endif
-
+	return 0;
 }
+
 short availch(){
 	if (id == ISERIAL) return picoi;
 #ifdef ARDUINORF24
    	if (id == IRADIO) return radio.available();
 #endif
  #ifdef ARDUINOWIRE
-    if (id == IWIRE) return Wire.available();
+    if (id == IWIRE) return 1; 
 #endif  	
 #ifdef LCDSHIELD
 	if (id =IKEYBOARD) return (keypadread()!=0);
 #endif
+	return 0;
 }
 
 /* serial pico code only implements serial input and no input channels */
