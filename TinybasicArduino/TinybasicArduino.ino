@@ -58,20 +58,20 @@
 */
 #define HASAPPLE1
 #define HASARDUINOIO
-#define HASFILEIO
-#define HASTONE
-#define HASPULSE
+#undef HASFILEIO
+#undef HASTONE
+#undef HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#define  HASFLOAT
-#undef  HASGRAPH
+#undef HASFLOAT
+#undef HASGRAPH
 #define HASDARTMOUTH
 #define HASDARKARTS
 #define HASIOT
 
 /* hardcoded memory size set 0 for automatic malloc */
-#define MEMSIZE 0
+#define MEMSIZE 1024
 /* 
 	Arduino hardware settings 
 
@@ -83,19 +83,19 @@
 	network ARDUINORF24
 
 */
-#undef USESPICOSERIAL 
+#define USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
 #define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
-#undef LCDSHIELD
+#define LCDSHIELD
 #undef ARDUINOTFT
 #define ARDUINOEEPROM
 #undef ARDUINOSD
 #undef ESPSPIFFS
-#define ARDUINORTC
-#define ARDUINOWIRE
-#undef ARDUINORF24
+#undef ARDUINORTC
+#undef ARDUINOWIRE
+#define ARDUINORF24
 #undef STANDALONE
 /* 
 	Don't change the definitions here unless you must
@@ -419,8 +419,10 @@ const char spow[]    PROGMEM = "POW";
 const char sfre[]    PROGMEM = "FRE";
 const char sdump[]   PROGMEM = "DUMP";
 const char sbreak[]  PROGMEM = "BREAK";
+#endif
 const char ssave[]   PROGMEM = "SAVE";
 const char sload[]   PROGMEM = "LOAD";
+#ifdef HASSTEFANSEXT
 const char sget[]    PROGMEM = "GET";
 const char sput[]    PROGMEM = "PUT";
 const char sset[]    PROGMEM = "SET";
@@ -512,7 +514,10 @@ const char* const keyword[] PROGMEM = {
 // Stefan's additions
 #ifdef HASSTEFANSEXT
 	scont, ssqr, spow, sfre, sdump, sbreak, 
-	ssave, sload, sget, sput, sset, scls,
+#endif
+	ssave, sload, 
+#ifdef HASSTEFANSEXT
+	sget, sput, sset, scls,
 #endif
 // Arduino stuff
 #ifdef HASARDUINOIO
@@ -569,7 +574,10 @@ const signed char tokens[] PROGMEM = {
 #endif
 // Stefan's tinybasic additions (11)
 #ifdef HASSTEFANSEXT
-	TCONT, TSQR, TPOW, TFRE, TDUMP, TBREAK, TSAVE, TLOAD, 
+	TCONT, TSQR, TPOW, TFRE, TDUMP, TBREAK, 
+#endif
+	TSAVE, TLOAD, 
+#ifdef HASSTEFANSEXT	
 	TGET, TPUT, TSET, TCLS,
 #endif
 // Arduino functions (10)
@@ -6024,18 +6032,16 @@ void getfilename(char *buffer, char d) {
 	}
 }
 
+
+#if !defined(ARDUINO) || defined(ARDUINOSD) || defined(ESPSPIFFS)
 // save a file either to disk or to EEPROM
 void xsave() {
 	char filename[SBUFSIZE];
 	address_t here2;
 
-#if !defined(ARDUINO) || defined(ARDUINOSD) || defined(ESPSPIFFS)
 	nexttoken();
 	getfilename(filename, 1);
 	if (er != 0) return;
-#else 
-	filename[0]='!';
-#endif
 
 	if (filename[0] == '!') {
 		esave();
@@ -6085,13 +6091,10 @@ void xload() {
 	address_t here2;
 	char chain = FALSE;
 
-#if !defined(ARDUINO) || defined(ARDUINOSD) || defined(ESPSPIFFS)
 	nexttoken();
 	getfilename(filename, 1);
 	if (er != 0) return;
-#else 
-	filename[0]='!';
-#endif
+
 
 	if (filename[0] == '!') {
 		eload();
@@ -6143,6 +6146,20 @@ void xload() {
 		nexttoken();
 	}
 }
+#else 
+// save a file to EEPROM
+void xsave() {
+	esave(); 
+	nexttoken();
+	return;
+}
+
+// loading a file from EEPROM
+void xload() {
+	eload();
+	nexttoken();
+}
+#endif
 
 /*
 	get just one character from input or send one 
