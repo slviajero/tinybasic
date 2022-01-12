@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.122 2022/01/05 17:17:33 stefan Exp stefan $
+	$Id: basic.c,v 1.123 2022/01/12 19:09:31 stefan Exp stefan $
 
 	Stefan's tiny basic interpreter 
 
@@ -44,6 +44,7 @@
  		ARDUINO_AVR_MEGA2560, ARDUARDUINO_SAM_DUE: second serial port is Serial1 - no software serial
  		ARDUARDUINO_SAM_DUE: hardware heuristics
  		ARDUINO_ARCH_AVR: nothing
+ 		ARDUINO_ARCH_EXP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
 
  	The code still contains hardware hueristics from my own projects, 
  	will be removed in the future
@@ -117,8 +118,10 @@
 /* 
 	the non AVR arcitectures 
 */
-#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040)
-#include <avr/dtostrf.h>
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined (ARDUINO_ARCH_ESP32)
+#ifndef ARDUINO_ARCH_ESP32
+#include avr/dtostrf.h
+#endif
 #define ARDUINO 100
 #undef ARDUINOEEPROM
 #ifdef ESPSPIFFS
@@ -134,7 +137,11 @@
 #include <PS2Keyboard.h>
 #endif
 #ifdef ARDUINOPROGMEM
+#ifdef ARDUINO_ARCH_ESP32
+#include <pgmspace.h>
+#else
 #include <avr/pgmspace.h>
+#endif
 #endif
 #ifdef ARDUINOEEPROM
 #include <EEPROM.h>
@@ -865,10 +872,14 @@ File file;
 Dir root;
 File file;
 #endif
-#ifndef ESP8266
-#define FILE_OWRITE (O_READ | O_WRITE | O_CREAT | O_TRUNC)
-#else
+#ifdef ARDUINO_ARCH_ESP8266
 #define FILE_OWRITE (sdfat::O_READ | sdfat::O_WRITE | sdfat::O_CREAT | sdfat::O_TRUNC)
+#else 
+#ifdef ARDUINO_ARCH_ESP32
+#define FILE_OWRITE FILE_WRITE
+#else 
+#define FILE_OWRITE (O_READ | O_WRITE | O_CREAT | O_TRUNC)
+#endif
 #endif
 #endif
 #endif
@@ -1121,7 +1132,7 @@ const int PS2IRQpin =  19;
 PS2Keyboard keyboard;
 #endif
 #else
-#ifdef ESP8266
+#ifdef ARDUINO_ARCH_ESP8266
 const int PS2DataPin = 0;
 const int PS2IRQpin =  2;
 PS2Kbd keyboard(PS2DataPin, PS2IRQpin);
@@ -1203,10 +1214,15 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
 #ifdef ARDUINOSD
 // the SD chip select, set 4 for the Ethernet/SD shield
 // and 53 for all configurations of a MEGA
+// 13 for the TTGO VGA box
 #if defined(ARDUINOTFT) || defined(ARDUINO_AVR_MEGA2560)
 const char sd_chipselect = 53;
 #else
+#ifdef ARDUINO_TTGO_T7_V14_Mini32
+const char sd_chipselect = 13;
+#else 
 const char sd_chipselect = 4;
+#endif
 #endif
 #endif
 
@@ -1221,10 +1237,13 @@ rf24_pa_dbm_e rf24_pa = RF24_PA_MAX;
 RF24 radio(rf24_ce, rf24_csn);
 #endif
 
-// the wrappers of the arduino io functions, to avoid 
-// spreading arduino code in the interpreter code 
-// also, this would be the place to insert the Wiring code
-// for raspberry
+/* the wrappers of the arduino io functions, to avoid 
+   spreading arduino code in the interpreter code 
+   also, this would be the place to insert the Wiring code
+   for raspberry */
+#ifdef ARDUINO_ARCH_ESP32
+void analogWrite(int a, int b){}
+#endif
 #ifdef ARDUINO
 void aread(){ push(analogRead(pop())); }
 void dread(){ push(digitalRead(pop())); }
@@ -2108,10 +2127,12 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 #endif
 				return;
 			}
+#if !defined(ARDUINO) && !defined(ARDUINORTC)
 			case 'T':
 				if (m == 'g') *v=rtcget(i); 
 				else if (m == 's') rtcset(i, *v);
 				return;
+#endif
 			case 0: 
 			default: {
 				h=(himem-top)/numsize;
@@ -2271,8 +2292,7 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 	if ( (w+n-1) <= stringdim(c, d) ) {
 		for (i=0; i<n; i++) { b[i+w]=s[i]; } 
 		z.a=w+n-1;
-		setnumber(a, strindexsize);
-		//b[0]=w+n-1; 	
+		setnumber(a, strindexsize);	
 	}
 	else 
 		error(ERANGE);
@@ -2546,7 +2566,7 @@ void ioinit() {
 	dspbegin();
 	prtbegin();
 #ifdef ARDUINOPS2
-#ifdef ESP8266
+#ifdef ARDUINO_ARCH_ESP8266
 	keyboard.begin();
 #else
 	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
@@ -2952,7 +2972,7 @@ void oradioopen(char *filename) {
 void rtcbegin() {
 #ifdef ARDUINORTC
 #ifdef ARDUINO_ARCH_ESP8266
-Wire.begin(0, 2); // D3 and D4 on ESP8266
+Wire.begin(0, 2); // D3 and D4 on ESP8266 - ugly to have this here - see wire code above
 #else
 Wire.begin();
 #endif
@@ -6458,7 +6478,7 @@ void xtone(){
 		return;
 	}
 
-#if !defined(ARDUINO) || defined(ARDUINO_ARCH_SAM)
+#if !defined(ARDUINO) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_ESP32)
 	clearst();
 	return;
 #else 
@@ -7327,9 +7347,14 @@ void setup() {
 
  	xnew();	
 #ifdef ARDUINOSD
- 	SD.begin(sd_chipselect);
-#endif	
-#if defined(ESPSPIFFS) && defined(ESP8266)
+#ifdef ARDUINO_TTGO_T7_V14_Mini32
+ 	SPI.begin(14, 2, 12, 13);
+#endif
+ 	if (SD.begin(sd_chipselect)) {
+ 	  outsc("SDcard opened successfully \n");
+ 	}	
+#endif
+#if defined(ESPSPIFFS) && defined(ARDUINO_ARCH_ESP8266)
  	SPI.begin();
  	if (SPIFFS.begin()) {
 		outsc("SPIFFS opened successfully \n");
