@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.124 2022/01/15 22:27:22 stefan Exp stefan $
+	$Id: basic.c,v 1.123 2022/01/12 19:09:31 stefan Exp stefan $
 
 	Stefan's tiny basic interpreter 
 
@@ -1324,6 +1324,7 @@ void vgabegin() {
   	Terminal.connectLocally();
   	Terminal.clear();
   	Terminal.enableCursor(true);
+  	Terminal.setTerminalType(TermType::VT52);
 }
 #else 
 void vgabegin(){}
@@ -1377,6 +1378,7 @@ void kbdbegin() {
 #else
 #ifdef PS2FABLIB
 	PS2Controller.begin(PS2Preset::KeyboardPort0);
+	PS2Controller.keyboard()->setLayout(&fabgl::GermanLayout);
 #endif
 #endif
 #endif
@@ -1915,9 +1917,11 @@ void vgawrite(char c){
 
 	switch(c) {
   		case 12: // form feed is clear screen
+  			Terminal.write(27); Terminal.write('H');
+  			Terminal.write(27); Terminal.write('J');
     		return;
   		case 10: // this is LF Unix style doing also a CR
-  			Terminal.write(10); Terminal.write(13)
+  			Terminal.write(10); Terminal.write(13);
     		return;
   	}
 
