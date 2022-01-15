@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.123 2022/01/12 19:09:31 stefan Exp stefan $
+	$Id: basic.c,v 1.124 2022/01/15 22:27:22 stefan Exp stefan $
 
 	Stefan's tiny basic interpreter 
 
@@ -61,7 +61,7 @@
 #define HASARDUINOIO
 #define HASFILEIO
 #define HASTONE
-#define HASPULSE
+#define HASPULS
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
@@ -91,6 +91,7 @@
 #undef ARDUINOLCDI2C
 #undef LCDSHIELD
 #undef ARDUINOTFT
+#define ARDUINOVGA
 #define ARDUINOEEPROM
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -792,12 +793,10 @@ static number_t vars[VARSIZE];
 
 #if MEMSIZE != 0
 static signed char mem[MEMSIZE];
-static address_t himem = MEMSIZE-1;
-static address_t memsize = MEMSIZE-1;
 #else
 static signed char* mem;
-static address_t himem, memsize;
 #endif
+static address_t himem, memsize;
 
 static struct {char varx; char vary; address_t here; number_t to; number_t step;} forstack[FORDEPTH];
 static short forsp = 0;
@@ -893,6 +892,7 @@ File file;
 */
 
 // heap management 
+address_t ballocmem();
 address_t bmalloc(signed char, char, char, short);
 address_t bfind(signed char, char, char);
 address_t blength (signed char, char, char);
@@ -951,6 +951,9 @@ char dspactive();
 void dspsetscrollmode(char, short);
 void dspsetcursor(short, short);
 
+// output to a VGA display 
+void vgawrite(char);
+
 // real time clock and wire code 
 void rtcset(char, short);
 short rtcget(char);
@@ -960,6 +963,7 @@ short rtcread(char);
 // these are the platfrom depended lowlevel functions
 void serialbegin();
 void prtbegin();
+void timeinit();
 void ioinit();
 void iodefaults();
 void picogetchar(int);
@@ -969,6 +973,11 @@ char checkch();
 short availch();
 void ins(char*, short); 
 void inb(char*, short);
+
+// keyboard code
+void kbdbegin();
+char kbdavailable();
+char kbdread();
 
 // RF24 radio input 
 void iradioopen(char*);
@@ -982,8 +991,7 @@ void wireopen(char* s);
 void wireins(char*, uint8_t);
 void wireouts(char*, uint8_t);
 
-// from here on the functions only use the functions above
-// there should be no platform depended code here
+// generic I/O functions
 void outcr();
 void outspc();
 void outs(char*, short);
@@ -996,322 +1004,38 @@ void outnumber(number_t);
 short writenumber(char*, number_t);
 short writenumber2(char*, number_t);
 
-/*
-	Arduino definitions and code
-	wrapper functions for the Arduino libraries
-	Arduino definitions and code
-*/
+// EEPROM handling 
+void ebegin();
+void eflush();
+address_t elength();
+short eread(address_t);
+void eupdate(address_t, short);
+void eload();
+void esave();
+void autorun();
 
-/* Arduino Real Time clock code */
-#ifdef ARDUINORTC
-#include <uRTCLib.h>
-uRTCLib rtc(0x68);
-#ifdef ARDUINO_ARCH_ESP8266
-// D3 and D4 on ESP8266 - taken from uRTCLIB examples, needs to be isolated
-const char espwire_sda=0;
-const char espwire_scl=2;
-#endif
-// commen DS3231 modules have a build in EEPROM addressable via I2C 0x57
-// this is very raw - definitions set here by hand
-#include <uEEPROMLib.h>
-#define RTCEEPROMSIZE 4096 
-uEEPROMLib c_eeprom(0x57);
-#else
-#define RTCEEPROMSIZE 0
-#endif
+// the display driver functions, need to be implemented for the display driver to work
+void dspbegin();
+void dspprintchar(char, short, short);
+void dspclear();
 
-/* the plain Wire library, there is a conflict here as some 
-   other libraries also call Wire, currently unresolved */
-#ifdef ARDUINOWIRE
-#include <Wire.h>
-#endif
+// graphics functions 
+void color(int, int, int);
+void plot(int, int);
+void line(int, int, int, int);  
+void rect(int, int, int, int);
+void frect(int, int, int, int);
+void circle(int, int, int);
+void fcircle(int, int, int);
 
-/*
-	 EEPROM handling 
-*/
-void ebegin(){}
-void eflush(){}
-// the DS3231 module EEPROM is the only EEPROM of the system
-#if defined(ARDUINORTC) && ! defined(ARDUINOEEPROM)
-address_t elength() { return RTCEEPROMSIZE; }
-short eread(address_t a) { return (signed char) c_eeprom.eeprom_read(a); }
-void eupdate(address_t a, short c) { 
-	short b = eread(a);
-	if (b != c) c_eeprom.eeprom_write(a, (signed char) c);
-}
-#endif
-// only the internal Arduino EEPROM, no external EEPROM
-#if defined(ARDUINOEEPROM) && ! defined(ARDUINORTC)
-address_t elength() { return EEPROM.length(); }
-void eupdate(address_t a, short c) { EEPROM.update(a, c); }
-short eread(address_t a) { return (signed char) EEPROM.read(a); }
-#endif
-// the RTC EEPROM extends the internal EEPROM / internal is always first
-#if defined(ARDUINOEEPROM) && defined(ARDUINORTC)
-address_t elength() { return EEPROM.length()+RTCEEPROMSIZE; }
-void eupdate(address_t a, short c) { 
-	if (a<EEPROM.length()) 
-		EEPROM.update(a, c); 
-	else {
-		short b = c_eeprom.eeprom_read(a-EEPROM.length());
-		if (b != c) c_eeprom.eeprom_write(a-EEPROM.length(), (signed char) c);
-	}	
-}
-short eread(address_t a) { 
-	if (a<EEPROM.length())
-		return (signed char) EEPROM.read(a); 
-	else
-		return (signed char) c_eeprom.eeprom_read(a-EEPROM.length()); 
-}
-#endif
-// no EEPROM present
-#if ! defined(ARDUINOEEPROM) && !defined(ARDUINORTC)
-address_t elength() { return 0; }
-void eupdate(address_t a, short c) { return; }
-short eread(address_t a) { return 0; }
-#endif
-
-// save a file to EEPROM
-void esave() {
-	address_t a=0;
-	if (top+eheadersize < elength()) {
-		a=0;
-		eupdate(a++, 0); // EEPROM per default is 255, 0 indicates that there is a program
-
-		// store the size of the program in byte 1,2 of the EEPROM	
-		z.a=top;
-		esetnumber(a, addrsize);
-		a+=addrsize;
-
-		while (a < top+eheadersize){
-			eupdate(a, mem[a-eheadersize]);
-			a++;
-		}
-		eupdate(a++,0);
-	} else {
-		error(EOUTOFMEMORY);
-		er=0; //oh oh! check this.
-	}
-}
-
-// load a file from EEPROM
-void eload() {
-	address_t a=0;
-	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
-		a++;
-
-		// how long is it?
-		egetnumber(a, addrsize);
-		top=z.a;
-		a+=addrsize;
-
-		while (a < top+eheadersize){
-			mem[a-eheadersize]=eread(a);
-			a++;
-		}
-	} else { // no valid program data is stored 
-		error(EEEPROM);
-	}
-}
-
-/*
-	global variables for the keyboard
-	heuristic here - with and without TFT shield 
-	needs to be changed according to hw config
-	ESP added as well making it even more complex
-*/
-#ifdef ARDUINOPS2
-#ifdef ARDUINOTFT 
-#ifdef ARDUINO_SAM_DUE
-const int PS2DataPin = 9;
-const int PS2IRQpin =  8;
-PS2Keyboard keyboard;
-#else
-const int PS2DataPin = 18;
-const int PS2IRQpin =  19;
-PS2Keyboard keyboard;
-#endif
-#else
-#ifdef ARDUINO_ARCH_ESP8266
-const int PS2DataPin = 0;
-const int PS2IRQpin =  2;
-PS2Kbd keyboard(PS2DataPin, PS2IRQpin);
-#else
-const int PS2DataPin = 3;
-const int PS2IRQpin =  2;
-PS2Keyboard keyboard;
-#endif
-#endif
-#endif
-
-// global variables for a standard LCD shield.
-#ifdef LCDSHIELD
-#define DISPLAYDRIVER
-#include <LiquidCrystal.h>
-// LCD shield pins to Arduino
-//  RS, EN, d4, d5, d6, d7; 
-// backlight on pin 10;
-const int dsp_rows=2;
-const int dsp_columns=16;
-LiquidCrystal lcd( 8,  9,  4,  5,  6,  7);
-void dspbegin() { 	lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
-void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
-void dspclear() { lcd.clear(); }
-#endif
-
-// global variables for a LCD display connnected
-// via i2c. 
-#ifdef ARDUINOLCDI2C
-#define DISPLAYDRIVER
-#include <Wire.h>
-#include <LiquidCrystal_I2C.h>
-const int dsp_rows=4;
-const int dsp_columns=20;
-LiquidCrystal_I2C lcd(0x27, dsp_columns, dsp_rows);
-void dspbegin() {   lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
-void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
-void dspclear() { lcd.clear(); }
-#endif
-/*
-	global variables for a TFT
-	this is code for a SD1963 800*480 board using the UTFT library
-	it is mainly intended for a MEGA or DUE as a all in one system
-	this is for a MEGA shield and the CTE DUE shield, for the due 
-	you need to read the comment in Arduino/libraries/UTFT/hardware/arm
-	HW_ARM_defines.h -> uncomment the DUE shield
-*/
-#ifdef ARDUINOTFT
-#include <memorysaver.h>
-#include <UTFT.h>
-#define DISPLAYDRIVER
-extern uint8_t SmallFont[];
-extern uint8_t BigFont[];
-#ifdef ARDUINO_SAM_DUE
-UTFT tft(CTE70,25,26,27,28);
-#else 
-UTFT tft(CTE70,38,39,40,41);
-#endif
-const int dsp_rows=30;
-const int dsp_columns=50;
-char dspfontsize = 16;
-void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrollmode(1, 4); }
-void dspprintchar(char c, short col, short row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
-void dspclear() { tft.clrScr(); }
-//experimental graphics code 
-#ifdef HASGRAPH
-void color(int r, int g, int b) { tft.setColor(r,g,b); }
-void plot(int x, int y) { tft.drawPixel(x, y); }
-void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1); }
-void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, y0, x1, y1); }
-void frect(int x0, int y0, int x1, int y1)   { tft.fillRect(x0, y0, x1, y1); }
-void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r); }
-void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
-#endif
-#endif
-
-// global variables for an Arduino SD card, chipselect 
-// depends on the shield. 
-#ifdef ARDUINOSD
-// the SD chip select, set 4 for the Ethernet/SD shield
-// and 53 for all configurations of a MEGA
-// 13 for the TTGO VGA box
-#if defined(ARDUINOTFT) || defined(ARDUINO_AVR_MEGA2560)
-const char sd_chipselect = 53;
-#else
-#ifdef ARDUINO_TTGO_T7_V14_Mini32
-const char sd_chipselect = 13;
-#else 
-const char sd_chipselect = 4;
-#endif
-#endif
-#endif
-
-// definitions for the nearfield module, still very experimental
-#if defined(ARDUINORF24) && defined(ARDUINO) 
-const char rf24_ce = 8;
-const char rf24_csn = 9;
-#include <SPI.h>
-#include <nRF24L01.h>
-#include <RF24.h>
-rf24_pa_dbm_e rf24_pa = RF24_PA_MAX;
-RF24 radio(rf24_ce, rf24_csn);
-#endif
-
-/* the wrappers of the arduino io functions, to avoid 
-   spreading arduino code in the interpreter code 
-   also, this would be the place to insert the Wiring code
-   for raspberry */
-#ifdef ARDUINO_ARCH_ESP32
-void analogWrite(int a, int b){}
-#endif
-#ifdef ARDUINO
-void aread(){ push(analogRead(pop())); }
-void dread(){ push(digitalRead(pop())); }
-void awrite(number_t p, number_t v){
-	if (v >= 0 && v<256) analogWrite(p, v);
-	else error(ERANGE);
-}
-void dwrite(number_t p, number_t v){
-	if (v == 0) digitalWrite(p, LOW);
-	else if (v == 1) digitalWrite(p, HIGH);
-	else error(ERANGE);
-}
-void pinm(number_t p, number_t m){
-	if (m>=0 && m<=2)  pinMode(p, m);
-	else error(ERANGE); 
-}
-void bmillis() {
-	number_t m;
-	// millis is processed as integer and is cyclic mod maxnumber and not cast to float!!
-	m=(number_t) (millis()/(unsigned long)pop() % (unsigned long)maxnum);
-	push(m); 
-};
-void bpulsein() { 
-  unsigned long t, pt;
-  t=((unsigned long) pop())*1000;
-  y=pop(); 
-  x=pop(); 
-  pt=pulseIn(x, y, t)/10; 
-  push(pt);
-}
-#else
-void aread(){ return; }
-void dread(){ return; }
-void awrite(number_t p, number_t v){}
-void dwrite(number_t p, number_t v){}
-void pinm(number_t p, number_t m){}
-#ifndef MSDOS
-#ifndef MINGW
-void delay(number_t t) {usleep(t*1000);}
-#else
-void delay(number_t t) {Sleep(t);}
-#endif
-#endif
-struct timeb start_time;
-void bmillis() {
-	struct timeb thetime;
-	time_t dt;
-	number_t m;
-	ftime(&thetime);
-	dt=(thetime.time-start_time.time)*1000+(thetime.millitm-start_time.millitm);
-	m=(number_t) ( dt/(time_t)pop() % (time_t)maxnum);
-	push(m);
-}
-void bpulsein() { pop(); pop(); pop(); push(0); }
-#endif
-
-/* start a secondary serial port for printing and/or networking */
-#ifdef ARDUINOPRT
-#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE)
-#include <SoftwareSerial.h>
-/* definition of the serial port pins from "pretzel board"
-for UNO 11 is not good for rx */
-const int software_serial_rx = 11;
-const int software_serial_tx = 12;
-SoftwareSerial Serial1(software_serial_rx, software_serial_tx);
-#endif
-#endif
-
+// arduino io functions 
+void aread();
+void dread();
+void awrite(number_t, number_t);
+void dwrite(number_t, number_t);
+void pinm(number_t, number_t);
+void bmillis();
+void bpulsein();
 
 /* 	
 	Layer 1 function, provide data and do the heavy lifting 
@@ -1456,13 +1180,457 @@ void xavail();
 void statement();
 
 /* 
- 	Layer 0 - low level IO functions 
+ 	
+ 	Layer 0 - low level IO functions and device driver code for 
+ 	microcontroller platforms.
+
+	Arduino definitions and code
+	wrapper functions for the Arduino libraries
+	Arduino definitions and code
+
+	This part of the source code knows about hardware and 
+	will go to a hardware.h in the future
+
 */
 
+// global variables for a standard LCD shield.
+#ifdef LCDSHIELD
+#define DISPLAYDRIVER
+#include <LiquidCrystal.h>
+// LCD shield pins to Arduino
+//  RS, EN, d4, d5, d6, d7; 
+// backlight on pin 10;
+const int dsp_rows=2;
+const int dsp_columns=16;
+LiquidCrystal lcd( 8,  9,  4,  5,  6,  7);
+void dspbegin() { 	lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
+void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
+void dspclear() { lcd.clear(); }
+#endif
+
+// global variables for a LCD display connnected
+// via i2c. 
+#ifdef ARDUINOLCDI2C
+#define DISPLAYDRIVER
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+const int dsp_rows=4;
+const int dsp_columns=20;
+LiquidCrystal_I2C lcd(0x27, dsp_columns, dsp_rows);
+void dspbegin() {   lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
+void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
+void dspclear() { lcd.clear(); }
+#endif
+
+// global variables for an Arduino SD card, chipselect 
+// depends on the shield. 
+#ifdef ARDUINOSD
+// the SD chip select, set 4 for the Ethernet/SD shield
+// and 53 for all configurations of a MEGA (default SS)
+// 13 for the TTGO VGA box
+#if defined(ARDUINOTFT) || defined(ARDUINO_AVR_MEGA2560)
+const char sd_chipselect = 53;
+#else
+#ifdef ARDUINO_TTGO_T7_V14_Mini32
+const char sd_chipselect = 13;
+#else 
+const char sd_chipselect = 4;
+#endif
+#endif
+#endif
+
+// filesystem starter
+void fsbegin() {
+#ifdef ARDUINOSD
+#ifdef ARDUINO_TTGO_T7_V14_Mini32
+	// this fixes the wrong board definition in the ESP32 
+	// core of the particular platform, the definition uses
+	// the default ESP32 MISO/MOSi/SCLK/SS pins of the ESP32
+	// instead of the correct ones of the VGA box
+ 	SPI.begin(14, 2, 12, 13);
+#endif
+ 	if (SD.begin(sd_chipselect)) {
+ 	  outsc("SDcard opened successfully \n");
+ 	}	
+#endif
+#if defined(ESPSPIFFS) && ( defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) )
+ 	SPI.begin();
+ 	if (SPIFFS.begin()) {
+		outsc("SPIFFS opened successfully \n");
+		FSInfo fs_info;
+		SPIFFS.info(fs_info);
+		outsc("File system size "); outnumber(fs_info.totalBytes); outcr();
+		outsc("File system used "); outnumber(fs_info.usedBytes); outcr();
+ 	}
+#endif
+}
+
+/*
+	global variables for a TFT
+	this is code for a SD1963 800*480 board using the UTFT library
+	it is mainly intended for a MEGA or DUE as a all in one system
+	this is for a MEGA shield and the CTE DUE shield, for the due 
+	you need to read the comment in Arduino/libraries/UTFT/hardware/arm
+	HW_ARM_defines.h -> uncomment the DUE shield
+*/
+#ifdef ARDUINOTFT
+#include <memorysaver.h>
+#include <UTFT.h>
+#define DISPLAYDRIVER
+extern uint8_t SmallFont[];
+extern uint8_t BigFont[];
+#ifdef ARDUINO_SAM_DUE
+UTFT tft(CTE70,25,26,27,28);
+#else 
+UTFT tft(CTE70,38,39,40,41);
+#endif
+const int dsp_rows=30;
+const int dsp_columns=50;
+char dspfontsize = 16;
+void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrollmode(1, 4); }
+void dspprintchar(char c, short col, short row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
+void dspclear() { tft.clrScr(); }
+//experimental graphics code 
+#ifdef HASGRAPH
+void color(int r, int g, int b) { tft.setColor(r,g,b); }
+void plot(int x, int y) { tft.drawPixel(x, y); }
+void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1); }
+void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, y0, x1, y1); }
+void frect(int x0, int y0, int x1, int y1)   { tft.fillRect(x0, y0, x1, y1); }
+void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r); }
+void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
+#endif
+#endif
+
+/* 
+	this is the VGA code for fablib - first attempt to do this now
+*/
+
+#if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32)
+#include <WiFi.h> 
+#include <fabgl.h> 
+fabgl::VGAController VGAController;
+fabgl::Terminal      Terminal;
+Canvas cv(&VGAController);
+TerminalController tc(&Terminal);
+// this starts the vga controller and the terminal right now
+void vgabegin() {
+	VGAController.begin(GPIO_NUM_22, GPIO_NUM_21, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_23, GPIO_NUM_15);
+	VGAController.setResolution(VGA_640x200_70Hz);
+  	Canvas cv(&VGAController);
+	Terminal.begin(&VGAController);
+	Terminal.setBackgroundColor(Color::Black);
+	Terminal.setForegroundColor(Color::BrightGreen);
+  	Terminal.connectLocally();
+  	Terminal.clear();
+  	Terminal.enableCursor(true);
+}
+#else 
+void vgabegin(){}
+#endif
+
+/*
+	global variables for the keyboard
+	heuristic here - with and without TFT shield 
+	needs to be changed according to hw config
+	ESP added as well making it even more complex
+*/
+#ifdef ARDUINOPS2
+// a TFT standalone system with a DUE as core
+#if defined(ARDUINOTFT) && defined(ARDUINO_SAM_DUE)
+#define PS2KEYBOARD
+const int PS2DataPin = 9;
+const int PS2IRQpin =  8;
+PS2Keyboard keyboard;
+#endif
+#if defined(ARDUINOTFT) && defined(ARDUINO_AVR_MEGA2560)
+#define PS2KEYBOARD
+const int PS2DataPin = 18;
+const int PS2IRQpin =  19;
+PS2Keyboard keyboard;
+#endif
+#if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32)
+#define PS2FABLIB
+fabgl::PS2Controller PS2Controller;
+#endif
+#if !defined(ARDUINOTFT) && !defined(ARDUINOVGA)
+#ifdef ARDUINO_ARCH_ESP8266
+#define PS2ESPKBD
+const int PS2DataPin = 0;
+const int PS2IRQpin =  2;
+PS2Kbd keyboard(PS2DataPin, PS2IRQpin);
+#else
+#define PS2KEYBOARD
+const int PS2DataPin = 3;
+const int PS2IRQpin =  2;
+PS2Keyboard keyboard;
+#endif
+#endif
+#endif
+
+void kbdbegin() {
+#ifdef PS2ESPKBD
+	keyboard.begin();
+#else
+#ifdef PS2KEYBOARD
+	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
+#else
+#ifdef PS2FABLIB
+	PS2Controller.begin(PS2Preset::KeyboardPort0);
+#endif
+#endif
+#endif
+}
+
+char kbdavailable(){
+#ifdef PS2ESPKBD
+	return keyboard.available();
+#else
+#ifdef PS2KEYBOARD
+	return keyboard.available();
+#else
+#ifdef PS2FABLIB
+	return Terminal.available();
+#endif
+#endif
+#endif
+	return 0;
+}
+
+char kbdread() {
+#ifdef PS2ESPKBD
+	return keyboard.read();
+#else
+#ifdef PS2KEYBOARD
+	return keyboard.read();
+#else
+#ifdef PS2FABLIB
+	return Terminal.read();
+#endif
+#endif
+#endif
+	return 0;
+}
+
+/* Arduino Real Time clock code */
+#ifdef ARDUINORTC
+#include <uRTCLib.h>
+uRTCLib rtc(0x68);
+#ifdef ARDUINO_ARCH_ESP8266
+// D3 and D4 on ESP8266 - taken from uRTCLIB examples, needs to be isolated
+const char espwire_sda=0;
+const char espwire_scl=2;
+#endif
+// commen DS3231 modules have a build in EEPROM addressable via I2C 0x57
+// this is very raw - definitions set here by hand
+#include <uEEPROMLib.h>
+#define RTCEEPROMSIZE 4096 
+uEEPROMLib c_eeprom(0x57);
+#else
+#define RTCEEPROMSIZE 0
+#endif
+
+/* the plain Wire library */
+#ifdef ARDUINOWIRE
+#include <Wire.h>
+#endif
+
+/* 
+	start a secondary serial port for printing and/or networking 
+*/
+#ifdef ARDUINOPRT
+#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE)
+#include <SoftwareSerial.h>
+/* definition of the serial port pins from "pretzel board"
+for UNO 11 is not good for rx */
+const int software_serial_rx = 11;
+const int software_serial_tx = 12;
+SoftwareSerial Serial1(software_serial_rx, software_serial_tx);
+#endif
+#endif
 
 
+/*
+	 definitions for the nearfield module, still very experimental
+*/
+#if defined(ARDUINORF24) && defined(ARDUINO) 
+const char rf24_ce = 8;
+const char rf24_csn = 9;
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+rf24_pa_dbm_e rf24_pa = RF24_PA_MAX;
+RF24 radio(rf24_ce, rf24_csn);
+#endif
+
+/* 
+	EEPROM handling, these function enable the @E array and 
+	loading and saving to EEPROM, they depend on the 
+	hardware and wire settings in ARDUINORTC
+
+*/ 
+
+void ebegin(){}
+void eflush(){}
+// the DS3231 module EEPROM is the only EEPROM of the system
+#if defined(ARDUINORTC) && ! defined(ARDUINOEEPROM)
+address_t elength() { return RTCEEPROMSIZE; }
+short eread(address_t a) { return (signed char) c_eeprom.eeprom_read(a); }
+void eupdate(address_t a, short c) { 
+	short b = eread(a);
+	if (b != c) c_eeprom.eeprom_write(a, (signed char) c);
+}
+#endif
+// only the internal Arduino EEPROM, no external EEPROM
+#if defined(ARDUINOEEPROM) && ! defined(ARDUINORTC)
+address_t elength() { return EEPROM.length(); }
+void eupdate(address_t a, short c) { EEPROM.update(a, c); }
+short eread(address_t a) { return (signed char) EEPROM.read(a); }
+#endif
+// the RTC EEPROM extends the internal EEPROM / internal is always first
+#if defined(ARDUINOEEPROM) && defined(ARDUINORTC)
+address_t elength() { return EEPROM.length()+RTCEEPROMSIZE; }
+void eupdate(address_t a, short c) { 
+	if (a<EEPROM.length()) 
+		EEPROM.update(a, c); 
+	else {
+		short b = c_eeprom.eeprom_read(a-EEPROM.length());
+		if (b != c) c_eeprom.eeprom_write(a-EEPROM.length(), (signed char) c);
+	}	
+}
+short eread(address_t a) { 
+	if (a<EEPROM.length())
+		return (signed char) EEPROM.read(a); 
+	else
+		return (signed char) c_eeprom.eeprom_read(a-EEPROM.length()); 
+}
+#endif
+// no EEPROM present
+#if ! defined(ARDUINOEEPROM) && !defined(ARDUINORTC)
+address_t elength() { return 0; }
+void eupdate(address_t a, short c) { return; }
+short eread(address_t a) { return 0; }
+#endif
+
+// save a file to EEPROM
+void esave() {
+	address_t a=0;
+	if (top+eheadersize < elength()) {
+		a=0;
+		eupdate(a++, 0); // EEPROM per default is 255, 0 indicates that there is a program
+
+		// store the size of the program in byte 1,2 of the EEPROM	
+		z.a=top;
+		esetnumber(a, addrsize);
+		a+=addrsize;
+
+		while (a < top+eheadersize){
+			eupdate(a, mem[a-eheadersize]);
+			a++;
+		}
+		eupdate(a++,0);
+	} else {
+		error(EOUTOFMEMORY);
+		er=0; //oh oh! check this.
+	}
+}
+
+// load a file from EEPROM
+void eload() {
+	address_t a=0;
+	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
+		a++;
+
+		// how long is it?
+		egetnumber(a, addrsize);
+		top=z.a;
+		a+=addrsize;
+
+		while (a < top+eheadersize){
+			mem[a-eheadersize]=eread(a);
+			a++;
+		}
+	} else { // no valid program data is stored 
+		error(EEEPROM);
+	}
+}
+
+// autorun a program
+void autorun() {
+#ifdef ARDUINOEEPROM
+  	if (eread(0) == 1){ // autorun from the EEPROM
+  		egetnumber(1, addrsize);
+  		top=z.a;
+  		st=SERUN;
+  	} 
+#endif
+}
 
 
+/* the wrappers of the arduino io functions, to avoid 
+   spreading arduino code in the interpreter code 
+   also, this would be the place to insert the Wiring code
+   for raspberry */
+#ifdef ARDUINO_ARCH_ESP32
+void analogWrite(int a, int b){}
+#endif
+#ifdef ARDUINO
+void aread(){ push(analogRead(pop())); }
+void dread(){ push(digitalRead(pop())); }
+void awrite(number_t p, number_t v){
+	if (v >= 0 && v<256) analogWrite(p, v);
+	else error(ERANGE);
+}
+void dwrite(number_t p, number_t v){
+	if (v == 0) digitalWrite(p, LOW);
+	else if (v == 1) digitalWrite(p, HIGH);
+	else error(ERANGE);
+}
+void pinm(number_t p, number_t m){
+	if (m>=0 && m<=2)  pinMode(p, m);
+	else error(ERANGE); 
+}
+void bmillis() {
+	number_t m;
+	// millis is processed as integer and is cyclic mod maxnumber and not cast to float!!
+	m=(number_t) (millis()/(unsigned long)pop() % (unsigned long)maxnum);
+	push(m); 
+};
+void bpulsein() { 
+  unsigned long t, pt;
+  t=((unsigned long) pop())*1000;
+  y=pop(); 
+  x=pop(); 
+  pt=pulseIn(x, y, t)/10; 
+  push(pt);
+}
+#else
+void aread(){ return; }
+void dread(){ return; }
+void awrite(number_t p, number_t v){}
+void dwrite(number_t p, number_t v){}
+void pinm(number_t p, number_t m){}
+#ifndef MSDOS
+#ifndef MINGW
+void delay(number_t t) {usleep(t*1000);}
+#else
+void delay(number_t t) {Sleep(t);}
+#endif
+#endif
+struct timeb start_time;
+void bmillis() {
+	struct timeb thetime;
+	time_t dt;
+	number_t m;
+	ftime(&thetime);
+	dt=(thetime.time-start_time.time)*1000+(thetime.millitm-start_time.millitm);
+	m=(number_t) ( dt/(time_t)pop() % (time_t)maxnum);
+	push(m);
+}
+void bpulsein() { pop(); pop(); pop(); push(0); }
+#endif
+
+/* end of the hardware section of the code */ 
 
 
 /*
@@ -1492,7 +1660,7 @@ char dspactive() {
 }
 
 #ifdef HASVT52
-// nano vt52 state engine
+/* nano vt52 state engine, vt52s is the state variable */
 char vt52s = 0;
 
 void dspvt52(char* c){
@@ -1696,8 +1864,7 @@ void dspwrite(char c){
     if (esc) { dspvt52(&c); }
 #endif
 
-
- 	switch(c) {
+	switch(c) {
   		case 12: // form feed is clear screen
     		dspclear();
     		return;
@@ -1742,6 +1909,25 @@ void dspsetcursor(short c, short r) {}
 #endif
 
 
+// the quick and dirty hack of the vga display
+#if defined(ARDUINOVGA) && defined(ARDUINO)
+void vgawrite(char c){
+
+	switch(c) {
+  		case 12: // form feed is clear screen
+    		return;
+  		case 10: // this is LF Unix style doing also a CR
+  			Terminal.write(10); Terminal.write(13)
+    		return;
+  	}
+
+  	Terminal.write(c);
+
+}
+#else
+void vgawrite(char c){}
+#endif
+
 /*
 	Layer 0 function - variable handling.
 
@@ -1759,7 +1945,7 @@ void dspsetcursor(short c, short r) {}
 
 #if MEMSIZE == 0
 // guess the possible basic memory size
-void ballocmem() {
+address_t ballocmem() {
 	signed char i = 0;
 	// 									RP2040      ESP        MK       MEGA    UNO  168  FALLBACK
 	const unsigned short memmodel[9] = {60000, 44000, 32000, 24000, 6000, 4096, 1024, 512, 128}; 
@@ -1777,8 +1963,10 @@ void ballocmem() {
 		if (mem != NULL) break;
 		i++;
 	} while (i<9);
-	memsize=memmodel[i]-1;
+	return memmodel[i]-1;
 }
+#else 
+address_t ballocmem(){ return MEMSIZE-1 };
 #endif
 
 #ifdef HASAPPLE1
@@ -2542,6 +2730,7 @@ void clrforstack() {
 	interface of an arduino.
  
  	ioinit(): called at setup to initialize what ever io is needed
+ 	timeinit(): set start time on non Arduino platforms for millis
  	outch(): prints one ascii character 
  	inch(): gets one character (and waits for it)
  	checkch(): checks for one character (non blocking)
@@ -2555,23 +2744,20 @@ void clrforstack() {
 
 */
 
-/* 
-	 device driver code - emulates a lcd_columns * lcd_rows 
-	 very dumb ascii terminal
-*/
+void timeinit() {
+// needed for the millis routine
+#ifndef ARDUINO
+	ftime(&start_time);
+#endif
+}
 
 void ioinit() {
 	serialbegin();
+	prtbegin();
+	kbdbegin();
 	wirebegin();
 	dspbegin();
-	prtbegin();
-#ifdef ARDUINOPS2
-#ifdef ARDUINO_ARCH_ESP8266
-	keyboard.begin();
-#else
-	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
-#endif
-#endif
+	vgabegin(); // mind this - the fablib code is special here 
 	ebegin();
 	iodefaults();
 }
@@ -2590,11 +2776,10 @@ void iodefaults() {
 		- SD filesystems
 		- SPIFFS filesystems
 
-	Wrappers around the OS functions 
+	Wrappers around the OS functions for file and dir access
 
 */
 
-// wrapper around file access
 void filewrite(char c) {
 #ifndef ARDUINO
 	if (ofile) fputc(c, ofile); else ert=1;
@@ -2831,7 +3016,6 @@ void serialwrite(char c) {
 }
 
 
-// printer wrappers
 void prtbegin() {
 #ifdef ARDUINOPRT
 	Serial1.begin(serial1_baudrate);
@@ -3126,7 +3310,7 @@ char inch(){
 		case IKEYBOARD:
 #ifdef ARDUINOPS2		
 			do {
-				if (keyboard.available()) c=keyboard.read();
+				if (kbdavailable()) c=kbdread();
 				delay(1); // this seems to be needed on an ESP, probably rather yield()
 			} while(c == 0);	
     		if (c == 13) c=10;
@@ -3163,7 +3347,7 @@ char checkch(){
 #endif
 		case IKEYBOARD:
 #ifdef ARDUINOPS2		
-			if (keyboard.available()) return keyboard.read();
+			if (kbdavailable()) return kbdread();
 #endif
 #ifdef LCDSHIELD
 			return keypadread();
@@ -3193,7 +3377,7 @@ short availch(){
 #endif
     	case IKEYBOARD:
 #ifdef ARDUINOPS2   
-      		return keyboard.available();
+      		return kbdavailable();
 #endif
 #ifdef LCDSHIELD
       		return (keypadread() != 0);
@@ -3420,7 +3604,11 @@ void outch(char c) {
 	if (od == OFILE) 
 		filewrite(c); 
 	if (od == ODSP)
+#ifdef ARDUINOVGA
+		vgawrite(c);
+#else
 		dspwrite(c);
+#endif
 }
 
 // send a newline
@@ -6333,7 +6521,7 @@ void xset(){
 #ifdef ARDUINORF24
       	case 8: // set the power amplifier level of the module
       		if ((arg<0) && (arg>3)) {error(ERANGE); return; } 
-      		rf24_pa=arg;
+      		rf24_pa=(rf24_pa_dbm_e) arg;
       		radio.setPALevel(rf24_pa);
       		break;
 #endif
@@ -6762,8 +6950,8 @@ void xcall() {
 			exit(0);
 #endif
 		default:
-			error(UNKNOWN);
-			return;
+			error(ERANGE);
+			return;			
 	}
 }
 
@@ -7331,67 +7519,57 @@ void statement(){
 
 // the setup routine - Arduino style
 void setup() {
-#if MEMSIZE == 0
-	ballocmem();
-	himem=memsize;
-#endif
-// needed for the millis routine
-#ifndef ARDUINO
-	ftime(&start_time);
-#endif
+
+	// get the BASIC memory 
+	himem=memsize=ballocmem();
+
+	// start measureing time
+	timeinit();
+
+	// init all io functions 
 	ioinit();
+
+	// greet the user
 	printmessage(MGREET); outspc();
 	printmessage(EOUTOFMEMORY); outspc(); 
 	outnumber(memsize+1); outspc();
 	outnumber(elength()); outcr();
 
+	// be ready for a new program
  	xnew();	
-#ifdef ARDUINOSD
-#ifdef ARDUINO_TTGO_T7_V14_Mini32
- 	SPI.begin(14, 2, 12, 13);
-#endif
- 	if (SD.begin(sd_chipselect)) {
- 	  outsc("SDcard opened successfully \n");
- 	}	
-#endif
-#if defined(ESPSPIFFS) && defined(ARDUINO_ARCH_ESP8266)
- 	SPI.begin();
- 	if (SPIFFS.begin()) {
-		outsc("SPIFFS opened successfully \n");
-		FSInfo fs_info;
-		SPIFFS.info(fs_info);
-		outsc("File system size "); outnumber(fs_info.totalBytes); outcr();
-		outsc("File system used "); outnumber(fs_info.usedBytes); outcr();
- 	}
-#endif
-#ifdef ARDUINOEEPROM
-  	if (eread(0) == 1){ // autorun from the EEPROM
-  		egetnumber(1, addrsize);
-  		top=z.a;
-  		st=SERUN;
-  	} 
-#endif
+
+ 	// start the file system 
+ 	fsbegin();
+
+ 	// check if there is something to autorun and prepare 
+ 	// the interpreter to got into autorun once loop is reached
+ 	autorun();
 }
 
 // the loop routine for interactive input 
 void loop() {
 
-	// autorun code is run once and then tries to return to interactive
-	// all autorun code must loop in itself
+	// autorun state was found in setup, autorun now but only once
+	// autorun BASIC programs return to interactive after completion
+	// autorun code always must loop in itself
 	if (st == SERUN) {
 		xrun();
     	top=0;
     	st=SINT;
 	}
 
+	// always return to default io channels once interactive mode is reached
 	iodefaults();
 
+	// the prompt and the input request
 	printmessage(MPROMPT);
     ins(ibuffer, BUFSIZE-2);
         
+    // tokenize first token from the input buffer
 	bi=ibuffer;
 	nexttoken();
 
+	// a number triggers the line storage, anything else is executed
     if (token == NUMBER) {
          storeline();		
     } else {
