@@ -73,6 +73,8 @@
 
 /* hardcoded memory size set 0 for automatic malloc */
 #define MEMSIZE 0
+
+
 /* 
 	Arduino hardware settings 
 
@@ -174,9 +176,11 @@
 #else
 #include <dir.h>
 #include <dos.h>
+typedef unsigned char uint8_t;
 #endif
 #ifdef MINGW
 #include <windows.h>
+typedef unsigned char uint8_t;
 #endif
 #endif
 /* 
@@ -318,7 +322,6 @@ short blockmode = 0;
 #define TFCIRCLE -45
 #define TFRECT   -44
 // the dark arts and Dartmouth extensions
-// not yet implemented only tokens reserverd
 #define TDATA	-43
 #define TREAD   -42
 #define TRESTORE -41
@@ -1326,6 +1329,13 @@ void vgabegin() {
   	Terminal.enableCursor(true);
   	Terminal.setTerminalType(TermType::VT52);
 }
+void color(int r, int g, int b) { }
+void plot(int x, int y) {  }
+void line(int x0, int y0, int x1, int y1)   { }
+void rect(int x0, int y0, int x1, int y1)   { }
+void frect(int x0, int y0, int x1, int y1)   {  }
+void circle(int x0, int y0, int r) {  }
+void fcircle(int x0, int y0, int r) {  }
 #else 
 void vgabegin(){}
 #endif
