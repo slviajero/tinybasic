@@ -427,7 +427,7 @@ const char spoke[]   PROGMEM = "POKE";
 const char scont[]   PROGMEM = "CONT";
 const char ssqr[]    PROGMEM = "SQR";
 const char spow[]    PROGMEM = "POW";
-const char sfre[]    PROGMEM = "FRE";
+const char sfre[]    PROGMEM = "FRM";
 const char sdump[]   PROGMEM = "DUMP";
 const char sbreak[]  PROGMEM = "BREAK";
 #endif
@@ -486,7 +486,7 @@ const char sline[]   PROGMEM  = "LINE";
 const char scircle[] PROGMEM  = "CIRCLE";
 const char srect[]   PROGMEM  = "RECT";
 const char sfcircle[] PROGMEM  = "FCIRCLE";
-const char sfrect[]   PROGMEM  = "FRECT";
+const char sfrect[]   PROGMEM  = "FRCT";
 #endif
 // Dartmouth BASIC extensions 
 #ifdef HASDARTMOUTH
@@ -1023,7 +1023,8 @@ void dspprintchar(char, short, short);
 void dspclear();
 
 // graphics functions 
-void color(int, int, int);
+void rgbcolor(int, int, int);
+void vgacolor(short c);
 void plot(int, int);
 void line(int, int, int, int);  
 void rect(int, int, int, int);
@@ -1295,11 +1296,17 @@ void dspprintchar(char c, short col, short row) { tft.printChar(c, col*dspfontsi
 void dspclear() { tft.clrScr(); }
 //experimental graphics code 
 #ifdef HASGRAPH
-void color(int r, int g, int b) { tft.setColor(r,g,b); }
+void rgbcolor(int r, int g, int b) { tft.setColor(r,g,b); }
+void vgacolor(short c) {
+	short base=128;
+	if (c=8) { rgbcolor(64, 64, 64); return; }
+	if (c>8) base=255;
+	rgbcolor(base*(r&1), base*(g&2), base*(b&4)); 
+}
 void plot(int x, int y) { tft.drawPixel(x, y); }
 void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1); }
 void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, y0, x1, y1); }
-void frect(int x0, int y0, int x1, int y1)   { tft.fillRect(x0, y0, x1, y1); }
+void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, y0, x1, y1); }
 void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r); }
 void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
 #endif
@@ -1316,26 +1323,82 @@ fabgl::VGAController VGAController;
 fabgl::Terminal      Terminal;
 Canvas cv(&VGAController);
 TerminalController tc(&Terminal);
+Color vga_graph_pen = Color::BrightWhite;
+Color vga_graph_brush = Color::Black;
+Color vga_txt_pen = Color::BrightGreen;
+Color vga_txt_background = Color::Black;
 // this starts the vga controller and the terminal right now
 void vgabegin() {
 	VGAController.begin(GPIO_NUM_22, GPIO_NUM_21, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_23, GPIO_NUM_15);
 	VGAController.setResolution(VGA_640x200_70Hz);
   	Canvas cv(&VGAController);
 	Terminal.begin(&VGAController);
-	Terminal.setBackgroundColor(Color::Black);
-	Terminal.setForegroundColor(Color::BrightGreen);
+	Terminal.setBackgroundColor(vga_txt_background);
+	Terminal.setForegroundColor(vga_txt_pen);
   	Terminal.connectLocally();
   	Terminal.clear();
   	Terminal.enableCursor(true);
   	Terminal.setTerminalType(TermType::VT52);
 }
-void color(int r, int g, int b) { }
-void plot(int x, int y) {  }
-void line(int x0, int y0, int x1, int y1)   { }
-void rect(int x0, int y0, int x1, int y1)   { }
-void frect(int x0, int y0, int x1, int y1)   {  }
-void circle(int x0, int y0, int r) {  }
-void fcircle(int x0, int y0, int r) {  }
+void vgascale(int* x, int* y) {
+	*y=*y*10/24;
+}
+void rgbcolor(int r, int g, int b) {
+	short vga;
+	if (r>191 || g>191 || b>191) vga=8; else vga=0;
+	vga=vga+r/128+g/128*2+b/128*4;
+	vga_graph_pen=fabgl::Color(vga);
+
+}
+void vgacolor(short c) { vga_graph_pen = fabgl::Color(c%16); }
+void plot(int x, int y) { 
+	vgascale(&x, &y);
+	cv.setPenColor(vga_graph_pen);
+	cv.setPixel(x,y);
+	cv.setPenColor(vga_txt_pen);
+}
+void line(int x0, int y0, int x1, int y1) {
+	vgascale(&x0, &y0);
+	vgascale(&x1, &y1);
+    cv.setPenColor(vga_graph_pen);
+    cv.setPenWidth(1);
+    cv.drawLine(x0, y0, x1, y1);
+    cv.setPenColor(vga_txt_pen);
+}
+void rect(int x0, int y0, int x1, int y1) { 
+	vgascale(&x0, &y0);
+	vgascale(&x1, &y1);
+	cv.setPenColor(vga_graph_pen);
+    cv.setPenWidth(1);
+    cv.drawRectangle(x0, y0, x1, y1);
+    cv.setPenColor(vga_txt_pen);
+}
+void frect(int x0, int y0, int x1, int y1) {  
+	vgascale(&x0, &y0);
+	vgascale(&x1, &y1);
+	cv.setBrushColor(vga_graph_pen);
+    cv.fillRectangle(x0, y0, x1, y1);
+    cv.setBrushColor(vga_txt_background);
+}
+void circle(int x0, int y0, int r) {  
+	int rx = r;
+	int ry = r;
+	vgascale(&x0, &y0);
+	vgascale(&rx, &ry);
+	cv.setPenColor(vga_graph_pen);
+    cv.setPenWidth(1);
+    cv.drawEllipse(x0, y0, rx, ry);
+    cv.setPenColor(vga_txt_pen);
+}
+void fcircle(int x0, int y0, int r) {  
+	int rx = r;
+	int ry = r;
+	vgascale(&x0, &y0);
+	vgascale(&rx, &ry);
+	cv.setBrushColor(vga_graph_pen);
+    cv.fillEllipse(x0, y0, rx, ry);
+    cv.setBrushColor(vga_txt_bbackground);	
+}
 #else 
 void vgabegin(){}
 #endif
@@ -6587,16 +6650,27 @@ void xdelay(){
 
 #ifdef HASGRAPH
 void xcolor() {
+	short args;
 	short r, g, b;
 	nexttoken();
-	parsenarguments(3);
-	if (er != 0) return; 
-	b=pop();
-	g=pop();
-	r=pop();
-	color(r, g, b);
+	args=parsearguments();
+	if (er != 0) return;
+	switch(args) {
+		case 1: 
+			vgacolor(pop());
+			break;
+		case 3:
+			b=pop();
+			g=pop();
+			r=pop();
+			rgbcolor(r, g, b);
+			break;
+		default:
+			error(EARGS);
+			break;
+	}
 }
-
+	
 void xplot() {
 	short x0, y0;
 	nexttoken();
