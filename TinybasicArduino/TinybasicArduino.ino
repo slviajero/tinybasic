@@ -92,7 +92,7 @@
 #define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef LCDSHIELD
-#undef ARDUINOTFT
+#define ARDUINOTFT
 #undef ARDUINOVGA
 #define ARDUINOEEPROM
 #undef ARDUINOSD
@@ -101,6 +101,7 @@
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef STANDALONE
+
 /* 
 	Don't change the definitions here unless you must
 
@@ -123,7 +124,7 @@
 */
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined (ARDUINO_ARCH_ESP32)
 #ifndef ARDUINO_ARCH_ESP32
-#include avr/dtostrf.h
+#include <avr/dtostrf.h>
 #endif
 #define ARDUINO 100
 #undef ARDUINOEEPROM
@@ -1297,7 +1298,12 @@ void dspclear() { tft.clrScr(); }
 //experimental graphics code 
 #ifdef HASGRAPH
 void rgbcolor(int r, int g, int b) { tft.setColor(r,g,b); }
-void vgacolor(short c) {}
+void vgacolor(short c) {
+  short base=128;
+  if (c==8) { rgbcolor(64, 64, 64); return; }
+  if (c>8) base=255;
+  rgbcolor(base*(c&1), base*((c&2)/2), base*((c&4)/4)); 
+}
 void plot(int x, int y) { tft.drawPixel(x, y); }
 void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1); }
 void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, y0, x1, y1); }
