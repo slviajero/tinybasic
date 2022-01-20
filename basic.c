@@ -65,7 +65,7 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#define  HASFLOAT
+#define HASFLOAT
 #undef  HASGRAPH
 #define HASDARTMOUTH
 #define HASDARKARTS
@@ -1510,6 +1510,31 @@ uEEPROMLib c_eeprom(0x57);
 #include <Wire.h>
 #endif
 
+/* Arduino Sensor library code - very experimental */
+#ifdef ARDUINOSENSORS
+#include "DHT.h"
+#define DHTTYPE DHT11
+#define DHTPIN 22
+DHT dht(DHTPIN, DHTTYPE);
+void sensorbegin(){
+  dht.begin();
+}
+number_t sensorread(short i) {
+  switch (i) {
+    case 1:
+      return dht.readHumidity();
+    case 2:
+      return dht.readTemperature();
+    default:
+      return 0;
+  }
+}
+#else
+void sensorbegin() {}
+number_t sensorread(short i) {return 0;};
+#endif
+
+
 /* 
 	start a secondary serial port for printing and/or networking 
 */
@@ -2392,11 +2417,16 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 #endif
 				return;
 			}
-#if !defined(ARDUINO) && !defined(ARDUINORTC)
+#if defined(ARDUINO) && defined(ARDUINORTC)
 			case 'T':
 				if (m == 'g') *v=rtcget(i); 
 				else if (m == 's') rtcset(i, *v);
 				return;
+#endif
+#if defined(ARDUINO) && defined(ARDUINOSENSORS)
+		      case 'S':
+        		if (m == 'g') *v=sensorread(i); 
+        		return;
 #endif
 			case 0: 
 			default: {
@@ -2836,6 +2866,7 @@ void ioinit() {
 	dspbegin();
 	vgabegin(); // mind this - the fablib code is special here 
 	ebegin();
+	sensorbegin();
 	iodefaults();
 }
 
