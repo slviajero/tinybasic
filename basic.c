@@ -93,14 +93,37 @@
 #undef ARDUINOLCDI2C
 #undef LCDSHIELD
 #undef ARDUINOTFT
-#define ARDUINOVGA
-#define ARDUINOEEPROM
+#undef ARDUINOVGA
+#undef ARDUINOEEPROM
 #undef ARDUINOSD
 #undef ESPSPIFFS
-#define ARDUINORTC
-#define ARDUINOWIRE
+#undef ARDUINORTC
+#undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef STANDALONE
+
+
+/* 
+
+	Predefined hardware configurations
+	WEMOSSHIELD: A Wemos D1 with a modified datalogger shield
+
+*/
+
+#undef WEMOSSHIELD
+
+
+#ifdef WEMOSSHIELD
+#define ARDUINOPS2
+#define DISPLAYCANSCROLL
+#define ARDUINOLCDI2C
+#define ARDUINOSD
+#define ARDUINORTC
+#define RTCEEPROMSIZE 0
+#define ARDUINOWIRE
+#endif
+
+
 /* 
 	Don't change the definitions here unless you must
 
@@ -1198,7 +1221,7 @@ void statement();
 */
 
 // global variables for a standard LCD shield.
-#ifdef LCDSHIELD
+#if defined(LCDSHIELD) && defined(ARDUINO)
 #define DISPLAYDRIVER
 #include <LiquidCrystal.h>
 // LCD shield pins to Arduino
@@ -1214,7 +1237,7 @@ void dspclear() { lcd.clear(); }
 
 // global variables for a LCD display connnected
 // via i2c. 
-#ifdef ARDUINOLCDI2C
+#if defined(ARDUINOLCDI2C) && defined(ARDUINO)
 #define DISPLAYDRIVER
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -1228,7 +1251,7 @@ void dspclear() { lcd.clear(); }
 
 // global variables for an Arduino SD card, chipselect 
 // depends on the shield. 
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD) && defined(ARDUINO)
 // the SD chip select, set 4 for the Ethernet/SD shield
 // and 53 for all configurations of a MEGA (default SS)
 // 13 for the TTGO VGA box
@@ -1245,7 +1268,7 @@ const char sd_chipselect = 4;
 
 // filesystem starter
 void fsbegin() {
-#ifdef ARDUINOSD
+#ifdef ARDUINOSD 
 #ifdef ARDUINO_TTGO_T7_V14_Mini32
 	// this fixes the wrong board definition in the ESP32 
 	// core of the particular platform, the definition uses
@@ -1277,7 +1300,7 @@ void fsbegin() {
 	you need to read the comment in Arduino/libraries/UTFT/hardware/arm
 	HW_ARM_defines.h -> uncomment the DUE shield
 */
-#ifdef ARDUINOTFT
+#if defined(ARDUINOTFT) && defined(ARDUINO)
 #include <memorysaver.h>
 #include <UTFT.h>
 #define DISPLAYDRIVER
@@ -1409,7 +1432,7 @@ void vgabegin(){}
 	needs to be changed according to hw config
 	ESP added as well making it even more complex
 */
-#ifdef ARDUINOPS2
+#if defined(ARDUINOPS2) && defined(ARDUINO)
 // a TFT standalone system with a DUE as core
 #if defined(ARDUINOTFT) && defined(ARDUINO_SAM_DUE)
 #define PS2KEYBOARD
@@ -1429,10 +1452,16 @@ fabgl::PS2Controller PS2Controller;
 #endif
 #if !defined(ARDUINOTFT) && !defined(ARDUINOVGA)
 #ifdef ARDUINO_ARCH_ESP8266
+// the pin settings of the Wemos D1 with the mod shield
+#define PS2KEYBOARD
+const int PS2DataPin = D2;
+const int PS2IRQpin =  D9;
+PS2Keyboard keyboard;
+/* the PS2Kbd code - not needed any more IF the patched PS2KEYBOARD library is used
 #define PS2ESPKBD
 const int PS2DataPin = 0;
 const int PS2IRQpin =  2;
-PS2Kbd keyboard(PS2DataPin, PS2IRQpin);
+PS2Kbd keyboard(PS2DataPin, PS2IRQpin); */
 #else
 #define PS2KEYBOARD
 const int PS2DataPin = 3;
@@ -1491,15 +1520,12 @@ char kbdread() {
 #ifdef ARDUINORTC
 #include <uRTCLib.h>
 uRTCLib rtc(0x68);
-#ifdef ARDUINO_ARCH_ESP8266
-// D3 and D4 on ESP8266 - taken from uRTCLIB examples, needs to be isolated
-const char espwire_sda=0;
-const char espwire_scl=2;
-#endif
 // commen DS3231 modules have a build in EEPROM addressable via I2C 0x57
 // this is very raw - definitions set here by hand
 #include <uEEPROMLib.h>
+#ifndef RTCEEPROMSIZE
 #define RTCEEPROMSIZE 4096 
+#endif
 uEEPROMLib c_eeprom(0x57);
 #else
 #define RTCEEPROMSIZE 0
@@ -2068,7 +2094,7 @@ address_t ballocmem() {
 	return memmodel[i]-1;
 }
 #else 
-address_t ballocmem(){ return MEMSIZE-1 };
+address_t ballocmem(){ return MEMSIZE-1; };
 #endif
 
 #ifdef HASAPPLE1

@@ -59,14 +59,14 @@
 */
 #define HASAPPLE1
 #define HASARDUINOIO
-#define HASFILEIO
+#undef HASFILEIO
 #define HASTONE
 #define HASPULS
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#define  HASFLOAT
-#undef HASGRAPH
+#undef  HASFLOAT
+#undef  HASGRAPH
 #define HASDARTMOUTH
 #define HASDARKARTS
 #define HASIOT
@@ -91,17 +91,37 @@
 #undef ARDUINOPRT
 #define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
-#define LCDSHIELD
+#undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #define ARDUINOEEPROM
 #undef ARDUINOSD
 #undef ESPSPIFFS
-#define ARDUINORTC
-#define ARDUINOWIRE
+#undef ARDUINORTC
+#undef ARDUINOWIRE
 #undef ARDUINORF24
-#define ARDUINOSENSORS
 #undef STANDALONE
+
+
+/* 
+
+	Predefined hardware configurations
+	WEMOSSHIELD: A Wemos D1 with a modified datalogger shield
+
+*/
+
+#undef WEMOSSHIELD
+
+#if defined(WEMOSSHIELD) && defined(ESP8266_WEMOS_D1R1)
+#define ARDUINOPS2
+#define DISPLAYCANSCROLL
+#define ARDUINOLCDI2C
+#define ARDUINOSD
+#define ARDUINORTC
+#define RTCEEPROMSIZE 0
+#define ARDUINOWIRE
+#endif
+
 
 /* 
 	Don't change the definitions here unless you must
@@ -488,7 +508,7 @@ const char sline[]   PROGMEM  = "LINE";
 const char scircle[] PROGMEM  = "CIRCLE";
 const char srect[]   PROGMEM  = "RECT";
 const char sfcircle[] PROGMEM  = "FCIRCLE";
-const char sfrect[]   PROGMEM  = "FRECT";
+const char sfrect[]   PROGMEM  = "FRCT";
 #endif
 // Dartmouth BASIC extensions 
 #ifdef HASDARTMOUTH
@@ -1200,7 +1220,7 @@ void statement();
 */
 
 // global variables for a standard LCD shield.
-#ifdef LCDSHIELD
+#if defined(LCDSHIELD) && defined(ARDUINO)
 #define DISPLAYDRIVER
 #include <LiquidCrystal.h>
 // LCD shield pins to Arduino
@@ -1216,7 +1236,7 @@ void dspclear() { lcd.clear(); }
 
 // global variables for a LCD display connnected
 // via i2c. 
-#ifdef ARDUINOLCDI2C
+#if defined(ARDUINOLCDI2C) && defined(ARDUINO)
 #define DISPLAYDRIVER
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -1230,7 +1250,7 @@ void dspclear() { lcd.clear(); }
 
 // global variables for an Arduino SD card, chipselect 
 // depends on the shield. 
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD) && defined(ARDUINO)
 // the SD chip select, set 4 for the Ethernet/SD shield
 // and 53 for all configurations of a MEGA (default SS)
 // 13 for the TTGO VGA box
@@ -1247,7 +1267,7 @@ const char sd_chipselect = 4;
 
 // filesystem starter
 void fsbegin() {
-#ifdef ARDUINOSD
+#ifdef ARDUINOSD 
 #ifdef ARDUINO_TTGO_T7_V14_Mini32
 	// this fixes the wrong board definition in the ESP32 
 	// core of the particular platform, the definition uses
@@ -1279,7 +1299,7 @@ void fsbegin() {
 	you need to read the comment in Arduino/libraries/UTFT/hardware/arm
 	HW_ARM_defines.h -> uncomment the DUE shield
 */
-#ifdef ARDUINOTFT
+#if defined(ARDUINOTFT) && defined(ARDUINO)
 #include <memorysaver.h>
 #include <UTFT.h>
 #define DISPLAYDRIVER
@@ -1300,10 +1320,10 @@ void dspclear() { tft.clrScr(); }
 #ifdef HASGRAPH
 void rgbcolor(int r, int g, int b) { tft.setColor(r,g,b); }
 void vgacolor(short c) {
-  short base=128;
-  if (c==8) { rgbcolor(64, 64, 64); return; }
-  if (c>8) base=255;
-  rgbcolor(base*(c&1), base*((c&2)/2), base*((c&4)/4)); 
+	short base=128;
+	if (c==8) { rgbcolor(64, 64, 64); return; }
+	if (c>8) base=255;
+	rgbcolor(base*(c&1), base*((c&2)/2), base*((c&4)/4));  
 }
 void plot(int x, int y) { tft.drawPixel(x, y); }
 void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1); }
@@ -1315,7 +1335,7 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
 #endif
 
 /* 
-  this is the VGA code for fablib - first attempt to do this now
+	this is the VGA code for fablib - first attempt to do this now
 */
 
 #if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32)
@@ -1331,75 +1351,75 @@ Color vga_txt_pen = Color::BrightGreen;
 Color vga_txt_background = Color::Black;
 // this starts the vga controller and the terminal right now
 void vgabegin() {
-  VGAController.begin(GPIO_NUM_22, GPIO_NUM_21, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_23, GPIO_NUM_15);
-  VGAController.setResolution(VGA_640x200_70Hz);
-    Canvas cv(&VGAController);
-  Terminal.begin(&VGAController);
-  Terminal.setBackgroundColor(vga_txt_background);
-  Terminal.setForegroundColor(vga_txt_pen);
-    Terminal.connectLocally();
-    Terminal.clear();
-    Terminal.enableCursor(true);
-    Terminal.setTerminalType(TermType::VT52);
+	VGAController.begin(GPIO_NUM_22, GPIO_NUM_21, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_23, GPIO_NUM_15);
+	VGAController.setResolution(VGA_640x200_70Hz);
+  	Canvas cv(&VGAController);
+	Terminal.begin(&VGAController);
+	Terminal.setBackgroundColor(vga_txt_background);
+	Terminal.setForegroundColor(vga_txt_pen);
+  	Terminal.connectLocally();
+  	Terminal.clear();
+  	Terminal.enableCursor(true);
+  	Terminal.setTerminalType(TermType::VT52);
 }
 void vgascale(int* x, int* y) {
-  *y=*y*10/24;
+	*y=*y*10/24;
 }
 void rgbcolor(int r, int g, int b) {
-  short vga;
-  if (r>191 || g>191 || b>191) vga=8; else vga=0;
-  vga=vga+r/128+g/128*2+b/128*4;
-  vga_graph_pen=fabgl::Color(vga);
+	short vga;
+	if (r>191 || g>191 || b>191) vga=8; else vga=0;
+	vga=vga+r/128+g/128*2+b/128*4;
+	vga_graph_pen=fabgl::Color(vga);
 
 }
 void vgacolor(short c) { vga_graph_pen = fabgl::Color(c%16); }
 void plot(int x, int y) { 
-  vgascale(&x, &y);
-  cv.setPenColor(vga_graph_pen);
-  cv.setPixel(x,y);
-  cv.setPenColor(vga_txt_pen);
+	vgascale(&x, &y);
+	cv.setPenColor(vga_graph_pen);
+	cv.setPixel(x,y);
+	cv.setPenColor(vga_txt_pen);
 }
 void line(int x0, int y0, int x1, int y1) {
-  vgascale(&x0, &y0);
-  vgascale(&x1, &y1);
+	vgascale(&x0, &y0);
+	vgascale(&x1, &y1);
     cv.setPenColor(vga_graph_pen);
     cv.setPenWidth(1);
     cv.drawLine(x0, y0, x1, y1);
     cv.setPenColor(vga_txt_pen);
 }
 void rect(int x0, int y0, int x1, int y1) { 
-  vgascale(&x0, &y0);
-  vgascale(&x1, &y1);
-  cv.setPenColor(vga_graph_pen);
+	vgascale(&x0, &y0);
+	vgascale(&x1, &y1);
+	cv.setPenColor(vga_graph_pen);
     cv.setPenWidth(1);
     cv.drawRectangle(x0, y0, x1, y1);
     cv.setPenColor(vga_txt_pen);
 }
 void frect(int x0, int y0, int x1, int y1) {  
-  vgascale(&x0, &y0);
-  vgascale(&x1, &y1);
-  cv.setBrushColor(vga_graph_pen);
+	vgascale(&x0, &y0);
+	vgascale(&x1, &y1);
+	cv.setBrushColor(vga_graph_pen);
     cv.fillRectangle(x0, y0, x1, y1);
     cv.setBrushColor(vga_txt_background);
 }
 void circle(int x0, int y0, int r) {  
-  int rx = r;
-  int ry = r;
-  vgascale(&x0, &y0);
-  vgascale(&rx, &ry);
-  cv.setPenColor(vga_graph_pen);
+	int rx = r;
+	int ry = r;
+	vgascale(&x0, &y0);
+	vgascale(&rx, &ry);
+	cv.setPenColor(vga_graph_pen);
     cv.setPenWidth(1);
     cv.drawEllipse(x0, y0, rx, ry);
     cv.setPenColor(vga_txt_pen);
 }
 void fcircle(int x0, int y0, int r) {  
-  int rx = r;
-  int ry = r;
-  vgascale(&x0, &y0);
-  vgascale(&rx, &ry);
-  cv.setBrushColor(vga_graph_pen);
+	int rx = r;
+	int ry = r;
+	vgascale(&x0, &y0);
+	vgascale(&rx, &ry);
+	cv.setBrushColor(vga_graph_pen);
     cv.fillEllipse(x0, y0, rx, ry);
-    cv.setBrushColor(vga_txt_background);  
+    cv.setBrushColor(vga_txt_bbackground);	
 }
 #else 
 void vgabegin(){}
@@ -1411,7 +1431,7 @@ void vgabegin(){}
 	needs to be changed according to hw config
 	ESP added as well making it even more complex
 */
-#ifdef ARDUINOPS2
+#if defined(ARDUINOPS2) && defined(ARDUINO)
 // a TFT standalone system with a DUE as core
 #if defined(ARDUINOTFT) && defined(ARDUINO_SAM_DUE)
 #define PS2KEYBOARD
@@ -1431,10 +1451,16 @@ fabgl::PS2Controller PS2Controller;
 #endif
 #if !defined(ARDUINOTFT) && !defined(ARDUINOVGA)
 #ifdef ARDUINO_ARCH_ESP8266
+// the pin settings of the Wemos D1 with the mod shield
+#define PS2KEYBOARD
+const int PS2DataPin = D2;
+const int PS2IRQpin =  D9;
+PS2Keyboard keyboard;
+/* the PS2Kbd code - not needed any more IF the patched PS2KEYBOARD library is used
 #define PS2ESPKBD
 const int PS2DataPin = 0;
 const int PS2IRQpin =  2;
-PS2Kbd keyboard(PS2DataPin, PS2IRQpin);
+PS2Kbd keyboard(PS2DataPin, PS2IRQpin); */
 #else
 #define PS2KEYBOARD
 const int PS2DataPin = 3;
@@ -1493,18 +1519,20 @@ char kbdread() {
 #ifdef ARDUINORTC
 #include <uRTCLib.h>
 uRTCLib rtc(0x68);
-#ifdef ARDUINO_ARCH_ESP8266
-// D3 and D4 on ESP8266 - taken from uRTCLIB examples, needs to be isolated
-const char espwire_sda=0;
-const char espwire_scl=2;
-#endif
 // commen DS3231 modules have a build in EEPROM addressable via I2C 0x57
 // this is very raw - definitions set here by hand
 #include <uEEPROMLib.h>
+#ifndef RTCEEPROMSIZE
 #define RTCEEPROMSIZE 4096 
+#endif
 uEEPROMLib c_eeprom(0x57);
 #else
 #define RTCEEPROMSIZE 0
+#endif
+
+/* the plain Wire library */
+#ifdef ARDUINOWIRE
+#include <Wire.h>
 #endif
 
 /* Arduino Sensor library code - very experimental */
@@ -1531,12 +1559,6 @@ void sensorbegin() {}
 number_t sensorread(short i) {return 0;};
 #endif
 
-
-
-/* the plain Wire library */
-#ifdef ARDUINOWIRE
-#include <Wire.h>
-#endif
 
 /* 
 	start a secondary serial port for printing and/or networking 
@@ -2071,7 +2093,7 @@ address_t ballocmem() {
 	return memmodel[i]-1;
 }
 #else 
-address_t ballocmem(){ return MEMSIZE-1 };
+address_t ballocmem(){ return MEMSIZE-1; };
 #endif
 
 #ifdef HASAPPLE1
@@ -2427,9 +2449,9 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 				return;
 #endif
 #if defined(ARDUINO) && defined(ARDUINOSENSORS)
-      case 'S':
-        if (m == 'g') *v=sensorread(i); 
-        return;
+		      case 'S':
+        		if (m == 'g') *v=sensorread(i); 
+        		return;
 #endif
 			case 0: 
 			default: {
@@ -2869,7 +2891,7 @@ void ioinit() {
 	dspbegin();
 	vgabegin(); // mind this - the fablib code is special here 
 	ebegin();
-  sensorbegin();
+	sensorbegin();
 	iodefaults();
 }
 
@@ -6698,7 +6720,7 @@ void xcolor() {
 			g=pop();
 			r=pop();
 			rgbcolor(r, g, b);
-      break;
+			break;
 		default:
 			error(EARGS);
 			break;
