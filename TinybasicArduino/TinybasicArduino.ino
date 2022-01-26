@@ -59,13 +59,13 @@
 */
 #define HASAPPLE1
 #define HASARDUINOIO
-#undef HASFILEIO
+#define HASFILEIO
 #define HASTONE
 #define HASPULS
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#undef  HASFLOAT
+#define HASFLOAT
 #undef  HASGRAPH
 #define HASDARTMOUTH
 #define HASDARKARTS
@@ -74,9 +74,9 @@
 /* hardcoded memory size set 0 for automatic malloc */
 #define MEMSIZE 0
 
-
 /* 
-	Arduino hardware settings 
+	Arduino hardware settings , set here what you need or
+	use one of the predefined configurations below
 
 	input/output methods USERPICOSERIAL, ARDUINOPS2
 		ARDUINOPRT, DISPLAYCANSCROLL, ARDUINOLCDI2C,
@@ -85,16 +85,17 @@
 	sensors ARDUINORTC, ARDUINOWIRE
 	network ARDUINORF24
 
+	leave this unset if you use the definitions below
 */
 #undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
-#define DISPLAYCANSCROLL
+#undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef ARDUINORTC
@@ -104,15 +105,65 @@
 
 
 /* 
+	Predefined hardware configurations, this assumes that all of the 
+	above are undef
 
-	Predefined hardware configurations
-	WEMOSSHIELD: A Wemos D1 with a modified datalogger shield
-
+	UNOPLAIN: 
+		a plain UNO with no peripherals
+	AVRLCD: 
+		a AVR system with an LCD shield
+	WEMOSSHIELD: 
+		a Wemos D1 with a modified simple datalogger shield
+		optional keyboard and i2c display
+	MEGASHIELD: 
+		an Arduino Mega with Ethernet Shield
+		optional keyboard and i2c display
+	TTGOVGA: 
+		TTGO VGA1.4 system with PS2 keyboard, standalone
+  	MEGATFT, DUETFT
+    	TFT 7inch screen systems, standalone
 */
 
+#undef UNOPLAIN
+#undef AVRLCD
 #undef WEMOSSHIELD
+#undef MEGASHIELD
+#undef TTGOVGA
+#undef DUETFT
+#undef MEGATFT
 
-#if defined(WEMOSSHIELD) && defined(ESP8266_WEMOS_D1R1)
+/* 
+	PIN settings for various hardware configurations
+	used a few heuristics and then the hardware definitions above 
+
+	#define SDPIN sets the SD CS pin - can be left as a default for most HW configs
+    	TTGO needs it as default definitions in the board file are broken
+	#define PS2DATAPIN, PS2IRQPIN sets PS2 pin
+*/
+
+// PS2 Keyboard 
+#define PS2DATAPIN 3
+#define PS2IRQPIN 2
+
+
+// the hardware models
+
+// a Arduino with nothing else 
+#if defined(UNOPLAIN)
+#define USESPICOSERIAL
+#define ARDUINOEEPROM
+#endif
+
+// a AVR ARDUINO (UNO or MEGA) with the classical LCD shield
+#if defined(UNOPLAIN)
+#define ARDUINOEEPROM
+#define DISPLAYCANSCROLL
+#define LCDSHIELD
+#endif
+
+// a Wemos ESP8266 with a mdified datalogger shield 
+// standalone capable
+#if defined(WEMOSSHIELD)
 #define ARDUINOPS2
 #define DISPLAYCANSCROLL
 #define ARDUINOLCDI2C
@@ -120,6 +171,59 @@
 #define ARDUINORTC
 #define RTCEEPROMSIZE 0
 #define ARDUINOWIRE
+#define SDPIN 		D8
+#define PS2DATAPIN	D2
+#define PS2IRQPIN	D9
+#endif
+
+// mega with a Ethernet shield 
+// standalone capable
+#if defined(MEGASHIELD)
+#define ARDUINOEEPROM
+#define ARDUINOPS2
+#define DISPLAYCANSCROLL
+#define ARDUINOLCDI2C
+#define ARDUINOSD
+#define ARDUINOWIRE
+#define ARDUINOPRT
+#define SDPIN 	4
+#define MEMSIZE 5120
+#endif
+
+// VGA system with SD card, standalone by default
+#if defined(TTGOVGA)
+#define ARDUINOPS2
+#define ARDUINOVGA
+#define ARDUINOSD
+#define SDPIN   13
+#define STANDALONE
+#endif
+
+// MEGA with a TFT shield, standalone by default
+#if defined(MEGATFT)
+#define ARDUINOEEPROM
+#define ARDUINOPS2
+#define DISPLAYCANSCROLL
+#define ARDUINOTFT
+#define ARDUINOSD
+#define ARDUINOWIRE
+#define ARDUINOPRT
+#define PS2DATAPIN 18
+#define PS2IRQPIN  19
+#define STANDALONE
+#endif
+
+// DUE with a TFT shield, standalone by default
+#if defined(DUETFT)
+#define ARDUINOPS2
+#define DISPLAYCANSCROLL
+#define ARDUINOTFT
+#define ARDUINOSD
+#define ARDUINOWIRE
+#define ARDUINOPRT
+#define PS2DATAPIN 9
+#define PS2IRQPIN  8
+#define STANDALONE
 #endif
 
 
@@ -140,6 +244,7 @@
 #undef ARDUINOEEPROM
 #undef ARDUINOWIRE
 #endif
+
 /* 
 	the non AVR arcitectures 
 */
@@ -149,15 +254,28 @@
 #endif
 #define ARDUINO 100
 #undef ARDUINOEEPROM
-#ifdef ESPSPIFFS
-#include <SPI.h>
-#include <FS.h>
-#endif
 #endif
 /* 
-	all microcontrollers and their hardware 
+	all microcontrollers, their libraries and dependencies
 */
 #ifdef ARDUINO
+// a clock needs wire
+#ifdef ARDUINORTC
+#define ARDUINOWIRE
+#endif
+// a display needs wire
+#ifdef ARDUINOLCDI2C
+#define ARDUINOWIRE
+#endif
+// a radio needs SPI
+#ifdef ARDUINORF24
+#define ARDUINOSPI
+#endif
+// a filesystem needs SPI
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+#define ARDUINOSPI
+#endif
+// libraries we need to load
 #ifdef ARDUINOPS2
 #include <PS2Keyboard.h>
 #endif
@@ -174,9 +292,17 @@
 #ifdef USESPICOSERIAL
 #include <PicoSerial.h>
 #endif
-#ifdef ARDUINOSD
+#ifdef ARDUINOSPI
 #include <SPI.h>
+#endif
+#ifdef ARDUINOSD
 #include <SD.h>
+#endif
+#ifdef ESPSPIFFS
+#include <FS.h>
+#endif
+#ifdef ARDUINOWIRE
+#include <Wire.h>
 #endif
 /* 
 	MSDOS, Mac, Linux and Windows 
@@ -205,6 +331,8 @@ typedef unsigned char uint8_t;
 typedef unsigned char uint8_t;
 #endif
 #endif
+
+
 /* 
 	Arduino default serial baudrate 
 */
@@ -222,6 +350,7 @@ const int serial1_baudrate = 0;
 char sendcr = 0;
 short blockmode = 0;
 #endif
+
 
 // general definitions
 #define TRUE  1
@@ -735,6 +864,7 @@ const char* const message[] PROGMEM = {
 	eeeprom, esdcard
 #endif
 };
+
 /*
 	code for variable numbers and addresses sizes
 	the original code was 16 bit but can be extended here
@@ -909,6 +1039,9 @@ File file;
 #endif
 
 /* 
+
+	Function prototypes - this would go to basic.h at some point in time
+
 	Layer 0 functions 
 
 	variable and memory handling - interface between memory 
@@ -1238,7 +1371,6 @@ void dspclear() { lcd.clear(); }
 // via i2c. 
 #if defined(ARDUINOLCDI2C) && defined(ARDUINO)
 #define DISPLAYDRIVER
-#include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 const int dsp_rows=4;
 const int dsp_columns=20;
@@ -1248,41 +1380,39 @@ void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.w
 void dspclear() { lcd.clear(); }
 #endif
 
-// global variables for an Arduino SD card, chipselect 
-// depends on the shield. 
-#if defined(ARDUINOSD) && defined(ARDUINO)
-// the SD chip select, set 4 for the Ethernet/SD shield
-// and 53 for all configurations of a MEGA (default SS)
-// 13 for the TTGO VGA box
-#if defined(ARDUINOTFT) || defined(ARDUINO_AVR_MEGA2560)
-const char sd_chipselect = 53;
-#else
-#ifdef ARDUINO_TTGO_T7_V14_Mini32
-const char sd_chipselect = 13;
-#else 
-const char sd_chipselect = 4;
-#endif
-#endif
-#endif
+/* 
 
-// filesystem starter
-void fsbegin() {
-#ifdef ARDUINOSD 
+	start the SPI bus - this is a little mean as some libraries also 
+	try to start the SPI which may lead to on override of the PIN settings
+	if the library code is not clean - currenty no conflict known
+
+*/
+
+void spibegin() {
+#if defined(ARDUINO) && defined(ARDUINOSPI)
 #ifdef ARDUINO_TTGO_T7_V14_Mini32
 	// this fixes the wrong board definition in the ESP32 
 	// core of the particular platform, the definition uses
 	// the default ESP32 MISO/MOSi/SCLK/SS pins of the ESP32
 	// instead of the correct ones of the VGA box
  	SPI.begin(14, 2, 12, 13);
+#else 
+ 	SPI.begin();
 #endif
- 	if (SD.begin(sd_chipselect)) {
- 	  outsc("SDcard opened successfully \n");
- 	}	
+#endif
+}
+
+// filesystem starter 
+void fsbegin() {
+#ifdef ARDUINOSD 
+#ifndef SDPIN
+#define SDPIN
+#endif
+ 	if (SD.begin(SDPIN)) { outsc("SDcard ok \n"); }	
 #endif
 #if defined(ESPSPIFFS) && ( defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) )
- 	SPI.begin();
  	if (SPIFFS.begin()) {
-		outsc("SPIFFS opened successfully \n");
+		outsc("SPIFFS ok \n");
 		FSInfo fs_info;
 		SPIFFS.info(fs_info);
 		outsc("File system size "); outnumber(fs_info.totalBytes); outcr();
@@ -1419,76 +1549,35 @@ void fcircle(int x0, int y0, int r) {
 	vgascale(&rx, &ry);
 	cv.setBrushColor(vga_graph_pen);
     cv.fillEllipse(x0, y0, rx, ry);
-    cv.setBrushColor(vga_txt_bbackground);	
+    cv.setBrushColor(vga_txt_background);	
 }
 #else 
 void vgabegin(){}
 #endif
 
-/*
-	global variables for the keyboard
-	heuristic here - with and without TFT shield 
-	needs to be changed according to hw config
-	ESP added as well making it even more complex
-*/
-#if defined(ARDUINOPS2) && defined(ARDUINO)
-// a TFT standalone system with a DUE as core
-#if defined(ARDUINOTFT) && defined(ARDUINO_SAM_DUE)
-#define PS2KEYBOARD
-const int PS2DataPin = 9;
-const int PS2IRQpin =  8;
-PS2Keyboard keyboard;
-#endif
-#if defined(ARDUINOTFT) && defined(ARDUINO_AVR_MEGA2560)
-#define PS2KEYBOARD
-const int PS2DataPin = 18;
-const int PS2IRQpin =  19;
-PS2Keyboard keyboard;
-#endif
-#if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32)
+
+#ifdef ARDUINO_TTGO_T7_V14_Mini32
 #define PS2FABLIB
 fabgl::PS2Controller PS2Controller;
-#endif
-#if !defined(ARDUINOTFT) && !defined(ARDUINOVGA)
-#ifdef ARDUINO_ARCH_ESP8266
-// the pin settings of the Wemos D1 with the mod shield
-#define PS2KEYBOARD
-const int PS2DataPin = D2;
-const int PS2IRQpin =  D9;
-PS2Keyboard keyboard;
-/* the PS2Kbd code - not needed any more IF the patched PS2KEYBOARD library is used
-#define PS2ESPKBD
-const int PS2DataPin = 0;
-const int PS2IRQpin =  2;
-PS2Kbd keyboard(PS2DataPin, PS2IRQpin); */
 #else
+#if defined(ARDUINO) && defined(ARDUINOPS2)
 #define PS2KEYBOARD
-const int PS2DataPin = 3;
-const int PS2IRQpin =  2;
 PS2Keyboard keyboard;
-#endif
 #endif
 #endif
 
 void kbdbegin() {
-#ifdef PS2ESPKBD
-	keyboard.begin();
-#else
 #ifdef PS2KEYBOARD
-	keyboard.begin(PS2DataPin, PS2IRQpin, PS2Keymap_German);
+	keyboard.begin(PS2DATAPIN, PS2IRQPIN, PS2Keymap_German);
 #else
 #ifdef PS2FABLIB
 	PS2Controller.begin(PS2Preset::KeyboardPort0);
 	PS2Controller.keyboard()->setLayout(&fabgl::GermanLayout);
 #endif
 #endif
-#endif
 }
 
 char kbdavailable(){
-#ifdef PS2ESPKBD
-	return keyboard.available();
-#else
 #ifdef PS2KEYBOARD
 	return keyboard.available();
 #else
@@ -1496,20 +1585,15 @@ char kbdavailable(){
 	return Terminal.available();
 #endif
 #endif
-#endif
 	return 0;
 }
 
 char kbdread() {
-#ifdef PS2ESPKBD
-	return keyboard.read();
-#else
 #ifdef PS2KEYBOARD
 	return keyboard.read();
 #else
 #ifdef PS2FABLIB
 	return Terminal.read();
-#endif
 #endif
 #endif
 	return 0;
@@ -1530,10 +1614,6 @@ uEEPROMLib c_eeprom(0x57);
 #define RTCEEPROMSIZE 0
 #endif
 
-/* the plain Wire library */
-#ifdef ARDUINOWIRE
-#include <Wire.h>
-#endif
 
 /* Arduino Sensor library code - very experimental */
 #ifdef ARDUINOSENSORS
@@ -1574,14 +1654,12 @@ SoftwareSerial Serial1(software_serial_rx, software_serial_tx);
 #endif
 #endif
 
-
 /*
 	 definitions for the nearfield module, still very experimental
 */
 #if defined(ARDUINORF24) && defined(ARDUINO) 
 const char rf24_ce = 8;
 const char rf24_csn = 9;
-#include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
 rf24_pa_dbm_e rf24_pa = RF24_PA_MAX;
@@ -2884,10 +2962,11 @@ void timeinit() {
 }
 
 void ioinit() {
+	wirebegin(); // wire has to be started early as much depends on it
+	spibegin();
 	serialbegin();
 	prtbegin();
 	kbdbegin();
-	wirebegin();
 	dspbegin();
 	vgabegin(); // mind this - the fablib code is special here 
 	ebegin();
@@ -3216,7 +3295,12 @@ uint8_t wire_myid = 0;
 // default begin is as a master
 void wirebegin() {
 #ifdef ARDUINOWIRE
+#ifdef ARDUINO_ARCH_ESP8266
+//	Wire.begin(0, 2); // D3 and D4 - sometimes not set correctly (?)
 	Wire.begin();
+#else
+	Wire.begin();
+#endif
 #endif
 }
 
@@ -3285,16 +3369,6 @@ void oradioopen(char *filename) {
 	this is a minimalistic library 
 
 */ 
-
-void rtcbegin() {
-#ifdef ARDUINORTC
-#ifdef ARDUINO_ARCH_ESP8266
-Wire.begin(0, 2); // D3 and D4 on ESP8266 - ugly to have this here - see wire code above
-#else
-Wire.begin();
-#endif
-#endif
-}
 
 short rtcread(char i) {
 #ifdef ARDUINORTC
