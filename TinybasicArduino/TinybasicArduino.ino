@@ -101,6 +101,7 @@
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
+#define ARDUINONET
 #undef STANDALONE
 
 
@@ -303,6 +304,13 @@
 #endif
 #ifdef ARDUINOWIRE
 #include <Wire.h>
+#endif
+#ifdef ARDUINONET
+// experimental - only implemented in ESP
+#ifdef ARDUINO_ARCH_ESP8266
+#include <ESP8266WiFi.h>
+#include <PubSubClient.h>
+#endif
 #endif
 /* 
 	MSDOS, Mac, Linux and Windows 
@@ -520,6 +528,7 @@ short blockmode = 0;
 #define OPRT 4
 #define OWIRE 7
 #define ORADIO 8
+#define OMQTT  9
 #define OFILE 16
 
 #define ISERIAL 1
@@ -527,6 +536,7 @@ short blockmode = 0;
 #define ISERIAL1 4
 #define IWIRE 7
 #define IRADIO 8
+#define IMQTT  9
 #define IFILE 16
 
 /*
@@ -1664,6 +1674,79 @@ const char rf24_csn = 9;
 #include <RF24.h>
 rf24_pa_dbm_e rf24_pa = RF24_PA_MAX;
 RF24 radio(rf24_ce, rf24_csn);
+#endif
+
+/*
+	definitions for ESP Wifi and MQTT, super experimental
+	all in one again
+*/
+#if defined(ARDUINONET) && defined(ARDUINO)
+#include "wifisettings.h"
+const char* mqtt_server = "test.mosquitto.org";
+const short mqtt_port = 1883;
+WiFiClient bwifi;
+PubSubClient bmqtt(bwifi);
+#define MQTTTLENGTH 32
+char mqtt_topic[MQTTTLENGTH];
+// the begin method 
+// needs the settings from wifisettings.h
+void netbegin() {
+	WiFi.mode(WIFI_STA);
+	WiFi.begin(ssid, password);
+}
+// the connected method
+char netconnected() {
+	return(WiFi.status() == WL_CONNECTED);
+}
+// the mqtt callback function, using the byte type here
+// because payload can be binary - interface to BASIC 
+// strings need to be done
+void mqttcallback(char* t, byte* p, unsigned int l) {
+}
+// starting mqtt 
+void mqttbegin() {
+	bmqtt.setServer(mqtt_server, mqtt_port);
+	bmqtt.setCallback(mqttcallback);
+}
+// reconnecting mqtt
+char mqttreconnect() {
+	short timer=10;
+	while (!bmqtt.connected() && timer < 400) {
+		bmqtt.connect("stefansbasic");
+		delay(timer);
+		timer=timer*2;
+	}
+	return bmqtt.connected();
+}
+// mqtt state 
+int mqttstate() {
+	return bmqtt.state();
+}
+// subscribing to a topic
+void mqttsubscribe(char *t) {
+	if (!mqttreconnect()) {ert=1; return;};
+	if (!bmqtt.subscribe(t)) ert=1;
+}
+// set the topic we pushlish, comming from print
+// basic can do only one topic 
+void mqttsettopic(char *t) {
+	short i;
+	for (i=0; i<MQTTTLENGTH; i++) {
+		if ((mqtt_topic[i]=t[i]) == 0 ) break;
+	}
+}
+// print a mqtt message
+void mqttouts(char *m, short l) {
+	if (!mqttreconnect()) {ert=1; return;};
+	if (!bmqtt.publish(mqtt_topic, (uint8_t*) m, (unsigned int) l, false)) ert=1;
+} 
+#else 
+void netbegin() {}
+void netconnected() {}
+void mqttbegin() {}
+void mqttsubscribe(char *t) {}
+void mqttsettopic(char *t) {}
+void mqttouts(char *m, short l) {}
 #endif
 
 /* 
@@ -2962,6 +3045,8 @@ void timeinit() {
 }
 
 void ioinit() {
+	netbegin();  // start the basic network functions
+	mqttbegin();
 	wirebegin(); // wire has to be started early as much depends on it
 	spibegin();
 	serialbegin();
@@ -3845,6 +3930,9 @@ void outs(char *ir, short l){
 			break;
 		case OWIRE:
 			wireouts(ir, l);
+			break;
+		case OMQTT:
+			mqttouts(ir, l);
 			break;
 		default:
 			for(i=0; i<l; i++) outch(ir[i]);
@@ -6732,6 +6820,18 @@ void xset(){
       		radio.setPALevel(rf24_pa);
       		break;
 #endif
+#ifdef ARDUINONET
+      	case 9: // set the power amplifier level of the module
+     		if (arg == 0) {
+     			if (netconnected()) {
+     				outsc("Wifi connected \n"); 
+     				outsc("MQTT state "); outnumber(mqttstate()); outcr();
+            		outsc("MQTT topic "); outsc(mqtt_topic); outcr();
+     			}
+     			else 
+     				outsc("Wifi not connected \n");
+     		}
+#endif			
 	}
 }
 
@@ -7039,6 +7139,13 @@ void xopen() {
 		default:
 			error(ERANGE);
 			return;
+		case IMQTT:
+			if (mode == 0) {
+				mqttsubscribe(filename);
+			} else if (mode == 1) {
+				mqttsettopic(filename); 
+			}
+			break;
 	}
 	nexttoken();
 }
