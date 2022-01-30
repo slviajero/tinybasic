@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.123 2022/01/12 19:09:31 stefan Exp stefan $
+	$Id: basic.c,v 1.126 2022/01/29 20:14:19 stefan Exp stefan $
 
 	Stefan's tiny basic interpreter 
 
@@ -101,7 +101,7 @@
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
-#undef ARDUINONET
+#undef ARDUINOMQTT
 #undef STANDALONE
 
 
@@ -305,7 +305,7 @@
 #ifdef ARDUINOWIRE
 #include <Wire.h>
 #endif
-#ifdef ARDUINONET
+#ifdef ARDUINOMQTT
 // experimental - only implemented in ESP
 #ifdef ARDUINO_ARCH_ESP8266
 #include <ESP8266WiFi.h>
@@ -376,6 +376,11 @@ short blockmode = 0;
 #define FORDEPTH 	4
 #define ARRAYSIZEDEF 10
 #define STRSIZEDEF   32
+
+// the time intervall in ms needed for 
+// ESP8266 yields and network functions
+#define YIELDINTERVAL 32
+#define YIELDTIME 2
 
 /*
 
@@ -494,6 +499,9 @@ short blockmode = 0;
 // iot extensions
 #define TITER	-34
 #define TAVAIL	-33
+#define TSTR    -32
+#define TINSTR  -31
+#define TVAL 	-30
 // constants used for some obscure purposes 
 #define TBUFFER -4
 // unused right now from earlier code to be removed soon
@@ -502,7 +510,7 @@ short blockmode = 0;
 #define NEWLINE -1
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+14+12+10+4+2+7+7+6+5
+#define NKEYWORDS	3+19+14+12+10+4+2+7+7+6+8
 #define BASEKEYWORD -121
 
 /*
@@ -668,6 +676,9 @@ const char seval[]		PROGMEM  = "EVAL";
 #ifdef HASIOT
 const char siter[]		PROGMEM  = "ITER";
 const char savail[]		PROGMEM  = "AVAIL";
+const char sstr[]		PROGMEM  = "STR";
+const char sinstr[]		PROGMEM  = "INSTR";
+const char sval[]		PROGMEM  = "VAL";
 #endif
 
 // the keyword storage
@@ -727,7 +738,7 @@ const char* const keyword[] PROGMEM = {
 	smalloc, sfind, seval, 
 #endif
 #ifdef HASIOT
-	siter, savail,
+	siter, savail, sstr, sinstr, sval,
 #endif
 // the end 
 	0
@@ -791,7 +802,7 @@ const signed char tokens[] PROGMEM = {
 #endif
 // IOT extensions
 #ifdef HASIOT
-	TITER, TAVAIL,
+	TITER, TAVAIL, TSTR, TINSTR, TVAL, 
 #endif
 // the end
 	0
@@ -1048,6 +1059,11 @@ File file;
 #endif
 #endif
 
+/*
+	IoT yield counter, we count when we did yield the last time
+*/
+static long lastyield=0;
+
 /* 
 
 	Function prototypes - this would go to basic.h at some point in time
@@ -1061,6 +1077,7 @@ File file;
 
 // heap management 
 address_t ballocmem();
+void byield();
 address_t bmalloc(signed char, char, char, short);
 address_t bfind(signed char, char, char);
 address_t blength (signed char, char, char);
@@ -1127,6 +1144,22 @@ void rtcset(char, short);
 short rtcget(char);
 short rtcread(char);
 
+// the file interface
+void filewrite(char);
+char fileread();
+char ifileopen(char*);
+void ifileclose();
+char ofileopen(char*);
+void ofileclose();
+int fileavailable();
+void rootopen();
+int rootnextfile();
+int rootisfile();
+char* rootfilename();
+int rootfilesize();
+void rootfileclose();
+void rootclose();
+
 // input output
 // these are the platfrom depended lowlevel functions
 void serialbegin();
@@ -1155,9 +1188,20 @@ void radioouts(char* , short);
 
 // generic wire access
 void wirebegin();
-void wireopen(char* s);
+void wireopen(char*);
 void wireins(char*, uint8_t);
 void wireouts(char*, uint8_t);
+
+// network and mqtt functions - very experimental
+void netbegin();
+char netconnected();
+void mqttbegin();
+int  mqttstate();
+void mqttsubscribe(char*);
+void mqttsettopic(char*);
+void mqttouts(char *, short);
+void mqttins(char *, short);
+char mqttinch();
 
 // generic I/O functions
 void outcr();
@@ -1180,6 +1224,8 @@ short eread(address_t);
 void eupdate(address_t, short);
 void eload();
 void esave();
+
+// generic autorun - mainly eeprom bit also file
 void autorun();
 
 // the display driver functions, need to be implemented for the display driver to work
@@ -1304,14 +1350,15 @@ void xpoke();
 void xtab();
 void xdump();
 
-// file access 
+// file access and other i/o
 void stringtosbuffer();
 void getfilename(char*, char);
 void xsave();
-void xload();
+void xload(char* f);
 void xcatalog();
 void xdelete();
 void xopen();
+void xfopen();
 void xclose();
 
 // low level I/O in BASIC
@@ -1680,73 +1727,141 @@ RF24 radio(rf24_ce, rf24_csn);
 	definitions for ESP Wifi and MQTT, super experimental
 	all in one again
 */
-#if defined(ARDUINONET) && defined(ARDUINO)
+#if defined(ARDUINOMQTT) && defined(ARDUINO)
 #include "wifisettings.h"
 const char* mqtt_server = "test.mosquitto.org";
 const short mqtt_port = 1883;
 WiFiClient bwifi;
 PubSubClient bmqtt(bwifi);
-#define MQTTTLENGTH 32
-char mqtt_topic[MQTTTLENGTH];
+
+
+// the length of the outgoing and incomming topic 
+#define MQTTLENGTH 32
+char mqtt_otopic[MQTTLENGTH];
+char mqtt_itopic[MQTTLENGTH];
+
+// the buffer for incoming MQTT messages 
+// this is static and currently short
+// later a string should be applicable here 
+#define MQTTBLENGTH 128
+volatile char mqtt_buffer[MQTTBLENGTH];
+volatile short mqtt_messagelength;
+
 // the begin method 
 // needs the settings from wifisettings.h
 void netbegin() {
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
+	WiFi.setAutoReconnect(true);
+  	WiFi.persistent(true);
 }
+
 // the connected method
 char netconnected() {
 	return(WiFi.status() == WL_CONNECTED);
 }
+
 // the mqtt callback function, using the byte type here
 // because payload can be binary - interface to BASIC 
 // strings need to be done
 void mqttcallback(char* t, byte* p, unsigned int l) {
+	short i;
+	mqtt_messagelength=l;
+	for(i=0; i<l; i++) mqtt_buffer[i]=(char)p[i];
+	// here hook to register an MQTT event to basic
 }
+
 // starting mqtt 
 void mqttbegin() {
 	bmqtt.setServer(mqtt_server, mqtt_port);
 	bmqtt.setCallback(mqttcallback);
+	*mqtt_itopic=0;
+	*mqtt_otopic=0;
 }
-// reconnecting mqtt
+
+// reconnecting mqtt - exponential backoff here 
 char mqttreconnect() {
+	
+	// exponental backoff reconnect in 10 ms * 2^n intervals
 	short timer=10;
 	while (!bmqtt.connected() && timer < 400) {
-		bmqtt.connect("stefansbasic");
+		bmqtt.connect("basicclient");
 		delay(timer);
 		timer=timer*2;
 	}
+
+	// after reconnect resubscribe if there is a valid topic
+	if (*mqtt_itopic) bmqtt.subscribe(mqtt_itopic);
+
 	return bmqtt.connected();
 }
+
 // mqtt state 
 int mqttstate() {
 	return bmqtt.state();
 }
+
 // subscribing to a topic
 void mqttsubscribe(char *t) {
+	short i;
+	for (i=0; i<MQTTLENGTH; i++) {
+		if ((mqtt_itopic[i]=t[i]) == 0 ) break;
+	}
 	if (!mqttreconnect()) {ert=1; return;};
-	if (!bmqtt.subscribe(t)) ert=1;
+	if (!bmqtt.subscribe(mqtt_itopic)) ert=1;
 }
+
+void mqttunsubscribe() {
+	if (!mqttreconnect()) {ert=1; return;};
+	if (!bmqtt.unsubscribe(mqtt_itopic)) ert=1;
+	*mqtt_itopic=0;
+}
+
 // set the topic we pushlish, comming from print
 // basic can do only one topic 
 void mqttsettopic(char *t) {
 	short i;
-	for (i=0; i<MQTTTLENGTH; i++) {
-		if ((mqtt_topic[i]=t[i]) == 0 ) break;
+	for (i=0; i<MQTTLENGTH; i++) {
+		if ((mqtt_otopic[i]=t[i]) == 0 ) break;
 	}
 }
+
 // print a mqtt message
 void mqttouts(char *m, short l) {
 	if (!mqttreconnect()) {ert=1; return;};
-	if (!bmqtt.publish(mqtt_topic, (uint8_t*) m, (unsigned int) l, false)) ert=1;
+	if (!bmqtt.publish(mqtt_otopic, (uint8_t*) m, (unsigned int) l, false)) ert=1;
 } 
+
+// ins copies the buffer into a basic string - behold the jabberwock - length gynmastics
+void mqttins(char *b, short nb) {
+	for (z.a=0; z.a<nb && z.a<mqtt_messagelength; z.a++) b[z.a+1]=mqtt_buffer[z.a];
+ 	b[0]=z.a;
+ 	mqtt_messagelength=0;
+ 	*mqtt_buffer=0;
+}
+
+// just one character to emulate basic get
+char mqttinch() {
+	char ch=0;
+	short i;
+	if (mqtt_messagelength>0) {
+		ch=mqtt_buffer[0];
+		for (i=0; i<mqtt_messagelength-1; i++) mqtt_buffer[i]=mqtt_buffer[i+1];
+	}
+	mqtt_messagelength--;
+	return ch;
+}
+
 #else 
 void netbegin() {}
-void netconnected() {}
+char netconnected() { return 0; }
 void mqttbegin() {}
+int  mqttstate() {return 0;}
 void mqttsubscribe(char *t) {}
 void mqttsettopic(char *t) {}
 void mqttouts(char *m, short l) {}
+void mqttins(char *b, short nb) { z.a=0; };
+char mqttinch() {return 0;};
 #endif
 
 /* 
@@ -1848,10 +1963,28 @@ void autorun() {
   		egetnumber(1, addrsize);
   		top=z.a;
   		st=SERUN;
+  		return;    // EEPROM autorun overrule filesystem autorun
   	} 
 #endif
+// here filesystem autorun, ugly still
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+#if defined(ESPSPIFFS) || defined(ARDUINOSD)
+  	if (ifileopen("/autoexec.bas")) {
+  		xload("/autoexec.bas");
+  		st=SRUN;
+  	}
+  	ifileclose();
+#endif	
+#else
+#if defined(ARDUINOSD) || ! defined(ARDUINO)
+  	if (ifileopen("autoexec.bas")) {
+  		xload("autoexec.bas");
+  		st=SRUN;
+  	}
+  	ifileclose();
+#endif
+#endif
 }
-
 
 /* the wrappers of the arduino io functions, to avoid 
    spreading arduino code in the interpreter code 
@@ -2256,6 +2389,23 @@ address_t ballocmem() {
 #else 
 address_t ballocmem(){ return MEMSIZE-1; };
 #endif
+
+/* 
+	the yield function is called after every statement
+	if allows background tasks on OSes like FreeRTOS 
+	On an ESP8266 this function is called every 100 microseconds
+	(after each statement)
+*/
+void byield() {	
+#if defined(ARDUINO) && defined(ARDUINOMQTT) 
+	if ( millis()-lastyield > YIELDINTERVAL-1 ) {
+      bmqtt.loop();
+      lastyield=millis();
+      delay(YIELDTIME); 
+  	}
+#endif
+}
+
 
 #ifdef HASAPPLE1
 /*
@@ -3452,7 +3602,6 @@ void oradioopen(char *filename) {
 /*
 	real time clock with EEPROM stuff based on uRTC and uEEPROM
 	this is a minimalistic library 
-
 */ 
 
 short rtcread(char i) {
@@ -3498,6 +3647,7 @@ void rtcset(char i, short v) {
 	rtc.set(tv[0], tv[1], tv[2], tv[6], tv[3], tv[4], tv[5]);
 #endif
 }
+
 
 
 #ifndef ARDUINO
@@ -3578,7 +3728,7 @@ char inch(){
 
 	switch(id) {
 		case ISERIAL:
-			while (!Serial.available()) yield();
+			while (!Serial.available()) byield();
 			return Serial.read();		
 		case IFILE:
 			return fileread();
@@ -3594,15 +3744,20 @@ char inch(){
 			radioins(sbuffer, SBUFSIZE-1);
 			if (sbuffer[0]>0) return sbuffer[1]; else return 0;
 #endif
+#ifdef ARDUINOMQTT
+    	case IMQTT:
+    		return mqttinch();
+#endif
 #ifdef ARDUINOPRT
 		case ISERIAL1:
-			while (!Serial1.available()) yield();
+			while (!Serial1.available()) byield();
 			return Serial1.read();
 #endif				
 		case IKEYBOARD:
 #ifdef ARDUINOPS2		
 			do {
 				if (kbdavailable()) c=kbdread();
+				byield();
 				delay(1); // this seems to be needed on an ESP, probably rather yield()
 			} while(c == 0);	
     		if (c == 13) c=10;
@@ -3628,6 +3783,10 @@ char checkch(){
     	case IRADIO:
     		return radio.available();
 #endif
+#ifdef ARDUINOMQTT
+    	case IMQTT:
+    		if (mqtt_messagelength>0) return mqtt_buffer[0];
+#endif   
 #ifdef ARDUINOWIRE
     	case IWIRE:
     		return 0;
@@ -3658,7 +3817,11 @@ short availch(){
 #ifdef ARDUINORF24
     	case IRADIO:
     		return radio.available();
-#endif
+#endif    		
+#ifdef ARDUINOMQTT
+    	case IMQTT:
+    		return mqtt_messagelength;
+#endif    		
 #ifdef ARDUINOWIRE
     	case IWIRE:
     		return 1;
@@ -3700,6 +3863,8 @@ void ins(char *b, short nb) {
     	radioins(b, nb);
     } else if (id == IWIRE) {
     	wireins(b, nb);
+    } else if (id == IMQTT) {
+    	mqttins(b, nb);
     } else {
   		while(i < nb) {
     		c=inch();
@@ -4199,7 +4364,7 @@ void whitespaces(){
 }
 
 void nexttoken() {
-
+  
 	// RUN mode vs. INT mode
 	if (st == SRUN || st == SERUN) {
 		gettoken();
@@ -5048,6 +5213,20 @@ char stringvalue() {
 		push(y-x+1);
 		xc=xcl;
 		yc=ycl;
+	} else if (token == TSTR) {	
+		nexttoken();
+		if ( token != '(') { error(EARGS); return FALSE; }
+		nexttoken();
+		expression();
+		if (er != 0) return FALSE;
+#ifdef HASFLOAT
+		push(writenumber2(sbuffer, pop()));
+#else
+		push(writenumber(sbuffer, pop()));
+#endif
+		ir2=sbuffer;
+		if (er != 0) return FALSE;
+		if (token != ')') {error(EARGS);return FALSE;	}
 #endif
 	} else {
 		return FALSE;
@@ -5315,6 +5494,49 @@ void factor(){
 		case TAVAIL:
 			parsefunction(xavail, 1);
 			break;	
+		case TOPEN:
+			parsefunction(xfopen, 1);
+			break;
+		case TVAL:
+			nexttoken();
+			if ( token != '(') { error(EARGS); return; }
+			nexttoken();
+			if (! stringvalue()) { error(EUNKNOWN); return; }
+			if (er != 0) return;
+			// not super clean - handling of terminal symbol dirty
+			// stringtobuffer needed 
+#ifdef HASFLOAT
+			(void) parsenumber2(ir2, &x);	
+#else 
+			(void) parsenumber(ir2, &x);
+#endif			
+			push(x);
+			nexttoken();
+			if (token != ')') {
+				error(EARGS);
+				return;	
+			}
+			break;
+		case TINSTR:
+			nexttoken();
+			if ( token != '(') { error(EARGS); return; }
+			nexttoken();
+			expression();
+			if (er != 0) return;
+			if ( token != ',') { error(EARGS); return; }
+			nexttoken();
+			if (! stringvalue()) { error(EUNKNOWN); return; }
+			y=pop();
+			xc=pop();
+			for (z.a=1; z.a<=y; z.a++) {if ( ir2[z.a-1] == xc ) break; }
+			if (z.a > y ) z.a=0; 
+			push(z.a);
+			nexttoken();
+			if (token != ')') {
+				error(EARGS);
+				return;	
+			}
+			break;
 #endif
 		case TLOMEM:
 			push(0);
@@ -6588,16 +6810,19 @@ void xsave() {
 }
 
 // loading a file 
-void xload() {
+void xload(char * f) {
 	char filename[SBUFSIZE];
 	char ch;
 	address_t here2;
 	char chain = FALSE;
 
-	nexttoken();
-	getfilename(filename, 1);
-	if (er != 0) return;
-
+	if (f == 0) {
+		nexttoken();
+		getfilename(filename, 1);
+		if (er != 0) return;
+	} else {
+		for(ch=0; ch<SBUFSIZE && f[ch]!=0; ch++) filename[ch]=f[ch];
+	}
 
 	if (filename[0] == '!') {
 		eload();
@@ -6615,11 +6840,12 @@ void xload() {
 			clrforstack();
 		}
 
-		if (!ifileopen(filename)) {
-			error(EFILE);
-			nexttoken();
-			return;
-		} 
+		if (! f)
+			if (!ifileopen(filename)) {
+				error(EFILE);
+				nexttoken();
+				return;
+			} 
 
     	bi=ibuffer+1;
 		while (fileavailable()) {
@@ -6658,7 +6884,7 @@ void xsave() {
 }
 
 // loading a file from EEPROM
-void xload() {
+void xload(char* f) {
 	eload();
 	nexttoken();
 }
@@ -6820,13 +7046,14 @@ void xset(){
       		radio.setPALevel(rf24_pa);
       		break;
 #endif
-#ifdef ARDUINONET
+#ifdef ARDUINOMQTT
       	case 9: // set the power amplifier level of the module
      		if (arg == 0) {
      			if (netconnected()) {
      				outsc("Wifi connected \n"); 
      				outsc("MQTT state "); outnumber(mqttstate()); outcr();
-            		outsc("MQTT topic "); outsc(mqtt_topic); outcr();
+            		outsc("MQTT out topic "); outsc(mqtt_otopic); outcr();
+            		outsc("MQTT inp topic "); outsc(mqtt_itopic); outcr();
      			}
      			else 
      				outsc("Wifi not connected \n");
@@ -6869,13 +7096,22 @@ void xpinm(){
 	pinm(y, x);	
 }
 
+// delay is broken down in 1 ms intervalls in 
+// order to call byield every 10 ms. This is 
+// needed for network functions
 void xdelay(){
+	unsigned int i;
 	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
 
 	x=pop();
-	delay(x);	
+	if (x>0) {
+		for(i=0; i<x; i++) {
+			delay(1);
+			if ( i%YIELDINTERVAL==0 ) byield();
+		}
+	}
 }
 
 #ifdef HASGRAPH
@@ -7136,9 +7372,6 @@ void xopen() {
 		case IWIRE:
 			wireopen(filename);
 			break;
-		default:
-			error(ERANGE);
-			return;
 		case IMQTT:
 			if (mode == 0) {
 				mqttsubscribe(filename);
@@ -7146,8 +7379,18 @@ void xopen() {
 				mqttsettopic(filename); 
 			}
 			break;
+		default:
+			error(ERANGE);
+			return;
+
 	}
 	nexttoken();
+}
+
+// open as a function 
+void xfopen() {
+	short chan = pop();
+	if (chan == 9) push(mqttstate()); else push(0);
 }
 
 void xclose() {
@@ -7718,7 +7961,7 @@ void statement(){
 				xsave();
 				break;
 			case TLOAD: 
-				xload();
+				xload(0);
 				return; // load doesn't like break as the ibuffer is messed up;
 			case TGET:
 				xget();
@@ -7834,10 +8077,11 @@ void statement(){
 				if (DEBUG) { outsc("** hoppla - unexpected token, skipped "); debugtoken(); }
 				nexttoken();
 		}
-#ifdef ARDUINO
+// after each statement we check on a break character
+// and yield the cpu fo background activity
 		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;};  // on an Arduino entering "#" at runtime stops the program
-		yield();
-#endif
+		byield();
+// when an error is encountred the statement loop is ended
 		if (er) return;
 	}
 }
@@ -7877,10 +8121,13 @@ void loop() {
 	// autorun state was found in setup, autorun now but only once
 	// autorun BASIC programs return to interactive after completion
 	// autorun code always must loop in itself
-	if (st == SERUN) {
+	if (st == SERUN ) {
 		xrun();
     	top=0;
     	st=SINT;
+	} else if (st == SRUN) {
+		xrun();
+		st=SINT;
 	}
 
 	// always return to default io channels once interactive mode is reached
