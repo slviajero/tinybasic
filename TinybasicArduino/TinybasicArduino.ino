@@ -97,11 +97,11 @@
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
 #undef ARDUINOSD
-#define ESPSPIFFS
+#undef ESPSPIFFS
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
-#define ARDUINOMQTT
+#undef ARDUINOMQTT
 #undef STANDALONE
 
 
@@ -147,6 +147,8 @@
 #define PS2IRQPIN 2
 
 
+
+
 // the hardware models
 
 // a Arduino with nothing else 
@@ -156,7 +158,7 @@
 #endif
 
 // a AVR ARDUINO (UNO or MEGA) with the classical LCD shield
-#if defined(UNOPLAIN)
+#if defined(AVRLCD)
 #define ARDUINOEEPROM
 #define DISPLAYCANSCROLL
 #define LCDSHIELD
@@ -175,6 +177,7 @@
 #define SDPIN 		D8
 #define PS2DATAPIN	D2
 #define PS2IRQPIN	D9
+#define ARDUINOMQTT
 #endif
 
 // mega with a Ethernet shield 
@@ -1139,7 +1142,8 @@ void dspsetcursor(short, short);
 // output to a VGA display 
 void vgawrite(char);
 
-// real time clock and wire code 
+// real time clock and wire code  
+char* rtcmkstr();
 void rtcset(char, short);
 short rtcget(char);
 short rtcread(char);
@@ -1747,6 +1751,19 @@ char mqtt_itopic[MQTTLENGTH];
 volatile char mqtt_buffer[MQTTBLENGTH];
 volatile short mqtt_messagelength;
 
+// the name of the client
+char mqttname[12] = "iotbasicxxx";
+
+// new client name
+void mqttsetname() {
+	long m = millis();
+	mqttname[8]=(char)(65+m%26);
+	m=m/26;
+	mqttname[9]=(char)(65+m%26);
+	m=m/26;
+	mqttname[10]=(char)(65+m%26);
+}
+
 // the begin method 
 // needs the settings from wifisettings.h
 void netbegin() {
@@ -1784,15 +1801,18 @@ char mqttreconnect() {
 	
 	// exponental backoff reconnect in 10 ms * 2^n intervals
 	short timer=10;
+    char reconnect=0;
+    mqttsetname();
 	while (!bmqtt.connected() && timer < 400) {
-		bmqtt.connect("basicclient");
+		bmqtt.connect(mqttname);
 		delay(timer);
 		timer=timer*2;
+    	reconnect=1;
 	}
 
 	// after reconnect resubscribe if there is a valid topic
-	if (*mqtt_itopic) bmqtt.subscribe(mqtt_itopic);
-
+	if (*mqtt_itopic && bmqtt.connected() && reconnect) bmqtt.subscribe(mqtt_itopic);
+ 
 	return bmqtt.connected();
 }
 
@@ -1967,22 +1987,19 @@ void autorun() {
   	} 
 #endif
 // here filesystem autorun, ugly still
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
-#if defined(ESPSPIFFS) || defined(ARDUINOSD)
+#if defined(ESPSPIFFS)
   	if (ifileopen("/autoexec.bas")) {
   		xload("/autoexec.bas");
   		st=SRUN;
   	}
   	ifileclose();
 #endif	
-#else
 #if defined(ARDUINOSD) || ! defined(ARDUINO)
   	if (ifileopen("autoexec.bas")) {
   		xload("autoexec.bas");
   		st=SRUN;
   	}
   	ifileclose();
-#endif
 #endif
 }
 
@@ -2350,6 +2367,86 @@ void vgawrite(char c){}
 #endif
 
 /*
+	real time clock with EEPROM stuff based on uRTC and uEEPROM
+	this is a minimalistic library 
+*/ 
+
+#ifdef ARDUINORTC
+char rtcstring[18] = { 0 }; 
+
+char* rtcmkstr() {
+	int cc = 1;
+	short t;
+	char ch;
+	t=rtcget(2);
+	rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]=':';
+	t=rtcread(1);
+	rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]=':';
+	t=rtcread(0);
+	rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]='-';
+	t=rtcread(3);
+	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]='/';
+	t=rtcread(4);
+	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]='/';
+	t=rtcread(5);
+	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc]=0;
+	rtcstring[0]=cc-1;
+
+	return rtcstring;
+}
+
+short rtcread(char i) {
+	switch (i) {
+		case 0: 
+			return rtc.second();
+		case 1:
+			return rtc.minute();
+		case 2:
+			return rtc.hour();
+		case 3:
+			return rtc.day();
+		case 4:
+			return rtc.month();
+		case 5:
+			return rtc.year();
+		case 6:
+			return rtc.dayOfWeek();
+		case 7:
+			return rtc.temp();
+		default:
+			return 0;
+	}
+}
+
+short rtcget(char i) {
+	rtc.refresh();
+	return rtcread(i);
+}
+
+void rtcset(char i, short v) {
+	uint8_t tv[7];
+	char j;
+	rtc.refresh();
+	for (j=0; j<7; j++) tv[j]=rtcread(j);
+	tv[i]=v;
+	rtc.set(tv[0], tv[1], tv[2], tv[6], tv[3], tv[4], tv[5]);
+}
+#endif
+
+
+/*
 	Layer 0 function - variable handling.
 
 	These function access variables, 
@@ -2369,7 +2466,7 @@ void vgawrite(char c){}
 address_t ballocmem() {
 	signed char i = 0;
 	// 									RP2040      ESP        MK       MEGA    UNO  168  FALLBACK
-	const unsigned short memmodel[9] = {60000, 44000, 32000, 24000, 6000, 4096, 1024, 512, 128}; 
+	const unsigned short memmodel[9] = {60000, 40000, 32000, 24000, 6000, 4096, 1024, 512, 128}; 
 
 	if (sizeof(number_t) <= 2) i=3;
 // this is tiny model MSDOS compile - dos chrashes on 
@@ -2394,7 +2491,8 @@ address_t ballocmem(){ return MEMSIZE-1; };
 	the yield function is called after every statement
 	if allows background tasks on OSes like FreeRTOS 
 	On an ESP8266 this function is called every 100 microseconds
-	(after each statement)
+	(after each statement) in RUN mode. BASIC DELAY calls 
+	this every YIELDTIME ms. 
 */
 void byield() {	
 #if defined(ARDUINO) && defined(ARDUINOMQTT) 
@@ -2404,6 +2502,7 @@ void byield() {
       delay(YIELDTIME); 
   	}
 #endif
+  	delay(0);
 }
 
 
@@ -2816,11 +2915,18 @@ char* getstring(char c, char d, address_t b) {
 
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
 
-	// direct access to the input buffer
-	if ( c == '@')
+	// direct access to the input buffer - deprectated but still there
+	if ( c == '@' && d == 0)
 			return ibuffer+b;
 
 #ifdef HASAPPLE1
+	// special strings 
+#if defined(ARDUINORTC)
+	if ( c== '@' && d == 'T') {
+		return rtcmkstr()+b;
+	}
+#endif
+
 	// dynamically allocated strings
 	if (! (a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, STRSIZEDEF);
 
@@ -2871,9 +2977,14 @@ number_t lenstring(char c, char d){
 	char* b;
 	number_t a;
 
-	if (c == '@')
+	if (c == '@' && d == 0)
 		return ibuffer[0];
-	
+
+#if defined(ARDUINORTC)
+	if (c == '@' && d == 'T' )
+		return rtcmkstr()[0];
+#endif
+
 	a=bfind(STRINGVAR, c, d);
 	if (er != 0) return 0;
 
@@ -3598,57 +3709,6 @@ void oradioopen(char *filename) {
 	radio.openWritingPipe(pipeaddr(filename));
 #endif
 }
-
-/*
-	real time clock with EEPROM stuff based on uRTC and uEEPROM
-	this is a minimalistic library 
-*/ 
-
-short rtcread(char i) {
-#ifdef ARDUINORTC
-	switch (i) {
-		case 0: 
-			return rtc.second();
-		case 1:
-			return rtc.minute();
-		case 2:
-			return rtc.hour();
-		case 3:
-			return rtc.day();
-		case 4:
-			return rtc.month();
-		case 5:
-			return rtc.year();
-		case 6:
-			return rtc.dayOfWeek();
-		case 7:
-			return rtc.temp();
-	}
-#endif
-	return 0;
-}
-
-short rtcget(char i) {
-#ifdef ARDUINORTC
-	rtc.refresh();
-	return rtcread(i);
-#else
-	return 0;
-#endif
-}
-
-void rtcset(char i, short v) {
-#ifdef ARDUINORTC
-	uint8_t tv[7];
-	char j;
-	rtc.refresh();
-	for (j=0; j<7; j++) tv[j]=rtcread(j);
-	tv[i]=v;
-	rtc.set(tv[0], tv[1], tv[2], tv[6], tv[3], tv[4], tv[5]);
-#endif
-}
-
-
 
 #ifndef ARDUINO
 /* 
@@ -5510,6 +5570,7 @@ void factor(){
 #else 
 			(void) parsenumber(ir2, &x);
 #endif			
+			(void) pop();
 			push(x);
 			nexttoken();
 			if (token != ')') {
@@ -6689,7 +6750,7 @@ void dumpmem(address_t r, address_t b) {
 		outnumber(k); outspc();
 		for (j=0; j<8; j++) {
 			outnumber(mem[k++]); outspc();
-			delay(1); // slow down a little here for low serial baudrates
+			delay(1); // slow down a little to yield 
 			if (k > memsize) break;
 		}
 		outcr();
@@ -7054,6 +7115,7 @@ void xset(){
      				outsc("MQTT state "); outnumber(mqttstate()); outcr();
             		outsc("MQTT out topic "); outsc(mqtt_otopic); outcr();
             		outsc("MQTT inp topic "); outsc(mqtt_itopic); outcr();
+            		outsc("MQTT name "); outsc(mqttname); outcr();
      			}
      			else 
      				outsc("Wifi not connected \n");
@@ -7494,13 +7556,6 @@ void xusr() {
 				case 4: push(0); break;
 				default: push(0);
 			}
-			break;
-		case 6: // parse a number in the input buffer - less evil
-			(void) parsenumber(ibuffer+1, &x);
-			push(x);
-			break;
-		case 7: // write a number to the input buffer
-			push(*ibuffer=writenumber(ibuffer+1, arg));
 			break;
 	}
 }
@@ -8126,6 +8181,7 @@ void loop() {
     	top=0;
     	st=SINT;
 	} else if (st == SRUN) {
+		here=0;
 		xrun();
 		st=SINT;
 	}
