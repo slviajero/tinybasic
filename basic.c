@@ -178,6 +178,7 @@
 #define PS2DATAPIN	D2
 #define PS2IRQPIN	D9
 #define ARDUINOMQTT
+#define MEMSIZE 32000
 #endif
 
 // mega with a Ethernet shield 
