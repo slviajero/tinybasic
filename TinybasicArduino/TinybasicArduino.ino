@@ -97,9 +97,9 @@
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
 #undef ARDUINOSD
-#undef ESPSPIFFS
-#undef ARDUINORTC
-#undef ARDUINOWIRE
+#define ESPSPIFFS
+#define ARDUINORTC
+#define ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOMQTT
 #undef STANDALONE
@@ -145,8 +145,6 @@
 // PS2 Keyboard 
 #define PS2DATAPIN 3
 #define PS2IRQPIN 2
-
-
 
 
 // the hardware models
@@ -1143,8 +1141,7 @@ void dspsetcursor(short, short);
 // output to a VGA display 
 void vgawrite(char);
 
-// real time clock and wire code  
-char* rtcmkstr();
+// real time clock and wire code 
 void rtcset(char, short);
 short rtcget(char);
 short rtcread(char);
@@ -2368,86 +2365,6 @@ void vgawrite(char c){}
 #endif
 
 /*
-	real time clock with EEPROM stuff based on uRTC and uEEPROM
-	this is a minimalistic library 
-*/ 
-
-#ifdef ARDUINORTC
-char rtcstring[18] = { 0 }; 
-
-char* rtcmkstr() {
-	int cc = 1;
-	short t;
-	char ch;
-	t=rtcget(2);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]=':';
-	t=rtcread(1);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]=':';
-	t=rtcread(0);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='-';
-	t=rtcread(3);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='/';
-	t=rtcread(4);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='/';
-	t=rtcread(5);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc]=0;
-	rtcstring[0]=cc-1;
-
-	return rtcstring;
-}
-
-short rtcread(char i) {
-	switch (i) {
-		case 0: 
-			return rtc.second();
-		case 1:
-			return rtc.minute();
-		case 2:
-			return rtc.hour();
-		case 3:
-			return rtc.day();
-		case 4:
-			return rtc.month();
-		case 5:
-			return rtc.year();
-		case 6:
-			return rtc.dayOfWeek();
-		case 7:
-			return rtc.temp();
-		default:
-			return 0;
-	}
-}
-
-short rtcget(char i) {
-	rtc.refresh();
-	return rtcread(i);
-}
-
-void rtcset(char i, short v) {
-	uint8_t tv[7];
-	char j;
-	rtc.refresh();
-	for (j=0; j<7; j++) tv[j]=rtcread(j);
-	tv[i]=v;
-	rtc.set(tv[0], tv[1], tv[2], tv[6], tv[3], tv[4], tv[5]);
-}
-#endif
-
-
-/*
 	Layer 0 function - variable handling.
 
 	These function access variables, 
@@ -2467,7 +2384,7 @@ void rtcset(char i, short v) {
 address_t ballocmem() {
 	signed char i = 0;
 	// 									RP2040      ESP        MK       MEGA    UNO  168  FALLBACK
-	const unsigned short memmodel[9] = {60000, 40000, 32000, 24000, 6000, 4096, 1024, 512, 128}; 
+	const unsigned short memmodel[9] = {60000, 44000, 32000, 24000, 6000, 4096, 1024, 512, 128}; 
 
 	if (sizeof(number_t) <= 2) i=3;
 // this is tiny model MSDOS compile - dos chrashes on 
@@ -2916,18 +2833,11 @@ char* getstring(char c, char d, address_t b) {
 
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
 
-	// direct access to the input buffer - deprectated but still there
-	if ( c == '@' && d == 0)
+	// direct access to the input buffer
+	if ( c == '@')
 			return ibuffer+b;
 
 #ifdef HASAPPLE1
-	// special strings 
-#if defined(ARDUINORTC)
-	if ( c== '@' && d == 'T') {
-		return rtcmkstr()+b;
-	}
-#endif
-
 	// dynamically allocated strings
 	if (! (a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, STRSIZEDEF);
 
@@ -2978,14 +2888,9 @@ number_t lenstring(char c, char d){
 	char* b;
 	number_t a;
 
-	if (c == '@' && d == 0)
+	if (c == '@')
 		return ibuffer[0];
-
-#if defined(ARDUINORTC)
-	if (c == '@' && d == 'T' )
-		return rtcmkstr()[0];
-#endif
-
+	
 	a=bfind(STRINGVAR, c, d);
 	if (er != 0) return 0;
 
@@ -3710,6 +3615,57 @@ void oradioopen(char *filename) {
 	radio.openWritingPipe(pipeaddr(filename));
 #endif
 }
+
+/*
+	real time clock with EEPROM stuff based on uRTC and uEEPROM
+	this is a minimalistic library 
+*/ 
+
+short rtcread(char i) {
+#ifdef ARDUINORTC
+	switch (i) {
+		case 0: 
+			return rtc.second();
+		case 1:
+			return rtc.minute();
+		case 2:
+			return rtc.hour();
+		case 3:
+			return rtc.day();
+		case 4:
+			return rtc.month();
+		case 5:
+			return rtc.year();
+		case 6:
+			return rtc.dayOfWeek();
+		case 7:
+			return rtc.temp();
+	}
+#endif
+	return 0;
+}
+
+short rtcget(char i) {
+#ifdef ARDUINORTC
+	rtc.refresh();
+	return rtcread(i);
+#else
+	return 0;
+#endif
+}
+
+void rtcset(char i, short v) {
+#ifdef ARDUINORTC
+	uint8_t tv[7];
+	char j;
+	rtc.refresh();
+	for (j=0; j<7; j++) tv[j]=rtcread(j);
+	tv[i]=v;
+	rtc.set(tv[0], tv[1], tv[2], tv[6], tv[3], tv[4], tv[5]);
+#endif
+}
+
+
 
 #ifndef ARDUINO
 /* 
@@ -5571,7 +5527,6 @@ void factor(){
 #else 
 			(void) parsenumber(ir2, &x);
 #endif			
-			(void) pop();
 			push(x);
 			nexttoken();
 			if (token != ')') {
@@ -6751,7 +6706,7 @@ void dumpmem(address_t r, address_t b) {
 		outnumber(k); outspc();
 		for (j=0; j<8; j++) {
 			outnumber(mem[k++]); outspc();
-			delay(1); // slow down a little to yield 
+			delay(1); // slow down a little here for low serial baudrates
 			if (k > memsize) break;
 		}
 		outcr();
@@ -7558,6 +7513,13 @@ void xusr() {
 				default: push(0);
 			}
 			break;
+		case 6: // parse a number in the input buffer - less evil
+			(void) parsenumber(ibuffer+1, &x);
+			push(x);
+			break;
+		case 7: // write a number to the input buffer
+			push(*ibuffer=writenumber(ibuffer+1, arg));
+			break;
 	}
 }
 
@@ -8182,7 +8144,6 @@ void loop() {
     	top=0;
     	st=SINT;
 	} else if (st == SRUN) {
-		here=0;
 		xrun();
 		st=SINT;
 	}

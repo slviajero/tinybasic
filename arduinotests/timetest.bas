@@ -1,5 +1,6 @@
 100 REM "Tests the millis functions and calculates"
 110 REM "runtimes of certain operations"
+120 REM "Write result to serial line"
 200 n=100
 210 m=10000
 220 print "Running ";n;"*";m;" operations:"

@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.126 2022/01/29 20:14:19 stefan Exp stefan $
+	$Id: basic.c,v 1.127 2022/01/31 21:54:04 stefan Exp stefan $
 
 	Stefan's tiny basic interpreter 
 
@@ -96,6 +96,7 @@
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
+#undef ARDUINOEEPROMI2C
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef ARDUINORTC
@@ -134,7 +135,7 @@
 #undef MEGATFT
 
 /* 
-	PIN settings for various hardware configurations
+	PIN settings and I2C addresses for various hardware configurations
 	used a few heuristics and then the hardware definitions above 
 
 	#define SDPIN sets the SD CS pin - can be left as a default for most HW configs
@@ -147,7 +148,9 @@
 #define PS2IRQPIN 2
 
 
-
+// list of default i2c addresses
+#define EEPROMI2CADDR 0x057
+#define RTCI2CADDR 0x068
 
 // the hardware models
 
@@ -247,6 +250,7 @@
 #undef ARDUINORF24
 #undef ARDUINORTC
 #undef ARDUINOEEPROM
+#undef ARDUINOEEPROMI2C
 #undef ARDUINOWIRE
 #endif
 
@@ -1664,14 +1668,16 @@ char kbdread() {
 /* Arduino Real Time clock code */
 #ifdef ARDUINORTC
 #include <uRTCLib.h>
-uRTCLib rtc(0x68);
-// commen DS3231 modules have a build in EEPROM addressable via I2C 0x57
-// this is very raw - definitions set here by hand
+uRTCLib rtc(RTCI2CADDR);
+#endif
+
+/* External EEPROM   */
+#ifdef ARDUINOEEPROMI2C
 #include <uEEPROMLib.h>
 #ifndef RTCEEPROMSIZE
 #define RTCEEPROMSIZE 4096 
 #endif
-uEEPROMLib c_eeprom(0x57);
+uEEPROMLib c_eeprom(EEPROMI2CADDR);
 #else
 #define RTCEEPROMSIZE 0
 #endif
@@ -1894,8 +1900,9 @@ char mqttinch() {return 0;};
 
 void ebegin(){}
 void eflush(){}
-// the DS3231 module EEPROM is the only EEPROM of the system
-#if defined(ARDUINORTC) && ! defined(ARDUINOEEPROM)
+
+// the external module EEPROM is the only EEPROM of the system
+#if defined(ARDUINOEEPROMI2C) && ! defined(ARDUINOEEPROM)
 address_t elength() { return RTCEEPROMSIZE; }
 short eread(address_t a) { return (signed char) c_eeprom.eeprom_read(a); }
 void eupdate(address_t a, short c) { 
@@ -1903,14 +1910,16 @@ void eupdate(address_t a, short c) {
 	if (b != c) c_eeprom.eeprom_write(a, (signed char) c);
 }
 #endif
+
 // only the internal Arduino EEPROM, no external EEPROM
-#if defined(ARDUINOEEPROM) && ! defined(ARDUINORTC)
+#if ! defined(ARDUINOEEPROMI2C) && defined(ARDUINOEEPROM)
 address_t elength() { return EEPROM.length(); }
 void eupdate(address_t a, short c) { EEPROM.update(a, c); }
 short eread(address_t a) { return (signed char) EEPROM.read(a); }
 #endif
+
 // the RTC EEPROM extends the internal EEPROM / internal is always first
-#if defined(ARDUINOEEPROM) && defined(ARDUINORTC)
+#if defined(ARDUINOEEPROMI2C) && defined(ARDUINOEEPROM)
 address_t elength() { return EEPROM.length()+RTCEEPROMSIZE; }
 void eupdate(address_t a, short c) { 
 	if (a<EEPROM.length()) 
@@ -1928,7 +1937,7 @@ short eread(address_t a) {
 }
 #endif
 // no EEPROM present
-#if ! defined(ARDUINOEEPROM) && !defined(ARDUINORTC)
+#if ! defined(ARDUINOEEPROMI2C) && ! defined(ARDUINOEEPROM)
 address_t elength() { return 0; }
 void eupdate(address_t a, short c) { return; }
 short eread(address_t a) { return 0; }
@@ -3065,7 +3074,7 @@ char* getkeyword(unsigned short i) {
 }
 
 char* getmessage(char i) {
-	if (i >= sizeof(message)) return 0;
+	if (i >= sizeof(message) || i < 0) return 0;
 #ifndef ARDUINOPROGMEM
 	return (char *) message[i];
 #else
@@ -7812,7 +7821,7 @@ void xon(){
 
 	// is there a goto or gosub
 	if ( token != TGOSUB && token != TGOTO)  {
-		error(UNKNOWN);
+		error(EUNKNOWN);
 		return;
 	}
 
