@@ -1,8 +1,8 @@
 /*
 
-	$Id: basic.c,v 1.127 2022/01/31 21:54:04 stefan Exp stefan $
+	$Id: basic.c,v 1.128 2022/02/06 06:26:03 stefan Exp stefan $
 
-	Stefan's tiny basic interpreter 
+	Stefan's basic interpreter 
 
 	Playing around with frugal programming. See the licence file on 
 	https://github.com/slviajero/tinybasic for copyright/left.
@@ -11,43 +11,16 @@
 	Author: Stefan Lenz, sl001@serverfabrik.de
 
 	The first set of definions define the target.
-	- for any Arduino ARCH or a Mac the default settings are correct
-		and architectures #defines of the IDE are used.
 	- MINGW switches on Windows calls. 
 	- MSDOS for MSDOS file access.
-	- ARDUINOLCD, ARDUINOTFT and LCDSHIELD active the LCD code, 
-		LCDSHIELD automatically defines the right settings for 
-		the classical shield modules
-	- ARDUINOPS2 activates the PS2 code. Default pins are 2 and 3.
-		If you use other pins the respective changes have to be made 
-			below. 
-	- _if_  and PS2 are both activated STANDALONE cause the Arduino
-			to start with keyboard and lcd as standard devices.
-	- ARDUINOEEPROM includes the EEPROM access code
-	- ARDUINOSD and ESPSPIFFS activate filesystem code 
+	- MAC and Arduino don't need more settings
+	- Review hardware.h for settings specific Arduino hardware settings
 	- HAS* activates or deactives features of the interpreter
-	- activating Picoserial is not compatible with keyboard code
-		Picoserial doesn't work on MEGA
-
-	The extension flags control features and code size
+	- the extension flags control features and code size
 
 	MEMSIZE sets the BASIC main memory to a fixed value,
 		if MEMSIZE=0 a heuristic is used stepping down 
 		from 60000 to 128 bytes.
-
-	Architectures and the definitions from the Arduino IDE
-
-	 	ARDUINO_ARCH_SAM: no tone command, dtostrf
-	 	ARDUINO_ARCH_RP2040: dtostrf (for ARDUINO_NANO_RP2040_CONNECT)
-	 	ARDUINO_ARCH_SAMD: dtostrf (for ARDUINO_SAMD_MKRWIFI1010, ARDUINO_SEEED_XIAO_M0)
-		ARDUINO_ARCH_ESP8266: SPIFFS, dtostrf (ESP8266)
- 		ARDUINO_AVR_MEGA2560, ARDUARDUINO_SAM_DUE: second serial port is Serial1 - no software serial
- 		ARDUARDUINO_SAM_DUE: hardware heuristics
- 		ARDUINO_ARCH_AVR: nothing
- 		ARDUINO_ARCH_EXP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
-
- 	The code still contains hardware hueristics from my own projects, 
- 	will be removed in the future
 
 */
 
@@ -66,7 +39,7 @@
 #define HASERRORMSG
 #define HASVT52
 #define HASFLOAT
-#undef  HASGRAPH
+#define HASGRAPH
 #define HASDARTMOUTH
 #define HASDARKARTS
 #define HASIOT
@@ -74,964 +47,132 @@
 /* hardcoded memory size set 0 for automatic malloc */
 #define MEMSIZE 0
 
-/* 
-	Arduino hardware settings , set here what you need or
-	use one of the predefined configurations below
-
-	input/output methods USERPICOSERIAL, ARDUINOPS2
-		ARDUINOPRT, DISPLAYCANSCROLL, ARDUINOLCDI2C,
-		ARDUINOTFT
-	storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS
-	sensors ARDUINORTC, ARDUINOWIRE
-	network ARDUINORF24
-
-	leave this unset if you use the definitions below
-*/
-#undef USESPICOSERIAL 
-#undef ARDUINOPS2
-#undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
-#undef ARDUINOLCDI2C
-#undef LCDSHIELD
-#undef ARDUINOTFT
-#undef ARDUINOVGA
-#undef ARDUINOEEPROM
-#undef ARDUINOEEPROMI2C
-#undef ARDUINOSD
-#undef ESPSPIFFS
-#undef ARDUINORTC
-#undef ARDUINOWIRE
-#undef ARDUINORF24
-#undef ARDUINOMQTT
-#undef STANDALONE
-
-
-/* 
-	Predefined hardware configurations, this assumes that all of the 
-	above are undef
-
-	UNOPLAIN: 
-		a plain UNO with no peripherals
-	AVRLCD: 
-		a AVR system with an LCD shield
-	WEMOSSHIELD: 
-		a Wemos D1 with a modified simple datalogger shield
-		optional keyboard and i2c display
-	MEGASHIELD: 
-		an Arduino Mega with Ethernet Shield
-		optional keyboard and i2c display
-	TTGOVGA: 
-		TTGO VGA1.4 system with PS2 keyboard, standalone
-  	MEGATFT, DUETFT
-    	TFT 7inch screen systems, standalone
-*/
-
-#undef UNOPLAIN
-#undef AVRLCD
-#undef WEMOSSHIELD
-#undef MEGASHIELD
-#undef TTGOVGA
-#undef DUETFT
-#undef MEGATFT
-
-/* 
-	PIN settings and I2C addresses for various hardware configurations
-	used a few heuristics and then the hardware definitions above 
-
-	#define SDPIN sets the SD CS pin - can be left as a default for most HW configs
-    	TTGO needs it as default definitions in the board file are broken
-	#define PS2DATAPIN, PS2IRQPIN sets PS2 pin
-*/
-
-// PS2 Keyboard 
-#define PS2DATAPIN 3
-#define PS2IRQPIN 2
-
-
-// list of default i2c addresses
-#define EEPROMI2CADDR 0x057
-#define RTCI2CADDR 0x068
-
-// the hardware models
-
-// a Arduino with nothing else 
-#if defined(UNOPLAIN)
-#define USESPICOSERIAL
-#define ARDUINOEEPROM
-#endif
-
-// a AVR ARDUINO (UNO or MEGA) with the classical LCD shield
-#if defined(AVRLCD)
-#define ARDUINOEEPROM
-#define DISPLAYCANSCROLL
-#define LCDSHIELD
-#endif
-
-// a Wemos ESP8266 with a mdified datalogger shield 
-// standalone capable
-#if defined(WEMOSSHIELD)
-#define ARDUINOPS2
-#define DISPLAYCANSCROLL
-#define ARDUINOLCDI2C
-#define ARDUINOSD
-#define ARDUINORTC
-#define RTCEEPROMSIZE 0
-#define ARDUINOWIRE
-#define SDPIN 		D8
-#define PS2DATAPIN	D2
-#define PS2IRQPIN	D9
-#define ARDUINOMQTT
-#define MEMSIZE 32000
-#endif
-
-// mega with a Ethernet shield 
-// standalone capable
-#if defined(MEGASHIELD)
-#define ARDUINOEEPROM
-#define ARDUINOPS2
-#define DISPLAYCANSCROLL
-#define ARDUINOLCDI2C
-#define ARDUINOSD
-#define ARDUINOWIRE
-#define ARDUINOPRT
-#define SDPIN 	4
-#define MEMSIZE 5120
-#endif
-
-// VGA system with SD card, standalone by default
-#if defined(TTGOVGA)
-#define ARDUINOPS2
-#define ARDUINOVGA
-#define ARDUINOSD
-#define SDPIN   13
-#define STANDALONE
-#endif
-
-// MEGA with a TFT shield, standalone by default
-#if defined(MEGATFT)
-#define ARDUINOEEPROM
-#define ARDUINOPS2
-#define DISPLAYCANSCROLL
-#define ARDUINOTFT
-#define ARDUINOSD
-#define ARDUINOWIRE
-#define ARDUINOPRT
-#define PS2DATAPIN 18
-#define PS2IRQPIN  19
-#define STANDALONE
-#endif
-
-// DUE with a TFT shield, standalone by default
-#if defined(DUETFT)
-#define ARDUINOPS2
-#define DISPLAYCANSCROLL
-#define ARDUINOTFT
-#define ARDUINOSD
-#define ARDUINOWIRE
-#define ARDUINOPRT
-#define PS2DATAPIN 9
-#define PS2IRQPIN  8
-#define STANDALONE
-#endif
-
-
-/* 
-	Don't change the definitions here unless you must
-
-	If PROGMEM is defined we can asssume we compile on 
-	the Arduino IDE. Don't change anything here. 
-  	This is a little hack to detect where we compile
-*/
-#ifdef PROGMEM
-#define ARDUINOPROGMEM
-#else
-#undef ARDUINO
-#undef ARDUINOSD
-#undef ARDUINORF24
-#undef ARDUINORTC
-#undef ARDUINOEEPROM
-#undef ARDUINOEEPROMI2C
-#undef ARDUINOWIRE
-#endif
-
-/* 
-	the non AVR arcitectures 
-*/
-#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined (ARDUINO_ARCH_ESP32)
-#ifndef ARDUINO_ARCH_ESP32
-#include <avr/dtostrf.h>
-#endif
-#define ARDUINO 100
-#undef ARDUINOEEPROM
-#endif
-/* 
-	all microcontrollers, their libraries and dependencies
-*/
-#ifdef ARDUINO
-// a clock needs wire
-#ifdef ARDUINORTC
-#define ARDUINOWIRE
-#endif
-// a display needs wire
-#ifdef ARDUINOLCDI2C
-#define ARDUINOWIRE
-#endif
-// a radio needs SPI
-#ifdef ARDUINORF24
-#define ARDUINOSPI
-#endif
-// a filesystem needs SPI
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
-#define ARDUINOSPI
-#endif
-// libraries we need to load
-#ifdef ARDUINOPS2
-#include <PS2Keyboard.h>
-#endif
-#ifdef ARDUINOPROGMEM
-#ifdef ARDUINO_ARCH_ESP32
-#include <pgmspace.h>
-#else
-#include <avr/pgmspace.h>
-#endif
-#endif
-#ifdef ARDUINOEEPROM
-#include <EEPROM.h>
-#endif
-#ifdef USESPICOSERIAL
-#include <PicoSerial.h>
-#endif
-#ifdef ARDUINOSPI
-#include <SPI.h>
-#endif
-#ifdef ARDUINOSD
-#include <SD.h>
-#endif
-#ifdef ESPSPIFFS
-#include <FS.h>
-#endif
-#ifdef ARDUINOWIRE
-#include <Wire.h>
-#endif
-#ifdef ARDUINOMQTT
-// experimental - only implemented in ESP
-#ifdef ARDUINO_ARCH_ESP8266
-#include <ESP8266WiFi.h>
-#include <PubSubClient.h>
-#endif
-#endif
-/* 
-	MSDOS, Mac, Linux and Windows 
-*/
-#else 
-#define PROGMEM
-#include <stdio.h>
-#include <stdlib.h>
-#ifdef HASFLOAT
-#include <math.h>
-#include <float.h>
-#endif
-#include <time.h>
-#include <sys/types.h>
-#include <sys/timeb.h>
-#ifndef MSDOS
-#include <dirent.h>
-#include <unistd.h>
-#else
-#include <dir.h>
-#include <dos.h>
-typedef unsigned char uint8_t;
-#endif
-#ifdef MINGW
-#include <windows.h>
-typedef unsigned char uint8_t;
-#endif
-#endif
-
-
-/* 
-	Arduino default serial baudrate 
-*/
-#ifdef ARDUINO
-const int serial_baudrate = 9600;
-#else 
-const int serial_baudrate = 0;
-#endif
-#ifdef ARDUINOPRT
-const int serial1_baudrate = 9600;
-char sendcr = 0;
-short blockmode = 0;
-#else
-const int serial1_baudrate = 0;
-char sendcr = 0;
-short blockmode = 0;
-#endif
-
-
-// general definitions
-#define TRUE  1
-#define FALSE 0
-
 // debug mode switches 
 #define DEBUG  0
 
-// various buffer sizes
-#define BUFSIZE 	128
-#define SBUFSIZE	32
-#define VARSIZE		26
-#define STACKSIZE 	15
-#define GOSUBDEPTH 	4
-#define FORDEPTH 	4
-#define ARRAYSIZEDEF 10
-#define STRSIZEDEF   32
-
-// the time intervall in ms needed for 
-// ESP8266 yields and network functions
-#define YIELDINTERVAL 32
-#define YIELDTIME 2
-
-/*
-
-   	The tokens:
-
-	All single character operators are their own tokens
-	ASCII values above 0x7f are used for tokens of keywords.
-
-*/
-
-#define EOL			 0
-#define NUMBER   	 -127
-#define LINENUMBER   -126
-#define STRING   	 -125
-#define VARIABLE 	 -124
-#define STRINGVAR 	 -123
-#define ARRAYVAR     -122
-// multi character tokens - BASEKEYWORD (3)
-#define GREATEREQUAL -121
-#define LESSEREQUAL  -120
-#define NOTEQUAL	 -119
-// this is the Palo Alto Language Set (19)
-#define TPRINT  -118
-#define TLET    -117
-#define TINPUT  -116
-#define TGOTO   -115
-#define TGOSUB  -114
-#define TRETURN -113
-#define TIF     -112
-#define TFOR    -111
-#define TTO     -110
-#define TSTEP   -109
-#define TNEXT   -108
-#define TSTOP   -107
-#define TLIST	-106
-#define TNEW    -105
-#define TRUN    -104
-#define TABS 	-103
-#define TRND	-102
-#define TSIZE   -101
-#define TREM 	-100
-// this is the Apple 1 language set in addition to Palo Alto (14)
-#define TNOT    -99
-#define TAND	-98
-#define TOR  	-97
-#define TLEN    -96
-#define TSGN	-95	
-#define TPEEK	-94
-#define TDIM	-93
-#define TCLR	-92
-#define TLOMEM  -91
-#define THIMEM  -90 
-#define TTAB 	-89
-#define TTHEN   -88
-#define TEND    -87
-#define TPOKE	-86
-// Stefan's tinybasic additions (12)
-#define TCONT   -85
-#define TSQR	-84
-#define TPOW	-83
-#define TFRE	-82
-#define TDUMP 	-81
-#define TBREAK  -80
-#define TSAVE   -79
-#define TLOAD   -78
-#define TGET    -77
-#define TPUT    -76
-#define TSET    -75
-#define TCLS    -74
-// Arduino functions (10)
-#define TPINM	-73
-#define TDWRITE	-72
-#define TDREAD	-71
-#define TAWRITE	-70
-#define TAREAD  -69
-#define TDELAY  -68
-#define TMILLIS  -67
-#define TTONE   -66
-#define TPULSEIN  -65
-#define TAZERO	  -64
-// the SD card DOS functions (4)
-#define TCATALOG -63
-#define TDELETE  -62
-#define TOPEN 	-61
-#define TCLOSE  -60
-// low level access of internal routines
-#define TUSR	-59
-#define TCALL 	-58
-// mathematical functions 
-#define TSIN 	-57
-#define TCOS    -56
-#define TTAN 	-55
-#define TATAN   -54
-#define TLOG    -53
-#define TEXP    -52
-#define TINT    -51
-// graphics - experimental - rudimentary
-#define TCOLOR 	-50
-#define TPLOT   -49
-#define TLINE 	-48
-#define TCIRCLE -47
-#define TRECT   -46
-#define TFCIRCLE -45
-#define TFRECT   -44
-// the dark arts and Dartmouth extensions
-#define TDATA	-43
-#define TREAD   -42
-#define TRESTORE -41
-#define TDEF     -40
-#define TFN 	-39
-#define TON     -38
-// darkarts
-#define TMALLOC -37
-#define TFIND   -36
-#define TEVAL   -35
-// iot extensions
-#define TITER	-34
-#define TAVAIL	-33
-#define TSTR    -32
-#define TINSTR  -31
-#define TVAL 	-30
-// constants used for some obscure purposes 
-#define TBUFFER -4
-// unused right now from earlier code to be removed soon
-#define TERROR  -3
-#define UNKNOWN -2
-#define NEWLINE -1
-
-// the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+14+12+10+4+2+7+7+6+8
-#define BASEKEYWORD -121
-
-/*
-	Interpreter states 
-	SRUN means running from a programm
-	SINT means interactive mode
-	SERUN means running directly from EEPROM
-	(enum would be the right way of doing this.)
-	BREAKCHAR is the character stopping the program on Ardunios
-*/
-
-#define SINT 0
-#define SRUN 1
-#define SERUN 2
-#define BREAKCHAR '#'
+// the core basic language headers including some Arduino device stuff
+#include "basic.h"
 
 /* 
-	Arduino input and output models
-*/
+ 	Hardware dependend definitins code is isolated in hardware.h
+ 	The functions below are the hardware interface of the BASIC
+ 	interpreter for computers with an OS they are mostly stubs 
 
-#define OSERIAL 1
-#define ODSP 2
-#define OPRT 4
-#define OWIRE 7
-#define ORADIO 8
-#define OMQTT  9
-#define OFILE 16
-
-#define ISERIAL 1
-#define IKEYBOARD 2
-#define ISERIAL1 4
-#define IWIRE 7
-#define IRADIO 8
-#define IMQTT  9
-#define IFILE 16
-
-/*
-	All BASIC keywords
-*/
-
-const char sge[]   PROGMEM = "=>";
-const char sle[]   PROGMEM = "<=";
-const char sne[]   PROGMEM = "<>";
-// Palo Alto language set
-const char sprint[]  PROGMEM = "PRINT";
-const char slet[]    PROGMEM = "LET";
-const char sinput[]  PROGMEM = "INPUT";
-const char sgoto[]   PROGMEM = "GOTO";
-const char sgosub[]  PROGMEM = "GOSUB";
-const char sreturn[] PROGMEM = "RETURN";
-const char sif[]     PROGMEM = "IF";
-const char sfor[]    PROGMEM = "FOR";
-const char sto[]     PROGMEM = "TO";
-const char sstep[]   PROGMEM = "STEP";
-const char snext[]   PROGMEM = "NEXT";
-const char sstop[]   PROGMEM = "STOP";
-const char slist[]   PROGMEM = "LIST";
-const char snew[]    PROGMEM = "NEW";
-const char srun[]  	 PROGMEM = "RUN";
-const char sabs[]    PROGMEM = "ABS";
-const char srnd[]    PROGMEM = "RND";
-const char ssize[]   PROGMEM = "SIZE";
-const char srem[]    PROGMEM = "REM";
-// Apple 1 language set
-#ifdef HASAPPLE1
-const char snot[]    PROGMEM = "NOT";
-const char sand[]    PROGMEM = "AND";
-const char sor[]     PROGMEM = "OR";
-const char slen[]    PROGMEM = "LEN";
-const char ssgn[]    PROGMEM = "SGN";
-const char speek[]   PROGMEM = "PEEK";
-const char sdim[]    PROGMEM = "DIM";
-const char sclr[]    PROGMEM = "CLR";
-const char slomem[]  PROGMEM = "LOMEM";
-const char shimem[]  PROGMEM = "HIMEM";
-const char stab[]    PROGMEM = "TAB";
-const char sthen[]   PROGMEM = "THEN";
-const char sbend[]    PROGMEM = "END";
-const char spoke[]   PROGMEM = "POKE";
-#endif
-// Stefan's tinybasic additions
-#ifdef HASSTEFANSEXT
-const char scont[]   PROGMEM = "CONT";
-const char ssqr[]    PROGMEM = "SQR";
-const char spow[]    PROGMEM = "POW";
-const char sfre[]    PROGMEM = "FRM";
-const char sdump[]   PROGMEM = "DUMP";
-const char sbreak[]  PROGMEM = "BREAK";
-#endif
-const char ssave[]   PROGMEM = "SAVE";
-const char sload[]   PROGMEM = "LOAD";
-#ifdef HASSTEFANSEXT
-const char sget[]    PROGMEM = "GET";
-const char sput[]    PROGMEM = "PUT";
-const char sset[]    PROGMEM = "SET";
-const char scls[]    PROGMEM = "CLS";
-#endif
-// Arduino functions
-#ifdef HASARDUINOIO
-const char spinm[]    PROGMEM = "PINM";
-const char sdwrite[]  PROGMEM = "DWRITE";
-const char sdread[]   PROGMEM = "DREAD";
-const char sawrite[]  PROGMEM = "AWRITE";
-const char saread[]   PROGMEM = "AREAD";
-const char sdelay[]   PROGMEM = "DELAY";
-const char smillis[]  PROGMEM = "MILLIS";
-const char sazero[]   PROGMEM = "AZERO";
-#endif
-#ifdef HASTONE
-const char stone[]    PROGMEM = "ATONE";
-#endif
-#ifdef HASPULSE
-const char splusein[] PROGMEM = "PULSEIN";
-#endif
-// SD Card DOS functions
-#ifdef HASFILEIO
-const char scatalog[] PROGMEM = "CATALOG";
-const char sdelete[]  PROGMEM = "DELETE";
-const char sfopen[]   PROGMEM = "OPEN";
-const char sfclose[]  PROGMEM = "CLOSE";
-#endif
-// low level access functions
-#ifdef HASSTEFANSEXT
-const char susr[]  PROGMEM = "USR";
-const char scall[] PROGMEM = "CALL";
-#endif
-// mathematics
-#ifdef HASFLOAT
-const char ssin[]  PROGMEM = "SIN";
-const char scos[]  PROGMEM = "COS";
-const char stan[]  PROGMEM = "TAN";
-const char satan[] PROGMEM = "ATAN";
-const char slog[]  PROGMEM = "LOG";
-const char sexp[]  PROGMEM = "EXP";
-#endif
-const char sint[]  PROGMEM = "INT"; // int is always needed 
-// elemetars graphics for tft display
-#ifdef HASGRAPH
-const char scolor[]  PROGMEM  = "COLOR";
-const char splot[]   PROGMEM  = "PLOT";
-const char sline[]   PROGMEM  = "LINE";
-const char scircle[] PROGMEM  = "CIRCLE";
-const char srect[]   PROGMEM  = "RECT";
-const char sfcircle[] PROGMEM  = "FCIRCLE";
-const char sfrect[]   PROGMEM  = "FRCT";
-#endif
-// Dartmouth BASIC extensions 
-#ifdef HASDARTMOUTH
-const char sdata[]  	PROGMEM  = "DATA";
-const char sread[]  	PROGMEM  = "READ";
-const char srestore[]   PROGMEM  = "RESTORE";
-const char sdef[] 	PROGMEM  = "DEF";
-const char sfn[]   	PROGMEM  = "FN";
-const char son[]   	PROGMEM  = "ON";
-#endif
-// The Darkarts commands unthinkable in Dartmouth
-#ifdef HASDARKARTS
-const char smalloc[]	PROGMEM  = "MALLOC";
-const char sfind[]		PROGMEM  = "FIND";
-const char seval[]		PROGMEM  = "EVAL";
-#endif
-// iot extensions
-#ifdef HASIOT
-const char siter[]		PROGMEM  = "ITER";
-const char savail[]		PROGMEM  = "AVAIL";
-const char sstr[]		PROGMEM  = "STR";
-const char sinstr[]		PROGMEM  = "INSTR";
-const char sval[]		PROGMEM  = "VAL";
-#endif
-
-// the keyword storage
-const char* const keyword[] PROGMEM = {
-// Palo Alto BASIC
-	sge, sle, sne, sprint, slet, sinput, 
-	sgoto, sgosub, sreturn, sif, sfor, sto,
-	sstep, snext, sstop, slist, snew, srun,
-	sabs, srnd, ssize, srem,
-// Apple 1 BASIC additions
-#ifdef HASAPPLE1
-	snot, sand, sor, slen, ssgn, speek, sdim,
-	sclr, slomem, shimem, stab, sthen, 
-	sbend, spoke,
-#endif
-// Stefan's additions
-#ifdef HASSTEFANSEXT
-	scont, ssqr, spow, sfre, sdump, sbreak, 
-#endif
-	ssave, sload, 
-#ifdef HASSTEFANSEXT
-	sget, sput, sset, scls,
-#endif
-// Arduino stuff
-#ifdef HASARDUINOIO
-    spinm, sdwrite, sdread, sawrite, saread, 
-    sdelay, smillis, sazero,  
-#endif
-#ifdef HASTONE
-	stone,
-#endif
-#ifdef HASPULSE
-	splusein,
-#endif
-// SD Card DOS
-#ifdef HASFILEIO
-    scatalog, sdelete, sfopen, sfclose,
-#endif
-// low level access
-#ifdef HASSTEFANSEXT
-    susr, scall,
-#endif
-// mathematical functions 
-#ifdef HASFLOAT
-    ssin, scos, stan, satan, slog, sexp,
-#endif
-    sint,
-// graphics 
-#ifdef HASGRAPH
-    scolor, splot, sline, scircle, srect, 
-    sfcircle, sfrect,
-#endif
-#ifdef HASDARTMOUTH
-	sdata, sread, srestore, sdef, sfn, son,
-#endif
-#ifdef HASDARKARTS
-	smalloc, sfind, seval, 
-#endif
-#ifdef HASIOT
-	siter, savail, sstr, sinstr, sval,
-#endif
-// the end 
-	0
-};
-
-// the token dictonary needed for scalability
-const signed char tokens[] PROGMEM = {
-// Palo Alto BASIC
-	GREATEREQUAL, LESSEREQUAL, NOTEQUAL, TPRINT, TLET,    
-    TINPUT, TGOTO, TGOSUB, TRETURN, TIF, TFOR, TTO, TSTEP,
-    TNEXT, TSTOP, TLIST, TNEW, TRUN, TABS, TRND, TSIZE, TREM,
-// this is the Apple 1 language set in addition to Palo Alto (14)
-#ifdef HASAPPLE1
-    TNOT, TAND, TOR, TLEN, TSGN, TPEEK, TDIM, TCLR, TLOMEM,
-    THIMEM, TTAB, TTHEN, TEND, TPOKE,
-#endif
-// Stefan's tinybasic additions (11)
-#ifdef HASSTEFANSEXT
-	TCONT, TSQR, TPOW, TFRE, TDUMP, TBREAK, 
-#endif
-	TSAVE, TLOAD, 
-#ifdef HASSTEFANSEXT	
-	TGET, TPUT, TSET, TCLS,
-#endif
-// Arduino functions (10)
-#ifdef HASARDUINOIO
-	TPINM, TDWRITE, TDREAD, TAWRITE, TAREAD, TDELAY, TMILLIS,
-	TAZERO, 
-#endif
-#ifdef HASTONE
-	TTONE, 
-#endif
-#ifdef HASPULSE
-	TPULSEIN, 
-#endif
-// the SD card DOS functions (4)
-#ifdef HASFILEIO
-	TCATALOG, TDELETE, TOPEN, TCLOSE,
-#endif
-// low level access of internal routines
-#ifdef HASSTEFANSEXT
-	TUSR, TCALL,
-#endif
-// mathematical functions 
-#ifdef HASFLOAT
-	TSIN, TCOS, TTAN, TATAN, TLOG, TEXP,
-#endif
-	TINT,
-// graphics - experimental - rudimentary
-#ifdef HASGRAPH
-	TCOLOR, TPLOT, TLINE, TCIRCLE, TRECT, 
-	TFCIRCLE, TFRECT,
-#endif
-// Dartmouth BASIC extensions 
-#ifdef HASDARTMOUTH
-	TDATA, TREAD, TRESTORE, TDEF, TFN, TON,
-#endif
-// the Darkarts commands that shouldn't be there
-#ifdef HASDARKARTS
-	TMALLOC, TFIND, TEVAL, 
-#endif
-// IOT extensions
-#ifdef HASIOT
-	TITER, TAVAIL, TSTR, TINSTR, TVAL, 
-#endif
-// the end
-	0
-};
-
-/*
-	the message catalogue also moved to progmem
-*/
-#define MFILE		0
-#define MPROMPT		1
-#define MGREET		2
-#define MLINE		3
-#define MNUMBER		4
-#define MVARIABLE	5
-#define MARRAY		6
-#define MSTRING		7
-#define MSTRINGVAR	8
-#define EGENERAL 	 9
-#define EUNKNOWN	 10
-#define ENUMBER      11
-#define EDIVIDE		 12
-#define ELINE        13
-#define ERETURN      14
-#define ENEXT        15
-#define EGOSUB       16 
-#define EFOR         17
-#define EOUTOFMEMORY 18
-#define ESTACK 		 19
-#define EDIM         20
-#define ERANGE 		 21
-#define ESTRING      22
-#define EVARIABLE	 23
-#define EFILE 		 24
-#define EFUN 		 25
-#define EARGS		 26
-#define EEEPROM		 27
-#define ESDCARD		 28
-
-const char mfile[]    	PROGMEM = "file.bas";
-const char mprompt[]	PROGMEM = "> ";
-const char mgreet[]		PROGMEM = "Stefan's Basic 1.2";
-const char mline[]		PROGMEM = "LINE";
-const char mnumber[]	PROGMEM = "NUMBER";
-const char mvariable[]	PROGMEM = "VARIABLE";
-const char marray[]		PROGMEM = "ARRAY";
-const char mstring[]	PROGMEM = "STRING";
-const char mstringv[]	PROGMEM = "STRINGVAR";
-const char egeneral[]  	PROGMEM = "Error";
-#ifdef HASERRORMSG
-const char eunknown[]  	PROGMEM = "Syntax";
-const char enumber[]	PROGMEM = "Number";
-const char edivide[]  	PROGMEM = "Div by 0";
-const char eline[]  	PROGMEM = "Unknown Line";
-const char ereturn[]    PROGMEM = "Return";
-const char enext[]		PROGMEM = "Next";
-const char egosub[] 	PROGMEM = "GOSUB";
-const char efor[]		PROGMEM = "FOR";
-const char emem[]  	   	PROGMEM = "Memory";
-const char estack[]    	PROGMEM = "Stack";
-const char edim[]		PROGMEM = "DIM";
-const char erange[]  	PROGMEM = "Range";
-const char estring[]	PROGMEM = "String";
-const char evariable[]  PROGMEM = "Variable";
-const char efile[]  	PROGMEM = "File";
-const char efun[] 	 	PROGMEM = "Function";
-const char eargs[]  	PROGMEM = "Args";
-const char eeeprom[]	PROGMEM = "EEPROM";
-const char esdcard[]	PROGMEM = "SD card";
-#endif
-
-const char* const message[] PROGMEM = {
-	mfile, mprompt, mgreet, 
-	mline, mnumber, mvariable, marray, 
-	mstring, mstringv,
-	egeneral
-#ifdef HASERRORMSG
-	, eunknown, enumber, edivide, eline, ereturn, 
-	enext, egosub, efor, emem, estack, edim, erange,
-	estring, evariable, efile, efun, eargs, 
-	eeeprom, esdcard
-#endif
-};
-
-/*
-	code for variable numbers and addresses sizes
-	the original code was 16 bit but can be extended here
-	works but with the tacit assumption that 
-	sizeof(number_t) >= sizeof(address_t) 
-	floating point here is under construction we always 
-	assume that float >= 4 bytes in the following
-
-	maxnum: the maximum accurate(!) integer of a 
-		32 bit float 
-	strindexsize: the index size of strings either 
-		1 byte or 2 bytes - no other values supported
+	To include hardware features edit hardware.h.
 
 */
-#ifdef HASFLOAT
-typedef float number_t;
-const number_t maxnum=16777216; 
+
+#ifdef ARDUINO
+#include "hardware.h"
+#else 
+const int serial_baudrate = 0;
+const int serial1_baudrate = 0;
+char sendcr = 0;
+short blockmode = 0;
+void spibegin() {}
+void fsbegin() {}
+
+// graphics
+void rgbcolor(int r, int g, int b) {}
+void vgacolor(short c) {}
+void plot(int x, int y) {}
+void line(int x0, int y0, int x1, int y1)   {}
+void rect(int x0, int y0, int x1, int y1)   {}
+void frect(int x0, int y0, int x1, int y1)  {}
+void circle(int x0, int y0, int r) {}
+void fcircle(int x0, int y0, int r) {}
+void vgabegin(){}
+void vgawrite(char c){}
+
+// external keboard handling
+void kbdbegin() {}
+char kbdavailable(){ return 0;}
+char kbdread() { return 0;}
+
+// Arduino sensors
+void sensorbegin() {}
+number_t sensorread(short i) {return 0;};
+
+// networking and IoT
+void netbegin() {}
+char netconnected() { return 0; }
+void mqttbegin() {}
+int  mqttstate() {return 0;}
+void mqttsubscribe(char *t) {}
+void mqttsettopic(char *t) {}
+void mqttouts(char *m, short l) {}
+void mqttins(char *b, short nb) { z.a=0; };
+char mqttinch() {return 0;};
+
+// EEPROM handling
+void ebegin(){}
+void eflush(){}
+address_t elength() { return 0; }
+void eupdate(address_t a, short c) { return; }
+short eread(address_t a) { return 0; }
+void esave() {}
+void eload() {}
+
+// autorunning from EEPROM or a file system
+void autorun() { 
+  	if (ifileopen("autoexec.bas")) {
+  		xload("autoexec.bas");
+  		st=SRUN;
+  	}
+  	ifileclose();
+}
+
+// handling wiring I/O
+void aread(){ return; }
+void dread(){ return; }
+void awrite(number_t p, number_t v){}
+void dwrite(number_t p, number_t v){}
+void pinm(number_t p, number_t m){}
+
+// handling time 
+#ifndef MSDOS
+#ifndef MINGW
+void delay(number_t t) {usleep(t*1000);}
 #else
-typedef int number_t;
-const number_t maxnum=(number_t)~((number_t)1<<(sizeof(number_t)*8-1));
+void delay(number_t t) {Sleep(t);}
 #endif
-typedef unsigned short address_t;
-const int numsize=sizeof(number_t);
-const int addrsize=sizeof(address_t);
-const int eheadersize=sizeof(address_t)+1;
-const int strindexsize=2; // 
-const address_t maxaddr=(address_t)(~0); 
-
-/*
-	The basic interpreter is implemented as a stack machine
-	with global variable for the interpreter state, the memory
-	and the arithmetic during run time.
-
-	stack is the stack memory and sp controls the stack.
-
-	ibuffer is an input buffer and *bi a pointer to it.
-
-	sbuffer is a short buffer for arduino progmem access. 
-
-	vars is a static array of 26 single character variables.
-
-	mem is the working memory of the basic interperter.
-
-	x, y, xc, yc are two n*8 bit and two 8 bit accumulators.
-
-	z is a mixed n*8 bit accumulator
-
-	ir, ir2 are general index registers for string processing.
-
-	token contains the actually processes token.
-
-	er is the nontrapable error status
-
-	ert is the trapable error status 
-
-	st, here and top are the interpreter runtime controls.
-
-	nvars is the number of vars the interpreter has stored.
-
-	form is used for number formation Palo Alto BASIC style.
-
-	rd is the random number storage.
-
-	id and od are the input and output model for an arduino
-		they are set to serial by default
-
-	fnc counts the depth of for - next loop nesting
-
-	ifile, ofile are the filedescriptors for input/output
-
-*/
-static number_t stack[STACKSIZE];
-static address_t sp=0; 
-
-static char sbuffer[SBUFSIZE];
-
-static char ibuffer[BUFSIZE] = "\0";
-static char *bi;
-
-static number_t vars[VARSIZE];
-
-#if MEMSIZE != 0
-static signed char mem[MEMSIZE];
-#else
-static signed char* mem;
 #endif
-static address_t himem, memsize;
+struct timeb start_time;
+void timeinit() { ftime(&start_time); }
+void bmillis() {
+	struct timeb thetime;
+	time_t dt;
+	number_t m;
+	ftime(&thetime);
+	dt=(thetime.time-start_time.time)*1000+(thetime.millitm-start_time.millitm);
+	m=(number_t) ( dt/(time_t)pop() % (time_t)maxnum);
+	push(m);
+}
+long millis() { push(1); bmillis(); return pop(); }
+void bpulsein() { pop(); pop(); pop(); push(0); }
 
-static struct {char varx; char vary; address_t here; number_t to; number_t step;} forstack[FORDEPTH];
-static short forsp = 0;
-static char fnc; 
+// the display driver
+const int dsp_rows=0;
+const int dsp_columns=0;
+void dspwrite(char c){};
+void dspbegin() {};
+char dspwaitonscroll() { return 0; };
+char dspactive() {return FALSE; }
+void dspsetscrollmode(char c, short l) {}
+void dspsetcursor(short c, short r) {}
 
-static address_t gosubstack[GOSUBDEPTH];
-static short gosubsp = 0;
+// real time clock interface
+char rtcstring[18] = { 0 };
+char* rtcmkstr() {return rtcstring; }
+short rtcread(char i) {return 0;}
+short rtcget(char i) {return 0;}
+void rtcset(char i, short v) {}
 
-static number_t x, y;
-static signed char xc, yc;
+// handling real time os yield mechanisms
+void byield() {}
 
-struct twobytes {signed char l; signed char h;};
-static union accunumber { number_t i; address_t a; struct twobytes b; signed char c[sizeof(number_t)]; } z;
-
-static char *ir, *ir2;
-static signed char token;
-static signed char er;
-static signed char ert;
-
-static signed char st; 
-static address_t here; 
-static address_t top;
-
-static address_t nvars = 0; 
-
-static char form = 0;
-
-// this is unsigned hence address_t 
-static address_t rd;
-
-// output and input vector
-static unsigned char id;
-static unsigned char od;
-
-#ifdef STANDALONE
-static unsigned char idd = IKEYBOARD;
-static unsigned char odd = ODSP;
-#else
-static unsigned char idd = ISERIAL;
-static unsigned char odd = OSERIAL;
-#endif
-
-// the runtime debuglevel
-char debuglevel = 0;
-
-// data pointer
-#ifdef HASDARTMOUTH
-address_t data = 0;
-#endif
-
-#ifndef ARDUINO
+// file I/O and dirs
+#define FILESYSTEMDRIVER
 FILE* ifile;
 FILE* ofile;
 #ifndef MSDOS
@@ -1043,1418 +184,127 @@ struct dirent* file;
 void* root;
 void* file;
 #endif 
-#else 
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
-File ifile;
-File ofile;
-char tempname[SBUFSIZE];
-#ifdef ARDUINOSD
-File root;
-File file;
-#else
-Dir root;
-File file;
-#endif
-#ifdef ARDUINO_ARCH_ESP8266
-#define FILE_OWRITE (sdfat::O_READ | sdfat::O_WRITE | sdfat::O_CREAT | sdfat::O_TRUNC)
-#else 
-#ifdef ARDUINO_ARCH_ESP32
-#define FILE_OWRITE FILE_WRITE
-#else 
-#define FILE_OWRITE (O_READ | O_WRITE | O_CREAT | O_TRUNC)
-#endif
-#endif
-#endif
-#endif
 
-/*
-	IoT yield counter, we count when we did yield the last time
-*/
-static long lastyield=0;
-
-/* 
-
-	Function prototypes - this would go to basic.h at some point in time
-
-	Layer 0 functions 
-
-	variable and memory handling - interface between memory 
- 	and variable storage
-
-*/
-
-// heap management 
-address_t ballocmem();
-void byield();
-address_t bmalloc(signed char, char, char, short);
-address_t bfind(signed char, char, char);
-address_t blength (signed char, char, char);
-void clrvars();
-
-// normal variables
-void  createvar(char, char);
-number_t getvar(char, char);
-void  setvar(char, char, number_t);
-
-// low level memory access packing n*8bit bit into n 8 bit objects
-// e* is for Arduino EEPROM
-void  getnumber(address_t, short);
-void  setnumber(address_t, short);
-void  egetnumber(address_t, short);
-void  esetnumber(address_t, short);
-
-// array handling
-address_t createarray(char, char, address_t);
-void  array(char, char, char, address_t, number_t*);
-
-// string handling 
-address_t createstring(char, char, address_t);
-char* getstring(char, char, address_t);
-void  setstring(char, char, address_t, char *, address_t);
-
-// access memory dimensions and for strings also the actual length
-number_t arraydim(char, char);
-number_t stringdim(char, char);
-number_t lenstring(char, char);
-void setstringlength(char, char, address_t);
-
-// get keywords and tokens from PROGMEM
-char* getkeyword(unsigned short);
-char* getmessage(char);
-signed char gettokenvalue(char);
-void printmessage(char);
-
-// error handling
-void error(signed char);
-void reseterror();
-void debugtoken();
-void debug(char*);
-
-// stack stuff
-void push(number_t);
-number_t pop();
-void drop();
-void clearst();
-
-// generic display code - used for Shield, I2C, and TFT
-void dspwrite(char);
-void dspbegin();
-char dspwaitonscroll();
-char dspactive();
-void dspsetscrollmode(char, short);
-void dspsetcursor(short, short);
-
-// output to a VGA display 
-void vgawrite(char);
-
-// real time clock and wire code  
-char* rtcmkstr();
-void rtcset(char, short);
-short rtcget(char);
-short rtcread(char);
-
-// the file interface
-void filewrite(char);
-char fileread();
-char ifileopen(char*);
-void ifileclose();
-char ofileopen(char*);
-void ofileclose();
-int fileavailable();
-void rootopen();
-int rootnextfile();
-int rootisfile();
-char* rootfilename();
-int rootfilesize();
-void rootfileclose();
-void rootclose();
-
-// input output
-// these are the platfrom depended lowlevel functions
-void serialbegin();
-void prtbegin();
-void timeinit();
-void ioinit();
-void iodefaults();
-void picogetchar(int);
-void outch(char);
-char inch();
-char checkch();
-short availch();
-void ins(char*, short); 
-void inb(char*, short);
-
-// keyboard code
-void kbdbegin();
-char kbdavailable();
-char kbdread();
-
-// RF24 radio input 
-void iradioopen(char*);
-void oradioopen(char*);
-void radioins(char*, short);
-void radioouts(char* , short);
-
-// generic wire access
-void wirebegin();
-void wireopen(char*);
-void wireins(char*, uint8_t);
-void wireouts(char*, uint8_t);
-
-// network and mqtt functions - very experimental
-void netbegin();
-char netconnected();
-void mqttbegin();
-int  mqttstate();
-void mqttsubscribe(char*);
-void mqttsettopic(char*);
-void mqttouts(char *, short);
-void mqttins(char *, short);
-char mqttinch();
-
-// generic I/O functions
-void outcr();
-void outspc();
-void outs(char*, short);
-void outsc(char*);
-void outscf(char *, short);
-char innumber(number_t*);
-short parsenumber(char*, number_t*);
-short parsenumber2(char*, number_t*);
-void outnumber(number_t);
-short writenumber(char*, number_t);
-short writenumber2(char*, number_t);
-
-// EEPROM handling 
-void ebegin();
-void eflush();
-address_t elength();
-short eread(address_t);
-void eupdate(address_t, short);
-void eload();
-void esave();
-
-// generic autorun - mainly eeprom bit also file
-void autorun();
-
-// the display driver functions, need to be implemented for the display driver to work
-void dspbegin();
-void dspprintchar(char, short, short);
-void dspclear();
-
-// graphics functions 
-void rgbcolor(int, int, int);
-void vgacolor(short c);
-void plot(int, int);
-void line(int, int, int, int);  
-void rect(int, int, int, int);
-void frect(int, int, int, int);
-void circle(int, int, int);
-void fcircle(int, int, int);
-
-// arduino io functions 
-void aread();
-void dread();
-void awrite(number_t, number_t);
-void dwrite(number_t, number_t);
-void pinm(number_t, number_t);
-void bmillis();
-void bpulsein();
-
-/* 	
-	Layer 1 function, provide data and do the heavy lifting 
-	for layer 2.
-*/
-
-// lexical analysis
-void whitespaces();
-void debugtoken();
-void nexttoken();
-
-// storeing and retrieving programs
-char nomemory(number_t);
-void dumpmem(address_t, address_t);
-void storetoken(); 
-char memread(address_t);
-void gettoken();
-void firstline();
-void nextline();
-void findline(address_t);
-address_t myline(address_t);
-void moveblock(address_t, address_t, address_t);
-void zeroblock(address_t, address_t);
-void diag();
-void storeline();
-
-// read arguments from the token stream.
-char  termsymbol();
-void  parsesubstring();
-short parsesubscripts();
-void  parsenarguments(char);
-short parsearguments();
-
-// mathematics and other functions / int and float
-void rnd();
-void sqr();
-void xpow();
-void fre();
-void xpeek();
-void xabs();
-void xsgn();
-
-// string values 
-char stringvalue();
-void streval();
-
-// expression evaluation 
-void factor();
-void term();
-void addexpression();
-void compexpression();
-void notexpression();
-void andexpression();
-void expression();
-
-/* 
-	Layer 2 - statements call Layer 1 functions and 
-	use the global variables 
-*/
-
-// basic commands of the core language set
-void xprint();
-void assignment();
-void lefthandside(address_t*, char*);
-void assignnumber(signed char, char, char, address_t, char);
-void xinput();
-void xgoto();
-void xreturn();
-void xif();
-
-// optional FOR NEXT loops
-void findnextcmd();
-void xfor();
-void xnext();
-void xbreak();
-void pushforstack();
-void popforstack();
-void dropforstack();
-void clrforstack();
-
-// GOSUB commands
-void xreturn();
-void pushgosubstack();
-void popgosubstack();
-void dropgosubstack();
-void clrgosubstack();
-
-// control commands and misc
-void outputtoken();
-void xlist();
-void xrun();
-void xnew();
-void xrem();
-void xclr();
-void xdim();
-void xpoke();
-void xtab();
-void xdump();
-
-// file access and other i/o
-void stringtosbuffer();
-void getfilename(char*, char);
-void xsave();
-void xload(char* f);
-void xcatalog();
-void xdelete();
-void xopen();
-void xfopen();
-void xclose();
-
-// low level I/O in BASIC
-void xget();
-void xput();
-void xset();
-
-// Arduino IO control
-void xdwrite();
-void xawrite();
-void xpinm();
-void xdelay();
-void xtone();
-
-// low level access functions
-void xcall();
-void xusr();
-
-// the dartmouth stuff
-void xdata();
-void xread();
-void xrestore();
-void xdef();
-void xon();
-void clrdata();
-
-// the darkarts
-void xmalloc();
-void xfind();
-void xeval();
-void xiter();
-void xavail();
-
-// the statement loop
-void statement();
-
-/* 
- 	
- 	Layer 0 - low level IO functions and device driver code for 
- 	microcontroller platforms.
-
-	Arduino definitions and code
-	wrapper functions for the Arduino libraries
-	Arduino definitions and code
-
-	This part of the source code knows about hardware and 
-	will go to a hardware.h in the future
-
-*/
-
-// global variables for a standard LCD shield.
-#if defined(LCDSHIELD) && defined(ARDUINO)
-#define DISPLAYDRIVER
-#include <LiquidCrystal.h>
-// LCD shield pins to Arduino
-//  RS, EN, d4, d5, d6, d7; 
-// backlight on pin 10;
-const int dsp_rows=2;
-const int dsp_columns=16;
-LiquidCrystal lcd( 8,  9,  4,  5,  6,  7);
-void dspbegin() { 	lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
-void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
-void dspclear() { lcd.clear(); }
-#endif
-
-// global variables for a LCD display connnected
-// via i2c. 
-#if defined(ARDUINOLCDI2C) && defined(ARDUINO)
-#define DISPLAYDRIVER
-#include <LiquidCrystal_I2C.h>
-const int dsp_rows=4;
-const int dsp_columns=20;
-LiquidCrystal_I2C lcd(0x27, dsp_columns, dsp_rows);
-void dspbegin() {   lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
-void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
-void dspclear() { lcd.clear(); }
-#endif
-
-/* 
-
-	start the SPI bus - this is a little mean as some libraries also 
-	try to start the SPI which may lead to on override of the PIN settings
-	if the library code is not clean - currenty no conflict known
-
-*/
-
-void spibegin() {
-#if defined(ARDUINO) && defined(ARDUINOSPI)
-#ifdef ARDUINO_TTGO_T7_V14_Mini32
-	// this fixes the wrong board definition in the ESP32 
-	// core of the particular platform, the definition uses
-	// the default ESP32 MISO/MOSi/SCLK/SS pins of the ESP32
-	// instead of the correct ones of the VGA box
- 	SPI.begin(14, 2, 12, 13);
-#else 
- 	SPI.begin();
-#endif
-#endif
+// handling file IO
+void filewrite(char c) { if (ofile) fputc(c, ofile); else ert=1;}
+char fileread(){
+	char c;
+	if (ifile) c=fgetc(ifile); else { ert=1; return 0; }
+	if (c == -1 ) ert=-1;
+	return c;
 }
-
-// filesystem starter 
-void fsbegin() {
-#ifdef ARDUINOSD 
-#ifndef SDPIN
-#define SDPIN
-#endif
- 	if (SD.begin(SDPIN)) { outsc("SDcard ok \n"); }	
-#endif
-#if defined(ESPSPIFFS) && ( defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) )
- 	if (SPIFFS.begin()) {
-		outsc("SPIFFS ok \n");
-		FSInfo fs_info;
-		SPIFFS.info(fs_info);
-		outsc("File system size "); outnumber(fs_info.totalBytes); outcr();
-		outsc("File system used "); outnumber(fs_info.usedBytes); outcr();
- 	}
-#endif
+char ifileopen(char* filename){
+	ifile=fopen(filename, "r");
+	return (int) ifile;
 }
-
-/*
-	global variables for a TFT
-	this is code for a SD1963 800*480 board using the UTFT library
-	it is mainly intended for a MEGA or DUE as a all in one system
-	this is for a MEGA shield and the CTE DUE shield, for the due 
-	you need to read the comment in Arduino/libraries/UTFT/hardware/arm
-	HW_ARM_defines.h -> uncomment the DUE shield
-*/
-#if defined(ARDUINOTFT) && defined(ARDUINO)
-#include <memorysaver.h>
-#include <UTFT.h>
-#define DISPLAYDRIVER
-extern uint8_t SmallFont[];
-extern uint8_t BigFont[];
-#ifdef ARDUINO_SAM_DUE
-UTFT tft(CTE70,25,26,27,28);
-#else 
-UTFT tft(CTE70,38,39,40,41);
-#endif
-const int dsp_rows=30;
-const int dsp_columns=50;
-char dspfontsize = 16;
-void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrollmode(1, 4); }
-void dspprintchar(char c, short col, short row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
-void dspclear() { tft.clrScr(); }
-//experimental graphics code 
-#ifdef HASGRAPH
-void rgbcolor(int r, int g, int b) { tft.setColor(r,g,b); }
-void vgacolor(short c) {
-	short base=128;
-	if (c==8) { rgbcolor(64, 64, 64); return; }
-	if (c>8) base=255;
-	rgbcolor(base*(c&1), base*((c&2)/2), base*((c&4)/4));  
+void ifileclose(){
+	if (ifile) fclose(ifile);
+	ifile=NULL;	
 }
-void plot(int x, int y) { tft.drawPixel(x, y); }
-void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1); }
-void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, y0, x1, y1); }
-void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, y0, x1, y1); }
-void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r); }
-void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
-#endif
-#endif
-
-/* 
-	this is the VGA code for fablib - first attempt to do this now
-*/
-
-#if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32)
-#include <WiFi.h> 
-#include <fabgl.h> 
-fabgl::VGAController VGAController;
-fabgl::Terminal      Terminal;
-Canvas cv(&VGAController);
-TerminalController tc(&Terminal);
-Color vga_graph_pen = Color::BrightWhite;
-Color vga_graph_brush = Color::Black;
-Color vga_txt_pen = Color::BrightGreen;
-Color vga_txt_background = Color::Black;
-// this starts the vga controller and the terminal right now
-void vgabegin() {
-	VGAController.begin(GPIO_NUM_22, GPIO_NUM_21, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_23, GPIO_NUM_15);
-	VGAController.setResolution(VGA_640x200_70Hz);
-  	Canvas cv(&VGAController);
-	Terminal.begin(&VGAController);
-	Terminal.setBackgroundColor(vga_txt_background);
-	Terminal.setForegroundColor(vga_txt_pen);
-  	Terminal.connectLocally();
-  	Terminal.clear();
-  	Terminal.enableCursor(true);
-  	Terminal.setTerminalType(TermType::VT52);
+char ofileopen(char* filename){
+	ofile=fopen(filename, "w");
+	return (int) ofile; 
 }
-void vgascale(int* x, int* y) {
-	*y=*y*10/24;
-}
-void rgbcolor(int r, int g, int b) {
-	short vga;
-	if (r>191 || g>191 || b>191) vga=8; else vga=0;
-	vga=vga+r/128+g/128*2+b/128*4;
-	vga_graph_pen=fabgl::Color(vga);
+void ofileclose(){ if (ofile) fclose(ofile); }
+int fileavailable(){ return !feof(ifile); }
 
-}
-void vgacolor(short c) { vga_graph_pen = fabgl::Color(c%16); }
-void plot(int x, int y) { 
-	vgascale(&x, &y);
-	cv.setPenColor(vga_graph_pen);
-	cv.setPixel(x,y);
-	cv.setPenColor(vga_txt_pen);
-}
-void line(int x0, int y0, int x1, int y1) {
-	vgascale(&x0, &y0);
-	vgascale(&x1, &y1);
-    cv.setPenColor(vga_graph_pen);
-    cv.setPenWidth(1);
-    cv.drawLine(x0, y0, x1, y1);
-    cv.setPenColor(vga_txt_pen);
-}
-void rect(int x0, int y0, int x1, int y1) { 
-	vgascale(&x0, &y0);
-	vgascale(&x1, &y1);
-	cv.setPenColor(vga_graph_pen);
-    cv.setPenWidth(1);
-    cv.drawRectangle(x0, y0, x1, y1);
-    cv.setPenColor(vga_txt_pen);
-}
-void frect(int x0, int y0, int x1, int y1) {  
-	vgascale(&x0, &y0);
-	vgascale(&x1, &y1);
-	cv.setBrushColor(vga_graph_pen);
-    cv.fillRectangle(x0, y0, x1, y1);
-    cv.setBrushColor(vga_txt_background);
-}
-void circle(int x0, int y0, int r) {  
-	int rx = r;
-	int ry = r;
-	vgascale(&x0, &y0);
-	vgascale(&rx, &ry);
-	cv.setPenColor(vga_graph_pen);
-    cv.setPenWidth(1);
-    cv.drawEllipse(x0, y0, rx, ry);
-    cv.setPenColor(vga_txt_pen);
-}
-void fcircle(int x0, int y0, int r) {  
-	int rx = r;
-	int ry = r;
-	vgascale(&x0, &y0);
-	vgascale(&rx, &ry);
-	cv.setBrushColor(vga_graph_pen);
-    cv.fillEllipse(x0, y0, rx, ry);
-    cv.setBrushColor(vga_txt_background);	
-}
-#else 
-void vgabegin(){}
-#endif
-
-
-#ifdef ARDUINO_TTGO_T7_V14_Mini32
-#define PS2FABLIB
-fabgl::PS2Controller PS2Controller;
-#else
-#if defined(ARDUINO) && defined(ARDUINOPS2)
-#define PS2KEYBOARD
-PS2Keyboard keyboard;
-#endif
-#endif
-
-void kbdbegin() {
-#ifdef PS2KEYBOARD
-	keyboard.begin(PS2DATAPIN, PS2IRQPIN, PS2Keymap_German);
-#else
-#ifdef PS2FABLIB
-	PS2Controller.begin(PS2Preset::KeyboardPort0);
-	PS2Controller.keyboard()->setLayout(&fabgl::GermanLayout);
-#endif
-#endif
-}
-
-char kbdavailable(){
-#ifdef PS2KEYBOARD
-	return keyboard.available();
-#else
-#ifdef PS2FABLIB
-	return Terminal.available();
-#endif
-#endif
-	return 0;
-}
-
-char kbdread() {
-#ifdef PS2KEYBOARD
-	return keyboard.read();
-#else
-#ifdef PS2FABLIB
-	return Terminal.read();
-#endif
-#endif
-	return 0;
-}
-
-/* Arduino Real Time clock code */
-#ifdef ARDUINORTC
-#include <uRTCLib.h>
-uRTCLib rtc(RTCI2CADDR);
-#endif
-
-/* External EEPROM   */
-#ifdef ARDUINOEEPROMI2C
-#include <uEEPROMLib.h>
-#ifndef RTCEEPROMSIZE
-#define RTCEEPROMSIZE 4096 
-#endif
-uEEPROMLib c_eeprom(EEPROMI2CADDR);
-#else
-#define RTCEEPROMSIZE 0
-#endif
-
-
-/* Arduino Sensor library code - very experimental */
-#ifdef ARDUINOSENSORS
-#include "DHT.h"
-#define DHTTYPE DHT11
-#define DHTPIN 22
-DHT dht(DHTPIN, DHTTYPE);
-void sensorbegin(){
-  dht.begin();
-}
-number_t sensorread(short i) {
-  switch (i) {
-    case 1:
-      return dht.readHumidity();
-    case 2:
-      return dht.readTemperature();
-    default:
-      return 0;
-  }
-}
-#else
-void sensorbegin() {}
-number_t sensorread(short i) {return 0;};
-#endif
-
-
-/* 
-	start a secondary serial port for printing and/or networking 
-*/
-#ifdef ARDUINOPRT
-#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE)
-#include <SoftwareSerial.h>
-/* definition of the serial port pins from "pretzel board"
-for UNO 11 is not good for rx */
-const int software_serial_rx = 11;
-const int software_serial_tx = 12;
-SoftwareSerial Serial1(software_serial_rx, software_serial_tx);
-#endif
-#endif
-
-/*
-	 definitions for the nearfield module, still very experimental
-*/
-#if defined(ARDUINORF24) && defined(ARDUINO) 
-const char rf24_ce = 8;
-const char rf24_csn = 9;
-#include <nRF24L01.h>
-#include <RF24.h>
-rf24_pa_dbm_e rf24_pa = RF24_PA_MAX;
-RF24 radio(rf24_ce, rf24_csn);
-#endif
-
-/*
-	definitions for ESP Wifi and MQTT, super experimental
-	all in one again
-*/
-#if defined(ARDUINOMQTT) && defined(ARDUINO)
-#include "wifisettings.h"
-const char* mqtt_server = "test.mosquitto.org";
-const short mqtt_port = 1883;
-WiFiClient bwifi;
-PubSubClient bmqtt(bwifi);
-
-
-// the length of the outgoing and incomming topic 
-#define MQTTLENGTH 32
-char mqtt_otopic[MQTTLENGTH];
-char mqtt_itopic[MQTTLENGTH];
-
-// the buffer for incoming MQTT messages 
-// this is static and currently short
-// later a string should be applicable here 
-#define MQTTBLENGTH 128
-volatile char mqtt_buffer[MQTTBLENGTH];
-volatile short mqtt_messagelength;
-
-// the name of the client
-char mqttname[12] = "iotbasicxxx";
-
-// new client name
-void mqttsetname() {
-	long m = millis();
-	mqttname[8]=(char)(65+m%26);
-	m=m/26;
-	mqttname[9]=(char)(65+m%26);
-	m=m/26;
-	mqttname[10]=(char)(65+m%26);
-}
-
-// the begin method 
-// needs the settings from wifisettings.h
-void netbegin() {
-	WiFi.mode(WIFI_STA);
-	WiFi.begin(ssid, password);
-	WiFi.setAutoReconnect(true);
-  	WiFi.persistent(true);
-}
-
-// the connected method
-char netconnected() {
-	return(WiFi.status() == WL_CONNECTED);
-}
-
-// the mqtt callback function, using the byte type here
-// because payload can be binary - interface to BASIC 
-// strings need to be done
-void mqttcallback(char* t, byte* p, unsigned int l) {
-	short i;
-	mqtt_messagelength=l;
-	for(i=0; i<l; i++) mqtt_buffer[i]=(char)p[i];
-	// here hook to register an MQTT event to basic
-}
-
-// starting mqtt 
-void mqttbegin() {
-	bmqtt.setServer(mqtt_server, mqtt_port);
-	bmqtt.setCallback(mqttcallback);
-	*mqtt_itopic=0;
-	*mqtt_otopic=0;
-}
-
-// reconnecting mqtt - exponential backoff here 
-char mqttreconnect() {
-	
-	// exponental backoff reconnect in 10 ms * 2^n intervals
-	short timer=10;
-    char reconnect=0;
-    mqttsetname();
-	while (!bmqtt.connected() && timer < 400) {
-		bmqtt.connect(mqttname);
-		delay(timer);
-		timer=timer*2;
-    	reconnect=1;
-	}
-
-	// after reconnect resubscribe if there is a valid topic
-	if (*mqtt_itopic && bmqtt.connected() && reconnect) bmqtt.subscribe(mqtt_itopic);
- 
-	return bmqtt.connected();
-}
-
-// mqtt state 
-int mqttstate() {
-	return bmqtt.state();
-}
-
-// subscribing to a topic
-void mqttsubscribe(char *t) {
-	short i;
-	for (i=0; i<MQTTLENGTH; i++) {
-		if ((mqtt_itopic[i]=t[i]) == 0 ) break;
-	}
-	if (!mqttreconnect()) {ert=1; return;};
-	if (!bmqtt.subscribe(mqtt_itopic)) ert=1;
-}
-
-void mqttunsubscribe() {
-	if (!mqttreconnect()) {ert=1; return;};
-	if (!bmqtt.unsubscribe(mqtt_itopic)) ert=1;
-	*mqtt_itopic=0;
-}
-
-// set the topic we pushlish, comming from print
-// basic can do only one topic 
-void mqttsettopic(char *t) {
-	short i;
-	for (i=0; i<MQTTLENGTH; i++) {
-		if ((mqtt_otopic[i]=t[i]) == 0 ) break;
-	}
-}
-
-// print a mqtt message
-void mqttouts(char *m, short l) {
-	if (!mqttreconnect()) {ert=1; return;};
-	if (!bmqtt.publish(mqtt_otopic, (uint8_t*) m, (unsigned int) l, false)) ert=1;
-} 
-
-// ins copies the buffer into a basic string - behold the jabberwock - length gynmastics
-void mqttins(char *b, short nb) {
-	for (z.a=0; z.a<nb && z.a<mqtt_messagelength; z.a++) b[z.a+1]=mqtt_buffer[z.a];
- 	b[0]=z.a;
- 	mqtt_messagelength=0;
- 	*mqtt_buffer=0;
-}
-
-// just one character to emulate basic get
-char mqttinch() {
-	char ch=0;
-	short i;
-	if (mqtt_messagelength>0) {
-		ch=mqtt_buffer[0];
-		for (i=0; i<mqtt_messagelength-1; i++) mqtt_buffer[i]=mqtt_buffer[i+1];
-	}
-	mqtt_messagelength--;
-	return ch;
-}
-
-#else 
-void netbegin() {}
-char netconnected() { return 0; }
-void mqttbegin() {}
-int  mqttstate() {return 0;}
-void mqttsubscribe(char *t) {}
-void mqttsettopic(char *t) {}
-void mqttouts(char *m, short l) {}
-void mqttins(char *b, short nb) { z.a=0; };
-char mqttinch() {return 0;};
-#endif
-
-/* 
-	EEPROM handling, these function enable the @E array and 
-	loading and saving to EEPROM, they depend on the 
-	hardware and wire settings in ARDUINORTC
-
-*/ 
-
-void ebegin(){}
-void eflush(){}
-
-// the external module EEPROM is the only EEPROM of the system
-#if defined(ARDUINOEEPROMI2C) && ! defined(ARDUINOEEPROM)
-address_t elength() { return RTCEEPROMSIZE; }
-short eread(address_t a) { return (signed char) c_eeprom.eeprom_read(a); }
-void eupdate(address_t a, short c) { 
-	short b = eread(a);
-	if (b != c) c_eeprom.eeprom_write(a, (signed char) c);
-}
-#endif
-
-// only the internal Arduino EEPROM, no external EEPROM
-#if ! defined(ARDUINOEEPROMI2C) && defined(ARDUINOEEPROM)
-address_t elength() { return EEPROM.length(); }
-void eupdate(address_t a, short c) { EEPROM.update(a, c); }
-short eread(address_t a) { return (signed char) EEPROM.read(a); }
-#endif
-
-// the RTC EEPROM extends the internal EEPROM / internal is always first
-#if defined(ARDUINOEEPROMI2C) && defined(ARDUINOEEPROM)
-address_t elength() { return EEPROM.length()+RTCEEPROMSIZE; }
-void eupdate(address_t a, short c) { 
-	if (a<EEPROM.length()) 
-		EEPROM.update(a, c); 
-	else {
-		short b = c_eeprom.eeprom_read(a-EEPROM.length());
-		if (b != c) c_eeprom.eeprom_write(a-EEPROM.length(), (signed char) c);
-	}	
-}
-short eread(address_t a) { 
-	if (a<EEPROM.length())
-		return (signed char) EEPROM.read(a); 
-	else
-		return (signed char) c_eeprom.eeprom_read(a-EEPROM.length()); 
-}
-#endif
-// no EEPROM present
-#if ! defined(ARDUINOEEPROMI2C) && ! defined(ARDUINOEEPROM)
-address_t elength() { return 0; }
-void eupdate(address_t a, short c) { return; }
-short eread(address_t a) { return 0; }
-#endif
-
-// save a file to EEPROM
-void esave() {
-	address_t a=0;
-	if (top+eheadersize < elength()) {
-		a=0;
-		eupdate(a++, 0); // EEPROM per default is 255, 0 indicates that there is a program
-
-		// store the size of the program in byte 1,2 of the EEPROM	
-		z.a=top;
-		esetnumber(a, addrsize);
-		a+=addrsize;
-
-		while (a < top+eheadersize){
-			eupdate(a, mem[a-eheadersize]);
-			a++;
-		}
-		eupdate(a++,0);
-	} else {
-		error(EOUTOFMEMORY);
-		er=0; //oh oh! check this.
-	}
-}
-
-// load a file from EEPROM
-void eload() {
-	address_t a=0;
-	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
-		a++;
-
-		// how long is it?
-		egetnumber(a, addrsize);
-		top=z.a;
-		a+=addrsize;
-
-		while (a < top+eheadersize){
-			mem[a-eheadersize]=eread(a);
-			a++;
-		}
-	} else { // no valid program data is stored 
-		error(EEEPROM);
-	}
-}
-
-// autorun a program
-void autorun() {
-#ifdef ARDUINOEEPROM
-  	if (eread(0) == 1){ // autorun from the EEPROM
-  		egetnumber(1, addrsize);
-  		top=z.a;
-  		st=SERUN;
-  		return;    // EEPROM autorun overrule filesystem autorun
-  	} 
-#endif
-// here filesystem autorun, ugly still
-#if defined(ESPSPIFFS)
-  	if (ifileopen("/autoexec.bas")) {
-  		xload("/autoexec.bas");
-  		st=SRUN;
-  	}
-  	ifileclose();
-#endif	
-#if defined(ARDUINOSD) || ! defined(ARDUINO)
-  	if (ifileopen("autoexec.bas")) {
-  		xload("autoexec.bas");
-  		st=SRUN;
-  	}
-  	ifileclose();
-#endif
-}
-
-/* the wrappers of the arduino io functions, to avoid 
-   spreading arduino code in the interpreter code 
-   also, this would be the place to insert the Wiring code
-   for raspberry */
-#ifdef ARDUINO_ARCH_ESP32
-void analogWrite(int a, int b){}
-#endif
-#ifdef ARDUINO
-void aread(){ push(analogRead(pop())); }
-void dread(){ push(digitalRead(pop())); }
-void awrite(number_t p, number_t v){
-	if (v >= 0 && v<256) analogWrite(p, v);
-	else error(ERANGE);
-}
-void dwrite(number_t p, number_t v){
-	if (v == 0) digitalWrite(p, LOW);
-	else if (v == 1) digitalWrite(p, HIGH);
-	else error(ERANGE);
-}
-void pinm(number_t p, number_t m){
-	if (m>=0 && m<=2)  pinMode(p, m);
-	else error(ERANGE); 
-}
-void bmillis() {
-	number_t m;
-	// millis is processed as integer and is cyclic mod maxnumber and not cast to float!!
-	m=(number_t) (millis()/(unsigned long)pop() % (unsigned long)maxnum);
-	push(m); 
-};
-void bpulsein() { 
-  unsigned long t, pt;
-  t=((unsigned long) pop())*1000;
-  y=pop(); 
-  x=pop(); 
-  pt=pulseIn(x, y, t)/10; 
-  push(pt);
-}
-#else
-void aread(){ return; }
-void dread(){ return; }
-void awrite(number_t p, number_t v){}
-void dwrite(number_t p, number_t v){}
-void pinm(number_t p, number_t m){}
+// handling directories - still rudimentary
+void rootopen() {
 #ifndef MSDOS
-#ifndef MINGW
-void delay(number_t t) {usleep(t*1000);}
-#else
-void delay(number_t t) {Sleep(t);}
+	root=opendir ("./");
 #endif
-#endif
-struct timeb start_time;
-void bmillis() {
-	struct timeb thetime;
-	time_t dt;
-	number_t m;
-	ftime(&thetime);
-	dt=(thetime.time-start_time.time)*1000+(thetime.millitm-start_time.millitm);
-	m=(number_t) ( dt/(time_t)pop() % (time_t)maxnum);
-	push(m);
 }
-void bpulsein() { pop(); pop(); pop(); push(0); }
+int rootnextfile() {
+#ifndef MSDOS
+  file = readdir(root);
+  return (file != 0);
+#else 
+  return FALSE;
+#endif
+}
+int rootisfile() {
+#ifndef MSDOS
+  return (file->d_type == DT_REG);
+#else
+  return FALSE;
+#endif
+}
+
+char* rootfilename() { 
+#ifndef MSDOS
+  return (file->d_name);
+#else
+  return 0;
+#endif  
+}
+int rootfilesize() { return 0; }
+void rootfileclose() {}
+void rootclose(){
+#ifndef MSDOS
+  (void) closedir(root);
+#endif  
+}
+
+// handling the serial interface
+void serialbegin(){}
+void serialwrite(char c) { putchar(c); }
+char serialread() { return getchar(); }
+char serialcheckch(){ return TRUE; }
+char serialavailable() {return TRUE; }
+
+// reading from the console with inch
+void consins(char *b, short nb) {
+	char c;
+	short i = 1;
+	while(i < nb) {
+		c=inch();
+		if (c == '\r') c=inch();
+		if (c == '\n' ) {
+			break;
+		} else {
+			b[i++]=c;
+		} 
+	}
+	b[i]=0x00;
+	b[0]=(unsigned char)i-1;
+	z.a=i-1;
+}
+
+
+// handling the aux serial interface
+void prtbegin() {}
+void prtwrite(char c) {}
+char prtread() {return 0;}
+char prtcheckch(){ return FALSE; }
+short prtavailable(){ return 0; }
+
+
+// default begin is as a master
+void wirebegin() {}
+void wireopen(char* s) {}
+void wireins(char *b, uint8_t l) { b[0]=0; z.a=0; }
+void wireouts(char *b, uint8_t l) {}
+
+/* 
+	read from the radio interface, radio is always block 
+	oriented. This function is called from ins for an entire 
+	line - see hardware.h for more info on block mode 
+*/
+void radioins(char *b, short nb) { b[0]=0; b[1]=0; z.a=0; }
+void radioouts(char *b, short l) {}
+void iradioopen(char *filename) {}
+void oradioopen(char *filename) {}
+
 #endif
 
-/* end of the hardware section of the code */ 
-
-
-/*
-
-	this is a generic display code 
-	it combines the functions of LCD and TFT drivers
-	if this code is active 
-	dspprintchar(char c, short col, short row)
-	dspclear()
-	dspbegin()
-	dspclear()
-	have to be defined before in a hardware dependent section
+/* 
+	Code hardware dependencies
 */
 
-#ifdef DISPLAYDRIVER
-short dspmycol = 0;
-short dspmyrow = 0;
-char esc = 0;
-
-void dspsetcursor(short c, short r) {
-	dspmyrow=r;
-	dspmycol=c;
-}
-
-char dspactive() {
-	return od & ODSP;
-}
-
-#ifdef HASVT52
-/* nano vt52 state engine, vt52s is the state variable */
-char vt52s = 0;
-
-void dspvt52(char* c){
-  
-	switch (vt52s) {
-		case 'Y':
-			if (esc == 2) { dspmyrow=(*c-31)%dsp_rows; esc=1; return;}
-			if (esc == 1) { dspmycol=(*c-31)%dsp_columns; *c=0; }
-      		vt52s=0; 
-			break;
-	}
- 
-	switch (*c) {
-		case 'A': // cursor up
-			if (dspmyrow>0) dspmyrow--;
-			break;
-		case 'B': // cursor down
-		    dspmyrow=(dspmyrow++) % dsp_rows;
-			break;
-		case 'C': // cursor right
-			dspmycol=(dspmycol++) % dsp_columns;
-			break; 
-		case 'D': // cursor left
-			if (dspmycol>0) dspmycol--;
-			break;
-		case 'E': // GEMDOS / TOS extension clear screen
-		    dspbufferclear();
-    		dspclear();
-			break;
-		case 'H': // cursor home
-		    dspmyrow=0;
-    		dspmycol=0;
-			break;	
-		case 'Y': // Set cursor position
-			vt52s='Y';
-			esc=2;
-      		*c=0;
-			return;
-		case 'F': // enter graphics mode
-		case 'G': // exit graphics mode
-		case 'I': // reverse line feed
-		case 'J': // clear to end of screen
-		case 'K': // clear to end of line
-		case 'L': // Insert line
-		case 'M': // Delete line
-		case 'Z': // Ident
-		case '=': // alternate keypad on
-		case '>': // alternate keypad off
-		case 'b': // GEMDOS / TOS extension text color
-		case 'c': // GEMDOS / TOS extension background color
-		case 'd': // GEMDOS / TOS extension clear to start of screen
-		case 'e': // GEMDOS / TOS extension enable cursor
-		case 'f': // GEMDOS / TOS extension disable cursor
-		case 'j': // GEMDOS / TOS extension restore cursor
-		case 'k': // GEMDOS / TOS extension save cursor
-		case 'l': // GEMDOS / TOS extension clear line
-		case 'o': // GEMDOS / TOS extension clear to start of line		
-		case 'p': // GEMDOS / TOS extension reverse video
-		case 'q': // GEMDOS / TOS extension normal video
-		case 'v': // GEMDOS / TOS extension enable wrap
-		case 'w': // GEMDOS / TOS extension disable wrap
-		case '^': // Printer extensions - print on
-		case '_': // Printer extensions - print off
-		case 'W': // Printer extensions - print without display on
-		case 'X': // Printer extensions - print without display off
-		case 'V': // Printer extensions - print cursor line
-		case ']': // Printer extension - print screen 
-			break;
-	}
-      esc=0;
-      *c=0;
-}
+// with no filesystem there is no use for FILEIO code
+#ifndef FILESYSTEMDRIVER
+#undef HASFILEIO
 #endif
-
-#ifdef DISPLAYCANSCROLL
-char dspbuffer[dsp_rows][dsp_columns];
-char  dspscrollmode = 0;
-short dsp_scroll_rows = 1; 
-
-// 0 normal scroll
-// 1 enable waitonscroll function
-// ... more to come
-void dspsetscrollmode(char c, short l) {
-	dspscrollmode = c;
-	dsp_scroll_rows = l;
-}
-
-void dspbufferclear() {
-	short r,c;
-	for (r=0; r<dsp_rows; r++)
-		for (c=0; c<dsp_columns; c++)
-      		dspbuffer[r][c]=0;
-  	dspmyrow=0;
-  	dspmycol=0;
-}
-
-void dspscroll(){
-	short r,c;
-	int i;
-  	char a,b;
-
-  	// shift dsp_scroll_rows up
-  	for (r=0; r<dsp_rows-dsp_scroll_rows; r++) { 
-    	for (c=0; c<dsp_columns; c++) {
-        	a=dspbuffer[r][c];
-        	b=dspbuffer[r+dsp_scroll_rows][c];
-        	if ( a != b ) {
-            	if (b >= 32) dspprintchar(b, c, r); else dspprintchar(' ', c, r);
-        	}      
-        	dspbuffer[r][c]=b;
-    	} 
-    }
-
-    // delete the characters in the remaining lines
-  	for (r=dsp_rows-dsp_scroll_rows; r<dsp_rows; r++) {
-    	for (c=0; c<dsp_columns; c++) {
-			if (dspbuffer[r][c] > 32) dspprintchar(' ', c, r); 
-        	dspbuffer[r][c]=0;     
-    	}
-    }
-  
-	// set the cursor to the fist free line	    
-  	dspmycol=0;
-    dspmyrow=dsp_rows-dsp_scroll_rows;
-}
-
-void dspwrite(char c){
-
-#ifdef HASVT52
-    // escape character received - we switch to vt52 mode
-    // the character is modified and then handed over to the
-    // internal pipeline
-    if (esc) dspvt52(&c);
-#endif
-
-    // will be reworked soon - not super good 
-  	switch(c) {
-  		case 10: // this is LF Unix style doing also a CR
-    		dspmyrow=(dspmyrow + 1);
-    		if (dspmyrow >= dsp_rows) dspscroll(); 
-    		dspmycol=0;
-    		return;
-    	case 12: // form feed is clear screen - deprecated
-    		dspbufferclear();
-    		dspclear();
-    		return;
-    	case 13: // classical carriage return 
-    		dspmycol=0;
-    		return;
-        case 27: // escape - initiate vtxxx mode
-        	esc=1;
-        	return;
-    	case 127: // delete
-    		if (dspmycol > 0) {
-      			dspmycol--;
-      			dspbuffer[dspmyrow][dspmycol]=0;
-      			dspprintchar(' ', dspmycol, dspmyrow);
-      			return;
-    		}
-  	}
-
-	if (c < 32 ) return; 
-
-	dspprintchar(c, dspmycol, dspmyrow);
-	dspbuffer[dspmyrow][dspmycol++]=c;
-	if (dspmycol == dsp_columns) {
-		dspmycol=0;
-		dspmyrow=(dspmyrow + 1);
-    	if (dspmyrow >= dsp_rows) dspscroll(); 
-	}
-}
-
-char dspwaitonscroll() {
-  	char c;
-
-	if ( dspscrollmode == 1 ) {
-		if (dspmyrow == dsp_rows-1) {
-        	c=inch();
-        	if (c == ' ') outch(12);
-		    return c;
-		}
-	}
-	return 0;
-}
-
-// code for low memory simple display access - can still be simplified
-#else 
-
-void dspbufferclear() {}
-
-char dspwaitonscroll() {
-	return 0;
-}
-
-void dspwrite(char c){
-
-#ifdef HASVT52
-	// escape character received - we switch to vt52 mode
-    // the character is modified and then handed over to the
-    // internal pipeline
-    if (esc) { dspvt52(&c); }
-#endif
-
-	switch(c) {
-  		case 12: // form feed is clear screen
-    		dspclear();
-    		return;
-  		case 10: // this is LF Unix style doing also a CR
-    		dspmyrow=(dspmyrow + 1)%dsp_rows;
-    		dspmycol=0;
-    		return;
-    	case 11: // one char down 
-    		dspmyrow=(dspmyrow+1) % dsp_rows;
-    		return;
-    	case 13: // classical carriage return 
-    		dspmycol=0;
-    		return;
-        case 27: // escape - initiate vtxxx mode
-        	esc=1;
-        	return;
-    	case 127: // delete
-    		if (dspmycol > 0) {
-      			dspmycol--;
-      			dspprintchar(' ', dspmycol, dspmyrow);
-    		}
-    		return;
-  	}
-
-	if (c < 32 ) return; 
-
-	dspprintchar(c, dspmycol++, dspmyrow);
-	dspmycol=dspmycol%dsp_columns;
-}
-
-void dspsetscrollmode(char c, short l) {}
-#endif
-#else
-const int dsp_rows=0;
-const int dsp_columns=0;
-void dspwrite(char c){};
-void dspbegin() {};
-char dspwaitonscroll() { return 0; };
-char dspactive() {return FALSE; }
-void dspsetscrollmode(char c, short l) {}
-void dspsetcursor(short c, short r) {}
-#endif
-
-
-// the quick and dirty hack of the vga display
-#if defined(ARDUINOVGA) && defined(ARDUINO)
-void vgawrite(char c){
-
-	switch(c) {
-  		case 12: // form feed is clear screen
-  			Terminal.write(27); Terminal.write('H');
-  			Terminal.write(27); Terminal.write('J');
-    		return;
-  		case 10: // this is LF Unix style doing also a CR
-  			Terminal.write(10); Terminal.write(13);
-    		return;
-  	}
-
-  	Terminal.write(c);
-
-}
-#else
-void vgawrite(char c){}
-#endif
-
-/*
-	real time clock with EEPROM stuff based on uRTC and uEEPROM
-	this is a minimalistic library 
-*/ 
-
-#ifdef ARDUINORTC
-char rtcstring[18] = { 0 }; 
-
-char* rtcmkstr() {
-	int cc = 1;
-	short t;
-	char ch;
-	t=rtcget(2);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]=':';
-	t=rtcread(1);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]=':';
-	t=rtcread(0);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='-';
-	t=rtcread(3);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='/';
-	t=rtcread(4);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='/';
-	t=rtcread(5);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc]=0;
-	rtcstring[0]=cc-1;
-
-	return rtcstring;
-}
-
-short rtcread(char i) {
-	switch (i) {
-		case 0: 
-			return rtc.second();
-		case 1:
-			return rtc.minute();
-		case 2:
-			return rtc.hour();
-		case 3:
-			return rtc.day();
-		case 4:
-			return rtc.month();
-		case 5:
-			return rtc.year();
-		case 6:
-			return rtc.dayOfWeek();
-		case 7:
-			return rtc.temp();
-		default:
-			return 0;
-	}
-}
-
-short rtcget(char i) {
-	rtc.refresh();
-	return rtcread(i);
-}
-
-void rtcset(char i, short v) {
-	uint8_t tv[7];
-	char j;
-	rtc.refresh();
-	for (j=0; j<7; j++) tv[j]=rtcread(j);
-	tv[i]=v;
-	rtc.set(tv[0], tv[1], tv[2], tv[6], tv[3], tv[4], tv[5]);
-}
-#endif
-
 
 /*
 	Layer 0 function - variable handling.
@@ -2496,24 +346,6 @@ address_t ballocmem() {
 #else 
 address_t ballocmem(){ return MEMSIZE-1; };
 #endif
-
-/* 
-	the yield function is called after every statement
-	if allows background tasks on OSes like FreeRTOS 
-	On an ESP8266 this function is called every 100 microseconds
-	(after each statement) in RUN mode. BASIC DELAY calls 
-	this every YIELDTIME ms. 
-*/
-void byield() {	
-#if defined(ARDUINO) && defined(ARDUINOMQTT) 
-	if ( millis()-lastyield > YIELDINTERVAL-1 ) {
-      bmqtt.loop();
-      lastyield=millis();
-      delay(YIELDTIME); 
-  	}
-#endif
-  	delay(0);
-}
 
 
 #ifdef HASAPPLE1
@@ -3294,39 +1126,41 @@ void clrforstack() {
 	interface of an arduino.
  
  	ioinit(): called at setup to initialize what ever io is needed
- 	timeinit(): set start time on non Arduino platforms for millis
  	outch(): prints one ascii character 
  	inch(): gets one character (and waits for it)
  	checkch(): checks for one character (non blocking)
  	ins(): reads an entire line (uses inch except for pioserial)
 
- 	For picoserial blocking I/O makes little sense. We read directly
- 	into the input buffer through the interrupt routine. 
-
- 	In addition the this a few "device driver functions" are also 
- 	included to simplify keyboard, LCD and TFT code 
-
 */
 
-void timeinit() {
-// needed for the millis routine
-#ifndef ARDUINO
-	ftime(&start_time);
-#endif
-}
-
 void ioinit() {
-	netbegin();  // start the basic network functions
-	mqttbegin();
-	wirebegin(); // wire has to be started early as much depends on it
-	spibegin();
 	serialbegin();
+#ifdef ARDUINOMQTT
+	netbegin();  
+	mqttbegin();
+#endif
+#ifdef ARDUINOWIRE
+	wirebegin(); // wire has to be started early as much depends on it
+#endif
+#ifdef ARDUINOSPI
+	spibegin();
+#endif
+#ifdef ARDUINOPRT
 	prtbegin();
+#endif
+#ifdef ARDUINOPS2
 	kbdbegin();
+#endif
+#ifdef DISPLAYDRIVER
 	dspbegin();
+#endif
+#ifdef ARDUINOVGA
 	vgabegin(); // mind this - the fablib code is special here 
-	ebegin();
+#endif
+#ifdef ARDUINOSENSORS
 	sensorbegin();
+#endif
+	ebegin();
 	iodefaults();
 }
 
@@ -3337,471 +1171,21 @@ void iodefaults() {
 
 /* 
 
-	Platform dependend IO functions, implemented models are
-		- Standard C library
-		- Arduino Serial 
-		- Arduino Picoserial
-		- SD filesystems
-		- SPIFFS filesystems
-
-	Wrappers around the OS functions for file and dir access
-
-*/
-
-void filewrite(char c) {
-#ifndef ARDUINO
-	if (ofile) fputc(c, ofile); else ert=1;
-#else
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
-	if (ofile) ofile.write(c); else ert=1;
-#endif
-#endif
-	return;
-}
-
-char fileread(){
-	char c;
-#ifndef ARDUINO
-	if (ifile) c=fgetc(ifile); else { ert=1; return 0; }
-#else
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
-	if (ifile) c=ifile.read(); else { ert=1; return 0; }
-#endif
-#endif
-	if (c == -1 ) {
-		ert=-1;
-	}
-	return c;
-}
-
-char ifileopen(char* filename){
-#ifndef ARDUINO
-	ifile=fopen(filename, "r");
-	return (int) ifile;
-#else
-#ifdef ARDUINOSD
-	ifile=SD.open(filename, FILE_READ);
-	return (int) ifile;
-#else
-#ifdef ESPSPIFFS
-	ifile=SPIFFS.open(filename, "r");
-	return (int) ifile;
-#endif
-#endif
-#endif
-	return 0;
-}
-
-void ifileclose(){
-#ifndef ARDUINO
-	if (ifile) fclose(ifile);
-	ifile=NULL;
-#else
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
-	ifile.close();
-#endif
-#endif	
-}
-
-char ofileopen(char* filename){
-#ifndef ARDUINO
-	ofile=fopen(filename, "w");
-	return (int) ofile;
-#else
-#ifdef ARDUINOSD
-	ofile=SD.open(filename, FILE_OWRITE);
-	return (int) ofile;
-#else
-#ifdef ESPSPIFFS
-	ofile=SPIFFS.open(filename, "w");
-	return (int) ofile;
-#endif
-#endif
-#endif
-	return 0;
-}
-
-void ofileclose(){
-#ifndef ARDUINO
-	if (ofile) fclose(ofile);
-#else
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
-    ofile.close();
-#endif
-#endif
-}
-
-int fileavailable(){
-#ifndef ARDUINO
-	return !feof(ifile);
-#else
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
-	return ifile.available();
-#endif
-#endif
-}
-
-void rootopen() {
-#ifndef ARDUINO	
-#ifndef MSDOS
-	root=opendir ("./");
-#endif
-#else 
-#ifdef ARDUINOSD
-	root=SD.open("/");
-#else 
-#ifdef ESPSPIFFS
-	root=SPIFFS.openDir("/");
-#endif
-#endif
-#endif
-}
-
-int rootnextfile() {
-#ifndef ARDUINO	
-#ifndef MSDOS
-  file = readdir(root);
-  return (file != 0);
-#else 
-  return FALSE;
-#endif
-#else 
-#ifdef ARDUINOSD
-  file=root.openNextFile();
-  return (file != 0);
-#else 
-#ifdef ESPSPIFFS
-  if (root.next()) {
-    file=root.openFile("r");
-    return 1;
-  } else {
-    return 0;
-  }
-#endif
-#endif
-#endif
-}
-
-int rootisfile() {
-#ifndef ARDUINO	
-#ifndef MSDOS
-  return (file->d_type == DT_REG);
-#else
-  return FALSE;
-#endif
-#else 
-#ifdef ARDUINOSD
-  return (! file.isDirectory());
-#else 
-#ifdef ESPSPIFFS
-  return TRUE;
-#endif
-#endif
-#endif
-}
-
-
-char* rootfilename() {
-#ifndef ARDUINO 
-#ifndef MSDOS
-  return (file->d_name);
-#else
-  return 0;
-#endif
-#else 
-#ifdef ARDUINOSD
-  return (char*) file.name();
-#else 
-#ifdef ESPSPIFFS
-   	// c_str() sometimes broken
-  	int i=0;
-	String s=root.fileName();
- 	for (i=0; i<s.length(); i++) { tempname[i]=s[i]; }
- 	tempname[i]=0;
-	return tempname;
-#endif
-#endif
-#endif  
-}
-
-int rootfilesize() {
-#ifndef ARDUINO 
-  return 0;
-#else 
-#ifdef ARDUINOSD
-  return file.size();
-#else 
-#ifdef ESPSPIFFS
-  return file.size();
-#endif
-#endif
-#endif  
-}
-
-
-void rootfileclose() {
-#ifndef ARDUINO 
-  return;
-#else 
-#ifdef ARDUINOSD
-  return file.close();
-#else 
-#ifdef ESPSPIFFS
-  return file.close();
-#endif
-#endif
-#endif  
-}
-
-void rootclose(){
-#ifndef ARDUINO 
-#ifndef MSDOS
-  (void) closedir(root);
-#endif
-#else 
-#ifdef ARDUINOSD
-  root.close();
-#else 
-#ifdef ESPSPIFFS
-  return;
-#endif
-#endif
-#endif  
-}
-
-// wrapper around console output
-void serialwrite(char c) {
-#ifndef ARDUINO
-	putchar(c);
-#else 
-#ifndef USESPICOSERIAL
-	Serial.write(c);
-#else
-	PicoSerial.print(c);
-#endif
-#endif
-	return;	
-}
-
-
-void prtbegin() {
-#ifdef ARDUINOPRT
-	Serial1.begin(serial1_baudrate);
-#endif
-}
-
-void prtwrite(char c) {
-#ifdef ARDUINOPRT
-	Serial1.write(c);
-#endif
-}
-
-
-/* 
-	read from the radio interface, radio is always block 
-	oriented. This function is called from ins for an entire 
-	line.
-
-	In blockmode the entire message is returned in the 
-	receiving string while in line mode the length of the 
-	string is adapted. Blockmode can be used to transfer
-	binary data.
-
-*/
-void radioins(char *b, short nb) {
-#ifdef ARDUINORF24
-    if (radio.available()) {
-    	radio.read(b+1, nb);
-    	if (!blockmode) {
-        	for (z.a=0; z.a<nb; z.a++) if (b[z.a+1]==0) break;		
-    	} else {
-    		z.a=radio.getPayloadSize();
-      		if (z.a > nb) z.a=nb;
-    	}
-      	b[0]=z.a;
-	} else {
-      	b[0]=0; 
-      	b[1]=0;
-      	z.a=0;
-	}
-#else 
-      b[0]=0; 
-      b[1]=0;
-      z.a=0;
-#endif
-}
-
-/* write to radio, no character mode here */
-void radioouts(char *b, short l) {
-#ifdef ARDUINORF24
-	radio.stopListening();
-	if (radio.write(b, l)) ert=0; else ert=1;
-	radio.startListening();
-#endif
-}
-
-
-/* this can result in multiple wire begin calls
- no protection here for user errors from BASIC */ 
-#ifdef ARDUINOWIRE
-uint8_t wire_slaveid = 0;
-uint8_t wire_myid = 0;
-#endif
-
-// default begin is as a master
-void wirebegin() {
-#ifdef ARDUINOWIRE
-#ifdef ARDUINO_ARCH_ESP8266
-//	Wire.begin(0, 2); // D3 and D4 - sometimes not set correctly (?)
-	Wire.begin();
-#else
-	Wire.begin();
-#endif
-#endif
-}
-
-// as a master open sets the slave id for the communication
-// no extra begin while we stay master
-void wireopen(char* s) {
-#ifdef ARDUINOWIRE
-	if (s[0] == 'm') {
-		wire_slaveid=s[1];
-		wire_myid=0;
-	} else if ( s[0] == 's' ) { 
-		wire_myid=s[1];
-		wire_slaveid=0;
-		Wire.begin(wire_myid);
-		// here the slave code if this Arduino is a slave
-		// to be done
-	} else 
-		error(ERANGE);
-#endif
-}
-
-void wireins(char *b, uint8_t l) {
-#ifdef ARDUINOWIRE
-	z.a=0;
-	Wire.requestFrom(wire_slaveid, l);
-	while (Wire.available() && z.a<l) b[++z.a]=Wire.read();
-	b[0]=z.a;
-#else 
-	b[0]=0;
-	z.a=0;
-#endif
-}
-
-void wireouts(char *b, uint8_t l) {
-#ifdef ARDUINOWIRE
-	  Wire.beginTransmission(wire_slaveid); 
-	  for(z.a=0; z.a<l; z.a++) Wire.write(b[z.a]);     
-	  ert=Wire.endTransmission(); 
-#endif
-}
-
-/* 
-	we always read from pipe 1 and use pipe 0 for writing, 
-	the filename is the pipe address, by default the radio 
-	goes to reading mode after open and is only stopped for 
-	write
-*/
-
-void iradioopen(char *filename) {
-#ifdef ARDUINORF24
-	radio.begin();
-	radio.openReadingPipe(1, pipeaddr(filename));
-	radio.startListening();
-#endif
-}
-
-void oradioopen(char *filename) {
-#ifdef ARDUINORF24
-	radio.begin();
-	radio.openWritingPipe(pipeaddr(filename));
-#endif
-}
-
-#ifndef ARDUINO
-/* 
-	this is C standard library stuff, we branch to file input/output
-	if there is a valid file descriptor in fd.
-*/
-
-void serialbegin(){}
-
-char inch(){
-	char c;
-	if (id == ISERIAL)
-		return getchar(); 
-	if (id == IFILE) 
-		return fileread();
-	return 0;
-}
-
-char checkch(){
-	return TRUE;
-}
-
-short availch(){
-	if (id == ISERIAL)
-		return 1; 
-	if (id == IFILE) 
-		return fileavailable();
-	return 0;
-}
-
-void ins(char *b, short nb) {
-	char c;
-	short i = 1;
-	while(i < nb) {
-		c=inch();
-		if (c == '\r') c=inch();
-		if (c == '\n' ) {
-			break;
-		} else {
-			b[i++]=c;
-		} 
-	}
-	b[i]=0x00;
-	b[0]=(unsigned char)i-1;
-	z.a=i-1;
-}
-
-#else 
-#ifdef LCDSHIELD
-short keypadread(){
-	short a=analogRead(A0);
-	if (a > 850) return 0;
-	else if (a>600 && a<800) return 's';
-	else if (a>400 && a<600) return 'l';
-	else if (a>200 && a<400) return 'd';
-	else if (a>60  && a<200) return 'u';
-	else if (a<60)           return 'r';
-	return 0;
-}
-#endif
-#ifndef USESPICOSERIAL
-/*
-
-	This is standard Arduino code Serial code. 
-	In inch() we wait for input by looping. 
-	output is controlled by the flag od.
+	The generic IO code 
 
 */ 
 
-void serialbegin() {
-	Serial.begin(serial_baudrate);
-}
-
-
+// the generic inch code reading one character from a stream
 char inch(){
 	char c=0;
 
 	switch(id) {
 		case ISERIAL:
-			while (!Serial.available()) byield();
-			return Serial.read();		
+			return serialread();		
+#ifdef FILESYSTEMDRIVER
 		case IFILE:
 			return fileread();
+#endif
 #ifdef ARDUINOWIRE
 		case IWIRE:
 			ins(sbuffer, 1);
@@ -3820,8 +1204,7 @@ char inch(){
 #endif
 #ifdef ARDUINOPRT
 		case ISERIAL1:
-			while (!Serial1.available()) byield();
-			return Serial1.read();
+			return prtread();
 #endif				
 		case IKEYBOARD:
 #ifdef ARDUINOPS2		
@@ -3838,17 +1221,17 @@ char inch(){
 #endif
 			break;
 	}
-
 	return 0;
 }
 
 char checkch(){
 	switch (id) {
 		case ISERIAL:
-			if (Serial.available()) return Serial.peek(); 
-			break;
+			return serialcheckch();
+#ifdef FILESYSTEMDRIVER
 		case IFILE:
 			return fileavailable();
+#endif
 #ifdef ARDUINORF24
     	case IRADIO:
     		return radio.available();
@@ -3863,8 +1246,7 @@ char checkch(){
 #endif
 #ifdef ARDUINOPRT
 		case ISERIAL1:
-			if (Serial1.available()) return Serial1.peek();
-			break; 
+			return prtcheckch(); 
 #endif
 		case IKEYBOARD:
 #ifdef ARDUINOPS2		
@@ -3881,9 +1263,11 @@ char checkch(){
 short availch(){
 	switch (id) {
     	case ISERIAL:
-      		return Serial.available(); 
+      		return serialavailable(); 
+#ifdef FILESYSTEMDRIVER
     	case IFILE:
     		return fileavailable();
+#endif
 #ifdef ARDUINORF24
     	case IRADIO:
     		return radio.available();
@@ -3898,7 +1282,7 @@ short availch(){
 #endif
 #ifdef ARDUINOPRT
     	case ISERIAL1:
-      		return Serial1.available();
+      		return prtavailable();
 #endif
     	case IKEYBOARD:
 #ifdef ARDUINOPS2   
@@ -3912,48 +1296,9 @@ short availch(){
 	return 0;
 }
 
-/* 
-	ins is the generic reader into a string, by default 
-	it works in line mode and ends reading after newline
 
-  the first element of the buffer is the lower byte of the length
 
-  this is corrected later in xinput, z.a has to be set as 
-  a side effect
-  
-*/
-
-void ins(char *b, short nb) {
-  	char c;
-  	short i = 1;
-    // only ISERIAL 1 can be switched to block mode right now
-    if (blockmode > 0 && id == ISERIAL1 ) {
-    	inb(b, nb);
-    } else if (id == IRADIO) {
-    	radioins(b, nb);
-    } else if (id == IWIRE) {
-    	wireins(b, nb);
-    } else if (id == IMQTT) {
-    	mqttins(b, nb);
-    } else {
-  		while(i < nb) {
-    		c=inch();
-    		if (id == ISERIAL || id == IKEYBOARD) outch(c);
-    		if (c == '\r') c=inch(); /* skip carriage return */
-    	 	if (c == '\n') {
-      			break;
-    	  	} else if ( (c == 127 || c == 8) && i>1) {
-      		  	i--;
-    	  	} else {
-      		  	b[i++]=c;
-    	  	} 
-  	  }
-  	  b[i]=0;
-      b[0]=(unsigned char)i-1;
-      z.a=i-1; 
-    }  
-}
-
+#ifdef ARDUINOPRT
 /* 
 	the block mode reader for esp and sensor modules 
  	on a serial interface, it tries to read as many 
@@ -3989,147 +1334,63 @@ void inb(char *b, short nb) {
 		b[0]=0;
 		z.a=0;
 		b[1]=0;
-	}
-	
+	}	
 }
-
-#else 
-
-/*
-
-	Picoserial allows to define an own input buffer and an 
-	interrupt function. This is used to fill the input buffer 
-	directly on read. Write is standard like in the Serial code.
-
-*/ 
-
-volatile static char picochar;
-volatile static char picoa = FALSE;
-volatile static char* picob = NULL;
-static short picobsize = 0;
-volatile static short picoi = 1;
-
-void serialbegin() {
-	(void) PicoSerial.begin(serial_baudrate, picogetchar); 
-}
-
-void picogetchar(int c){
-	if (picob && (! picoa) ) {
-    	picochar=c;
-		if (picochar != '\n' && picochar != '\r' && picoi<picobsize-1) {
-			picob[picoi++]=picochar;
-			outch(picochar);
-		} else {
-			picoa = TRUE;
-			picob[picoi]=0;
-			picob[0]=picoi;
-			z.a=picoi;
-			picoi=1;
-		}
-		picochar=0; // every buffered byte is deleted
-	} else {
-    	if (c != 10) picochar=c;
-	}
-}
-
-
-char inch(){
-	char c;
-	if (id == ISERIAL) {
-		c=picochar;
-		picochar=0;
-		return c;	
-	}
-#ifdef ARDUINOWIRE
-		case IWIRE:
-			ins(sbuffer, 1);
-			if (sbuffer[0]>0) return sbuffer[1]; else return 0;
-#endif
-#ifdef ARDUINORF24
-	// radio is not character oriented, this is only added to make GET work
-	// for single byte payloads, radio is treated nonblocking here
-	if (id == IRADIO) {
-			radioins(sbuffer, SBUFSIZE-1);
-			if (sbuffer[0]>0) return sbuffer[1]; else return 0;
-	}
-#endif
-#ifdef LCDSHIELD
-	if (id == IKEYBOARD) {
-		return keypadread();	
-	}
-#endif
-}
-
-char checkch(){
-    if (id == ISERIAL) return picochar;
-#ifdef ARDUINORF24
-    if (id == IRADIO) return radio.available();
-#endif
-#ifdef ARDUINOWIRE
-    if (id == IWIRE) return 0;
-#endif
-#ifdef LCDSHIELD
-	if (id =IKEYBOARD) return (keypadread()!=0);
-#endif
-	return 0;
-}
-
-short availch(){
-	if (id == ISERIAL) return picoi;
-#ifdef ARDUINORF24
-   	if (id == IRADIO) return radio.available();
-#endif
- #ifdef ARDUINOWIRE
-    if (id == IWIRE) return 1; 
-#endif  	
-#ifdef LCDSHIELD
-	if (id =IKEYBOARD) return (keypadread()!=0);
-#endif
-	return 0;
-}
-
-/* serial pico code only implements serial input and no input channels */
-void ins(char *b, short nb) {
-	if (id == ISERIAL) {
-		picob=b;
-		picobsize=nb;
-		picoa=FALSE;
-		while (! picoa);
-		//outsc(b+1); 
-		outcr();
-		return;
-	}
-#ifdef ARDUINORF24
-	if (id == IRADIO) {
-		radioins(b, nb);
-		return;
-	}
-#endif
-#ifdef ARDUINOWIRE
-	if (id == IWIRE) {
-		wireins(b, nb);
-		return;
-	}
-#endif
-}
-#endif
 #endif
 
 /* 
+	ins is the generic reader into a string, by default 
+	it works in line mode and ends reading after newline
 
-	The generic IO code 
+  the first element of the buffer is the lower byte of the length
 
-*/ 
+  this is corrected later in xinput, z.a has to be set as 
+  a side effect
+  
+*/
+
+void ins(char *b, short nb) {
+  	char c;
+  	short i = 1;
+  	switch(id) {
+#ifdef ARDUINOWIRE
+  		case IWIRE:
+				wireins(b, nb);
+				break;
+#endif
+#ifdef ARDUINOMQTT
+			case IMQTT:
+		    mqttins(b, nb);	
+		    break;	
+#endif
+#ifdef ARDUINORF24
+  		case IRADIO:
+  			radioins(b, nb);
+  			break;
+#endif
+  		default:
+#ifdef ARDUINOPRT
+  			// blockmode only implemented for ISERIAL1 
+  			if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
+#endif
+  			consins(b, nb);
+  	}  
+}
+
 
 // output one character to a stream
 // block oriented i/o like in radio not implemented here
 void outch(char c) {
 	if (od == OSERIAL)
 		serialwrite(c);
+#ifdef FILESYSTEMDRIVER
+	if (od == OFILE) 
+		filewrite(c);
+#endif
+#ifdef ARDUNIOPRT
 	if (od == OPRT) 
 		prtwrite(c);
-	if (od == OFILE) 
-		filewrite(c); 
+#endif
 	if (od == ODSP)
 #ifdef ARDUINOVGA
 		vgawrite(c);
@@ -4160,19 +1421,24 @@ void outspc() {
 void outs(char *ir, short l){
 	int i;
 	switch (od) {
+#ifdef ARDUINORF24
 		case ORADIO:
 			radioouts(ir, l);
 			break;
+#endif
+#ifdef ARDUINOWIRE
 		case OWIRE:
 			wireouts(ir, l);
 			break;
+#endif
+#ifdef ARDUINOMQTT
 		case OMQTT:
 			mqttouts(ir, l);
 			break;
+#endif
 		default:
 			for(i=0; i<l; i++) outch(ir[i]);
 	}
-
 }
 
 
@@ -5856,12 +3122,6 @@ void expression(){
 
 */
 
-
-
-/*
-   print 
-*/ 
-
 void xprint(){
 	char semicolon = FALSE;
 	char oldod;
@@ -6829,7 +4089,7 @@ void getfilename(char *buffer, char d) {
 }
 
 
-#if !defined(ARDUINO) || defined(ARDUINOSD) || defined(ESPSPIFFS)
+#if defined(FILESYSTEMDRIVER)
 // save a file either to disk or to EEPROM
 void xsave() {
 	char filename[SBUFSIZE];
@@ -6951,7 +4211,6 @@ void xload(char * f) {
 void xsave() {
 	esave(); 
 	nexttoken();
-	return;
 }
 
 // loading a file from EEPROM
@@ -7314,8 +4573,6 @@ void xtone(){
 
 */
 
-#if defined(HASFILEIO) || defined(ARDUINORF24)
-
 // string equal helper in catalog 
 char streq(char *s, char *m){
 	short i=0;
@@ -7328,7 +4585,7 @@ char streq(char *s, char *m){
 
 // basic directory function
 void xcatalog() {
-
+#if defined(FILESYSTEMDRIVER) 
 	char filename[SBUFSIZE];
 	char *name;
 
@@ -7350,10 +4607,12 @@ void xcatalog() {
 		rootfileclose();
 	}
 	rootclose();
+#endif
 	nexttoken();
 }
 
 void xdelete() {
+#if defined(FILESYSTEMDRIVER)
 	char filename[SBUFSIZE];
 
 	nexttoken();
@@ -7371,24 +4630,12 @@ void xdelete() {
 #endif
 #endif
 #endif
+#endif
 	nexttoken();
 }
 
-
-#ifdef ARDUINORF24
-/*
-	generate a uint64_t pipe address from the filename string
-	for RF64, horner schema to be on the save side
-*/
-uint64_t pipeaddr(char * f){
-	uint64_t t = 0;
-	t=(uint8_t)f[0];
-	for(short i=1; i<=4; i++) t=t*256+(uint8_t)f[i];
-	return t;
-} 
-#endif
-
 void xopen() {
+#if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE)
 	char stream = IFILE; // default is file operation
 	char filename[SBUFSIZE];
 	char args=0;
@@ -7425,6 +4672,7 @@ void xopen() {
 		return;
 	}
 	switch(stream) {
+#ifdef FILESYSTEMDRIVER
 		case IFILE:
 			if (mode == 1) {
 				ofileclose();
@@ -7434,6 +4682,8 @@ void xopen() {
 				if (ifileopen(filename)) ert=0; else ert=1;
 			}
 			break;
+#endif
+#ifdef ARDUINORF24
 		case IRADIO:
 			if (mode == 0) {
 				iradioopen(filename);
@@ -7441,9 +4691,13 @@ void xopen() {
 				oradioopen(filename);
 			}
 			break;
+#endif
+#ifdef ARDUINOWIRE
 		case IWIRE:
 			wireopen(filename);
 			break;
+#endif
+#ifdef ARDUINOMQTT
 		case IMQTT:
 			if (mode == 0) {
 				mqttsubscribe(filename);
@@ -7451,11 +4705,13 @@ void xopen() {
 				mqttsettopic(filename); 
 			}
 			break;
+#endif
 		default:
 			error(ERANGE);
 			return;
 
 	}
+#endif
 	nexttoken();
 }
 
@@ -7466,6 +4722,7 @@ void xfopen() {
 }
 
 void xclose() {
+#if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE)
 	char stream = IFILE;
 	char mode;
 	char args=0;
@@ -7494,11 +4751,9 @@ void xclose() {
 			if (mode == 1) ofileclose(); else if (mode == 0) ifileclose();
 			break;
 	}
-
+#endif
 	nexttoken();
 }
-
-#endif
 
 #ifdef HASSTEFANSEXT
 /*
