@@ -1,4 +1,17 @@
 /*
+
+	$Id: basic.c,v 1.128 2022/02/06 06:26:03 stefan Exp stefan $
+
+	Stefan's basic interpreter 
+
+	Playing around with frugal programming. See the licence file on 
+	https://github.com/slviajero/tinybasic for copyright/left.
+    (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
+
+	Author: Stefan Lenz, sl001@serverfabrik.de
+
+	Hardware definition file coming with TinybasicArduino.ino aka basic.c
+
 	- ARDUINOLCD, ARDUINOTFT and LCDSHIELD active the LCD code, 
 		LCDSHIELD automatically defines the right settings for 
 		the classical shield modules
@@ -57,6 +70,7 @@
 #undef ARDUINOEEPROMI2C
 #undef ARDUINOSD
 #undef ESPSPIFFS
+#undef RP2040LITTLEFS
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
@@ -270,9 +284,21 @@
 #endif
 #endif
 
+#ifdef RP2040LITTLEFS
+#define FILESYSTEMDRIVER
+#define LFS_MBED_RP2040_VERSION_MIN_TARGET      "LittleFS_Mbed_RP2040 v1.1.0"
+#define LFS_MBED_RP2040_VERSION_MIN             1001000
+#define _LFS_LOGLEVEL_          1
+#define RP2040_FS_SIZE_KB       64
+#define FORCE_REFORMAT          false
+#include <LittleFS_Mbed_RP2040.h>
+#endif
+
+
 // failsafe - the code only supports one filesystem right now
-#if defined(ARDUINOSD) && defined(ESPSPIFFS)
+#if defined(ARDUINOSD)
 #undef ESPSPIFFS
+#undef RP2040LITTLEFS
 #endif
 
 #ifdef ARDUINOWIRE
@@ -310,8 +336,6 @@
 #ifdef ARDUINOEEPROMI2C
 #include <uEEPROMLib.h>
 #endif
-
-
 
 
 /* 
@@ -1388,31 +1412,7 @@ void byield() {
 
 /* 
 	The file system driver - all methods needed to support BASIC fs access
-	filesystem starter for SPIFFS and SD on ESP, ESP32 and Arduino
 */
-void fsbegin() {
-#ifdef ARDUINOSD 
-#ifndef SDPIN
-#define SDPIN
-#endif
- 	if (SD.begin(SDPIN)) { outsc("SDcard ok \n"); }	
-#endif
-#if defined(ESPSPIFFS) && defined(ARDUINO_ARCH_ESP8266) 
- 	if (SPIFFS.begin()) {
-		outsc("SPIFFS ok \n");
-		FSInfo fs_info;
-		SPIFFS.info(fs_info);
-		outsc("File system size "); outnumber(fs_info.totalBytes); outcr();
-		outsc("File system used "); outnumber(fs_info.usedBytes); outcr();
- 	}
-#endif
-#if defined(ESPSPIFFS) && defined(ARDUINO_ARCH_ESP32) 
- 	if (SPIFFS.begin()) {
-		outsc("SPIFFS ok \n"); outcr();
- 	}
-#endif
-}
-
 
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
 File ifile;
@@ -1443,12 +1443,66 @@ File file;
 #endif
 #endif
 
+// using the POSIX API in LittleFS
+#ifdef RP2040LITTLEFS
+// file I/O and dirs
+#define FILESYSTEMDRIVER
+FILE* ifile;
+FILE* ofile;
+DIR* root;
+struct dirent* file;
+LittleFS_MBED *myFS;
+const char rootfs[10] = MBED_LITTLEFS_FILE_PREFIX;
+char tmpfilename[10+SBUFSIZE];
+// add the prefix
+char* mkfilename(char* filename) {
+	short i,j;
+	for(i=0; i<10 && rootfs[i]!=0; i++) tmpfilename[i]=rootfs[i];
+	tmpfilename[i++]='/';
+	for(j=0; j<SBUFSIZE && filename[j]!=0; j++) tmpfilename[i++]=filename[j];
+	return tmpfilename;
+}
+#endif
+
+/* 
+	filesystem starter for SPIFFS and SD on ESP, ESP32 and Arduino plus LittleFS
+*/
+void fsbegin() {
+#ifdef ARDUINOSD 
+#ifndef SDPIN
+#define SDPIN
+#endif
+ 	if (SD.begin(SDPIN)) { outsc("SDcard ok \n"); }	
+#endif
+#if defined(ESPSPIFFS) && defined(ARDUINO_ARCH_ESP8266) 
+ 	if (SPIFFS.begin()) {
+		outsc("SPIFFS ok \n");
+		FSInfo fs_info;
+		SPIFFS.info(fs_info);
+		outsc("File system size "); outnumber(fs_info.totalBytes); outcr();
+		outsc("File system used "); outnumber(fs_info.usedBytes); outcr();
+ 	}
+#endif
+#if defined(ESPSPIFFS) && defined(ARDUINO_ARCH_ESP32) 
+ 	if (SPIFFS.begin()) {
+		outsc("SPIFFS ok \n"); outcr();
+ 	}
+#endif
+#ifdef RP2040LITTLEFS
+	myFS = new LittleFS_MBED();
+	if (myFS->init()) outsc("LittleFS ok \n");
+#endif
+}
+
 /*
 	File I/O function on an Arduino
 */
 void filewrite(char c) {
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
 	if (ofile) ofile.write(c); else ert=1;
+#endif
+#if defined(RP2040LITTLEFS)
+	if (ofile) fputc(c, ofile); else ert=1;
 #endif
 }
 
@@ -1458,20 +1512,28 @@ char fileread(){
 	if (ifile) c=ifile.read(); else { ert=1; return 0; }
 	if (c == -1 ) ert=-1;
 	return c;
-#else 
-	return 0;
 #endif
+#ifdef RP2040LITTLEFS
+	if (ifile) c=fgetc(ifile); else { ert=1; return 0; }
+	if (c == -1 ) ert=-1;
+	return c;
+#endif
+	return 0;
 }
+
 
 char ifileopen(char* filename){
 #ifdef ARDUINOSD
 	ifile=SD.open(filename, FILE_READ);
 	return (int) ifile;
-#else
+#endif
 #ifdef ESPSPIFFS
 	ifile=SPIFFS.open(filename, "r");
 	return (int) ifile;
 #endif
+#ifdef RP2040LITTLEFS
+	ifile=fopen(mkfilename(filename), "r");
+	return (int) ifile;
 #endif
 	return 0;
 }
@@ -1480,17 +1542,24 @@ void ifileclose(){
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
 	ifile.close();
 #endif	
+#ifdef RP2040LITTLEFS
+	if (ifile) fclose(ifile);
+	ifile=NULL;	
+#endif
 }
 
 char ofileopen(char* filename){
 #ifdef ARDUINOSD
 	ofile=SD.open(filename, FILE_OWRITE);
 	return (int) ofile;
-#else
+#endif
 #ifdef ESPSPIFFS
 	ofile=SPIFFS.open(filename, "w");
 	return (int) ofile;
 #endif
+#ifdef RP2040LITTLEFS
+	ofile=fopen(mkfilename(filename), "w");
+	return (int) ofile; 
 #endif
 	return 0;
 }
@@ -1498,10 +1567,12 @@ char ofileopen(char* filename){
 void ofileclose(){
 #ifndef ARDUINO
 	if (ofile) fclose(ofile);
-#else
+#endif
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
     ofile.close();
 #endif
+#ifdef RP2040LITTLEFS
+	if (ofile) fclose(ofile); 
 #endif
 }
 
@@ -1509,13 +1580,16 @@ int fileavailable(){
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
 	return ifile.available();
 #endif
+#ifdef RP2040LITTLEFS
+	return !feof(ifile);
+#endif
 	return 0;
 }
 
 void rootopen() {
 #ifdef ARDUINOSD
 	root=SD.open("/");
-#else 
+#endif
 #ifdef ESPSPIFFS
 #ifdef ARDUINO_ARCH_ESP8266
 	root=SPIFFS.openDir("/");
@@ -1524,28 +1598,33 @@ void rootopen() {
 	root=SPIFFS.open("/");
 #endif
 #endif
+#ifdef RP2040LITTLEFS
+	root=opendir(rootfs);
 #endif
 }
 
 int rootnextfile() {
 #ifdef ARDUINOSD
-  file=root.openNextFile();
-  return (file != 0);
-#else 
+	file=root.openNextFile();
+	return (file != 0);
+#endif
 #ifdef ESPSPIFFS
 #ifdef ARDUINO_ARCH_ESP8266
-  if (root.next()) {
-    file=root.openFile("r");
-    return 1;
-  } else {
-    return 0;
-  }
+  	if (root.next()) {
+    	file=root.openFile("r");
+    	return 1;
+  	} else {
+    	return 0;
+	}
 #endif
 #ifdef ARDUINO_ARCH_ESP32
-  file=root.openNextFile();
-  return (file != 0);
+	file=root.openNextFile();
+	return (file != 0);
 #endif
 #endif
+#ifdef RP2040LITTLEFS
+	file = readdir(root);
+	return (file != 0);
 #endif
   return FALSE;
 }
@@ -1553,7 +1632,7 @@ int rootnextfile() {
 int rootisfile() {
 #ifdef ARDUINOSD
 	return (! file.isDirectory());
-#else 
+#endif
 #ifdef ESPSPIFFS
 #ifdef ARDUINO_ARCH_ESP8266
 	return TRUE;
@@ -1562,6 +1641,8 @@ int rootisfile() {
 	return (! file.isDirectory());
 #endif
 #endif
+#ifdef RP2040LITTLEFS
+	return (file->d_type == DT_REG);
 #endif
 	return FALSE;
 }
@@ -1570,7 +1651,7 @@ int rootisfile() {
 char* rootfilename() {
 #ifdef ARDUINOSD
 	return (char*) file.name();
-#else 
+#endif
 #ifdef ESPSPIFFS
 #ifdef ARDUINO_ARCH_ESP8266
    	// c_str() sometimes broken
@@ -1584,7 +1665,9 @@ char* rootfilename() {
 	return (char*) file.name();
 #endif
 #endif
-#endif 
+#ifdef RP2040LITTLEFS
+	return (file->d_name);
+#endif
 	return FALSE; 
 }
 
@@ -1592,6 +1675,8 @@ int rootfilesize() {
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
   return file.size();
 #endif  
+#ifdef RP2040LITTLEFS
+#endif
   return 0;
 }
 
@@ -1599,12 +1684,14 @@ void rootfileclose() {
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
   file.close();
 #endif 
+#ifdef RP2040LITTLEFS
+#endif
 }
 
 void rootclose(){
 #ifdef ARDUINOSD
   root.close();
-#else 
+#endif
 #ifdef ESPSPIFFS
 #ifdef ARDUINO_ARCH_ESP8266
   return;
@@ -1613,7 +1700,24 @@ void rootclose(){
   root.close();
 #endif
 #endif
-#endif  
+#ifdef RP2040LITTLEFS
+#endif
+}
+
+
+void removefile(char *filename) {
+#ifdef ARDUINOSD	
+	SD.remove(filename);
+	return;
+#endif
+#ifdef ESPSPIFFS
+	SPIFFS.remove(filename);
+	return;
+#endif
+#ifdef RP2040LITTLEFS
+	remove(mkfilename(filename));
+	return;
+#endif
 }
 
 /*
@@ -1872,4 +1976,3 @@ void oradioopen(char *filename) {
 }
 
 #endif
-
