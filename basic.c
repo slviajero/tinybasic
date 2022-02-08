@@ -214,6 +214,7 @@ void rootopen() {
 	root=opendir ("./");
 #endif
 }
+
 int rootnextfile() {
 #ifndef MSDOS
   file = readdir(root);
@@ -243,6 +244,10 @@ void rootclose(){
 #ifndef MSDOS
   (void) closedir(root);
 #endif  
+}
+
+void removefile(char *filename) {
+	remove(filename);
 }
 
 // handling the serial interface
@@ -4619,19 +4624,9 @@ void xdelete() {
 	getfilename(filename, 0);
 	if (er != 0) return; 
 
-#ifndef ARDUINO
-	remove(filename);
-#else 
-#ifdef ARDUINOSD	
-	SD.remove(filename);
-#else 
-#ifdef ESPSPIFFS
-	SPIFFS.remove(filename);
-#endif
-#endif
-#endif
-#endif
+	removefile(filename);
 	nexttoken();
+#endif
 }
 
 void xopen() {

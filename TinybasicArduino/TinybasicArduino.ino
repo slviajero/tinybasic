@@ -38,11 +38,11 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#undef  HASFLOAT
+#define HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
 #define HASDARKARTS
-#undef	HASIOT
+#define HASIOT
 
 /* hardcoded memory size set 0 for automatic malloc */
 #define MEMSIZE 0
@@ -243,6 +243,10 @@ void rootclose(){
 #ifndef MSDOS
   (void) closedir(root);
 #endif  
+}
+
+void removefile(char *filename) {
+	remove(filename);
 }
 
 // handling the serial interface
@@ -4595,7 +4599,7 @@ void xcatalog() {
 
 	rootopen();
 	while (rootnextfile()) {
-		if( rootisfile()) {
+		if ( rootisfile() ) {
 			name=rootfilename();
 			if (*name != '_' && *name !='.' && streq(name, filename)){
 				outscf(name, 14); outspc();
@@ -4619,19 +4623,9 @@ void xdelete() {
 	getfilename(filename, 0);
 	if (er != 0) return; 
 
-#ifndef ARDUINO
-	remove(filename);
-#else 
-#ifdef ARDUINOSD	
-	SD.remove(filename);
-#else 
-#ifdef ESPSPIFFS
-	SPIFFS.remove(filename);
-#endif
-#endif
-#endif
-#endif
+	removefile(filename);
 	nexttoken();
+#endif
 }
 
 void xopen() {
@@ -5418,12 +5412,14 @@ void setup() {
 	// init all io functions 
 	ioinit();
 
+  delay(4000);
+
 	// greet the user
 	printmessage(MGREET); outspc();
 	printmessage(EOUTOFMEMORY); outspc(); 
 	outnumber(memsize+1); outspc();
 	outnumber(elength()); outcr();
-
+  
 	// be ready for a new program
  	xnew();	
 
