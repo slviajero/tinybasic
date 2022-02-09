@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.128 2022/02/06 06:26:03 stefan Exp stefan $
+	$Id: basic.c,v 1.129 2022/02/08 20:42:09 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -214,6 +214,7 @@ void rootopen() {
 	root=opendir ("./");
 #endif
 }
+
 int rootnextfile() {
 #ifndef MSDOS
   file = readdir(root);
@@ -4599,7 +4600,7 @@ void xcatalog() {
 
 	rootopen();
 	while (rootnextfile()) {
-		if ( rootisfile() ) {
+		if( rootisfile()) {
 			name=rootfilename();
 			if (*name != '_' && *name !='.' && streq(name, filename)){
 				outscf(name, 14); outspc();
@@ -5412,14 +5413,15 @@ void setup() {
 	// init all io functions 
 	ioinit();
 
-  delay(4000);
+  // wait a little 
+  delay(2000);
 
 	// greet the user
 	printmessage(MGREET); outspc();
 	printmessage(EOUTOFMEMORY); outspc(); 
 	outnumber(memsize+1); outspc();
 	outnumber(elength()); outcr();
-  
+
 	// be ready for a new program
  	xnew();	
 

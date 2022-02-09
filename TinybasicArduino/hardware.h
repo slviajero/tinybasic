@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.128 2022/02/06 06:26:03 stefan Exp stefan $
+	$Id: hardware.h,v 1.2 2022/02/08 20:42:25 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -317,6 +317,9 @@
 #endif
 #ifdef ARDUINO_ARCH_ESP32
 #include <WiFi.h>
+#endif
+#ifdef ARDUINO_ARCH_RP2040
+#include <WiFiNINA.h>
 #endif
 #include <PubSubClient.h>
 #endif
@@ -1096,10 +1099,10 @@ void mqttsetname() {
 // the begin method 
 // needs the settings from wifisettings.h
 void netbegin() {
-	WiFi.mode(WIFI_STA);
+	// WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
-	WiFi.setAutoReconnect(true);
-  	WiFi.persistent(true);
+	// WiFi.setAutoReconnect(true);
+  //WiFi.persistent(true);
 }
 
 // the connected method
@@ -1319,14 +1322,7 @@ void autorun() {
   	} 
 #endif
 // here filesystem autorun, ugly still
-#if defined(ESPSPIFFS)
-  	if (ifileopen("/autoexec.bas")) {
-  		xload("/autoexec.bas");
-  		st=SRUN;
-  	}
-  	ifileclose();
-#endif	
-#if defined(ARDUINOSD) 
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(RP2040LITTLEFS)
   	if (ifileopen("autoexec.bas")) {
   		xload("autoexec.bas");
   		st=SRUN;
@@ -1423,6 +1419,7 @@ File root;
 File file;
 #endif
 #ifdef ESPSPIFFS
+const char rootfs[2] = "/";
 #ifdef ARDUINO_ARCH_ESP8266
 Dir root;
 File file;
@@ -1453,6 +1450,10 @@ DIR* root;
 struct dirent* file;
 LittleFS_MBED *myFS;
 const char rootfs[10] = MBED_LITTLEFS_FILE_PREFIX;
+#endif
+
+// these filesystems have a path prefix
+#if defined(RP2040LITTLEFS) || defined(ESPSPIFFS)
 char tmpfilename[10+SBUFSIZE];
 // add the prefix
 char* mkfilename(char* filename) {
@@ -1528,7 +1529,7 @@ char ifileopen(char* filename){
 	return (int) ifile;
 #endif
 #ifdef ESPSPIFFS
-	ifile=SPIFFS.open(filename, "r");
+	ifile=SPIFFS.open(mkfilename(filename), "r");
 	return (int) ifile;
 #endif
 #ifdef RP2040LITTLEFS
@@ -1554,7 +1555,7 @@ char ofileopen(char* filename){
 	return (int) ofile;
 #endif
 #ifdef ESPSPIFFS
-	ofile=SPIFFS.open(filename, "w");
+	ofile=SPIFFS.open(mkfilename(filename), "w");
 	return (int) ofile;
 #endif
 #ifdef RP2040LITTLEFS
@@ -1711,7 +1712,7 @@ void removefile(char *filename) {
 	return;
 #endif
 #ifdef ESPSPIFFS
-	SPIFFS.remove(filename);
+	SPIFFS.remove(mkfilename(filename));
 	return;
 #endif
 #ifdef RP2040LITTLEFS
@@ -1776,6 +1777,8 @@ void serialbegin() {
 #else
 	Serial.begin(serial_baudrate);
 #endif
+	// give serial a while to be ready.
+	delay(1000);
 }
 
 
