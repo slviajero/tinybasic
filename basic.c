@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.128 2022/02/06 06:26:03 stefan Exp stefan $
+	$Id: basic.c,v 1.129 2022/02/08 20:42:09 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
