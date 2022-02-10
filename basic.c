@@ -97,7 +97,7 @@ number_t sensorread(short i) {return 0;};
 void netbegin() {}
 char netconnected() { return 0; }
 void mqttbegin() {}
-int  mqttstate() {return 0;}
+int  mqttstate() {return -1;}
 void mqttsubscribe(char *t) {}
 void mqttsettopic(char *t) {}
 void mqttouts(char *m, short l) {}
@@ -2974,6 +2974,12 @@ void factor(){
 		case TNEXT:
 			parsefunction(xinext, 1);
 			break;
+		case TNETSTAT:
+			x=0;
+			if (netconnected()) x=1;
+			if (mqttstate() == 0) x+=2;
+			push(x);
+			break;
 #endif
 
 // unknown function
@@ -4380,24 +4386,20 @@ void xset(){
       		rf24_pa=(rf24_pa_dbm_e) arg;
       		radio.setPALevel(rf24_pa);
       		break;
-#endif
-#ifdef ARDUINOMQTT
-      	case 9: // set the power amplifier level of the module
-     		if (arg == 0) {
-     			if (netconnected()) {
-     				outsc("Wifi connected \n"); 
-     				outsc("MQTT state "); outnumber(mqttstate()); outcr();
-            		outsc("MQTT out topic "); outsc(mqtt_otopic); outcr();
-            		outsc("MQTT inp topic "); outsc(mqtt_itopic); outcr();
-            		outsc("MQTT name "); outsc(mqttname); outcr();
-     			}
-     			else 
-     				outsc("Wifi not connected \n");
-     		}
 #endif			
 	}
 }
 
+void xnetstat(){
+#ifdef ARDUINOMQTT
+	if (netconnected()) outsc("Wifi connected \n"); else outsc("Wifi not connected \n");
+  outsc("MQTT state "); outnumber(mqttstate()); outcr();
+ 	outsc("MQTT out topic "); outsc(mqtt_otopic); outcr();
+  outsc("MQTT inp topic "); outsc(mqtt_itopic); outcr();
+  outsc("MQTT name "); outsc(mqttname); outcr();
+#endif	
+	nexttoken();		
+}
 
 /*
 
@@ -5286,6 +5288,9 @@ void statement(){
 				break;			
 			case TSET:
 				xset();
+				break;
+			case TNETSTAT:
+				xnetstat();
 				break;
 			case TCLS:
 				outch(12);

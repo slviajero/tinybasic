@@ -1472,6 +1472,7 @@ char* mkfilename(char* filename) {
 	for(i=0; i<10 && rootfs[i]!=0; i++) tmpfilename[i]=rootfs[i];
 	tmpfilename[i++]='/';
 	for(j=0; j<SBUFSIZE && filename[j]!=0; j++) tmpfilename[i++]=filename[j];
+	tmpfilename[i]=0;
 	return tmpfilename;
 }
 #endif

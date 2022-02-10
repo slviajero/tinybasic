@@ -1,7 +1,27 @@
-/* 
+/*
+
+	$Id: basic.h,v 1.2 2022/02/08 20:42:50 stefan Exp stefan $
+
+	Stefan's basic interpreter 
+
+	Playing around with frugal programming. See the licence file on 
+	https://github.com/slviajero/tinybasic for copyright/left.
+    (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
+
+	Author: Stefan Lenz, sl001@serverfabrik.de
+
+	basic.h are the core defintions and function protypes
+
+*/
+
+/*
 	if the PROGMEM macro is define we compile on the Arduino IDE
 	we undef all hardware settings otherwise
 */
+#ifdef ARDUINO_ARCH_MBED
+#define PROGMEM
+#endif
+
 #ifdef PROGMEM
 #define ARDUINOPROGMEM
 #else
@@ -145,10 +165,10 @@ typedef unsigned char uint8_t;
 #define TDELETE  -62
 #define TOPEN 	-61
 #define TCLOSE  -60
-// low level access of internal routines
+// low level access of internal routines (2)
 #define TUSR	-59
 #define TCALL 	-58
-// mathematical functions 
+// mathematical functions (7)
 #define TSIN 	-57
 #define TCOS    -56
 #define TTAN 	-55
@@ -156,7 +176,7 @@ typedef unsigned char uint8_t;
 #define TLOG    -53
 #define TEXP    -52
 #define TINT    -51
-// graphics - experimental - rudimentary
+// graphics - experimental - rudimentary (7)
 #define TCOLOR 	-50
 #define TPLOT   -49
 #define TLINE 	-48
@@ -164,23 +184,24 @@ typedef unsigned char uint8_t;
 #define TRECT   -46
 #define TFCIRCLE -45
 #define TFRECT   -44
-// the dark arts and Dartmouth extensions
+// the dark arts and Dartmouth extensions (6)
 #define TDATA	-43
 #define TREAD   -42
 #define TRESTORE -41
 #define TDEF     -40
 #define TFN 	-39
 #define TON     -38
-// darkarts
+// darkarts (3)
 #define TMALLOC -37
 #define TFIND   -36
 #define TEVAL   -35
-// iot extensions
+// iot extensions (6)
 #define TITER	-34
 #define TAVAIL	-33
 #define TSTR    -32
 #define TINSTR  -31
 #define TVAL 	-30
+#define TNETSTAT -29
 // constants used for some obscure purposes 
 #define TBUFFER -4
 // unused right now from earlier code to be removed soon
@@ -189,7 +210,7 @@ typedef unsigned char uint8_t;
 #define NEWLINE -1
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+14+12+10+4+2+7+7+6+8
+#define NKEYWORDS	3+19+14+12+10+4+2+7+7+6+9
 #define BASEKEYWORD -121
 
 /*
@@ -358,6 +379,7 @@ const char savail[]		PROGMEM  = "AVAIL";
 const char sstr[]		PROGMEM  = "STR";
 const char sinstr[]		PROGMEM  = "INSTR";
 const char sval[]		PROGMEM  = "VAL";
+const char snetstat[]	PROGMEM  = "NETSTAT";
 #endif
 
 // the keyword storage
@@ -417,7 +439,8 @@ const char* const keyword[] PROGMEM = {
 	smalloc, sfind, seval, 
 #endif
 #ifdef HASIOT
-	siter, savail, sstr, sinstr, sval,
+	siter, savail, sstr, sinstr, sval, 
+	snetstat,
 #endif
 // the end 
 	0
@@ -481,7 +504,7 @@ const signed char tokens[] PROGMEM = {
 #endif
 // IOT extensions
 #ifdef HASIOT
-	TITER, TAVAIL, TSTR, TINSTR, TVAL, 
+	TITER, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
 #endif
 // the end
 	0

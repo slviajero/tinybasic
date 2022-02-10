@@ -70,11 +70,11 @@
 #undef ARDUINOEEPROMI2C
 #undef ARDUINOSD
 #undef ESPSPIFFS
-#undef RP2040LITTLEFS
+#define RP2040LITTLEFS
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
-#undef ARDUINOMQTT
+#define ARDUINOMQTT
 #undef STANDALONE
 
 /* 
@@ -1461,6 +1461,7 @@ char* mkfilename(char* filename) {
 	for(i=0; i<10 && rootfs[i]!=0; i++) tmpfilename[i]=rootfs[i];
 	tmpfilename[i++]='/';
 	for(j=0; j<SBUFSIZE && filename[j]!=0; j++) tmpfilename[i++]=filename[j];
+  tmpfilename[i]=0;
 	return tmpfilename;
 }
 #endif
