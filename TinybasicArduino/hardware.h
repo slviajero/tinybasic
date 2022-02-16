@@ -58,7 +58,7 @@
 
 	leave this unset if you use the definitions below
 */
-#undef USESPICOSERIAL 
+#define USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
 #undef DISPLAYCANSCROLL
@@ -68,13 +68,14 @@
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
 #undef ARDUINOEEPROMI2C
+#define ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
-#define RP2040LITTLEFS
+#undef RP2040LITTLEFS
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
-#define ARDUINOMQTT
+#undef ARDUINOMQTT
 #undef STANDALONE
 
 /* 
@@ -229,6 +230,11 @@
 #define ARDUINOWIRE
 #endif
 
+// EEPROM storage needs wire
+#if defined(ARDUINOEEPROMI2C) || defined(ARDUINOEFS)
+#define ARDUINOWIRE
+#endif
+
 // a radio needs SPI
 #ifdef ARDUINORF24
 #define ARDUINOSPI
@@ -244,6 +250,12 @@
 #undef HASGRAPH
 #endif
 
+// networking
+#ifdef ARDUINOMQTT
+#define ARDUINOSPI
+#endif
+
+// keyboard 
 #ifdef ARDUINOPS2
 #include <PS2Keyboard.h>
 #endif
@@ -338,6 +350,12 @@
 // support for external EEPROMs
 #ifdef ARDUINOEEPROMI2C
 #include <uEEPROMLib.h>
+#endif
+
+// support for external EEPROMs as filesystem
+#ifdef ARDUINOEFS
+#define FILESYSTEMDRIVER
+#include <EepromFS.h>
 #endif
 
 
@@ -981,15 +999,25 @@ uEEPROMLib c_eeprom(EEPROMI2CADDR);
 #define RTCEEPROMSIZE 0
 #endif
 
+// just test code
+#ifdef ARDUINOEFS
+#define EFSEEPROMSITE 32768 
+EepromFS EFS(0x50, 32768);
+#endif
+
+
 /* 
 	Arduino Sensor library code - very experimental 
 */
 #ifdef ARDUINOSENSORS
 #include "DHT.h"
+#include <Arduino_LSM6DSOX.h>
+// https://www.arduino.cc/en/Reference/Arduino_LSM6DSOX
 #define DHTTYPE DHT11
 #define DHTPIN 22
 DHT dht(DHTPIN, DHTTYPE);
 void sensorbegin(){
+
   dht.begin();
 }
 number_t sensorread(short i) {
@@ -1099,10 +1127,15 @@ void mqttsetname() {
 // the begin method 
 // needs the settings from wifisettings.h
 void netbegin() {
-	// WiFi.mode(WIFI_STA);
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
-	// WiFi.setAutoReconnect(true);
-  //WiFi.persistent(true);
+	WiFi.setAutoReconnect(true);
+  	WiFi.persistent(true);
+#endif
+#if defined(ARDUINO_ARCH_RP2040)
+	WiFi.begin(ssid, password);
+#endif
 }
 
 // the connected method
@@ -1452,6 +1485,13 @@ LittleFS_MBED *myFS;
 const char rootfs[10] = MBED_LITTLEFS_FILE_PREFIX;
 #endif
 
+// use EEPROM as filesystem
+#ifdef ARDUINOEFS
+byte ifile;
+byte ofile;
+byte file;
+#endif
+
 // these filesystems have a path prefix
 #if defined(RP2040LITTLEFS) || defined(ESPSPIFFS)
 char tmpfilename[10+SBUFSIZE];
@@ -1461,7 +1501,7 @@ char* mkfilename(char* filename) {
 	for(i=0; i<10 && rootfs[i]!=0; i++) tmpfilename[i]=rootfs[i];
 	tmpfilename[i++]='/';
 	for(j=0; j<SBUFSIZE && filename[j]!=0; j++) tmpfilename[i++]=filename[j];
-  tmpfilename[i]=0;
+	tmpfilename[i]=0;
 	return tmpfilename;
 }
 #endif
@@ -1494,6 +1534,15 @@ void fsbegin() {
 	myFS = new LittleFS_MBED();
 	if (myFS->init()) outsc("LittleFS ok \n");
 #endif
+#ifdef ARDUINOEFS
+	int s=EFS.begin();
+	if (s>0) {
+		outsc("Mounted EFS with "); outnumber(s); outsc(" slots.\n"); 
+	} else {
+		if (EFS.format(32)) outsc("EFS: formating 32 slots.\n");
+		else outsc("EFS: Format failed.\n");
+	}
+#endif
 }
 
 /*
@@ -1506,6 +1555,9 @@ void filewrite(char c) {
 #if defined(RP2040LITTLEFS)
 	if (ofile) fputc(c, ofile); else ert=1;
 #endif
+#if defined(ARDUINOEFS)
+	if (ofile) EFS.fputc(ofile, c); else ert=1;
+#endif
 }
 
 char fileread(){
@@ -1517,6 +1569,11 @@ char fileread(){
 #endif
 #ifdef RP2040LITTLEFS
 	if (ifile) c=fgetc(ifile); else { ert=1; return 0; }
+	if (c == -1 ) ert=-1;
+	return c;
+#endif
+#ifdef ARDUINOEFS
+	if (ifile) c=EFS.fgetc(ifile); else { ert=1; return 0; }
 	if (c == -1 ) ert=-1;
 	return c;
 #endif
@@ -1537,6 +1594,10 @@ char ifileopen(char* filename){
 	ifile=fopen(mkfilename(filename), "r");
 	return (int) ifile;
 #endif
+#ifdef ARDUINOEFS
+	ifile=EFS.fopen(filename, "r");
+	return (int) ifile;
+#endif
 	return 0;
 }
 
@@ -1547,6 +1608,10 @@ void ifileclose(){
 #ifdef RP2040LITTLEFS
 	if (ifile) fclose(ifile);
 	ifile=NULL;	
+#endif
+#ifdef ARDUINOEFS
+	if (ifile) EFS.fclose(ifile);
+	ifile=0;	
 #endif
 }
 
@@ -1563,6 +1628,10 @@ char ofileopen(char* filename){
 	ofile=fopen(mkfilename(filename), "w");
 	return (int) ofile; 
 #endif
+#ifdef ARDUINOEFS
+	ofile=EFS.fopen(filename, "w");
+	return (int) ofile; 
+#endif
 	return 0;
 }
 
@@ -1576,6 +1645,9 @@ void ofileclose(){
 #ifdef RP2040LITTLEFS
 	if (ofile) fclose(ofile); 
 #endif
+#ifdef ARDUINOEFS
+	if (ofile) EFS.fclose(ofile); 
+#endif	
 }
 
 int fileavailable(){
@@ -1584,6 +1656,9 @@ int fileavailable(){
 #endif
 #ifdef RP2040LITTLEFS
 	return !feof(ifile);
+#endif
+#ifdef ARDUINOEFS
+	return !EFS.eof(ifile);
 #endif
 	return 0;
 }
@@ -1603,6 +1678,9 @@ void rootopen() {
 #ifdef RP2040LITTLEFS
 	root=opendir(rootfs);
 #endif
+#ifdef ARDUINOEFS
+	EFS.dirp=0;
+#endif	
 }
 
 int rootnextfile() {
@@ -1628,6 +1706,10 @@ int rootnextfile() {
 	file = readdir(root);
 	return (file != 0);
 #endif
+#ifdef ARDUINOEFS
+	file = EFS.readdir();
+	return (file != 0);
+#endif
   return FALSE;
 }
 
@@ -1646,6 +1728,9 @@ int rootisfile() {
 #ifdef RP2040LITTLEFS
 	return (file->d_type == DT_REG);
 #endif
+#ifdef ARDUINOEFS
+	return true;
+#endif	
 	return FALSE;
 }
 
@@ -1670,6 +1755,9 @@ char* rootfilename() {
 #ifdef RP2040LITTLEFS
 	return (file->d_name);
 #endif
+#ifdef ARDUINOEFS
+	return EFS.filename(file);
+#endif
 	return FALSE; 
 }
 
@@ -1679,6 +1767,9 @@ int rootfilesize() {
 #endif  
 #ifdef RP2040LITTLEFS
 #endif
+#ifdef ARDUINOEFS
+	return EFS.filesize(file);
+#endif
   return 0;
 }
 
@@ -1687,6 +1778,8 @@ void rootfileclose() {
   file.close();
 #endif 
 #ifdef RP2040LITTLEFS
+#endif
+#ifdef ARDUINOEFS
 #endif
 }
 
@@ -1704,6 +1797,8 @@ void rootclose(){
 #endif
 #ifdef RP2040LITTLEFS
 #endif
+#ifdef ARDUINOEFS
+#endif
 }
 
 
@@ -1718,6 +1813,10 @@ void removefile(char *filename) {
 #endif
 #ifdef RP2040LITTLEFS
 	remove(mkfilename(filename));
+	return;
+#endif
+#ifdef ARDUINOEFS
+	EFS.remove(filename);
 	return;
 #endif
 }
