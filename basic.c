@@ -4125,8 +4125,7 @@ void xsave() {
 		push(od);
 		od=OFILE;
 		
-		// the core list function
-		// we step away from list 
+		// the core save - xlist() not used any more 
 		here2=here;
 		here=0;
 		gettoken();
@@ -4136,14 +4135,17 @@ void xsave() {
 			if (token == LINENUMBER) outcr();
 		}
 		if (here == top) outputtoken();
-   		outcr(); 
-   		here=here2;
+   	outcr(); 
+   	
+   	// back to where we were
+   	here=here2;
 
-   		// clean up
+   	// restore the output mode
+		od=pop();
+
+   	// clean up
 		ofileclose();
 
-		// restore the output mode
-		od=pop();
 	}
 
 	// and continue

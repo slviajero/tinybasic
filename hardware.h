@@ -1556,7 +1556,7 @@ void filewrite(char c) {
 	if (ofile) fputc(c, ofile); else ert=1;
 #endif
 #if defined(ARDUINOEFS)
-	if (ofile) EFS.fputc(ofile, c); else ert=1;
+	if (ofile) EFS.fputc(c, ofile); else ert=1;
 #endif
 }
 
@@ -1636,9 +1636,6 @@ char ofileopen(char* filename){
 }
 
 void ofileclose(){
-#ifndef ARDUINO
-	if (ofile) fclose(ofile);
-#endif
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
     ofile.close();
 #endif
@@ -1658,7 +1655,7 @@ int fileavailable(){
 	return !feof(ifile);
 #endif
 #ifdef ARDUINOEFS
-	return !EFS.eof(ifile);
+	return EFS.available(ifile);
 #endif
 	return 0;
 }
@@ -1917,14 +1914,16 @@ void consins(char *b, short nb) {
 	char c;
 	short i = 1;
 #ifdef USESPICOSERIAL
-	picob=b;
-	picobsize=nb;
-	picoa=FALSE;
-	while (! picoa);
-	//outsc(b+1); 
-	outcr();
-	return;
-#else
+	if (id == ISERIAL) {
+		picob=b;
+		picobsize=nb;
+		picoa=FALSE;
+		while (! picoa);
+		//outsc(b+1); 
+		outcr();
+		return;
+	}
+#endif
 	while(i < nb) {
   	c=inch();
   	if (id == ISERIAL || id == IKEYBOARD) outch(c);
@@ -1940,7 +1939,6 @@ void consins(char *b, short nb) {
 	b[i]=0;
   b[0]=(unsigned char)i-1;
   z.a=i-1; 
-#endif
 }
 
 /* 

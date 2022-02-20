@@ -38,10 +38,10 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#define HASFLOAT
+#undef HASFLOAT
 #define HASGRAPH
-#define HASDARTMOUTH
-#define HASDARKARTS
+#undef HASDARTMOUTH
+#undef HASDARKARTS
 #define HASIOT
 
 /* hardcoded memory size set 0 for automatic malloc */
@@ -4137,13 +4137,15 @@ void xsave() {
 		}
 		if (here == top) outputtoken();
    		outcr(); 
-   		here=here2;
 
-   		// clean up
+     
+   	here=here2;
+
+    // restore the output mode
+    od=pop();
+
+    // clean up
 		ofileclose();
-
-		// restore the output mode
-		od=pop();
 	}
 
 	// and continue
