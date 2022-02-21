@@ -38,10 +38,10 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#undef HASFLOAT
+#undef  HASFLOAT
 #define HASGRAPH
-#undef HASDARTMOUTH
-#undef HASDARKARTS
+#define HASDARTMOUTH
+#define HASDARKARTS
 #define HASIOT
 
 /* hardcoded memory size set 0 for automatic malloc */
@@ -249,6 +249,11 @@ void rootclose(){
 void removefile(char *filename) {
 	remove(filename);
 }
+
+void formatdisk(short i) {
+	outsc("Format not implemented on this platform\n");
+}
+
 
 // handling the serial interface
 void serialbegin(){}
@@ -4125,8 +4130,7 @@ void xsave() {
 		push(od);
 		od=OFILE;
 		
-		// the core list function
-		// we step away from list 
+		// the core save - xlist() not used any more 
 		here2=here;
 		here=0;
 		gettoken();
@@ -4136,16 +4140,17 @@ void xsave() {
 			if (token == LINENUMBER) outcr();
 		}
 		if (here == top) outputtoken();
-   		outcr(); 
-
-     
+   	outcr(); 
+   	
+   	// back to where we were
    	here=here2;
 
-    // restore the output mode
-    od=pop();
+   	// restore the output mode
+		od=pop();
 
-    // clean up
+   	// clean up
 		ofileclose();
+
 	}
 
 	// and continue
@@ -4754,6 +4759,16 @@ void xclose() {
 	nexttoken();
 }
 
+void xfdisk() {
+	nexttoken();
+	parsenarguments(1);
+	if (er != 0) return;
+	outsc("y?");
+	consins(sbuffer, SBUFSIZE);
+	if (sbuffer[1] == 'y') formatdisk(pop());
+}
+
+
 #ifdef HASSTEFANSEXT
 /*
 	low level function access of the interpreter
@@ -5331,6 +5346,9 @@ void statement(){
 				break;
 			case TCLOSE:
 				xclose();
+				break;
+			case TFDISK:
+				xfdisk();
 				break;
 #endif
 // low level functions 

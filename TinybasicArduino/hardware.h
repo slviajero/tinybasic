@@ -21,9 +21,8 @@
 	- _if_  and PS2 are both activated STANDALONE cause the Arduino
 			to start with keyboard and lcd as standard devices.
 	- ARDUINOEEPROM includes the EEPROM access code
-	- ARDUINOSD and ESPSPIFFS activate filesystem code 
-	- activating Picoserial is not compatible with keyboard code
-		Picoserial doesn't work on MEGA
+	- ARDUINOEFS, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS activate filesystem code 
+	- activating Picoserial, Picoserial doesn't work on MEGA
 
 	Architectures and the definitions from the Arduino IDE
 
@@ -371,6 +370,7 @@ const int serial1_baudrate = 9600;
 #else 
 const int serial1_baudrate = 0;
 #endif
+
 
 /* 
 	handling time - part of the Arduino core - only needed on POSIX OSes
@@ -1355,7 +1355,7 @@ void autorun() {
   	} 
 #endif
 // here filesystem autorun, ugly still
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(RP2040LITTLEFS)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(RP2040LITTLEFS) || defined(ARDUINOEFS)
   	if (ifileopen("autoexec.bas")) {
   		xload("autoexec.bas");
   		st=SRUN;
@@ -1818,6 +1818,25 @@ void removefile(char *filename) {
 #endif
 }
 
+void formatdisk(short i) {
+#ifdef ARDUINOSD	
+	return;
+#endif
+#ifdef ESPSPIFFS
+	return;
+#endif
+#ifdef RP2040LITTLEFS
+	return;
+#endif
+#ifdef ARDUINOEFS
+	if (i>0 && i<256) {
+		if (EFS.format(i)) { EFS.begin(); outsc("ok"); } else { outsc("fail"); }
+		outcr();
+	} else error(ERANGE);
+	return;
+#endif
+}
+
 /*
 
 	Picoserial allows to define an own input buffer and an 
@@ -1907,8 +1926,6 @@ short serialavailable() {
 #endif	
 }
 
-
-
 // reading from the console with inch or the picoserial callback
 void consins(char *b, short nb) {
 	char c;
@@ -1925,20 +1942,20 @@ void consins(char *b, short nb) {
 	}
 #endif
 	while(i < nb) {
-  	c=inch();
-  	if (id == ISERIAL || id == IKEYBOARD) outch(c);
-  	if (c == '\r') c=inch(); /* skip carriage return */
-  	if (c == '\n') {
-    	break;
-  	} else if ( (c == 127 || c == 8) && i>1) {
-   	 i--;
-  	} else {
-   	 b[i++]=c;
-  	} 
+  		c=inch();
+  		if (id == ISERIAL || id == IKEYBOARD) outch(c);
+  		if (c == '\r') c=inch(); /* skip carriage return */
+  		if (c == '\n') {
+    		break;
+  		} else if ( (c == 127 || c == 8) && i>1) {
+   			i--;
+  		} else {
+   			b[i++]=c;
+  		} 
 	}
 	b[i]=0;
-  b[0]=(unsigned char)i-1;
-  z.a=i-1; 
+    b[0]=(unsigned char)i-1;
+  	z.a=i-1; 
 }
 
 /* 

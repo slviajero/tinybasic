@@ -250,6 +250,11 @@ void removefile(char *filename) {
 	remove(filename);
 }
 
+void formatdisk(short i) {
+	outsc("Format not implemented on this platform\n");
+}
+
+
 // handling the serial interface
 void serialbegin(){}
 void serialwrite(char c) { putchar(c); }
@@ -4754,6 +4759,16 @@ void xclose() {
 	nexttoken();
 }
 
+void xfdisk() {
+	nexttoken();
+	parsenarguments(1);
+	if (er != 0) return;
+	outsc("y?");
+	consins(sbuffer, SBUFSIZE);
+	if (sbuffer[1] == 'y') formatdisk(pop());
+}
+
+
 #ifdef HASSTEFANSEXT
 /*
 	low level function access of the interpreter
@@ -5331,6 +5346,9 @@ void statement(){
 				break;
 			case TCLOSE:
 				xclose();
+				break;
+			case TFDISK:
+				xfdisk();
 				break;
 #endif
 // low level functions 

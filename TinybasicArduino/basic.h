@@ -160,48 +160,49 @@ typedef unsigned char uint8_t;
 #define TTONE   -66
 #define TPULSEIN  -65
 #define TAZERO	  -64
-// the SD card DOS functions (4)
+// the DOS functions (5)
 #define TCATALOG -63
 #define TDELETE  -62
 #define TOPEN 	-61
 #define TCLOSE  -60
+#define TFDISK  -59
 // low level access of internal routines (2)
-#define TUSR	-59
-#define TCALL 	-58
+#define TUSR	-58
+#define TCALL 	-57
 // mathematical functions (7)
-#define TSIN 	-57
-#define TCOS    -56
-#define TTAN 	-55
-#define TATAN   -54
-#define TLOG    -53
-#define TEXP    -52
-#define TINT    -51
+#define TSIN 	-56
+#define TCOS    -55
+#define TTAN 	-54
+#define TATAN   -53
+#define TLOG    -52
+#define TEXP    -51
+#define TINT    -50
 // graphics - experimental - rudimentary (7)
-#define TCOLOR 	-50
-#define TPLOT   -49
-#define TLINE 	-48
-#define TCIRCLE -47
-#define TRECT   -46
-#define TFCIRCLE -45
-#define TFRECT   -44
+#define TCOLOR 	-49
+#define TPLOT   -48
+#define TLINE 	-47
+#define TCIRCLE -46
+#define TRECT   -45
+#define TFCIRCLE -44
+#define TFRECT   -43
 // the dark arts and Dartmouth extensions (6)
-#define TDATA	-43
-#define TREAD   -42
-#define TRESTORE -41
-#define TDEF     -40
-#define TFN 	-39
-#define TON     -38
+#define TDATA	-42
+#define TREAD   -41
+#define TRESTORE -40
+#define TDEF     -39
+#define TFN 	-38
+#define TON     -37
 // darkarts (3)
-#define TMALLOC -37
-#define TFIND   -36
-#define TEVAL   -35
+#define TMALLOC -36
+#define TFIND   -35
+#define TEVAL   -34
 // iot extensions (6)
-#define TITER	-34
-#define TAVAIL	-33
-#define TSTR    -32
-#define TINSTR  -31
-#define TVAL 	-30
-#define TNETSTAT -29
+#define TITER	-33
+#define TAVAIL	-32
+#define TSTR    -31
+#define TINSTR  -30
+#define TVAL 	-29
+#define TNETSTAT -28
 // constants used for some obscure purposes 
 #define TBUFFER -4
 // unused right now from earlier code to be removed soon
@@ -210,7 +211,7 @@ typedef unsigned char uint8_t;
 #define NEWLINE -1
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+14+12+10+4+2+7+7+6+9
+#define NKEYWORDS	3+19+14+12+10+5+2+7+7+6+9
 #define BASEKEYWORD -121
 
 /*
@@ -331,6 +332,7 @@ const char scatalog[] PROGMEM = "CATALOG";
 const char sdelete[]  PROGMEM = "DELETE";
 const char sfopen[]   PROGMEM = "OPEN";
 const char sfclose[]  PROGMEM = "CLOSE";
+const char sfdisk[]  PROGMEM = "FDISK";
 #endif
 // low level access functions
 #ifdef HASSTEFANSEXT
@@ -416,7 +418,7 @@ const char* const keyword[] PROGMEM = {
 #endif
 // SD Card DOS
 #ifdef HASFILEIO
-    scatalog, sdelete, sfopen, sfclose,
+    scatalog, sdelete, sfopen, sfclose, sfdisk,
 #endif
 // low level access
 #ifdef HASSTEFANSEXT
@@ -478,7 +480,7 @@ const signed char tokens[] PROGMEM = {
 #endif
 // the SD card DOS functions (4)
 #ifdef HASFILEIO
-	TCATALOG, TDELETE, TOPEN, TCLOSE,
+	TCATALOG, TDELETE, TOPEN, TCLOSE, TFDISK,
 #endif
 // low level access of internal routines
 #ifdef HASSTEFANSEXT
@@ -796,6 +798,8 @@ void drop();
 void clearst();
 
 // generic display code - used for Shield, I2C, and TFT
+// provided by the BASIC interpreter with no/little HW 
+// dependence
 void dspwrite(char);
 void dspbegin();
 char dspwaitonscroll();
@@ -804,7 +808,13 @@ void dspsetscrollmode(char, short);
 void dspsetcursor(short, short);
 void dspbufferclear();
 
-// output to a VGA display 
+// the hardware interface display driver functions, need to be 
+// implemented for the display driver to work
+void dspbegin();
+void dspprintchar(char, short, short);
+void dspclear();
+
+// text output to a VGA display 
 void vgawrite(char);
 
 // real time clock and wire code  
@@ -828,14 +838,24 @@ char* rootfilename();
 int rootfilesize();
 void rootfileclose();
 void rootclose();
+void formatdisk(short i);
 
 // input output
 // these are the platfrom depended lowlevel functions
 void serialbegin();
 void prtbegin();
+
+// timing functions
 void timeinit();
+
+// start the spi bus
+void spibegin();
+
+// general I/O initialisation
 void ioinit();
 void iodefaults();
+
+// character and string I/O functions
 void picogetchar(int);
 void outch(char);
 char inch();
@@ -897,14 +917,10 @@ void esave();
 // generic autorun - mainly eeprom bit also file
 void autorun();
 
-// the display driver functions, need to be implemented for the display driver to work
-void dspbegin();
-void dspprintchar(char, short, short);
-void dspclear();
-
 // graphics functions 
 void rgbcolor(int, int, int);
 void vgacolor(short c);
+void vgascale(int*, int*);
 void plot(int, int);
 void line(int, int, int, int);  
 void rect(int, int, int, int);
@@ -1029,6 +1045,7 @@ void xdelete();
 void xopen();
 void xfopen();
 void xclose();
+void xfdisk();
 
 // low level I/O in BASIC
 void xget();
