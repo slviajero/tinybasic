@@ -11,7 +11,7 @@ useable on a number of architectures like Arduino AVR, ESP8266, ESP32, SAMD, RP2
 
 Arithmetic is 16 bit, 32bit or float depending on the compiler settings and the platform. The full set of logical expresssions with NOT, AND, OR is implemented C style. Conditions are part of the arithemtic and not separate like in many basic dialects. This makes the call stack of the recursive descent deeper but simplifies other code. To reduce the memory footprint of this part of the runtime code no arguments are passed in the C functions. Instead, an own multi purpose 16 bit stack is added. 
 
-Memory access by default is 8bit. For memory, stack and variable access, array logic is used and not C pointers. This allows all pointers to be integers which can be stored on the arithmetic stack if needed. Depending on the platform BASIC memory can be between 512kB and 64 kB. Larger memory models are possible. 
+Memory access by default is 8bit. Addresses are 16 bit by default. Depending on the platform BASIC memory can be between 512kB and 64 kB. Larger memory models are possible by changing the underlying address type.
 
 Filesystems like Arduino SD, ESPSPIFFS and LittleFS are supported on microcontrollers. EEPROMS can be used
 as BASIC filesystem using the EepromFS library.
