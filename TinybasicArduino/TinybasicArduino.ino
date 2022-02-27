@@ -1449,6 +1449,7 @@ void outs(char *ir, short l){
 		default:
 			for(i=0; i<l; i++) outch(ir[i]);
 	}
+  delay(0);
 }
 
 
