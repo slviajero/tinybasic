@@ -1,4 +1,4 @@
-# Stefan's Tinybasic
+# Stefan's IoT BASIC
 
 ## The idea
 
@@ -6,11 +6,19 @@ My attempt to create a small basic interpreter from scratch using frugal program
 
 The program was originally written in C with minimal library support. All code was done by hand. The C stack is not used for arithmetic to keep it minimal. The interpreter uses a set of global variables, an own stack and a static memory and variable array to emulate the low memory environment of the early microcomputers. 
 
-The project has outgrown its beginnings by now. It became a full featured BASIC interpreter with some IoT and microcontroller features. 
+The project has outgrown its beginnings by now. It became a full featured BASIC interpreter with IoT and microcontroller specific features. There is an underlying hardware abstraction layer making the interpreter
+useable on a number of architectures like Arduino AVR, ESP8266, ESP32, SAMD, RP2040 and ARM. 
 
-Arithmetic originally was only 16 bit integer. It is 16 bit, 32bit or float. The full set of logical expresssions with NOT, AND, OR is implemented C style. Conditions are part of the arithemtic and not separate like in many basic dialects. This makes the call stack of the recursive descent deeper but simplifies other code. To reduce the memory footprint of this part of the runtime code no arguments are passed in the C functions. Instead, an own multi purpose 16 bit stack is added. 
+Arithmetic is 16 bit, 32bit or float depending on the compiler settings and the platform. The full set of logical expresssions with NOT, AND, OR is implemented C style. Conditions are part of the arithemtic and not separate like in many basic dialects. This makes the call stack of the recursive descent deeper but simplifies other code. To reduce the memory footprint of this part of the runtime code no arguments are passed in the C functions. Instead, an own multi purpose 16 bit stack is added. 
 
-Memory access by default is 8bit. For memory, stack and variable access, array logic is used and not C pointers. This allows all pointers to be integers which can be stored on the arithmetic stack if needed. 
+Memory access by default is 8bit. For memory, stack and variable access, array logic is used and not C pointers. This allows all pointers to be integers which can be stored on the arithmetic stack if needed. Depending on the platform BASIC memory can be between 512kB and 64 kB. Larger memory models are possible. 
+
+Filesystems like Arduino SD, ESPSPIFFS and LittleFS are supported on microcontrollers. EEPROMS can be used
+as BASIC filesystem using the EepromFS library.
+
+Small LCD displays, TFT and VGA monitors are supported. The later two with graphics features. 
+
+There are many microcontroller specific features. I added EEPROM access, EEPROM program storage and autorun, control of digital and analog I/O as well as the delay function, Wire library support, RF2401 support and very simple MQTT / Wifi support on ESP.
 
 The interpreted can be compliled with standard gcc on almost any architecture or in the Arduino IDE without changes. 
 
@@ -25,23 +33,25 @@ See also:
 
 ## Language features in a nutshell 
 
+The interpreter includes most of the Dartmouth language set. Differences are mainly the string handling which was taken from Apple 1 integer BASIC. Autodimensioning of arrays and strings was taken from ECMA BASIC.
+
 The intepreter is compatible with two of the 1976 early basic dialects. It implements the full language set of Dr. Wang's Palo Alto Tinybasic from the December 1976 edition of Dr. Dobbs (https://github.com/slviajero/tinybasic/wiki/Unforgotten---Dr.-Wang's-BASIC). This is a remarkably complete little language with many useful features. 
 
 The interpreter also implements the specification of Apple Integer BASIC sold for the Apple 1 computer (https://github.com/slviajero/tinybasic/wiki/The-original-Apple-1-BASIC-manual). It should be fully Apple 1 compatible.
 
-I have never worked with a computer running any of the two BASIC dialects. All the implementation has been done from the manuals cited above.
+I/O handling and some of the microcontroller BASIC features are new and are not compatible to the BASIC dialects above.
 
-Many things have been added in addition to these two languages. As the main target hardware are Arduino or ESP microcontrollers, I added EEPROM access, EEPROM program storage and autorun, control of digital and analog I/O as well as the delay function. SPIFFS and SD filesystems are included, Wire library support, RF2401 support and very simple MQTT / Wifi support on ESP. Device drivers for TFT and VGA integrated from the UTFT and FABLIB projects.
-
-The interpreter has grown to include the full Dartmouth language set like READ/DATA, DEFFN and ON/GOTO. 
+The interpreter is not meant to be compatible to any BASIC dialect. I ported most of the games of 101 BASIC games from 1977 as test programs to test and check compatibility. The main restriction is that arrays can only be one dimensional and that there are no string arrays. All data objects remain in the same memory location once they are defined. There is no garbage collection. This makes the behaviour of the BASIC interpreter deterministic, real time capable and fast. The core interpreter loop runs at approximately one token every 7 micro seconds on an Arduino UNO. On an ESP it runs at 1.4 micro seconds per token. 
 
 For further information, please look at: https://github.com/slviajero/tinybasic/wiki
 
 ## Files in this archive 
 
-basic.c is the program source. It can be compiled directly with gcc. No makefile is needed.
+basic.c is the program source. basic.h the header file. It can be compiled directly with gcc for most OSes. No makefile is needed.
 
-TinybasicArduino/TinybasicArduino.ino is an exact copy of basic.c, nothing needs to be added or adapted except the defs at the beginning of the code.
+TinybasicArduino/TinybasicArduino.ino is an exact copy of basic.c. In addition to this file and basic.h you need hardware.h in your Arduino sketch directory. These are the platform specific definitions and a thin OS like layer for hardware abstraction. This code is under construction and will change soon. All platforms from tiny AVR168 up to the powerful ESP32 are covered by this one file. 
+
+(This has changed - until version 1.2.1 everything was in one file. 1.3b separates hardware from interpreter).
 
 utility/monitor.py is a little serial monitor to interact with the running BASIC interpreter on the Arduino. It allows very simple loading of files into the Arduino and saving of output to a file on a computer. utility/arduinoterm is a wrapper of monitor.py.
 
@@ -51,5 +61,5 @@ The various programs with the extension .bas are test files for the interpreter 
 
 ## What's next
 
-More IoT functionality. 
+More IoT functionality. More devices.
 
