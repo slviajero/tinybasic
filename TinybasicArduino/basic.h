@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.h,v 1.2 2022/02/08 20:42:50 stefan Exp stefan $
+	$Id: basic.h,v 1.3 2022/02/27 15:45:35 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -828,7 +828,7 @@ void filewrite(char);
 char fileread();
 char ifileopen(char*);
 void ifileclose();
-char ofileopen(char*);
+char ofileopen(char*, char*);
 void ofileclose();
 int fileavailable();
 void rootopen();

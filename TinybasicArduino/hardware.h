@@ -1,6 +1,6 @@
 /*
 
-	$Id: hardware.h,v 1.2 2022/02/08 20:42:25 stefan Exp stefan $
+	$Id: hardware.h,v 1.3 2022/02/27 15:45:35 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -66,9 +66,8 @@
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
-#undef ARDUINOEEPROMI2C
-#define ARDUINOEFS
-#undef ARDUINOSD
+#undef ARDUINOEFS
+#define ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ARDUINORTC
@@ -120,7 +119,10 @@
 
 
 // list of default i2c addresses
-#define EEPROMI2CADDR 0x057
+// some clock modules do this
+//#define EEPROMI2CADDR 0x057
+// this is the default lowest adress
+#define EEPROMI2CADDR 0x050
 #define RTCI2CADDR 0x068
 
 // the hardware models
@@ -146,7 +148,7 @@
 #define ARDUINOLCDI2C
 #define ARDUINOSD
 #define ARDUINORTC
-#define RTCEEPROMSIZE 0
+#define EFSEEPROMSIZE 0
 #define ARDUINOWIRE
 #define SDPIN 		D8
 #define PS2DATAPIN	D2
@@ -230,7 +232,7 @@
 #endif
 
 // EEPROM storage needs wire
-#if defined(ARDUINOEEPROMI2C) || defined(ARDUINOEFS)
+#if defined(ARDUINOEFS)
 #define ARDUINOWIRE
 #endif
 
@@ -279,39 +281,7 @@
 #include <SPI.h>
 #endif
 
-#ifdef ARDUINOSD
-#define FILESYSTEMDRIVER
-#include <SD.h>
-#endif
-
-#ifdef ESPSPIFFS
-#define FILESYSTEMDRIVER
-#ifdef ARDUINO_ARCH_ESP8266
-#include <FS.h>
-#endif
-#ifdef ARDUINO_ARCH_ESP32
-#include <FS.h>
-#include <SPIFFS.h>
-#endif
-#endif
-
-#ifdef RP2040LITTLEFS
-#define FILESYSTEMDRIVER
-#define LFS_MBED_RP2040_VERSION_MIN_TARGET      "LittleFS_Mbed_RP2040 v1.1.0"
-#define LFS_MBED_RP2040_VERSION_MIN             1001000
-#define _LFS_LOGLEVEL_          1
-#define RP2040_FS_SIZE_KB       64
-#define FORCE_REFORMAT          false
-#include <LittleFS_Mbed_RP2040.h>
-#endif
-
-
-// failsafe - the code only supports one filesystem right now
-#if defined(ARDUINOSD)
-#undef ESPSPIFFS
-#undef RP2040LITTLEFS
-#endif
-
+// default wire
 #ifdef ARDUINOWIRE
 #include <Wire.h>
 #endif
@@ -346,17 +316,52 @@
 #include <uRTCLib.h>
 #endif
 
-// support for external EEPROMs
-#ifdef ARDUINOEEPROMI2C
-#include <uEEPROMLib.h>
+#ifdef ARDUINOSD
+#define FILESYSTEMDRIVER
+#include <SD.h>
+#endif
+
+#ifdef ESPSPIFFS
+#define FILESYSTEMDRIVER
+#ifdef ARDUINO_ARCH_ESP8266
+#include <FS.h>
+#endif
+#ifdef ARDUINO_ARCH_ESP32
+#include <FS.h>
+#include <SPIFFS.h>
+#endif
+#endif
+
+// RP2040 internal filesystem 
+#ifdef RP2040LITTLEFS
+#define FILESYSTEMDRIVER
+#define LFS_MBED_RP2040_VERSION_MIN_TARGET      "LittleFS_Mbed_RP2040 v1.1.0"
+#define LFS_MBED_RP2040_VERSION_MIN             1001000
+#define _LFS_LOGLEVEL_          1
+#define RP2040_FS_SIZE_KB       64
+#define FORCE_REFORMAT          false
+#include <LittleFS_Mbed_RP2040.h>
+#endif
+
+// external flash file systems override internal
+// filesystems
+#if defined(ARDUINOSD)
+#undef ESPSPIFFS
+#undef RP2040LITTLEFS
 #endif
 
 // support for external EEPROMs as filesystem
+// no override here
 #ifdef ARDUINOEFS
 #define FILESYSTEMDRIVER
 #include <EepromFS.h>
 #endif
 
+// incompatibilities
+// Picoserial only tested on the small boards
+#if ! defined(ARDUINO_AVR_UNO) && ! defined(ARDUINO_AVR_DUEMILANOVE) 
+#undef USESPICOSERIAL
+#endif
 
 /* 
 	Arduino default serial baudrate 
@@ -988,21 +993,18 @@ void rtcset(char i, short v) {
 #endif
 
 /* 
-	External EEPROM   
+	External EEPROM is handled through an EFS filesystem object  
+	see https://github.com/slviajero/EepromFS 
+	for details. Here the most common parameters are set as a default
 */
-#ifdef ARDUINOEEPROMI2C
-#ifndef RTCEEPROMSIZE
-#define RTCEEPROMSIZE 4096 
-#endif
-uEEPROMLib c_eeprom(EEPROMI2CADDR);
-#else
-#define RTCEEPROMSIZE 0
-#endif
-
-// just test code
 #ifdef ARDUINOEFS
-#define EFSEEPROMSITE 32768 
-EepromFS EFS(0x50, 32768);
+#ifndef EFSEEPROMSIZE
+#define EFSEEPROMSIZE 4096
+#endif
+#ifndef EEPROMI2CADDR
+#define EEPROMI2CADDR 0x50
+#endif
+EepromFS EFS(EEPROMI2CADDR, EFSEEPROMSIZE);
 #endif
 
 
@@ -1251,52 +1253,24 @@ char mqttinch() {return 0;};
 
 /* 
 	EEPROM handling, these function enable the @E array and 
-	loading and saving to EEPROM, they depend on the 
-	hardware and wire settings in ARDUINORTC
+	loading and saving to EEPROM with the "!" mechanism
+
+	here one could plug in the EFS code (-> tbd)
 
 */ 
 
 void ebegin(){}
 void eflush(){}
 
-// the external module EEPROM is the only EEPROM of the system
-#if defined(ARDUINOEEPROMI2C) && ! defined(ARDUINOEEPROM)
-address_t elength() { return RTCEEPROMSIZE; }
-short eread(address_t a) { return (signed char) c_eeprom.eeprom_read(a); }
-void eupdate(address_t a, short c) { 
-	short b = eread(a);
-	if (b != c) c_eeprom.eeprom_write(a, (signed char) c);
-}
-#endif
-
 // only the internal Arduino EEPROM, no external EEPROM
-#if ! defined(ARDUINOEEPROMI2C) && defined(ARDUINOEEPROM)
+#if defined(ARDUINOEEPROM)
 address_t elength() { return EEPROM.length(); }
 void eupdate(address_t a, short c) { EEPROM.update(a, c); }
 short eread(address_t a) { return (signed char) EEPROM.read(a); }
 #endif
 
-// the RTC EEPROM extends the internal EEPROM / internal is always first
-#if defined(ARDUINOEEPROMI2C) && defined(ARDUINOEEPROM)
-address_t elength() { return EEPROM.length()+RTCEEPROMSIZE; }
-void eupdate(address_t a, short c) { 
-	if (a<EEPROM.length()) 
-		EEPROM.update(a, c); 
-	else {
-		short b = c_eeprom.eeprom_read(a-EEPROM.length());
-		if (b != c) c_eeprom.eeprom_write(a-EEPROM.length(), (signed char) c);
-	}	
-}
-short eread(address_t a) { 
-	if (a<EEPROM.length())
-		return (signed char) EEPROM.read(a); 
-	else
-		return (signed char) c_eeprom.eeprom_read(a-EEPROM.length()); 
-}
-#endif
-
 // no EEPROM present
-#if ! defined(ARDUINOEEPROMI2C) && ! defined(ARDUINOEEPROM)
+#if ! defined(ARDUINOEEPROM)
 address_t elength() { return 0; }
 void eupdate(address_t a, short c) { return; }
 short eread(address_t a) { return 0; }
@@ -1615,21 +1589,22 @@ void ifileclose(){
 #endif
 }
 
-char ofileopen(char* filename){
+char ofileopen(char* filename, char* m){
 #ifdef ARDUINOSD
-	ofile=SD.open(filename, FILE_OWRITE);
+	if (*m == 'w') ofile=SD.open(filename, FILE_OWRITE);
+	if (*m == 'a') ofile=SD.open(filename, FILE_WRITE);
 	return (int) ofile;
 #endif
 #ifdef ESPSPIFFS
-	ofile=SPIFFS.open(mkfilename(filename), "w");
+	ofile=SPIFFS.open(mkfilename(filename), m);
 	return (int) ofile;
 #endif
 #ifdef RP2040LITTLEFS
-	ofile=fopen(mkfilename(filename), "w");
+	ofile=fopen(mkfilename(filename), m);
 	return (int) ofile; 
 #endif
 #ifdef ARDUINOEFS
-	ofile=EFS.fopen(filename, "w");
+	ofile=EFS.fopen(filename, m);
 	return (int) ofile; 
 #endif
 	return 0;

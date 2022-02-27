@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.129 2022/02/08 20:42:09 stefan Exp stefan $
+	$Id: basic.c,v 1.130 2022/02/27 15:45:35 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -201,8 +201,8 @@ void ifileclose(){
 	if (ifile) fclose(ifile);
 	ifile=NULL;	
 }
-char ofileopen(char* filename){
-	ofile=fopen(filename, "w");
+char ofileopen(char* filename, char* m){
+	ofile=fopen(filename, m);
 	return (int) ofile; 
 }
 void ofileclose(){ if (ofile) fclose(ofile); }
@@ -4120,7 +4120,7 @@ void xsave() {
 	} else {		
 		if (DEBUG) { outsc("** Opening the file "); outsc(filename); outcr(); };
 	 	
-		if (!ofileopen(filename)) {
+		if (!ofileopen(filename, "w")) {
 			error(EFILE);
 			nexttoken();
 			return;
@@ -4678,12 +4678,20 @@ void xopen() {
 	switch(stream) {
 #ifdef FILESYSTEMDRIVER
 		case IFILE:
-			if (mode == 1) {
-				ofileclose();
-				if (ofileopen(filename)) ert=0; else ert=1;
-			} else if (mode == 0) {
-				ifileclose();
-				if (ifileopen(filename)) ert=0; else ert=1;
+			switch (mode) {
+				case 1:
+					ofileclose();
+					if (ofileopen(filename, "w")) ert=0; else ert=1;
+					break;
+				case 2:
+					ofileclose();
+					if (ofileopen(filename, "a")) ert=0; else ert=1;
+					break;
+				default:
+				case 0:
+					ifileclose();
+					if (ifileopen(filename)) ert=0; else ert=1;		
+					break;
 			}
 			break;
 #endif
@@ -4752,7 +4760,7 @@ void xclose() {
 
 	switch(stream) {
 		case IFILE:
-			if (mode == 1) ofileclose(); else if (mode == 0) ifileclose();
+			if (mode == 1 || mode == 2) ofileclose(); else if (mode == 0) ifileclose();
 			break;
 	}
 #endif
