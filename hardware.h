@@ -1276,49 +1276,6 @@ void eupdate(address_t a, short c) { return; }
 short eread(address_t a) { return 0; }
 #endif
 
-// save a file to EEPROM
-void esave() {
-	address_t a=0;
-	if (top+eheadersize < elength()) {
-		a=0;
-		eupdate(a++, 0); // EEPROM per default is 255, 0 indicates that there is a program
-
-		// store the size of the program in byte 1,2 of the EEPROM	
-		z.a=top;
-		esetnumber(a, addrsize);
-		a+=addrsize;
-
-		while (a < top+eheadersize){
-			eupdate(a, mem[a-eheadersize]);
-			a++;
-		}
-		eupdate(a++,0);
-	} else {
-		error(EOUTOFMEMORY);
-		er=0; //oh oh! check this.
-	}
-}
-
-// load a file from EEPROM
-void eload() {
-	address_t a=0;
-	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
-		a++;
-
-		// how long is it?
-		egetnumber(a, addrsize);
-		top=z.a;
-		a+=addrsize;
-
-		while (a < top+eheadersize){
-			mem[a-eheadersize]=eread(a);
-			a++;
-		}
-	} else { // no valid program data is stored 
-		error(EEEPROM);
-	}
-}
-
 void autorun() {
 #ifdef ARDUINOEEPROM
   	if (eread(0) == 1){ // autorun from the EEPROM

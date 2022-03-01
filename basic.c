@@ -104,14 +104,24 @@ void mqttouts(char *m, short l) {}
 void mqttins(char *b, short nb) { z.a=0; };
 char mqttinch() {return 0;};
 
-// EEPROM handling
-void ebegin(){}
-void eflush(){}
-address_t elength() { return 0; }
-void eupdate(address_t a, short c) { return; }
-short eread(address_t a) { return 0; }
-void esave() {}
-void eload() {}
+// EEPROM handling - this is the minimal POSIX eeprom dummy
+#define EEPROMSIZE 1024
+uint8_t eeprom[EEPROMSIZE];
+void ebegin(){ 
+	int i;
+	FILE* efile;
+	for (i=0; i<EEPROMSIZE; i++) eeprom[i]=255;
+	efile=fopen("eeprom.dat", "r");
+	if (efile) fread(eeprom, EEPROMSIZE, 1, efile);
+}
+void eflush(){
+	FILE* efile;
+	efile=fopen("eeprom.dat", "w");
+	if (efile) fwrite(eeprom, EEPROMSIZE, 1, efile);
+}
+address_t elength() { return EEPROMSIZE; }
+void eupdate(address_t a, short c) { if (a>=0 && a<EEPROMSIZE) eeprom[a]=c; }
+short eread(address_t a) { if (a>=0 && a<EEPROMSIZE) return eeprom[a]; else return 255;  }
 
 // autorunning from EEPROM or a file system
 void autorun() { 
@@ -163,9 +173,68 @@ void dspsetcursor(short c, short r) {}
 
 // real time clock interface
 char rtcstring[18] = { 0 };
-char* rtcmkstr() {return rtcstring; }
-short rtcread(char i) {return 0;}
-short rtcget(char i) {return 0;}
+
+// identical to arduino code -> isolate 
+char* rtcmkstr() {
+	int cc = 1;
+	short t;
+	char ch;
+	t=rtcget(2);
+	rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]=':';
+	t=rtcread(1);
+	rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]=':';
+	t=rtcread(0);
+	rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]='-';
+	t=rtcread(3);
+	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]='/';
+	t=rtcread(4);
+	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]='/';
+	t=rtcread(5);
+	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc]=0;
+	rtcstring[0]=cc-1;
+
+	return rtcstring;
+}
+
+short rtcread(char i) {
+	struct timeb thetime;
+	struct tm *ltime;
+	ftime(&thetime);
+	ltime=localtime(&thetime.time);
+	switch (i) {
+		case 0: 
+			return ltime->tm_sec;
+		case 1:
+			return ltime->tm_min;
+		case 2:
+			return ltime->tm_hour;
+		case 3:
+			return ltime->tm_mday;
+		case 4:
+			return ltime->tm_mon+1;
+		case 5:
+			return ltime->tm_year-100;
+		case 6:
+			return ltime->tm_wday;
+		case 7:
+			return 0;
+		default:
+			return 0;
+	}
+}
+short rtcget(char i) {return rtcread(i);}
 void rtcset(char i, short v) {}
 
 // handling real time os yield mechanisms
@@ -269,7 +338,7 @@ void consins(char *b, short nb) {
 	while(i < nb) {
 		c=inch();
 		if (c == '\r') c=inch();
-		if (c == '\n' ) {
+		if (c == '\n' || c == -1 ) { /* terminal character is either newline or EOF */
 			break;
 		} else {
 			b[i++]=c;
@@ -357,6 +426,50 @@ address_t ballocmem() {
 address_t ballocmem(){ return MEMSIZE-1; };
 #endif
 
+// eeprom load / save functions 
+// save a file to EEPROM
+void esave() {
+	address_t a=0;
+	if (top+eheadersize < elength()) {
+		a=0;
+		eupdate(a++, 0); // EEPROM per default is 255, 0 indicates that there is a program
+
+		// store the size of the program in byte 1,2 of the EEPROM	
+		z.a=top;
+		esetnumber(a, addrsize);
+		a+=addrsize;
+
+		while (a < top+eheadersize){
+			eupdate(a, mem[a-eheadersize]);
+			a++;
+		}
+		eupdate(a++,0);
+	} else {
+		error(EOUTOFMEMORY);
+		er=0; //oh oh! check this.
+	}
+}
+
+// load a file from EEPROM
+void eload() {
+	address_t a=0;
+	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
+		a++;
+
+		// how long is it?
+		egetnumber(a, addrsize);
+		top=z.a;
+		a+=addrsize;
+
+		while (a < top+eheadersize){
+			mem[a-eheadersize]=eread(a);
+			a++;
+		}
+	} else { // no valid program data is stored 
+		error(EEEPROM);
+	}
+}
+
 
 #ifdef HASAPPLE1
 /*
@@ -427,7 +540,7 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 
 /*
 	bfind passes back the location of the object as result
-	the length of the object is in z.i as a side effect 
+	the length of the object is in z.a as a side effect 
 */
 address_t bfind(signed char t, char c, char d) {
 
@@ -704,7 +817,7 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 #endif
 				return;
 			}
-#if defined(ARDUINO) && defined(ARDUINORTC)
+#if ! defined(ARDUINO) || defined(ARDUINORTC)
 			case 'T':
 				if (m == 'g') *v=rtcget(i); 
 				else if (m == 's') rtcset(i, *v);
@@ -768,14 +881,16 @@ char* getstring(char c, char d, address_t b) {
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
 
 	// direct access to the input buffer - deprectated but still there
-	if ( c == '@' && d == 0)
-			return ibuffer+b;
+	if ( c == '@' && d == 0) {
+		return ibuffer+b;
+	}  
 
 #ifdef HASAPPLE1
 	// special strings 
-#if defined(ARDUINORTC)
+#if !defined(ARDUINO) || defined(ARDUINORTC)
 	if ( c== '@' && d == 'T') {
-		return rtcmkstr()+b;
+		rtcmkstr();
+		return rtcstring+b;
 	}
 #endif
 
@@ -832,9 +947,10 @@ number_t lenstring(char c, char d){
 	if (c == '@' && d == 0)
 		return ibuffer[0];
 
-#if defined(ARDUINORTC)
+#if !defined(ARDUINO) || defined(ARDUINORTC) 
 	if (c == '@' && d == 'T' )
-		return rtcmkstr()[0];
+		rtcmkstr();
+		return rtcstring[0];
 #endif
 
 	a=bfind(STRINGVAR, c, d);
@@ -1356,6 +1472,12 @@ void inb(char *b, short nb) {
 
   this is corrected later in xinput, z.a has to be set as 
   a side effect
+
+  for streams providing entire strings as an input the 
+  respective string method is called
+
+  all other streams are read using consins for character by character
+  input until a terminal character is reached
   
 */
 
@@ -1449,7 +1571,7 @@ void outs(char *ir, short l){
 		default:
 			for(i=0; i<l; i++) outch(ir[i]);
 	}
-	delay(0); // triggers yield on ESP8266 
+	byield(); // triggers yield on ESP8266 
 }
 
 
@@ -4044,7 +4166,7 @@ void dumpmem(address_t r, address_t b) {
 		i--;
 		if (k > memsize) break;
 	}
-#ifdef ARDUINOEEPROM
+#if defined(ARDUINOEEPROM) || ( !defined(ARDUINO) && EEPROMSIZE>0)
 	printmessage(EEEPROM); outcr();
 	i=r;
 	k=0;
@@ -4104,7 +4226,6 @@ void getfilename(char *buffer, char d) {
 		error(EUNKNOWN);
 	}
 }
-
 
 #if defined(FILESYSTEMDRIVER)
 // save a file either to disk or to EEPROM
@@ -4856,7 +4977,8 @@ void xcall() {
 	if (!expectexpr()) return;
 	r=pop();
 	switch(r) {
-		case 0: 
+		case 0:
+			eflush(); // flush the EEPROM dummy and then exit  
 #ifndef ARDUINO
 			exit(0);
 #endif
@@ -5264,9 +5386,10 @@ void statement(){
 				xbreak();
 				break;
 			case TSTOP:
-			case TEND: // return here because new input is needed
+			case TEND:		// return here because new input is needed
 				*ibuffer=0; // clear ibuffer - this is a hack
-				st=SINT;
+				st=SINT;		// switch to interactive mode
+				eflush(); 	// if there is an EEPROM dummy, flush it here (protects flash storage!)
 				return;
 			case TLIST:
 				xlist();
@@ -5485,7 +5608,7 @@ void loop() {
 
 	// the prompt and the input request
 	printmessage(MPROMPT);
-    ins(ibuffer, BUFSIZE-2);
+	ins(ibuffer, BUFSIZE-2);
         
     // tokenize first token from the input buffer
 	bi=ibuffer;
