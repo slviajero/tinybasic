@@ -1920,7 +1920,7 @@ void consins(char *b, short nb) {
   		c=inch();
   		if (id == ISERIAL || id == IKEYBOARD) outch(c);
   		if (c == '\r') c=inch(); /* skip carriage return */
-  		if (c == '\n') {
+  		if (c == '\n' || c == -1) { /* terminal character is either newline or EOF */
     		break;
   		} else if ( (c == 127 || c == 8) && i>1) {
    			i--;
