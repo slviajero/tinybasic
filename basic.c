@@ -4006,7 +4006,6 @@ void xrun(){
 	xclr();
 
 statementloop:
-	outsc("Entering run loop \n");
 	while ( (here < top) && (st == SRUN || st == SERUN) && ! er) statement();
 	st=SINT;
 }
