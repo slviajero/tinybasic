@@ -382,6 +382,10 @@ const int serial1_baudrate = 0;
 */
 void timeinit() {}
 
+/*
+	starting wiring is only needed on raspberry
+*/
+void wiringbegin() {}
 
 /* 
 	start the SPI bus - this is a little mean as some libraries also 
@@ -1276,24 +1280,6 @@ void eupdate(address_t a, short c) { return; }
 short eread(address_t a) { return 0; }
 #endif
 
-void autorun() {
-#ifdef ARDUINOEEPROM
-  	if (eread(0) == 1){ // autorun from the EEPROM
-  		egetnumber(1, addrsize);
-  		top=z.a;
-  		st=SERUN;
-  		return;    // EEPROM autorun overrule filesystem autorun
-  	} 
-#endif
-// here filesystem autorun, ugly still
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(RP2040LITTLEFS) || defined(ARDUINOEFS)
-  	if (ifileopen("autoexec.bas")) {
-  		xload("autoexec.bas");
-  		st=SRUN;
-  	}
-  	ifileclose();
-#endif
-}
 
 /* the wrappers of the arduino io functions, to avoid 
    spreading arduino code in the interpreter code 
@@ -1319,7 +1305,7 @@ void dwrite(number_t p, number_t v){
 }
 
 void pinm(number_t p, number_t m){
-	if (m>=0 && m<=2)  pinMode(p, m);
+	if (m>=0 && m<=2) pinMode(p, m);
 	else error(ERANGE); 
 }
 
