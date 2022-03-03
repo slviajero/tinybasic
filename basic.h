@@ -38,6 +38,7 @@
 	MSDOS, Mac, Linux and Windows 
 */
 #ifndef ARDUINO
+typedef unsigned char uint8_t;
 #define PROGMEM
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,11 +55,12 @@
 #else
 #include <dir.h>
 #include <dos.h>
-typedef unsigned char uint8_t;
 #endif
 #ifdef MINGW
 #include <windows.h>
-typedef unsigned char uint8_t;
+#endif
+#ifdef RASPPI
+#include <wiringPi.h>
 #endif
 #endif
 
@@ -841,6 +843,9 @@ void rootclose();
 void formatdisk(short i);
 
 // input output
+// initiating wiring (only needed on rasp)
+void wiringbegin();
+
 // these are the platfrom depended lowlevel functions
 void serialbegin();
 void prtbegin();
@@ -914,7 +919,7 @@ void eupdate(address_t, short);
 void eload();
 void esave();
 
-// generic autorun - mainly eeprom bit also file
+// generic autorun - mainly eeprom but also file
 void autorun();
 
 // graphics functions 

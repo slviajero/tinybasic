@@ -26,6 +26,7 @@
 
 #undef MINGW
 #undef MSDOS
+#undef RASPPI
 
 /*
 	interpreter features
@@ -48,7 +49,7 @@
 #define MEMSIZE 0
 
 // debug mode switches 
-#define DEBUG  0
+#define DEBUG 0
 
 // the core basic language headers including some Arduino device stuff
 #include "basic.h"
@@ -59,16 +60,24 @@
  	interpreter for computers with an OS they are mostly stubs 
 
 	To include hardware features edit hardware.h.
-
 */
 
 #ifdef ARDUINO
 #include "hardware.h"
 #else 
+// serial settings
 const int serial_baudrate = 0;
 const int serial1_baudrate = 0;
 char sendcr = 0;
 short blockmode = 0;
+
+// raspberry pi wiring
+void wiringbegin() {
+#ifdef RASPPI
+	wiringPiSetup();
+#endif
+}
+
 void spibegin() {}
 void fsbegin() {}
 
@@ -114,39 +123,53 @@ void ebegin(){
 	efile=fopen("eeprom.dat", "r");
 	if (efile) fread(eeprom, EEPROMSIZE, 1, efile);
 }
+
 void eflush(){
 	FILE* efile;
 	efile=fopen("eeprom.dat", "w");
 	if (efile) fwrite(eeprom, EEPROMSIZE, 1, efile);
 }
+
 address_t elength() { return EEPROMSIZE; }
 void eupdate(address_t a, short c) { if (a>=0 && a<EEPROMSIZE) eeprom[a]=c; }
 short eread(address_t a) { if (a>=0 && a<EEPROMSIZE) return eeprom[a]; else return 255;  }
 
-// autorunning from EEPROM or a file system
-void autorun() { 
-  	if (ifileopen("autoexec.bas")) {
-  		xload("autoexec.bas");
-  		st=SRUN;
-  	}
-  	ifileclose();
-}
-
 // handling wiring I/O
+#ifndef RASPPI
 void aread(){ return; }
 void dread(){ return; }
 void awrite(number_t p, number_t v){}
 void dwrite(number_t p, number_t v){}
 void pinm(number_t p, number_t m){}
+#else
+void aread(){ push(analogRead(pop())); }
+void dread(){ push(digitalRead(pop())); }
+void awrite(number_t p, number_t v){
+	if (v >= 0 && v<256) analogWrite(p, v);
+	else error(ERANGE);
+}
+void dwrite(number_t p, number_t v){
+	if (v == 0) digitalWrite(p, LOW);
+	else if (v == 1) digitalWrite(p, HIGH);
+	else error(ERANGE);
+}
+void pinm(number_t p, number_t m){
+	if (m>=0 && m<=1) pinMode(p, m);
+	else error(ERANGE); 
+}
+#endif
 
 // handling time 
-#ifndef MSDOS
-#ifndef MINGW
+// oldstyle posix
+#if ! defined(MSDOS) && ! defined(MINGW) && ! defined(RASPPI)
 void delay(number_t t) {usleep(t*1000);}
-#else
+#endif
+// ms style stuff
+#if defined(MINGW) || defined(MSDOS)
 void delay(number_t t) {Sleep(t);}
 #endif
-#endif
+// raspberry take their delay function from wiring
+
 struct timeb start_time;
 void timeinit() { ftime(&start_time); }
 void bmillis() {
@@ -158,7 +181,10 @@ void bmillis() {
 	m=(number_t) ( dt/(time_t)pop() % (time_t)maxnum);
 	push(m);
 }
+// we need to to millis by hand except for RASPPI with wiring
+#if ! defined(RASPPI)
 long millis() { push(1); bmillis(); return pop(); }
+#endif
 void bpulsein() { pop(); pop(); pop(); push(0); }
 
 // the display driver
@@ -470,6 +496,26 @@ void eload() {
 	}
 }
 
+// autorun something 
+void autorun() {
+// here eeprom run
+#if defined(ARDUINOEEPROM) || ! defined(ARDUINO) 
+  	if (eread(0) == 1){ // autorun from the EEPROM
+  		egetnumber(1, addrsize);
+  		top=z.a;
+  		st=SERUN;
+  		return;    // EEPROM autorun overrule filesystem autorun
+  	} 
+#endif
+// here filesystem autorun
+#if defined(FILESYSTEMDRIVER) || ! defined(ARDUINO)
+  	if (ifileopen("autoexec.bas")) {
+  		xload("autoexec.bas");
+  		st=SRUN;
+  	}
+  	ifileclose();
+#endif
+}
 
 #ifdef HASAPPLE1
 /*
@@ -1260,6 +1306,7 @@ void clrforstack() {
 */
 
 void ioinit() {
+	wiringbegin();
 	serialbegin();
 #ifdef ARDUINOMQTT
 	netbegin();  
@@ -2113,17 +2160,12 @@ void storetoken() {
 
 // wrapper around mem access for eeprom autorun on small Arduinos
 char memread(address_t i){
-#ifndef ARDUINOEEPROM
-	return mem[i];
-#else 
 	if (st != SERUN) {
 		return mem[i];
 	} else {
 		return eread(i+eheadersize);
 	}
-#endif
 }
-
 
 // get a token from memory
 void gettoken() {
@@ -2155,10 +2197,6 @@ void gettoken() {
 			break;
 		case STRING:
 			x=(unsigned char)memread(here++);  // if we run interactive or from mem, pass back the mem location
-#ifndef ARDUINO
-			ir=(char *)&mem[here];
-			here+=x;
-#else 
 			if (st == SERUN) { // we run from EEPROM and cannot simply pass a pointer
 				for(int i=0; i<x; i++) {
 					ibuffer[i]=memread(here+i);   // we (ab)use the input buffer which is not needed here
@@ -2168,7 +2206,6 @@ void gettoken() {
 				ir=(char *)&mem[here];
 			}
 			here+=x;	
-#endif
 		}
 }
 
@@ -3155,6 +3192,7 @@ nextfactor:
 		}
 		goto nextfactor;
 	} 
+	if (DEBUG) debug("leaving term\n");
 }
 
 void addexpression(){
@@ -3756,7 +3794,7 @@ void xfor(){
 	} 
 
 	if (! termsymbol()) {
-		error(UNKNOWN);
+		error(EUNKNOWN);
 		return;
 	}
 
@@ -3968,9 +4006,8 @@ void xrun(){
 	xclr();
 
 statementloop:
-	while ( (here < top) && (st == SRUN || st == SERUN) && ! er) {	
-		statement();
-	}
+	outsc("Entering run loop \n");
+	while ( (here < top) && (st == SRUN || st == SERUN) && ! er) statement();
 	st=SINT;
 }
 
@@ -5595,8 +5632,8 @@ void loop() {
 	// autorun code always must loop in itself
 	if (st == SERUN ) {
 		xrun();
-    	top=0;
-    	st=SINT;
+    top=0;
+    st=SINT;
 	} else if (st == SRUN) {
 		here=0;
 		xrun();
