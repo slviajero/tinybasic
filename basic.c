@@ -1024,7 +1024,6 @@ void setstringlength(char c, char d, address_t l) {
 	if (l < z.a) {
 		z.a=l;
 		setnumber(a, strindexsize);
-		//mem[a]=l;
 	} else
 		error(ERANGE);
 
@@ -1121,9 +1120,7 @@ void printmessage(char i){
 void error(signed char e){
 	er=e;
 	// set input and output device back to default
-	od=odd;
-	id=idd;
-	form=0;
+	iodefaults();
 	// find the line number
 	if (st != SINT) {
 		outnumber(myline(here));
@@ -1139,7 +1136,6 @@ void error(signed char e){
 	clearst();
 	clrforstack();
 	clrgosubstack();
-	iodefaults();
 }
 
 void reseterror() {
@@ -1340,6 +1336,7 @@ void ioinit() {
 void iodefaults() {
 	od=odd;
 	id=idd;
+	form=0;
 }
 
 /* 
@@ -1386,7 +1383,7 @@ char inch(){
 				byield();
 				delay(1); // this seems to be needed on an ESP, probably rather yield()
 			} while(c == 0);	
-    		if (c == 13) c=10;
+    	if (c == 13) c=10;
 			return c;
 #endif
 #ifdef LCDSHIELD
@@ -2610,16 +2607,16 @@ void xsgn(){
 // the EEPROM range -1 .. -1024 on an UNO
 void xpeek(){
 	address_t amax;
-	address_t a;
-	a=pop();
+
+	x=pop();
 
 	// this is a hack again, 16 bit numbers can't peek big addresses
 	if ((long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
 
-	if (a >= 0 && a<amax) 
-		push(mem[a]);
-	else if (a < 0 && -a < elength())
-		push(eread(-a-1));
+	if (x >= 0 && x<amax) 
+		push(mem[(unsigned int) x]);
+	else if (x < 0 && -x < elength())
+		push(eread(-x-1));
 	else {
 		error(ERANGE);
 		return;
@@ -3524,7 +3521,7 @@ void assignment() {
 			// this code is needed to make sure we can copy one string to the same string 
 			// without overwriting stuff, we go either left to right or backwards
 			if (x > i) 
-				for (j=0; j<lensource; j++) { ir[j]=ir2[j];}
+				for (j=0; j<lensource; j++) ir[j]=ir2[j];
 			else
 				for (j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
 
@@ -4021,7 +4018,6 @@ void xnew(){ // the general cleanup function
 	nvars=0;
 	clrgosubstack();
 	clrforstack();
-
 }
 
 
@@ -4107,7 +4103,6 @@ nextvariable:
 
 void xpoke(){
 	address_t amax;
-	address_t a;
 
 	// like in peek
 	// this is a hack again, 16 bit numbers can't peek big addresses
@@ -4118,11 +4113,14 @@ void xpoke(){
 	if (er != 0) return;
 
 	y=pop();
-	a=pop();
-	if (a >= 0 && a<amax) 
-		mem[a]=y;
-	else if (a < 0 && a >= -elength())
-			eupdate(-a-1, y);
+	x=pop();
+
+	printf("poke elength %d and address %f", elength(), x);
+
+	if (x >= 0 && x<amax) 
+		mem[(unsigned int) x]=y;
+	else if (x < 0 && x >= -elength())
+			eupdate(-x-1, y);
 	else {
 		error(ERANGE);
 	}
