@@ -57,7 +57,7 @@
 
 	leave this unset if you use the definitions below
 */
-#define USESPICOSERIAL 
+#undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
 #undef DISPLAYCANSCROLL
@@ -66,7 +66,7 @@
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
-#define ARDUINOEFS
+#undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
@@ -98,7 +98,7 @@
 
 #undef UNOPLAIN
 #undef AVRLCD
-#undef WEMOSSHIELD
+#define WEMOSSHIELD
 #undef MEGASHIELD
 #undef TTGOVGA
 #undef DUETFT
@@ -154,7 +154,8 @@
 #define PS2DATAPIN	D2
 #define PS2IRQPIN	D9
 #define ARDUINOMQTT
-#define MEMSIZE 32000
+#define MEMSIZE 0
+#define MEMMODEL 2
 #endif
 
 // mega with a Ethernet shield 
@@ -382,6 +383,10 @@ const int serial1_baudrate = 0;
 */
 void timeinit() {}
 
+/*
+	starting wiring is only needed on raspberry
+*/
+void wiringbegin() {}
 
 /* 
 	start the SPI bus - this is a little mean as some libraries also 
@@ -1276,67 +1281,6 @@ void eupdate(address_t a, short c) { return; }
 short eread(address_t a) { return 0; }
 #endif
 
-// save a file to EEPROM
-void esave() {
-	address_t a=0;
-	if (top+eheadersize < elength()) {
-		a=0;
-		eupdate(a++, 0); // EEPROM per default is 255, 0 indicates that there is a program
-
-		// store the size of the program in byte 1,2 of the EEPROM	
-		z.a=top;
-		esetnumber(a, addrsize);
-		a+=addrsize;
-
-		while (a < top+eheadersize){
-			eupdate(a, mem[a-eheadersize]);
-			a++;
-		}
-		eupdate(a++,0);
-	} else {
-		error(EOUTOFMEMORY);
-		er=0; //oh oh! check this.
-	}
-}
-
-// load a file from EEPROM
-void eload() {
-	address_t a=0;
-	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
-		a++;
-
-		// how long is it?
-		egetnumber(a, addrsize);
-		top=z.a;
-		a+=addrsize;
-
-		while (a < top+eheadersize){
-			mem[a-eheadersize]=eread(a);
-			a++;
-		}
-	} else { // no valid program data is stored 
-		error(EEEPROM);
-	}
-}
-
-void autorun() {
-#ifdef ARDUINOEEPROM
-  	if (eread(0) == 1){ // autorun from the EEPROM
-  		egetnumber(1, addrsize);
-  		top=z.a;
-  		st=SERUN;
-  		return;    // EEPROM autorun overrule filesystem autorun
-  	} 
-#endif
-// here filesystem autorun, ugly still
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(RP2040LITTLEFS) || defined(ARDUINOEFS)
-  	if (ifileopen("autoexec.bas")) {
-  		xload("autoexec.bas");
-  		st=SRUN;
-  	}
-  	ifileclose();
-#endif
-}
 
 /* the wrappers of the arduino io functions, to avoid 
    spreading arduino code in the interpreter code 
@@ -1362,7 +1306,7 @@ void dwrite(number_t p, number_t v){
 }
 
 void pinm(number_t p, number_t m){
-	if (m>=0 && m<=2)  pinMode(p, m);
+	if (m>=0 && m<=2) pinMode(p, m);
 	else error(ERANGE); 
 }
 
@@ -1895,7 +1839,7 @@ short serialcheckch() {
 // check on a character
 short serialavailable() {
 #ifdef USESPICOSERIAL
-	if (id == ISERIAL) return picoi;
+	return picoi;
 #else
 	return Serial.available();
 #endif	
@@ -1904,7 +1848,8 @@ short serialavailable() {
 // reading from the console with inch or the picoserial callback
 void consins(char *b, short nb) {
 	char c;
-	short i = 1;
+
+	z.a = 1;
 #ifdef USESPICOSERIAL
 	if (id == ISERIAL) {
 		picob=b;
@@ -1916,21 +1861,21 @@ void consins(char *b, short nb) {
 		return;
 	}
 #endif
-	while(i < nb) {
+	while(z.a < nb) {
   		c=inch();
   		if (id == ISERIAL || id == IKEYBOARD) outch(c);
   		if (c == '\r') c=inch(); /* skip carriage return */
   		if (c == '\n' || c == -1) { /* terminal character is either newline or EOF */
     		break;
-  		} else if ( (c == 127 || c == 8) && i>1) {
-   			i--;
+  		} else if ( (c == 127 || c == 8) && z.a>1) {
+   			z.a--;
   		} else {
-   			b[i++]=c;
+   			b[z.a++]=c;
   		} 
 	}
-	b[i]=0;
-    b[0]=(unsigned char)i-1;
-  	z.a=i-1; 
+	b[z.a]=0;
+	z.a--;
+    b[0]=(unsigned char)z.a; 
 }
 
 /* 
