@@ -2,9 +2,9 @@
 
 	$Id: basic.c,v 1.130 2022/02/27 15:45:35 stefan Exp stefan $
 
-	Stefan's basic interpreter 
+	Stefan's IoT BASIC interpreter 
 
-	Playing around with frugal programming. See the licence file on 
+ 	See the licence file on 
 	https://github.com/slviajero/tinybasic for copyright/left.
     (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
 
@@ -26,6 +26,7 @@
 
 #undef MINGW
 #undef MSDOS
+#undef RASPPI
 
 /*
 	interpreter features
@@ -48,7 +49,7 @@
 #define MEMSIZE 0
 
 // debug mode switches 
-#define DEBUG  0
+#define DEBUG 0
 
 // the core basic language headers including some Arduino device stuff
 #include "basic.h"
@@ -59,16 +60,24 @@
  	interpreter for computers with an OS they are mostly stubs 
 
 	To include hardware features edit hardware.h.
-
 */
 
 #ifdef ARDUINO
 #include "hardware.h"
 #else 
+// serial settings
 const int serial_baudrate = 0;
 const int serial1_baudrate = 0;
 char sendcr = 0;
 short blockmode = 0;
+
+// raspberry pi wiring
+void wiringbegin() {
+#ifdef RASPPI
+	wiringPiSetup();
+#endif
+}
+
 void spibegin() {}
 void fsbegin() {}
 
@@ -104,39 +113,63 @@ void mqttouts(char *m, short l) {}
 void mqttins(char *b, short nb) { z.a=0; };
 char mqttinch() {return 0;};
 
-// EEPROM handling
-void ebegin(){}
-void eflush(){}
-address_t elength() { return 0; }
-void eupdate(address_t a, short c) { return; }
-short eread(address_t a) { return 0; }
-void esave() {}
-void eload() {}
-
-// autorunning from EEPROM or a file system
-void autorun() { 
-  	if (ifileopen("autoexec.bas")) {
-  		xload("autoexec.bas");
-  		st=SRUN;
-  	}
-  	ifileclose();
+// EEPROM handling - this is the minimal POSIX eeprom dummy
+#define EEPROMSIZE 1024
+uint8_t eeprom[EEPROMSIZE];
+void ebegin(){ 
+	int i;
+	FILE* efile;
+	for (i=0; i<EEPROMSIZE; i++) eeprom[i]=255;
+	efile=fopen("eeprom.dat", "r");
+	if (efile) fread(eeprom, EEPROMSIZE, 1, efile);
 }
 
+void eflush(){
+	FILE* efile;
+	efile=fopen("eeprom.dat", "w");
+	if (efile) fwrite(eeprom, EEPROMSIZE, 1, efile);
+}
+
+address_t elength() { return EEPROMSIZE; }
+void eupdate(address_t a, short c) { if (a>=0 && a<EEPROMSIZE) eeprom[a]=c; }
+short eread(address_t a) { if (a>=0 && a<EEPROMSIZE) return eeprom[a]; else return 255;  }
+
 // handling wiring I/O
+#ifndef RASPPI
 void aread(){ return; }
 void dread(){ return; }
 void awrite(number_t p, number_t v){}
 void dwrite(number_t p, number_t v){}
 void pinm(number_t p, number_t m){}
+#else
+void aread(){ push(analogRead(pop())); }
+void dread(){ push(digitalRead(pop())); }
+void awrite(number_t p, number_t v){
+	if (v >= 0 && v<256) analogWrite(p, v);
+	else error(ERANGE);
+}
+void dwrite(number_t p, number_t v){
+	if (v == 0) digitalWrite(p, LOW);
+	else if (v == 1) digitalWrite(p, HIGH);
+	else error(ERANGE);
+}
+void pinm(number_t p, number_t m){
+	if (m>=0 && m<=1) pinMode(p, m);
+	else error(ERANGE); 
+}
+#endif
 
 // handling time 
-#ifndef MSDOS
-#ifndef MINGW
+// oldstyle posix
+#if ! defined(MSDOS) && ! defined(MINGW) && ! defined(RASPPI)
 void delay(number_t t) {usleep(t*1000);}
-#else
+#endif
+// ms style stuff
+#if defined(MINGW) || defined(MSDOS)
 void delay(number_t t) {Sleep(t);}
 #endif
-#endif
+// raspberry take their delay function from wiring
+
 struct timeb start_time;
 void timeinit() { ftime(&start_time); }
 void bmillis() {
@@ -148,7 +181,10 @@ void bmillis() {
 	m=(number_t) ( dt/(time_t)pop() % (time_t)maxnum);
 	push(m);
 }
+// we need to to millis by hand except for RASPPI with wiring
+#if ! defined(RASPPI)
 long millis() { push(1); bmillis(); return pop(); }
+#endif
 void bpulsein() { pop(); pop(); pop(); push(0); }
 
 // the display driver
@@ -163,9 +199,68 @@ void dspsetcursor(short c, short r) {}
 
 // real time clock interface
 char rtcstring[18] = { 0 };
-char* rtcmkstr() {return rtcstring; }
-short rtcread(char i) {return 0;}
-short rtcget(char i) {return 0;}
+
+// identical to arduino code -> isolate 
+char* rtcmkstr() {
+	int cc = 1;
+	short t;
+	char ch;
+	t=rtcget(2);
+	rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]=':';
+	t=rtcread(1);
+	rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]=':';
+	t=rtcread(0);
+	rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]='-';
+	t=rtcread(3);
+	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]='/';
+	t=rtcread(4);
+	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]='/';
+	t=rtcread(5);
+	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc]=0;
+	rtcstring[0]=cc-1;
+
+	return rtcstring;
+}
+
+short rtcread(char i) {
+	struct timeb thetime;
+	struct tm *ltime;
+	ftime(&thetime);
+	ltime=localtime(&thetime.time);
+	switch (i) {
+		case 0: 
+			return ltime->tm_sec;
+		case 1:
+			return ltime->tm_min;
+		case 2:
+			return ltime->tm_hour;
+		case 3:
+			return ltime->tm_mday;
+		case 4:
+			return ltime->tm_mon+1;
+		case 5:
+			return ltime->tm_year-100;
+		case 6:
+			return ltime->tm_wday;
+		case 7:
+			return 0;
+		default:
+			return 0;
+	}
+}
+short rtcget(char i) {return rtcread(i);}
 void rtcset(char i, short v) {}
 
 // handling real time os yield mechanisms
@@ -265,19 +360,20 @@ char serialavailable() {return TRUE; }
 // reading from the console with inch
 void consins(char *b, short nb) {
 	char c;
-	short i = 1;
-	while(i < nb) {
+	
+	z.a=1;
+	while(z.a < nb) {
 		c=inch();
 		if (c == '\r') c=inch();
-		if (c == '\n' ) {
+		if (c == '\n' || c == -1 ) { /* terminal character is either newline or EOF */
 			break;
 		} else {
-			b[i++]=c;
+			b[z.a++]=c;
 		} 
 	}
-	b[i]=0x00;
-	b[0]=(unsigned char)i-1;
-	z.a=i-1;
+	b[z.a]=0x00;
+	z.a--;
+	b[0]=(unsigned char)z.a;
 }
 
 
@@ -338,12 +434,20 @@ address_t ballocmem() {
 	// 									RP2040      ESP        MK       MEGA    UNO  168  FALLBACK
 	const unsigned short memmodel[9] = {60000, 40000, 32000, 24000, 6000, 4096, 1024, 512, 128}; 
 
-	if (sizeof(number_t) <= 2) i=3;
+
 // this is tiny model MSDOS compile - dos chrashes on 
 // file access with 60 k allocated in a tiny model
 #ifdef MSDOS
 	i=1;
 #endif
+
+// if a memodel is defined somewhere in the hardware
+// section, use this for a start
+#ifdef MEMMODEL
+	i=MEMMODEL;
+#endif	
+
+	// if the number type is only 2 bytes max memory is 32000
 	if (sizeof(number_t) <= 2) i=3;
 
 	do {
@@ -357,6 +461,70 @@ address_t ballocmem() {
 address_t ballocmem(){ return MEMSIZE-1; };
 #endif
 
+// eeprom load / save functions 
+// save a file to EEPROM
+void esave() {
+	address_t a=0;
+	if (top+eheadersize < elength()) {
+		a=0;
+		eupdate(a++, 0); // EEPROM per default is 255, 0 indicates that there is a program
+
+		// store the size of the program in byte 1,2 of the EEPROM	
+		z.a=top;
+		esetnumber(a, addrsize);
+		a+=addrsize;
+
+		while (a < top+eheadersize){
+			eupdate(a, mem[a-eheadersize]);
+			a++;
+		}
+		eupdate(a++,0);
+	} else {
+		error(EOUTOFMEMORY);
+		er=0; //oh oh! check this.
+	}
+}
+
+// load a file from EEPROM
+void eload() {
+	address_t a=0;
+	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
+		a++;
+
+		// how long is it?
+		egetnumber(a, addrsize);
+		top=z.a;
+		a+=addrsize;
+
+		while (a < top+eheadersize){
+			mem[a-eheadersize]=eread(a);
+			a++;
+		}
+	} else { // no valid program data is stored 
+		error(EEEPROM);
+	}
+}
+
+// autorun something 
+void autorun() {
+// here eeprom run
+#if defined(ARDUINOEEPROM) || ! defined(ARDUINO) 
+  	if (eread(0) == 1){ // autorun from the EEPROM
+  		egetnumber(1, addrsize);
+  		top=z.a;
+  		st=SERUN;
+  		return;    // EEPROM autorun overrule filesystem autorun
+  	} 
+#endif
+// here filesystem autorun
+#if defined(FILESYSTEMDRIVER) || ! defined(ARDUINO)
+  	if (ifileopen("autoexec.bas")) {
+  		xload("autoexec.bas");
+  		st=SRUN;
+  	}
+  	ifileclose();
+#endif
+}
 
 #ifdef HASAPPLE1
 /*
@@ -369,11 +537,11 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 	address_t vsize;     // the length of the header
 	address_t b;
 
-    if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
+	if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
 
-    /*
+/*
 		check if the object already exists
-    */
+*/
     if (bfind(t, c, d) != 0 ) { error(EVARIABLE); return 0; };
 
 	/* 
@@ -427,7 +595,7 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 
 /*
 	bfind passes back the location of the object as result
-	the length of the object is in z.i as a side effect 
+	the length of the object is in z.a as a side effect 
 */
 address_t bfind(signed char t, char c, char d) {
 
@@ -704,7 +872,7 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 #endif
 				return;
 			}
-#if defined(ARDUINO) && defined(ARDUINORTC)
+#if ! defined(ARDUINO) || defined(ARDUINORTC)
 			case 'T':
 				if (m == 'g') *v=rtcget(i); 
 				else if (m == 's') rtcset(i, *v);
@@ -768,14 +936,16 @@ char* getstring(char c, char d, address_t b) {
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
 
 	// direct access to the input buffer - deprectated but still there
-	if ( c == '@' && d == 0)
-			return ibuffer+b;
+	if ( c == '@' && d == 0) {
+		return ibuffer+b;
+	}  
 
 #ifdef HASAPPLE1
 	// special strings 
-#if defined(ARDUINORTC)
+#if !defined(ARDUINO) || defined(ARDUINORTC)
 	if ( c== '@' && d == 'T') {
-		return rtcmkstr()+b;
+		rtcmkstr();
+		return rtcstring+b;
 	}
 #endif
 
@@ -832,9 +1002,11 @@ number_t lenstring(char c, char d){
 	if (c == '@' && d == 0)
 		return ibuffer[0];
 
-#if defined(ARDUINORTC)
-	if (c == '@' && d == 'T' )
-		return rtcmkstr()[0];
+#if !defined(ARDUINO) || defined(ARDUINORTC) 
+	if (c == '@' && d == 'T' ) {
+		rtcmkstr();
+		return rtcstring[0];
+	}
 #endif
 
 	a=bfind(STRINGVAR, c, d);
@@ -862,7 +1034,6 @@ void setstringlength(char c, char d, address_t l) {
 	if (l < z.a) {
 		z.a=l;
 		setnumber(a, strindexsize);
-		//mem[a]=l;
 	} else
 		error(ERANGE);
 
@@ -959,9 +1130,7 @@ void printmessage(char i){
 void error(signed char e){
 	er=e;
 	// set input and output device back to default
-	od=odd;
-	id=idd;
-	form=0;
+	iodefaults();
 	// find the line number
 	if (st != SINT) {
 		outnumber(myline(here));
@@ -977,7 +1146,6 @@ void error(signed char e){
 	clearst();
 	clrforstack();
 	clrgosubstack();
-	iodefaults();
 }
 
 void reseterror() {
@@ -1144,6 +1312,7 @@ void clrforstack() {
 */
 
 void ioinit() {
+	wiringbegin();
 	serialbegin();
 #ifdef ARDUINOMQTT
 	netbegin();  
@@ -1177,6 +1346,7 @@ void ioinit() {
 void iodefaults() {
 	od=odd;
 	id=idd;
+	form=0;
 }
 
 /* 
@@ -1221,9 +1391,8 @@ char inch(){
 			do {
 				if (kbdavailable()) c=kbdread();
 				byield();
-				delay(1); // this seems to be needed on an ESP, probably rather yield()
 			} while(c == 0);	
-    		if (c == 13) c=10;
+    	if (c == 13) c=10;
 			return c;
 #endif
 #ifdef LCDSHIELD
@@ -1356,6 +1525,12 @@ void inb(char *b, short nb) {
 
   this is corrected later in xinput, z.a has to be set as 
   a side effect
+
+  for streams providing entire strings as an input the 
+  respective string method is called
+
+  all other streams are read using consins for character by character
+  input until a terminal character is reached
   
 */
 
@@ -1449,7 +1624,7 @@ void outs(char *ir, short l){
 		default:
 			for(i=0; i<l; i++) outch(ir[i]);
 	}
-  delay(0);
+	byield(); // triggers yield on ESP8266 
 }
 
 
@@ -1991,17 +2166,12 @@ void storetoken() {
 
 // wrapper around mem access for eeprom autorun on small Arduinos
 char memread(address_t i){
-#ifndef ARDUINOEEPROM
-	return mem[i];
-#else 
 	if (st != SERUN) {
 		return mem[i];
 	} else {
 		return eread(i+eheadersize);
 	}
-#endif
 }
-
 
 // get a token from memory
 void gettoken() {
@@ -2033,10 +2203,6 @@ void gettoken() {
 			break;
 		case STRING:
 			x=(unsigned char)memread(here++);  // if we run interactive or from mem, pass back the mem location
-#ifndef ARDUINO
-			ir=(char *)&mem[here];
-			here+=x;
-#else 
 			if (st == SERUN) { // we run from EEPROM and cannot simply pass a pointer
 				for(int i=0; i<x; i++) {
 					ibuffer[i]=memread(here+i);   // we (ab)use the input buffer which is not needed here
@@ -2046,7 +2212,6 @@ void gettoken() {
 				ir=(char *)&mem[here];
 			}
 			here+=x;	
-#endif
 		}
 }
 
@@ -2334,11 +2499,13 @@ char expectexpr() {
 
 
 // parses a list of expression
-short parsearguments() {
-	char args=0;
+void parsearguments() {
+
+	// begin counting
+	args=0; 
 
 	// having 0 args at the end of a command is legal
-	if (termsymbol()) return args;
+	if (termsymbol()) return;
 
 	// list of expressions separated by commas
 	do {
@@ -2348,34 +2515,31 @@ short parsearguments() {
 		if (token != ',') break;
 		nexttoken();
 	} while (TRUE);
-
-	return args;
 }
 
 
 // expect exactly n arguments
 void parsenarguments(char n) {
-	if (parsearguments() != n ) error(EARGS);
+	parsearguments();
+	if (args != n ) error(EARGS);
 }
 
 // counts and parses the number of arguments given in brakets
-short parsesubscripts() {
-	char args = 0;
-	if (token != '(') {return 0; } // zero arguments is legal here
+void parsesubscripts() {
+	args=0;
+	if (token != '(') return; // zero arguments is legal here
 	nexttoken();
-	args=parsearguments();
-	if (er != 0) return 0; 
-	if (token != ')') {error(EARGS); return 0; }
-	return args;
+	parsearguments();
+	if (er != 0) return; 
+	if (token != ')') {error(EARGS); return; }
 }
 
 
 // parse a function argument ae is the number of 
 // expected expressions in the argument list
 void parsefunction(void (*f)(), short ae){
-	char args;
 	nexttoken();
-	args=parsesubscripts();
+	parsesubscripts();
 	if (er != 0) return;
 	if (args == ae) f(); else error(EARGS);
 }
@@ -2393,42 +2557,37 @@ void parseoperator(void (*f)()) {
 #ifdef HASAPPLE1
 void parsesubstring() {
 	char xc1, yc1; 
-	char args;
 	address_t h1; // remember the here
 	char* bi1;
 
 	// remember the string name
-    xc1=xc;
-    yc1=yc;
+	xc1=xc;
+	yc1=yc;
 
-    if (st == SINT) // this is a hack - we rewind a token !
-    { 
-    	bi1=bi; 
-    }
-    else 
-    	h1=here; 
+  if (st == SINT) // this is a hack - we rewind a token ! 
+		bi1=bi; 
+	else 
+		h1=here; 
 
-    nexttoken();
-    args=parsesubscripts();
-    if (er != 0) return; 
+	nexttoken();
+	parsesubscripts();
+	if (er != 0) return; 
 
-    switch(args) {
-    	case 2: 
-    		break;
+	switch(args) {
+		case 2: 
+			break;
 		case 1:
 			push(lenstring(xc1, yc1));
 			break;
 		case 0: 
 			if (st == SINT) // this is a hack - we rewind a token !
-			{
 				bi=bi1;
-			}	
 			else 
 				here=h1; 
 			push(1);
 			push(lenstring(xc1, yc1));	
 			break;
-    }
+	}
 }
 #endif
 
@@ -2440,27 +2599,26 @@ void xabs(){
 
 // sign
 void xsgn(){
-	number_t n;
-	n=pop();
-	if (n>0) n=1;
-	if (n<0) n=-1;
-	push(n);
+	x=pop();
+	if (x>0) x=1;
+	if (x<0) x=-1;
+	push(x);
 }
 
 // on an arduino, negative values of peek address 
 // the EEPROM range -1 .. -1024 on an UNO
 void xpeek(){
 	address_t amax;
-	address_t a;
-	a=pop();
+
+	x=pop();
 
 	// this is a hack again, 16 bit numbers can't peek big addresses
 	if ((long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
 
-	if (a >= 0 && a<amax) 
-		push(mem[a]);
-	else if (a < 0 && -a < elength())
-		push(eread(-a-1));
+	if (x >= 0 && x<amax) 
+		push(mem[(unsigned int) x]);
+	else if (x < 0 && -x < elength())
+		push(eread(-x-1));
 	else {
 		error(ERANGE);
 		return;
@@ -2766,7 +2924,6 @@ void xavail() {
 // nothing here should end with a new token - this is handled 
 // in factors calling function
 void factor(){
-	char args;
 	if (DEBUG) debug("factor\n");
 	switch (token) {
 		case NUMBER: 
@@ -2779,7 +2936,7 @@ void factor(){
 			push(yc);
 			push(xc);
 			nexttoken();
-			args=parsesubscripts();
+			parsesubscripts();
 			if (er != 0 ) return;
 			if (args != 1) { error(EARGS); return; }	
 			x=pop();
@@ -3033,6 +3190,7 @@ nextfactor:
 		}
 		goto nextfactor;
 	} 
+	if (DEBUG) debug("leaving term\n");
 }
 
 void addexpression(){
@@ -3170,12 +3328,9 @@ processsymbol:
 	// modifiers of the print statement
 	if (token == '#' || token == '&') {
 		modifier=token;
-
-
 		nexttoken();
 		expression();
 		if (er != 0) return;
-
 
 		switch(modifier) {
 			case '#':
@@ -3222,7 +3377,6 @@ separators:
 */
 
 void lefthandside(address_t* i, char* ps) {
-	char args;
 
 	switch (token) {
 		case VARIABLE:
@@ -3230,7 +3384,7 @@ void lefthandside(address_t* i, char* ps) {
 			break;
 		case ARRAYVAR:
 			nexttoken();
-			args=parsesubscripts();
+			parsesubscripts();
 			nexttoken();
 			if (er != 0) return;
 			if (args != 1) {
@@ -3242,7 +3396,7 @@ void lefthandside(address_t* i, char* ps) {
 #ifdef HASAPPLE1
 		case STRINGVAR:
 			nexttoken();
-			args=parsesubscripts();
+			parsesubscripts();
 			if (er != 0) return;
 			switch(args) {
 				case 0:
@@ -3364,7 +3518,7 @@ void assignment() {
 			// this code is needed to make sure we can copy one string to the same string 
 			// without overwriting stuff, we go either left to right or backwards
 			if (x > i) 
-				for (j=0; j<lensource; j++) { ir[j]=ir2[j];}
+				for (j=0; j<lensource; j++) ir[j]=ir2[j];
 			else
 				for (j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
 
@@ -3385,7 +3539,6 @@ void assignment() {
 */
 
 void xinput(){
-	char args;
 	char oldid = 0;
 
 	nexttoken();
@@ -3432,9 +3585,8 @@ nextvariable:
 	} 
 
 	if (token == ARRAYVAR) {
-
 		nexttoken();
-		args=parsesubscripts();
+		parsesubscripts();
 		if (er != 0 ) return;
 		if (args != 1) {
 			error(EARGS);
@@ -3634,7 +3786,7 @@ void xfor(){
 	} 
 
 	if (! termsymbol()) {
-		error(UNKNOWN);
+		error(EUNKNOWN);
 		return;
 	}
 
@@ -3774,16 +3926,14 @@ void outputtoken() {
 
 }
 
-
 void xlist(){
 	number_t b, e;
-	address_t arg;
 	char oflag = FALSE;
 
 	nexttoken();
- 	arg=parsearguments();
+ 	parsearguments();
 	if (er != 0) return;
-	switch (arg) {
+	switch (args) {
 		case 0: 
 			b=0;
 			e=32767;
@@ -3833,22 +3983,22 @@ void xrun(){
 	} 
 
 	nexttoken();
-	y=parsearguments();
+	parsearguments();
 	if (er != 0 ) return;
-	if (y > 1) { error(EARGS); return; }
-	if (y == 0) 
+	if (args > 1) { error(EARGS); return; }
+	if (args == 0) 
 		here=0;
 	else
 		findline(pop());
-	if ( er != 0 ) return;
+	if (er != 0) return;
 	if (st == SINT) st=SRUN;
 
 	xclr();
 
 statementloop:
-	while ( (here < top) && (st == SRUN || st == SERUN) && ! er) {	
-		statement();
-	}
+  // the original loop is not needed any more
+	// while ( (here < top) && (st == SRUN || st == SERUN) && ! er) statement();
+  statement();
 	st=SINT;
 }
 
@@ -3863,7 +4013,6 @@ void xnew(){ // the general cleanup function
 	nvars=0;
 	clrgosubstack();
 	clrforstack();
-
 }
 
 
@@ -3900,7 +4049,7 @@ void xclr() {
 */
 
 void xdim(){
-	char args, xcl, ycl; 
+	char xcl, ycl; 
 	signed char t;
 
 	nexttoken();
@@ -3913,10 +4062,10 @@ nextvariable:
 		ycl=yc;
 
 		nexttoken();
-		args=parsesubscripts();
+		parsesubscripts();
 		if (er != 0) return;
-
 		if (args != 1) {error(EARGS); return; }
+
 		x=pop();
 		if (x<=0) {error(ERANGE); return; }
 		if (t == STRINGVAR) {
@@ -3949,7 +4098,6 @@ nextvariable:
 
 void xpoke(){
 	address_t amax;
-	address_t a;
 
 	// like in peek
 	// this is a hack again, 16 bit numbers can't peek big addresses
@@ -3960,11 +4108,12 @@ void xpoke(){
 	if (er != 0) return;
 
 	y=pop();
-	a=pop();
-	if (a >= 0 && a<amax) 
-		mem[a]=y;
-	else if (a < 0 && a >= -elength())
-			eupdate(-a-1, y);
+	x=pop();
+
+	if (x >= 0 && x<amax) 
+		mem[(unsigned int) x]=y;
+	else if (x < 0 && x >= -elength())
+			eupdate(-x-1, y);
 	else {
 		error(ERANGE);
 	}
@@ -3996,14 +4145,12 @@ void xtab(){
 
 void xdump() {
 	address_t a;
-	char arg;
 	
 	nexttoken();
-	arg=parsearguments();
+	parsearguments();
 	if (er != 0) return;
 
-
-	switch (arg) {
+	switch (args) {
 		case 0: 
 			x=0;
 			a=memsize;
@@ -4044,7 +4191,7 @@ void dumpmem(address_t r, address_t b) {
 		i--;
 		if (k > memsize) break;
 	}
-#ifdef ARDUINOEEPROM
+#if defined(ARDUINOEEPROM) || ( !defined(ARDUINO) && EEPROMSIZE>0)
 	printmessage(EEEPROM); outcr();
 	i=r;
 	k=0;
@@ -4104,7 +4251,6 @@ void getfilename(char *buffer, char d) {
 		error(EUNKNOWN);
 	}
 }
-
 
 #if defined(FILESYSTEMDRIVER)
 // save a file either to disk or to EEPROM
@@ -4197,7 +4343,7 @@ void xload(char * f) {
 				return;
 			} 
 
-    	bi=ibuffer+1;
+    bi=ibuffer+1;
 		while (fileavailable()) {
       		ch=fileread();
       		if (ch == '\n' || ch == '\r') {
@@ -4290,7 +4436,6 @@ void xget(){
 
 void xput(){
 	unsigned char ood=od;
-	char args;
 	short i;
 
 	nexttoken();
@@ -4307,7 +4452,7 @@ void xput(){
 		nexttoken();
 	}
 
-	args=parsearguments();
+	parsearguments();
 	if (er != 0) return;
 
 	for (i=args-1; i>=0; i--) sbuffer[i]=pop();
@@ -4325,23 +4470,23 @@ void xput(){
 */
 
 void xset(){
-	address_t fn, arg;
+	address_t fn;
 
 	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return;
 
-	arg=pop();
+	args=pop();
 	fn=pop();
 	switch (fn) {	
 		case 0:
-			debuglevel=arg;
+			debuglevel=args;
 			break;	
 		case 1: // autorun/run flag of the EEPROM 255 for clear, 0 for prog, 1 for autorun
-			eupdate(0, arg);
+			eupdate(0, args);
 			break;
 		case 2: // change the output device 
-			switch (arg) {
+			switch (args) {
 				case 0:
 					od=OSERIAL;
 					break;
@@ -4351,7 +4496,7 @@ void xset(){
 			}		
 			break;
 		case 3: // change the default output device
-			switch (arg) {
+			switch (args) {
 				case 0:
 					od=(odd=OSERIAL);
 					break;
@@ -4361,7 +4506,7 @@ void xset(){
 			}		
 			break;
 		case 4: // change the input device (deprectated use @i instead)
-			switch (arg) {
+			switch (args) {
 				case 0:
 					id=ISERIAL;
 					break;
@@ -4371,7 +4516,7 @@ void xset(){
 			}		
 			break;		
 		case 5: // change the default input device 
-			switch (arg) {
+			switch (args) {
 				case 0:
 					idd=(id=ISERIAL);
 					break;
@@ -4382,16 +4527,16 @@ void xset(){
 			break;	
 #ifdef ARDUINOPRT
 		case 6: // set the cr behaviour
-			sendcr=(char)arg;
+			sendcr=(char)args;
 			break;
 		case 7: // set the blockmode behaviour
-      		blockmode=arg;
+      		blockmode=args;
       		break;
 #endif
 #ifdef ARDUINORF24
       	case 8: // set the power amplifier level of the module
-      		if ((arg<0) && (arg>3)) {error(ERANGE); return; } 
-      		rf24_pa=(rf24_pa_dbm_e) arg;
+      		if ((args<0) && (args>3)) {error(ERANGE); return; } 
+      		rf24_pa=(rf24_pa_dbm_e) args;
       		radio.setPALevel(rf24_pa);
       		break;
 #endif			
@@ -4462,10 +4607,9 @@ void xdelay(){
 
 #ifdef HASGRAPH
 void xcolor() {
-	short args;
 	short r, g, b;
 	nexttoken();
-	args=parsearguments();
+	parsearguments();
 	if (er != 0) return;
 	switch(args) {
 		case 1: 
@@ -4556,10 +4700,9 @@ void xfcircle() {
 
 #ifdef HASTONE
 void xtone(){
-	char args;
 
 	nexttoken();
-	args=parsearguments();
+	parsearguments();
 	if (er != 0) return;
 	if (args>3 || args<2) {
 		error(EARGS);
@@ -4572,7 +4715,7 @@ void xtone(){
 #else 
 	x=pop();
 	y=pop();
-	if (args=2) {
+	if (args == 2) {
 		tone(y,x);
 	} else {
 		z.i=pop();
@@ -4643,7 +4786,6 @@ void xopen() {
 #if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE)
 	char stream = IFILE; // default is file operation
 	char filename[SBUFSIZE];
-	char args=0;
 	char mode;
 	char nlen;
 
@@ -4662,10 +4804,11 @@ void xopen() {
 	nlen=x;
 
 	// and the arguments
+	args=0;
 	nexttoken();
 	if (token == ',') { 
 		nexttoken(); 
-		args=parsearguments();
+		parsearguments();
 	}
 
 	if (args == 0 ) { 
@@ -4738,7 +4881,6 @@ void xclose() {
 #if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE)
 	char stream = IFILE;
 	char mode;
-	char args=0;
 
 	nexttoken();
 	if (token == '&') {
@@ -4748,9 +4890,8 @@ void xclose() {
 		nexttoken();
 	}
 
-	args=parsearguments();
-
-	if (args == 0 ) { 
+	parsearguments();
+	if (args == 0) { 
 		mode=0; 
 	} else if (args == 1) {
 		mode=pop();
@@ -4856,7 +4997,8 @@ void xcall() {
 	if (!expectexpr()) return;
 	r=pop();
 	switch(r) {
-		case 0: 
+		case 0:
+			eflush(); // flush the EEPROM dummy and then exit  
 #ifndef ARDUINO
 			exit(0);
 #endif
@@ -5086,7 +5228,6 @@ void xdef(){
 void xon(){
 	number_t cr;
 	int ci;
-	short args;
 	signed char t;
 	address_t tmp, line = 0;
 	
@@ -5108,7 +5249,7 @@ void xon(){
 
 	// how many arguments have we got here
 	nexttoken();
-	args=parsearguments();
+	parsearguments();
 	if (er != 0) return;
 	if (args == 0) { error(EARGS); return; }
 	
@@ -5215,6 +5356,11 @@ void xiter(){
 	line is ignored. A function that doesn't call nexttoken and just 
 	breaks causes an infinite loop.
 
+	Statement is called once in interactive mode and terminates 
+	at end of line. 
+
+
+
 */
 
 void statement(){
@@ -5264,9 +5410,10 @@ void statement(){
 				xbreak();
 				break;
 			case TSTOP:
-			case TEND: // return here because new input is needed
+			case TEND:		// return here because new input is needed
 				*ibuffer=0; // clear ibuffer - this is a hack
-				st=SINT;
+				st=SINT;		// switch to interactive mode
+				eflush(); 	// if there is an EEPROM dummy, flush it here (protects flash storage!)
 				return;
 			case TLIST:
 				xlist();
@@ -5472,8 +5619,8 @@ void loop() {
 	// autorun code always must loop in itself
 	if (st == SERUN ) {
 		xrun();
-    	top=0;
-    	st=SINT;
+    top=0;
+    st=SINT;
 	} else if (st == SRUN) {
 		here=0;
 		xrun();
@@ -5485,7 +5632,7 @@ void loop() {
 
 	// the prompt and the input request
 	printmessage(MPROMPT);
-    ins(ibuffer, BUFSIZE-2);
+	ins(ibuffer, BUFSIZE-2);
         
     // tokenize first token from the input buffer
 	bi=ibuffer;
