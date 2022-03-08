@@ -57,7 +57,7 @@
 
 	leave this unset if you use the definitions below
 */
-#undef USESPICOSERIAL 
+#define USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
 #undef DISPLAYCANSCROLL
@@ -65,7 +65,7 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#undef ARDUINOEEPROM
+#define ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -98,7 +98,7 @@
 
 #undef UNOPLAIN
 #undef AVRLCD
-#define WEMOSSHIELD
+#undef WEMOSSHIELD
 #undef MEGASHIELD
 #undef TTGOVGA
 #undef DUETFT
@@ -141,8 +141,12 @@
 #endif
 
 // a Wemos ESP8266 with a mdified datalogger shield 
-// standalone capable
+// standalone capable, memsize is set 0 as a workaround
+// of the ESP8266 compiler bug with static memory
+// use the memmodel mechanism instead to set BASIC mem 
+// size
 #if defined(WEMOSSHIELD)
+#define ARDUINOEEPROM
 #define ARDUINOPS2
 #define DISPLAYCANSCROLL
 #define ARDUINOLCDI2C
@@ -174,6 +178,7 @@
 
 // VGA system with SD card, standalone by default
 #if defined(TTGOVGA)
+#define ARDUINOEEPROM
 #define ARDUINOPS2
 #define ARDUINOVGA
 #define ARDUINOSD
@@ -216,8 +221,11 @@
 #include <avr/dtostrf.h>
 #endif
 #define ARDUINO 100
-#undef ARDUINOEEPROM
 #endif
+
+/*
+  Some settings and defaults
+*/
 
 /* 
 	all microcontrollers, their libraries and dependencies
@@ -1264,13 +1272,34 @@ char mqttinch() {return 0;};
 
 */ 
 
-void ebegin(){}
-void eflush(){}
+void ebegin(){
+#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)
+  EEPROM.begin(EEPROMSIZE);
+#endif
+}
+
+void eflush(){
+#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)  
+  EEPROM.commit();
+#endif 
+}
 
 // only the internal Arduino EEPROM, no external EEPROM
 #if defined(ARDUINOEEPROM)
-address_t elength() { return EEPROM.length(); }
-void eupdate(address_t a, short c) { EEPROM.update(a, c); }
+address_t elength() { 
+#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)
+  return EEPROMSIZE;
+#else
+  return EEPROM.length(); 
+#endif
+}
+void eupdate(address_t a, short c) { 
+#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)
+  EEPROM.write(a, c);
+#else
+  EEPROM.update(a, c); 
+#endif
+}
 short eread(address_t a) { return (signed char) EEPROM.read(a); }
 #endif
 
@@ -1742,7 +1771,7 @@ void formatdisk(short i) {
 	return;
 #endif
 #ifdef ESPSPIFFS
-	return;
+	if (SPIFFS.format()) { SPIFFS.begin(); outsc("ok"); } else { outsc("fail"); }
 #endif
 #ifdef RP2040LITTLEFS
 	return;

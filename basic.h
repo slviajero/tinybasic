@@ -83,6 +83,9 @@ typedef unsigned char uint8_t;
 #define YIELDINTERVAL 32
 #define YIELDTIME 2
 
+// the default EEPROM dummy size
+#define EEPROMSIZE 1024
+
 /*
 
    	The tokens:
@@ -707,6 +710,8 @@ static address_t nvars = 0;
 
 static char form = 0;
 
+static signed char args;
+
 // this is unsigned hence address_t 
 static address_t rd;
 
@@ -970,9 +975,9 @@ void storeline();
 // read arguments from the token stream.
 char  termsymbol();
 void  parsesubstring();
-short parsesubscripts();
+void  parsesubscripts();
 void  parsenarguments(char);
-short parsearguments();
+void  parsearguments();
 
 // mathematics and other functions / int and float
 void rnd();

@@ -2,9 +2,9 @@
 
 	$Id: basic.c,v 1.130 2022/02/27 15:45:35 stefan Exp stefan $
 
-	Stefan's basic interpreter 
+	Stefan's IoT BASIC interpreter 
 
-	Playing around with frugal programming. See the licence file on 
+ 	See the licence file on 
 	https://github.com/slviajero/tinybasic for copyright/left.
     (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
 
@@ -114,7 +114,6 @@ void mqttins(char *b, short nb) { z.a=0; };
 char mqttinch() {return 0;};
 
 // EEPROM handling - this is the minimal POSIX eeprom dummy
-#define EEPROMSIZE 1024
 uint8_t eeprom[EEPROMSIZE];
 void ebegin(){ 
 	int i;
@@ -360,19 +359,20 @@ char serialavailable() {return TRUE; }
 // reading from the console with inch
 void consins(char *b, short nb) {
 	char c;
-	short i = 1;
-	while(i < nb) {
+	
+	z.a=1;
+	while(z.a < nb) {
 		c=inch();
 		if (c == '\r') c=inch();
 		if (c == '\n' || c == -1 ) { /* terminal character is either newline or EOF */
 			break;
 		} else {
-			b[i++]=c;
+			b[z.a++]=c;
 		} 
 	}
-	b[i]=0x00;
-	b[0]=(unsigned char)i-1;
-	z.a=i-1;
+	b[z.a]=0x00;
+	z.a--;
+	b[0]=(unsigned char)z.a;
 }
 
 
@@ -427,19 +427,44 @@ void oradioopen(char *filename) {}
  */
 
 #if MEMSIZE == 0
-// guess the possible basic memory size
+/*
+	determine the possible basic memory size
+	using malloc causes some overhead which can be relevant on the smaller 
+	boards. set MEMSIZE instead to a static value. In this case ballocmem 
+	just returns the static MEMSIZE
+*/
+
 address_t ballocmem() {
 	signed char i = 0;
-	// 									RP2040      ESP        MK       MEGA    UNO  168  FALLBACK
-	const unsigned short memmodel[9] = {60000, 40000, 32000, 24000, 6000, 4096, 1024, 512, 128}; 
+	
+	// memory models available, this is very convervative
+	const unsigned short memmodel[9] = {
+		60000,  // DUE systems, RP2040 and ESP32, all POSIX systems - set to fit in one 16 bit page
+		40000, 	// simple ESP8266 systems without network, MSDOS small model 
+		32000, 	// complex ESP8266 with network and many additional suff
+		24000,  // Arduino MK boards, SAMD, Seeduino
+		6000,   // Arduino AVR MEGA boards without SD
+		4096, 	// Arduino Nano Every, MEGA with a lot of stuff 
+		1024, 	// UNO
+		512, 		// AVR168 (theoretically - but better set MEMSIZE static)
+		128			// fallback, something has gone wrong
+	}; 
 
-	if (sizeof(number_t) <= 2) i=3;
 // this is tiny model MSDOS compile - dos chrashes on 
-// file access with 60 k allocated in a tiny model
+// file access with 60k allocated in a tiny DOC compiler model, 
+// don't use the 60k 
 #ifdef MSDOS
 	i=1;
 #endif
-	if (sizeof(number_t) <= 2) i=3;
+
+// if a memodel is defined somewhere in the hardware
+// section, use this for a start
+#ifdef MEMMODEL
+	i=MEMMODEL;
+#endif	
+
+	// if the number type is only 2 bytes max memory is 32000
+	if (sizeof(number_t) <= 2) i=2;
 
 	do {
 		mem=(signed char*)malloc(memmodel[i]);
@@ -528,11 +553,11 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 	address_t vsize;     // the length of the header
 	address_t b;
 
-    if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
+	if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
 
-    /*
+/*
 		check if the object already exists
-    */
+*/
     if (bfind(t, c, d) != 0 ) { error(EVARIABLE); return 0; };
 
 	/* 
@@ -994,9 +1019,10 @@ number_t lenstring(char c, char d){
 		return ibuffer[0];
 
 #if !defined(ARDUINO) || defined(ARDUINORTC) 
-	if (c == '@' && d == 'T' )
+	if (c == '@' && d == 'T' ) {
 		rtcmkstr();
 		return rtcstring[0];
+	}
 #endif
 
 	a=bfind(STRINGVAR, c, d);
@@ -1381,7 +1407,6 @@ char inch(){
 			do {
 				if (kbdavailable()) c=kbdread();
 				byield();
-				delay(1); // this seems to be needed on an ESP, probably rather yield()
 			} while(c == 0);	
     	if (c == 13) c=10;
 			return c;
@@ -2490,11 +2515,13 @@ char expectexpr() {
 
 
 // parses a list of expression
-short parsearguments() {
-	char args=0;
+void parsearguments() {
+
+	// begin counting
+	args=0; 
 
 	// having 0 args at the end of a command is legal
-	if (termsymbol()) return args;
+	if (termsymbol()) return;
 
 	// list of expressions separated by commas
 	do {
@@ -2504,34 +2531,31 @@ short parsearguments() {
 		if (token != ',') break;
 		nexttoken();
 	} while (TRUE);
-
-	return args;
 }
 
 
 // expect exactly n arguments
 void parsenarguments(char n) {
-	if (parsearguments() != n ) error(EARGS);
+	parsearguments();
+	if (args != n ) error(EARGS);
 }
 
 // counts and parses the number of arguments given in brakets
-short parsesubscripts() {
-	char args = 0;
-	if (token != '(') {return 0; } // zero arguments is legal here
+void parsesubscripts() {
+	args=0;
+	if (token != '(') return; // zero arguments is legal here
 	nexttoken();
-	args=parsearguments();
-	if (er != 0) return 0; 
-	if (token != ')') {error(EARGS); return 0; }
-	return args;
+	parsearguments();
+	if (er != 0) return; 
+	if (token != ')') {error(EARGS); return; }
 }
 
 
 // parse a function argument ae is the number of 
 // expected expressions in the argument list
 void parsefunction(void (*f)(), short ae){
-	char args;
 	nexttoken();
-	args=parsesubscripts();
+	parsesubscripts();
 	if (er != 0) return;
 	if (args == ae) f(); else error(EARGS);
 }
@@ -2549,42 +2573,37 @@ void parseoperator(void (*f)()) {
 #ifdef HASAPPLE1
 void parsesubstring() {
 	char xc1, yc1; 
-	char args;
 	address_t h1; // remember the here
 	char* bi1;
 
 	// remember the string name
-    xc1=xc;
-    yc1=yc;
+	xc1=xc;
+	yc1=yc;
 
-    if (st == SINT) // this is a hack - we rewind a token !
-    { 
-    	bi1=bi; 
-    }
-    else 
-    	h1=here; 
+  if (st == SINT) // this is a hack - we rewind a token ! 
+		bi1=bi; 
+	else 
+		h1=here; 
 
-    nexttoken();
-    args=parsesubscripts();
-    if (er != 0) return; 
+	nexttoken();
+	parsesubscripts();
+	if (er != 0) return; 
 
-    switch(args) {
-    	case 2: 
-    		break;
+	switch(args) {
+		case 2: 
+			break;
 		case 1:
 			push(lenstring(xc1, yc1));
 			break;
 		case 0: 
 			if (st == SINT) // this is a hack - we rewind a token !
-			{
 				bi=bi1;
-			}	
 			else 
 				here=h1; 
 			push(1);
 			push(lenstring(xc1, yc1));	
 			break;
-    }
+	}
 }
 #endif
 
@@ -2596,11 +2615,10 @@ void xabs(){
 
 // sign
 void xsgn(){
-	number_t n;
-	n=pop();
-	if (n>0) n=1;
-	if (n<0) n=-1;
-	push(n);
+	x=pop();
+	if (x>0) x=1;
+	if (x<0) x=-1;
+	push(x);
 }
 
 // on an arduino, negative values of peek address 
@@ -2922,7 +2940,6 @@ void xavail() {
 // nothing here should end with a new token - this is handled 
 // in factors calling function
 void factor(){
-	char args;
 	if (DEBUG) debug("factor\n");
 	switch (token) {
 		case NUMBER: 
@@ -2935,7 +2952,7 @@ void factor(){
 			push(yc);
 			push(xc);
 			nexttoken();
-			args=parsesubscripts();
+			parsesubscripts();
 			if (er != 0 ) return;
 			if (args != 1) { error(EARGS); return; }	
 			x=pop();
@@ -3327,12 +3344,9 @@ processsymbol:
 	// modifiers of the print statement
 	if (token == '#' || token == '&') {
 		modifier=token;
-
-
 		nexttoken();
 		expression();
 		if (er != 0) return;
-
 
 		switch(modifier) {
 			case '#':
@@ -3379,7 +3393,6 @@ separators:
 */
 
 void lefthandside(address_t* i, char* ps) {
-	char args;
 
 	switch (token) {
 		case VARIABLE:
@@ -3387,7 +3400,7 @@ void lefthandside(address_t* i, char* ps) {
 			break;
 		case ARRAYVAR:
 			nexttoken();
-			args=parsesubscripts();
+			parsesubscripts();
 			nexttoken();
 			if (er != 0) return;
 			if (args != 1) {
@@ -3399,7 +3412,7 @@ void lefthandside(address_t* i, char* ps) {
 #ifdef HASAPPLE1
 		case STRINGVAR:
 			nexttoken();
-			args=parsesubscripts();
+			parsesubscripts();
 			if (er != 0) return;
 			switch(args) {
 				case 0:
@@ -3542,7 +3555,6 @@ void assignment() {
 */
 
 void xinput(){
-	char args;
 	char oldid = 0;
 
 	nexttoken();
@@ -3589,9 +3601,8 @@ nextvariable:
 	} 
 
 	if (token == ARRAYVAR) {
-
 		nexttoken();
-		args=parsesubscripts();
+		parsesubscripts();
 		if (er != 0 ) return;
 		if (args != 1) {
 			error(EARGS);
@@ -3931,16 +3942,14 @@ void outputtoken() {
 
 }
 
-
 void xlist(){
 	number_t b, e;
-	address_t arg;
 	char oflag = FALSE;
 
 	nexttoken();
- 	arg=parsearguments();
+ 	parsearguments();
 	if (er != 0) return;
-	switch (arg) {
+	switch (args) {
 		case 0: 
 			b=0;
 			e=32767;
@@ -3990,20 +3999,22 @@ void xrun(){
 	} 
 
 	nexttoken();
-	y=parsearguments();
+	parsearguments();
 	if (er != 0 ) return;
-	if (y > 1) { error(EARGS); return; }
-	if (y == 0) 
+	if (args > 1) { error(EARGS); return; }
+	if (args == 0) 
 		here=0;
 	else
 		findline(pop());
-	if ( er != 0 ) return;
+	if (er != 0) return;
 	if (st == SINT) st=SRUN;
 
 	xclr();
 
 statementloop:
-	while ( (here < top) && (st == SRUN || st == SERUN) && ! er) statement();
+  // the original loop is not needed any more
+	// while ( (here < top) && (st == SRUN || st == SERUN) && ! er) statement();
+  statement();
 	st=SINT;
 }
 
@@ -4054,7 +4065,7 @@ void xclr() {
 */
 
 void xdim(){
-	char args, xcl, ycl; 
+	char xcl, ycl; 
 	signed char t;
 
 	nexttoken();
@@ -4067,10 +4078,10 @@ nextvariable:
 		ycl=yc;
 
 		nexttoken();
-		args=parsesubscripts();
+		parsesubscripts();
 		if (er != 0) return;
-
 		if (args != 1) {error(EARGS); return; }
+
 		x=pop();
 		if (x<=0) {error(ERANGE); return; }
 		if (t == STRINGVAR) {
@@ -4115,8 +4126,6 @@ void xpoke(){
 	y=pop();
 	x=pop();
 
-	printf("poke elength %d and address %f", elength(), x);
-
 	if (x >= 0 && x<amax) 
 		mem[(unsigned int) x]=y;
 	else if (x < 0 && x >= -elength())
@@ -4152,14 +4161,12 @@ void xtab(){
 
 void xdump() {
 	address_t a;
-	char arg;
 	
 	nexttoken();
-	arg=parsearguments();
+	parsearguments();
 	if (er != 0) return;
 
-
-	switch (arg) {
+	switch (args) {
 		case 0: 
 			x=0;
 			a=memsize;
@@ -4352,7 +4359,7 @@ void xload(char * f) {
 				return;
 			} 
 
-    	bi=ibuffer+1;
+    bi=ibuffer+1;
 		while (fileavailable()) {
       		ch=fileread();
       		if (ch == '\n' || ch == '\r') {
@@ -4445,7 +4452,6 @@ void xget(){
 
 void xput(){
 	unsigned char ood=od;
-	char args;
 	short i;
 
 	nexttoken();
@@ -4462,7 +4468,7 @@ void xput(){
 		nexttoken();
 	}
 
-	args=parsearguments();
+	parsearguments();
 	if (er != 0) return;
 
 	for (i=args-1; i>=0; i--) sbuffer[i]=pop();
@@ -4480,23 +4486,23 @@ void xput(){
 */
 
 void xset(){
-	address_t fn, arg;
+	address_t fn;
 
 	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return;
 
-	arg=pop();
+	args=pop();
 	fn=pop();
 	switch (fn) {	
 		case 0:
-			debuglevel=arg;
+			debuglevel=args;
 			break;	
 		case 1: // autorun/run flag of the EEPROM 255 for clear, 0 for prog, 1 for autorun
-			eupdate(0, arg);
+			eupdate(0, args);
 			break;
 		case 2: // change the output device 
-			switch (arg) {
+			switch (args) {
 				case 0:
 					od=OSERIAL;
 					break;
@@ -4506,7 +4512,7 @@ void xset(){
 			}		
 			break;
 		case 3: // change the default output device
-			switch (arg) {
+			switch (args) {
 				case 0:
 					od=(odd=OSERIAL);
 					break;
@@ -4516,7 +4522,7 @@ void xset(){
 			}		
 			break;
 		case 4: // change the input device (deprectated use @i instead)
-			switch (arg) {
+			switch (args) {
 				case 0:
 					id=ISERIAL;
 					break;
@@ -4526,7 +4532,7 @@ void xset(){
 			}		
 			break;		
 		case 5: // change the default input device 
-			switch (arg) {
+			switch (args) {
 				case 0:
 					idd=(id=ISERIAL);
 					break;
@@ -4537,16 +4543,16 @@ void xset(){
 			break;	
 #ifdef ARDUINOPRT
 		case 6: // set the cr behaviour
-			sendcr=(char)arg;
+			sendcr=(char)args;
 			break;
 		case 7: // set the blockmode behaviour
-      		blockmode=arg;
+      		blockmode=args;
       		break;
 #endif
 #ifdef ARDUINORF24
       	case 8: // set the power amplifier level of the module
-      		if ((arg<0) && (arg>3)) {error(ERANGE); return; } 
-      		rf24_pa=(rf24_pa_dbm_e) arg;
+      		if ((args<0) && (args>3)) {error(ERANGE); return; } 
+      		rf24_pa=(rf24_pa_dbm_e) args;
       		radio.setPALevel(rf24_pa);
       		break;
 #endif			
@@ -4617,10 +4623,9 @@ void xdelay(){
 
 #ifdef HASGRAPH
 void xcolor() {
-	short args;
 	short r, g, b;
 	nexttoken();
-	args=parsearguments();
+	parsearguments();
 	if (er != 0) return;
 	switch(args) {
 		case 1: 
@@ -4711,10 +4716,9 @@ void xfcircle() {
 
 #ifdef HASTONE
 void xtone(){
-	char args;
 
 	nexttoken();
-	args=parsearguments();
+	parsearguments();
 	if (er != 0) return;
 	if (args>3 || args<2) {
 		error(EARGS);
@@ -4727,7 +4731,7 @@ void xtone(){
 #else 
 	x=pop();
 	y=pop();
-	if (args=2) {
+	if (args == 2) {
 		tone(y,x);
 	} else {
 		z.i=pop();
@@ -4798,7 +4802,6 @@ void xopen() {
 #if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE)
 	char stream = IFILE; // default is file operation
 	char filename[SBUFSIZE];
-	char args=0;
 	char mode;
 	char nlen;
 
@@ -4817,10 +4820,11 @@ void xopen() {
 	nlen=x;
 
 	// and the arguments
+	args=0;
 	nexttoken();
 	if (token == ',') { 
 		nexttoken(); 
-		args=parsearguments();
+		parsearguments();
 	}
 
 	if (args == 0 ) { 
@@ -4893,7 +4897,6 @@ void xclose() {
 #if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE)
 	char stream = IFILE;
 	char mode;
-	char args=0;
 
 	nexttoken();
 	if (token == '&') {
@@ -4903,9 +4906,8 @@ void xclose() {
 		nexttoken();
 	}
 
-	args=parsearguments();
-
-	if (args == 0 ) { 
+	parsearguments();
+	if (args == 0) { 
 		mode=0; 
 	} else if (args == 1) {
 		mode=pop();
@@ -4925,9 +4927,11 @@ void xclose() {
 
 void xfdisk() {
 	nexttoken();
-	parsenarguments(1);
+	parsearguments();
 	if (er != 0) return;
-	outsc("y?");
+	if (args > 1) error(ERANGE);
+	if (args == 0) push(0);
+	outsc("Format disk (y/N)?");
 	consins(sbuffer, SBUFSIZE);
 	if (sbuffer[1] == 'y') formatdisk(pop());
 }
@@ -5016,6 +5020,7 @@ void xcall() {
 #ifndef ARDUINO
 			exit(0);
 #endif
+			break;
 		default:
 			error(ERANGE);
 			return;			
@@ -5242,7 +5247,6 @@ void xdef(){
 void xon(){
 	number_t cr;
 	int ci;
-	short args;
 	signed char t;
 	address_t tmp, line = 0;
 	
@@ -5264,7 +5268,7 @@ void xon(){
 
 	// how many arguments have we got here
 	nexttoken();
-	args=parsearguments();
+	parsearguments();
 	if (er != 0) return;
 	if (args == 0) { error(EARGS); return; }
 	
@@ -5370,6 +5374,11 @@ void xiter(){
 	and then break or it must return which means that the rest of the 
 	line is ignored. A function that doesn't call nexttoken and just 
 	breaks causes an infinite loop.
+
+	Statement is called once in interactive mode and terminates 
+	at end of line. 
+
+
 
 */
 

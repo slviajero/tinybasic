@@ -114,7 +114,6 @@ void mqttins(char *b, short nb) { z.a=0; };
 char mqttinch() {return 0;};
 
 // EEPROM handling - this is the minimal POSIX eeprom dummy
-#define EEPROMSIZE 1024
 uint8_t eeprom[EEPROMSIZE];
 void ebegin(){ 
 	int i;
@@ -5002,6 +5001,7 @@ void xcall() {
 #ifndef ARDUINO
 			exit(0);
 #endif
+      break;
 		default:
 			error(ERANGE);
 			return;			

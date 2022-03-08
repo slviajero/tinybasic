@@ -83,6 +83,9 @@ typedef unsigned char uint8_t;
 #define YIELDINTERVAL 32
 #define YIELDTIME 2
 
+// the default EEPROM dummy size
+#define EEPROMSIZE 1024
+
 /*
 
    	The tokens:
