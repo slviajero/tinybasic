@@ -35,7 +35,7 @@ See also:
 
 The interpreter includes most of the Dartmouth language set. Differences are mainly the string handling which was taken from Apple 1 integer BASIC. Autodimensioning of arrays and strings was taken from ECMA BASIC.
 
-The intepreter is compatible with two of the 1976 early basic dialects. It implements the full language set of Dr. Wang's Palo Alto Tinybasic from the December 1976 edition of Dr. Dobbs (https://github.com/slviajero/tinybasic/wiki/Unforgotten---Dr.-Wang's-BASIC). This is a remarkably complete little language with many useful features. 
+The intepreter is compatible with two of the 1976 early basic dialects. It implements the full language set of Dr. Wang's Palo Alto Tinybasic from the December 1976 edition of Dr. Dobbs (https://github.com/slviajero/tinybasic/wiki/Unforgotten:-Palo-Alto-BASIC). This is a remarkably complete little language with many useful features. 
 
 The interpreter also implements the specification of Apple Integer BASIC sold for the Apple 1 computer (https://github.com/slviajero/tinybasic/wiki/The-original-Apple-1-BASIC-manual). It should be fully Apple 1 compatible.
 
