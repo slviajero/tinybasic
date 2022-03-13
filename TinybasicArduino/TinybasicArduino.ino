@@ -38,7 +38,7 @@
 #define HASPULS
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#define HASVT52
+#undef HASVT52
 #define HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
@@ -427,15 +427,32 @@ void oradioopen(char *filename) {}
  */
 
 #if MEMSIZE == 0
-// guess the possible basic memory size
+/*
+	determine the possible basic memory size
+	using malloc causes some overhead which can be relevant on the smaller 
+	boards. set MEMSIZE instead to a static value. In this case ballocmem 
+	just returns the static MEMSIZE
+*/
+
 address_t ballocmem() {
 	signed char i = 0;
-	// 									RP2040      ESP        MK       MEGA    UNO  168  FALLBACK
-	const unsigned short memmodel[9] = {60000, 40000, 32000, 24000, 6000, 4096, 1024, 512, 128}; 
-
+	
+	// memory models available, this is very convervative
+	const unsigned short memmodel[9] = {
+		60000,  // DUE systems, RP2040 and ESP32, all POSIX systems - set to fit in one 16 bit page
+		40000, 	// simple ESP8266 systems without network, MSDOS small model 
+		32000, 	// complex ESP8266 with network and many additional suff
+		24000,  // Arduino MK boards, SAMD, Seeduino
+		6000,   // Arduino AVR MEGA boards without SD
+		4096, 	// Arduino Nano Every, MEGA with a lot of stuff 
+		1024, 	// UNO
+		512, 		// AVR168 (theoretically - but better set MEMSIZE static)
+		128			// fallback, something has gone wrong
+	}; 
 
 // this is tiny model MSDOS compile - dos chrashes on 
-// file access with 60 k allocated in a tiny model
+// file access with 60k allocated in a tiny DOC compiler model, 
+// don't use the 60k 
 #ifdef MSDOS
 	i=1;
 #endif
@@ -447,7 +464,7 @@ address_t ballocmem() {
 #endif	
 
 	// if the number type is only 2 bytes max memory is 32000
-	if (sizeof(number_t) <= 2) i=3;
+	if (sizeof(number_t) <= 2) i=2;
 
 	do {
 		mem=(signed char*)malloc(memmodel[i]);
@@ -1565,22 +1582,39 @@ void ins(char *b, short nb) {
 // output one character to a stream
 // block oriented i/o like in radio not implemented here
 void outch(char c) {
-	if (od == OSERIAL)
-		serialwrite(c);
+	switch(od) {
+		case OSERIAL:
+			serialwrite(c);
+			break;
 #ifdef FILESYSTEMDRIVER
-	if (od == OFILE) 
-		filewrite(c);
+		case OFILE:
+			filewrite(c);
+			break;
 #endif
 #ifdef ARDUNIOPRT
-	if (od == OPRT) 
-		prtwrite(c);
+		case OPRT:
+			prtwrite(c);
+			break;
 #endif
-	if (od == ODSP)
 #ifdef ARDUINOVGA
-		vgawrite(c);
+		case ODSP: 
+			vgawrite(c);
+			break;
 #else
-		dspwrite(c);
+#ifdef DISPLAYDRIVER
+		case ODSP: 
+			dspwrite(c);
+			break;
 #endif
+#endif
+#ifdef ARDUINOMQTT
+		case OMQTT:
+			mqttouts(&c, 1); // buffering for the PRINT command
+			break;
+#endif
+		default:
+			break;
+	}
 }
 
 // send a newline
@@ -1599,7 +1633,7 @@ void outspc() {
 /*
 	output a string of length x at index ir - basic style
 	default is a character by character operation, block 
-	oriented write need special functions
+	oriented write needs special functions
 
 */
 void outs(char *ir, short l){
@@ -3537,9 +3571,14 @@ void assignment() {
 
 */
 
+void showprompt() {
+	outsc("? ");
+}
+
 void xinput(){
 	char oldid = 0;
-
+	char prompt = TRUE;
+	
 	nexttoken();
 
 	// modifiers of the input statement
@@ -3549,6 +3588,7 @@ void xinput(){
 
 		oldid=id;
 		id=pop();
+		if (id != ISERIAL || id !=IKEYBOARD) prompt=FALSE;
 		if ( token != ',') {
 			error(EUNKNOWN);
 			return;
@@ -3558,7 +3598,8 @@ void xinput(){
 
 
 nextstring:
-	if (token == STRING && id != IFILE) {   
+	if (token == STRING && id != IFILE) {
+		prompt=FALSE;   
 		outs(ir, x);
 		nexttoken();
 		if (token != ',' && token != ';') {
@@ -3570,7 +3611,7 @@ nextstring:
 
 nextvariable:
 	if (token == VARIABLE) {   
-		if (id == ISERIAL || id == IKEYBOARD) outsc("? ");
+		if (prompt) showprompt();
 		if (innumber(&x) == BREAKCHAR) {
 			setvar(xc, yc, 0);
 			st=SINT;
@@ -3592,7 +3633,7 @@ nextvariable:
 			return;
 		}
 
-		if (id == ISERIAL || id == IKEYBOARD) outsc("? ");
+		if (prompt) showprompt();
 		if (innumber(&x) == BREAKCHAR) {
 			x=0;
 			array('s', xc, yc, pop(), &x);
@@ -3611,7 +3652,7 @@ nextvariable:
 	   in the string memory location */
 	if (token == STRINGVAR) {
 		ir=getstring(xc, yc, 1); 
-		if (id == ISERIAL || id == IKEYBOARD) outsc("? ");
+		if (prompt) showprompt();
 		ins(ir-1, stringdim(xc, yc));
 		/* this is the length information correction for large strings, ins
 			stored the string length in z.a as a side effect */
@@ -4910,9 +4951,11 @@ void xclose() {
 
 void xfdisk() {
 	nexttoken();
-	parsenarguments(1);
+	parsearguments();
 	if (er != 0) return;
-	outsc("y?");
+	if (args > 1) error(ERANGE);
+	if (args == 0) push(0);
+	outsc("Format disk (y/N)?");
 	consins(sbuffer, SBUFSIZE);
 	if (sbuffer[1] == 'y') formatdisk(pop());
 }
@@ -5001,7 +5044,7 @@ void xcall() {
 #ifndef ARDUINO
 			exit(0);
 #endif
-      break;
+			break;
 		default:
 			error(ERANGE);
 			return;			

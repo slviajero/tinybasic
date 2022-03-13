@@ -1011,6 +1011,7 @@ void xprint();
 void assignment();
 void lefthandside(address_t*, char*);
 void assignnumber(signed char, char, char, address_t, char);
+void showprompt();
 void xinput();
 void xgoto();
 void xreturn();

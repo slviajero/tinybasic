@@ -1582,22 +1582,39 @@ void ins(char *b, short nb) {
 // output one character to a stream
 // block oriented i/o like in radio not implemented here
 void outch(char c) {
-	if (od == OSERIAL)
-		serialwrite(c);
+	switch(od) {
+		case OSERIAL:
+			serialwrite(c);
+			break;
 #ifdef FILESYSTEMDRIVER
-	if (od == OFILE) 
-		filewrite(c);
+		case OFILE:
+			filewrite(c);
+			break;
 #endif
 #ifdef ARDUNIOPRT
-	if (od == OPRT) 
-		prtwrite(c);
+		case OPRT:
+			prtwrite(c);
+			break;
 #endif
-	if (od == ODSP)
 #ifdef ARDUINOVGA
-		vgawrite(c);
+		case ODSP: 
+			vgawrite(c);
+			break;
 #else
-		dspwrite(c);
+#ifdef DISPLAYDRIVER
+		case ODSP: 
+			dspwrite(c);
+			break;
 #endif
+#endif
+#ifdef ARDUINOMQTT
+		case OMQTT:
+			mqttouts(&c, 1); // buffering for the PRINT command
+			break;
+#endif
+		default:
+			break;
+	}
 }
 
 // send a newline
@@ -1616,7 +1633,7 @@ void outspc() {
 /*
 	output a string of length x at index ir - basic style
 	default is a character by character operation, block 
-	oriented write need special functions
+	oriented write needs special functions
 
 */
 void outs(char *ir, short l){
@@ -3554,9 +3571,14 @@ void assignment() {
 
 */
 
+void showprompt() {
+	outsc("? ");
+}
+
 void xinput(){
 	char oldid = 0;
-
+	char prompt = TRUE;
+	
 	nexttoken();
 
 	// modifiers of the input statement
@@ -3566,6 +3588,7 @@ void xinput(){
 
 		oldid=id;
 		id=pop();
+		if (id != ISERIAL || id !=IKEYBOARD) prompt=FALSE;
 		if ( token != ',') {
 			error(EUNKNOWN);
 			return;
@@ -3575,7 +3598,8 @@ void xinput(){
 
 
 nextstring:
-	if (token == STRING && id != IFILE) {   
+	if (token == STRING && id != IFILE) {
+		prompt=FALSE;   
 		outs(ir, x);
 		nexttoken();
 		if (token != ',' && token != ';') {
@@ -3587,7 +3611,7 @@ nextstring:
 
 nextvariable:
 	if (token == VARIABLE) {   
-		if (id == ISERIAL || id == IKEYBOARD) outsc("? ");
+		if (prompt) showprompt();
 		if (innumber(&x) == BREAKCHAR) {
 			setvar(xc, yc, 0);
 			st=SINT;
@@ -3609,7 +3633,7 @@ nextvariable:
 			return;
 		}
 
-		if (id == ISERIAL || id == IKEYBOARD) outsc("? ");
+		if (prompt) showprompt();
 		if (innumber(&x) == BREAKCHAR) {
 			x=0;
 			array('s', xc, yc, pop(), &x);
@@ -3628,7 +3652,7 @@ nextvariable:
 	   in the string memory location */
 	if (token == STRINGVAR) {
 		ir=getstring(xc, yc, 1); 
-		if (id == ISERIAL || id == IKEYBOARD) outsc("? ");
+		if (prompt) showprompt();
 		ins(ir-1, stringdim(xc, yc));
 		/* this is the length information correction for large strings, ins
 			stored the string length in z.a as a side effect */

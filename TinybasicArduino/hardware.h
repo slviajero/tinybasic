@@ -98,7 +98,7 @@
 
 #undef UNOPLAIN
 #undef AVRLCD
-#undef WEMOSSHIELD
+#define WEMOSSHIELD
 #undef MEGASHIELD
 #undef TTGOVGA
 #undef DUETFT
@@ -226,6 +226,7 @@
 /*
   Some settings and defaults
 */
+
 
 /* 
 	all microcontrollers, their libraries and dependencies
@@ -675,26 +676,53 @@ char dspactive() {
 	return od & ODSP;
 }
 
-#ifdef HASVT52
-/* nano vt52 state engine, vt52s is the state variable */
-char vt52s = 0;
 
+#ifdef HASVT52
+
+// the state variable 
+char vt52s = 0;
+enum vt52modes {vt52text, vt52graph, vt52print, vt52wiring} vt52mode = vt52text;
+
+// vt52 state engine 
+// IoT BASIC uses VT52 as a terminal language for simplicity
+// most control sequences are single byte
 void dspvt52(char* c){
-  
+
+	// reading multi byte commands
 	switch (vt52s) {
 		case 'Y':
 			if (esc == 2) { dspmyrow=(*c-31)%dsp_rows; esc=1; return;}
 			if (esc == 1) { dspmycol=(*c-31)%dsp_columns; *c=0; }
-      		vt52s=0; 
+      vt52s=0; 
+			break;
+		case 'x':
+			switch(c) {
+				'p':
+					vt52mode=vt52print;
+					break;
+				'w':
+					vt52mode=vt52wiring;
+					break;
+				'g':
+					vt52mode=vt52graph;
+				't':
+				default:
+					vt52mode=vt52text;
+					break;
+			}
+			*c=0;
+			vt52s=0;
 			break;
 	}
  
+ 	// commands of the terminal in text mode 
+
 	switch (*c) {
 		case 'A': // cursor up
 			if (dspmyrow>0) dspmyrow--;
 			break;
 		case 'B': // cursor down
-		    dspmyrow=(dspmyrow++) % dsp_rows;
+			dspmyrow=(dspmyrow++) % dsp_rows;
 			break;
 		case 'C': // cursor right
 			dspmycol=(dspmycol++) % dsp_columns;
@@ -703,18 +731,20 @@ void dspvt52(char* c){
 			if (dspmycol>0) dspmycol--;
 			break;
 		case 'E': // GEMDOS / TOS extension clear screen
-		    dspbufferclear();
-    		dspclear();
+			dspbufferclear();
+			dspclear();
 			break;
 		case 'H': // cursor home
-		    dspmyrow=0;
-    		dspmycol=0;
+			dspmyrow=0;
+   		dspmycol=0;
 			break;	
 		case 'Y': // Set cursor position
 			vt52s='Y';
 			esc=2;
-      		*c=0;
+  		*c=0;
 			return;
+		// these standard VT52 function and their GEMDOS extensions are
+		// not implemented. 
 		case 'F': // enter graphics mode
 		case 'G': // exit graphics mode
 		case 'I': // reverse line feed
@@ -745,9 +775,16 @@ void dspvt52(char* c){
 		case 'V': // Printer extensions - print cursor line
 		case ']': // Printer extension - print screen 
 			break;
+		// the Arduino interface extensions defined in IoT BASIC
+		// they allow access to some functions of BASIC through 
+		// escape sequences
+		case 'x': // Arduino VT52 extension - change mode byte following x is mode 
+			vt52s='x';
+			*c=0; 
+			break;
 	}
-      esc=0;
-      *c=0;
+	esc=0;
+	*c=0;
 }
 #endif
 
@@ -769,8 +806,8 @@ void dspbufferclear() {
 	for (r=0; r<dsp_rows; r++)
 		for (c=0; c<dsp_columns; c++)
       		dspbuffer[r][c]=0;
-  	dspmyrow=0;
-  	dspmycol=0;
+  dspmyrow=0;
+  dspmycol=0;
 }
 
 void dspscroll(){
@@ -793,8 +830,8 @@ void dspscroll(){
     // delete the characters in the remaining lines
   	for (r=dsp_rows-dsp_scroll_rows; r<dsp_rows; r++) {
     	for (c=0; c<dsp_columns; c++) {
-			if (dspbuffer[r][c] > 32) dspprintchar(' ', c, r); 
-        	dspbuffer[r][c]=0;     
+				if (dspbuffer[r][c] > 32) dspprintchar(' ', c, r); 
+        dspbuffer[r][c]=0;     
     	}
     }
   
@@ -809,34 +846,34 @@ void dspwrite(char c){
     // escape character received - we switch to vt52 mode
     // the character is modified and then handed over to the
     // internal pipeline
-    if (esc) dspvt52(&c);
+	if (esc) dspvt52(&c);
 #endif
 
     // will be reworked soon - not super good 
-  	switch(c) {
-  		case 10: // this is LF Unix style doing also a CR
-    		dspmyrow=(dspmyrow + 1);
-    		if (dspmyrow >= dsp_rows) dspscroll(); 
-    		dspmycol=0;
-    		return;
-    	case 12: // form feed is clear screen - deprecated
-    		dspbufferclear();
-    		dspclear();
-    		return;
-    	case 13: // classical carriage return 
-    		dspmycol=0;
-    		return;
-        case 27: // escape - initiate vtxxx mode
-        	esc=1;
-        	return;
-    	case 127: // delete
-    		if (dspmycol > 0) {
-      			dspmycol--;
-      			dspbuffer[dspmyrow][dspmycol]=0;
-      			dspprintchar(' ', dspmycol, dspmyrow);
-      			return;
-    		}
-  	}
+  switch(c) {
+  	case 10: // this is LF Unix style doing also a CR
+    	dspmyrow=(dspmyrow + 1);
+    	if (dspmyrow >= dsp_rows) dspscroll(); 
+    	dspmycol=0;
+    	return;
+    case 12: // form feed is clear screen - deprecated
+    	dspbufferclear();
+    	dspclear();
+    	return;
+    case 13: // classical carriage return 
+    	dspmycol=0;
+    	return;
+  	case 27: // escape - initiate vtxxx mode
+			esc=1;
+			return;
+    case 127: // delete
+    	if (dspmycol > 0) {
+      	dspmycol--;
+      	dspbuffer[dspmyrow][dspmycol]=0;
+      	dspprintchar(' ', dspmycol, dspmyrow);
+      	return;
+    	}
+  }
 
 	if (c < 32 ) return; 
 
@@ -845,18 +882,18 @@ void dspwrite(char c){
 	if (dspmycol == dsp_columns) {
 		dspmycol=0;
 		dspmyrow=(dspmyrow + 1);
-    	if (dspmyrow >= dsp_rows) dspscroll(); 
+    if (dspmyrow >= dsp_rows) dspscroll(); 
 	}
 }
 
 char dspwaitonscroll() {
-  	char c;
+  char c;
 
 	if ( dspscrollmode == 1 ) {
 		if (dspmyrow == dsp_rows-1) {
-        	c=inch();
-        	if (c == ' ') outch(12);
-		    return c;
+      c=inch();
+      if (c == ' ') outch(12);
+		  return c;
 		}
 	}
 	return 0;
@@ -867,9 +904,7 @@ char dspwaitonscroll() {
 
 void dspbufferclear() {}
 
-char dspwaitonscroll() {
-	return 0;
-}
+char dspwaitonscroll() { return 0; }
 
 void dspwrite(char c){
 
@@ -877,33 +912,33 @@ void dspwrite(char c){
 	// escape character received - we switch to vt52 mode
     // the character is modified and then handed over to the
     // internal pipeline
-    if (esc) { dspvt52(&c); }
+	if (esc) { dspvt52(&c); }
 #endif
 
 	switch(c) {
-  		case 12: // form feed is clear screen
-    		dspclear();
-    		return;
-  		case 10: // this is LF Unix style doing also a CR
-    		dspmyrow=(dspmyrow + 1)%dsp_rows;
-    		dspmycol=0;
-    		return;
-    	case 11: // one char down 
-    		dspmyrow=(dspmyrow+1) % dsp_rows;
-    		return;
-    	case 13: // classical carriage return 
-    		dspmycol=0;
-    		return;
-        case 27: // escape - initiate vtxxx mode
-        	esc=1;
-        	return;
-    	case 127: // delete
-    		if (dspmycol > 0) {
-      			dspmycol--;
-      			dspprintchar(' ', dspmycol, dspmyrow);
-    		}
-    		return;
-  	}
+  	case 12: // form feed is clear screen
+    	dspclear();
+    	return;
+  	case 10: // this is LF Unix style doing also a CR
+    	dspmyrow=(dspmyrow + 1)%dsp_rows;
+    	dspmycol=0;
+    	return;
+    case 11: // one char down 
+    	dspmyrow=(dspmyrow+1) % dsp_rows;
+    	return;
+    case 13: // classical carriage return 
+    	dspmycol=0;
+    	return;
+		case 27: // escape - initiate vtxxx mode
+			esc=1;
+			return;
+   	case 127: // delete
+    	if (dspmycol > 0) {
+      	dspmycol--;
+      	dspprintchar(' ', dspmycol, dspmyrow);
+    	}
+    	return;
+  }
 
 	if (c < 32 ) return; 
 
@@ -1126,6 +1161,12 @@ char mqtt_itopic[MQTTLENGTH];
 volatile char mqtt_buffer[MQTTBLENGTH];
 volatile short mqtt_messagelength;
 
+// the buffer for outgoing MQTT messages
+// mqtt write uses a buffering algorithm to 
+// simplify BASIC code 
+volatile char mqtt_obuffer[MQTTBLENGTH];
+volatile short mqtt_charsforsend;
+
 // the name of the client
 char mqttname[12] = "iotbasicxxx";
 
@@ -1174,6 +1215,7 @@ void mqttbegin() {
 	bmqtt.setCallback(mqttcallback);
 	*mqtt_itopic=0;
 	*mqtt_otopic=0;
+	mqtt_charsforsend=0;
 }
 
 // reconnecting mqtt - exponential backoff here 
@@ -1220,7 +1262,7 @@ void mqttunsubscribe() {
 // set the topic we pushlish, comming from print
 // basic can do only one topic 
 void mqttsettopic(char *t) {
-	short i;
+	int i;
 	for (i=0; i<MQTTLENGTH; i++) {
 		if ((mqtt_otopic[i]=t[i]) == 0 ) break;
 	}
@@ -1228,9 +1270,15 @@ void mqttsettopic(char *t) {
 
 // print a mqtt message
 void mqttouts(char *m, short l) {
-	if (!mqttreconnect()) {ert=1; return;};
-	if (!bmqtt.publish(mqtt_otopic, (uint8_t*) m, (unsigned int) l, false)) ert=1;
+	int i=0;
+	while(mqtt_charsforsend < MQTTBLENGTH && i<l) mqtt_obuffer[mqtt_charsforsend++]=m[i++];
+	if (mqtt_obuffer[mqtt_charsforsend-1] == '\n' || mqtt_charsforsend > MQTTBLENGTH) {
+		if (!mqttreconnect()) {ert=1; return;};
+		if (!bmqtt.publish(mqtt_otopic, (uint8_t*) mqtt_obuffer, (unsigned int) mqtt_charsforsend-1, false)) ert=1;
+		mqtt_charsforsend=0;
+	}
 } 
+
 
 // ins copies the buffer into a basic string - behold the jabberwock - length gynmastics
 void mqttins(char *b, short nb) {
