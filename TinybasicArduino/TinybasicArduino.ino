@@ -1448,13 +1448,13 @@ char checkch(){
     	case IWIRE:
     		return 0;
 #endif
-#ifdef ARDUINOPRT
+#ifdef ARDUIN
 		case ISERIAL1:
 			return prtcheckch(); 
 #endif
 		case IKEYBOARD:
 #ifdef ARDUINOPS2		
-			if (kbdavailable()) return kbdread();
+			return keyboard.peek();
 #endif
 #ifdef LCDSHIELD
 			return keypadread();
@@ -1600,7 +1600,7 @@ void outch(char c) {
 			filewrite(c);
 			break;
 #endif
-#ifdef ARDUNIOPRT
+#ifdef ARDUINOPRT
 		case OPRT:
 			prtwrite(c);
 			break;

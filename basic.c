@@ -1454,7 +1454,10 @@ char checkch(){
 #endif
 		case IKEYBOARD:
 #ifdef ARDUINOPS2		
-			if (kbdavailable()) return kbdread();
+			// only works with the patched library https://github.com/slviajero/PS2Keyboard
+			return keyboard.peek();
+			// for the original library  https://github.com/PaulStoffregen/PS2Keyboard use this code 
+			//if (kbdavailable()) return kbdread();
 #endif
 #ifdef LCDSHIELD
 			return keypadread();
