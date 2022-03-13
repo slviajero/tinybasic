@@ -38,7 +38,7 @@
 #define HASPULS
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#undef HASVT52
+#define HASVT52
 #define HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
@@ -79,7 +79,7 @@ void wiringbegin() {
 }
 
 void spibegin() {}
-void fsbegin() {}
+void fsbegin(char v) {}
 
 // graphics
 void rgbcolor(int r, int g, int b) {}
@@ -522,14 +522,14 @@ void eload() {
 }
 
 // autorun something 
-void autorun() {
+char autorun() {
 // here eeprom run
 #if defined(ARDUINOEEPROM) || ! defined(ARDUINO) 
   	if (eread(0) == 1){ // autorun from the EEPROM
   		egetnumber(1, addrsize);
   		top=z.a;
   		st=SERUN;
-  		return;    // EEPROM autorun overrule filesystem autorun
+  		return TRUE;    // EEPROM autorun overrule filesystem autorun
   	} 
 #endif
 // here filesystem autorun
@@ -537,9 +537,11 @@ void autorun() {
   	if (ifileopen("autoexec.bas")) {
   		xload("autoexec.bas");
   		st=SRUN;
+			ifileclose();
+			return TRUE;
   	}
-  	ifileclose();
 #endif
+  return FALSE;
 }
 
 #ifdef HASAPPLE1
@@ -5628,30 +5630,30 @@ void statement(){
 // the setup routine - Arduino style
 void setup() {
 
-	// get the BASIC memory 
-	himem=memsize=ballocmem();
+  // get the BASIC memory 
+  himem=memsize=ballocmem();
 
-	// start measureing time
-	timeinit();
+  // start measureing time
+  timeinit();
 
-	// init all io functions 
-	ioinit();
+  // init all io functions 
+  ioinit();
 
-	// greet the user
-	printmessage(MGREET); outspc();
-	printmessage(EOUTOFMEMORY); outspc(); 
-	outnumber(memsize+1); outspc();
-	outnumber(elength()); outcr();
+  // be ready for a new program
+  xnew(); 
 
-	// be ready for a new program
- 	xnew();	
+  //start the file system - silently
+  fsbegin(FALSE);
 
- 	// start the file system 
- 	fsbegin();
-
- 	// check if there is something to autorun and prepare 
- 	// the interpreter to got into autorun once loop is reached
- 	autorun();
+  // check if there is something to autorun and prepare 
+  // the interpreter to got into autorun once loop is reached
+  if (! autorun()) {
+      // greet the user
+      printmessage(MGREET); outspc();
+      printmessage(EOUTOFMEMORY); outspc(); 
+      outnumber(memsize+1); outspc();
+      outnumber(elength()); outcr();
+  }
 }
 
 // the loop routine for interactive input 

@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.h,v 1.3 2022/02/27 15:45:35 stefan Exp stefan $
+	$Id: basic.h,v 1.4 2022/03/13 14:44:42 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -925,7 +925,7 @@ void eload();
 void esave();
 
 // generic autorun - mainly eeprom but also file
-void autorun();
+char autorun();
 
 // graphics functions 
 void rgbcolor(int, int, int);

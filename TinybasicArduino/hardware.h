@@ -98,7 +98,8 @@
 
 #undef UNOPLAIN
 #undef AVRLCD
-#define WEMOSSHIELD
+#undef WEMOSSHIELD
+#define ESP01BOARD
 #undef MEGASHIELD
 #undef TTGOVGA
 #undef DUETFT
@@ -160,6 +161,14 @@
 #define ARDUINOMQTT
 #define MEMSIZE 0
 #define MEMMODEL 2
+#endif
+
+// an ESP01 board 
+#if defined(ESP01BOARD)
+#define ARDUINOEEPROM
+#define ESPSPIFFS
+#define ARDUINOMQTT
+#define MEMSIZE 0
 #endif
 
 // mega with a Ethernet shield 
@@ -1504,7 +1513,7 @@ char* mkfilename(char* filename) {
 /* 
 	filesystem starter for SPIFFS and SD on ESP, ESP32 and Arduino plus LittleFS
 */
-void fsbegin() {
+void fsbegin(char v) {
 #ifdef ARDUINOSD 
 #ifndef SDPIN
 #define SDPIN
@@ -1512,7 +1521,7 @@ void fsbegin() {
  	if (SD.begin(SDPIN)) { outsc("SDcard ok \n"); }	
 #endif
 #if defined(ESPSPIFFS) && defined(ARDUINO_ARCH_ESP8266) 
- 	if (SPIFFS.begin()) {
+ 	if (SPIFFS.begin() && v) {
 		outsc("SPIFFS ok \n");
 		FSInfo fs_info;
 		SPIFFS.info(fs_info);
@@ -1521,21 +1530,20 @@ void fsbegin() {
  	}
 #endif
 #if defined(ESPSPIFFS) && defined(ARDUINO_ARCH_ESP32) 
- 	if (SPIFFS.begin()) {
+ 	if (SPIFFS.begin() && v) {
 		outsc("SPIFFS ok \n"); outcr();
  	}
 #endif
 #ifdef RP2040LITTLEFS
 	myFS = new LittleFS_MBED();
-	if (myFS->init()) outsc("LittleFS ok \n");
+	if (myFS->init() && v) outsc("LittleFS ok \n");
 #endif
 #ifdef ARDUINOEFS
 	int s=EFS.begin();
-	if (s>0) {
+	if (s>0 && v) {
 		outsc("Mounted EFS with "); outnumber(s); outsc(" slots.\n"); 
 	} else {
-		if (EFS.format(32)) outsc("EFS: formating 32 slots.\n");
-		else outsc("EFS: Format failed.\n");
+		if (EFS.format(32) && v) outsc("EFS: formating 32 slots.\n");
 	}
 #endif
 }

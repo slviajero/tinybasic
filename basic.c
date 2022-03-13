@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.130 2022/02/27 15:45:35 stefan Exp stefan $
+	$Id: basic.c,v 1.131 2022/03/13 14:44:42 stefan Exp stefan $
 
 	Stefan's IoT BASIC interpreter 
 
@@ -79,7 +79,7 @@ void wiringbegin() {
 }
 
 void spibegin() {}
-void fsbegin() {}
+void fsbegin(char v) {}
 
 // graphics
 void rgbcolor(int r, int g, int b) {}
@@ -522,14 +522,14 @@ void eload() {
 }
 
 // autorun something 
-void autorun() {
+char autorun() {
 // here eeprom run
 #if defined(ARDUINOEEPROM) || ! defined(ARDUINO) 
   	if (eread(0) == 1){ // autorun from the EEPROM
   		egetnumber(1, addrsize);
   		top=z.a;
   		st=SERUN;
-  		return;    // EEPROM autorun overrule filesystem autorun
+  		return TRUE;    // EEPROM autorun overrule filesystem autorun
   	} 
 #endif
 // here filesystem autorun
@@ -537,9 +537,11 @@ void autorun() {
   	if (ifileopen("autoexec.bas")) {
   		xload("autoexec.bas");
   		st=SRUN;
+			ifileclose();
+			return TRUE;
   	}
-  	ifileclose();
 #endif
+  return FALSE;
 }
 
 #ifdef HASAPPLE1
@@ -5637,21 +5639,21 @@ void setup() {
 	// init all io functions 
 	ioinit();
 
-	// greet the user
-	printmessage(MGREET); outspc();
-	printmessage(EOUTOFMEMORY); outspc(); 
-	outnumber(memsize+1); outspc();
-	outnumber(elength()); outcr();
-
 	// be ready for a new program
  	xnew();	
 
- 	// start the file system 
- 	fsbegin();
+ 	//start the file system - silently
+ 	fsbegin(FALSE);
 
  	// check if there is something to autorun and prepare 
  	// the interpreter to got into autorun once loop is reached
- 	autorun();
+ 	if (! autorun()) {
+ 			// greet the user
+			printmessage(MGREET); outspc();
+			printmessage(EOUTOFMEMORY); outspc(); 
+			outnumber(memsize+1); outspc();
+			outnumber(elength()); outcr();
+ 	}
 }
 
 // the loop routine for interactive input 

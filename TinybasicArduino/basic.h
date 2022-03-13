@@ -925,7 +925,7 @@ void eload();
 void esave();
 
 // generic autorun - mainly eeprom but also file
-void autorun();
+char autorun();
 
 // graphics functions 
 void rgbcolor(int, int, int);
