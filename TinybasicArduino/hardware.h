@@ -99,10 +99,10 @@
 #undef UNOPLAIN
 #undef AVRLCD
 #undef WEMOSSHIELD
-#define ESP01BOARD
+#undef ESP01BOARD
 #undef MEGASHIELD
 #undef TTGOVGA
-#undef DUETFT
+#define DUETFT
 #undef MEGATFT
 
 /* 
@@ -206,11 +206,13 @@
 #define ARDUINOPRT
 #define PS2DATAPIN 18
 #define PS2IRQPIN  19
+#define SDPIN 53
 #define STANDALONE
 #endif
 
 // DUE with a TFT shield, standalone by default
 #if defined(DUETFT)
+#undef  ARDUINOEEPROM
 #define ARDUINOPS2
 #define DISPLAYCANSCROLL
 #define ARDUINOTFT
@@ -219,6 +221,7 @@
 #define ARDUINOPRT
 #define PS2DATAPIN 9
 #define PS2IRQPIN  8
+#define SDPIN 53
 #define STANDALONE
 #endif
 
@@ -388,6 +391,7 @@
 const int serial_baudrate = 9600;
 char sendcr = 0;
 short blockmode = 0;
+
 
 #ifdef ARDUINOPRT
 const int serial1_baudrate = 9600;
@@ -1518,7 +1522,7 @@ void fsbegin(char v) {
 #ifndef SDPIN
 #define SDPIN
 #endif
- 	if (SD.begin(SDPIN)) { outsc("SDcard ok \n"); }	
+ 	if (SD.begin(SDPIN) && v) { outsc("SDcard ok \n"); }	
 #endif
 #if defined(ESPSPIFFS) && defined(ARDUINO_ARCH_ESP8266) 
  	if (SPIFFS.begin() && v) {

@@ -719,13 +719,9 @@ static address_t rd;
 static unsigned char id;
 static unsigned char od;
 
-#ifdef STANDALONE
-static unsigned char idd = IKEYBOARD;
-static unsigned char odd = ODSP;
-#else
+// the default IO channels - maybe changed in hardware.h
 static unsigned char idd = ISERIAL;
 static unsigned char odd = OSERIAL;
-#endif
 
 // the runtime debuglevel
 char debuglevel = 0;
@@ -1091,8 +1087,3 @@ void xavail();
 
 // the statement loop
 void statement();
-
-
-
-
-

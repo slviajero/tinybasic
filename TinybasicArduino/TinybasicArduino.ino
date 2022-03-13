@@ -38,7 +38,7 @@
 #define HASPULS
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#define HASVT52
+#undef  HASVT52
 #define HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
@@ -1330,6 +1330,13 @@ void clrforstack() {
 */
 
 void ioinit() {
+
+// a standalone system runs from keyboard and display
+#ifdef STANDALONE
+ idd = IKEYBOARD;
+ odd = ODSP;
+#endif
+  
 	wiringbegin();
 	serialbegin();
 #ifdef ARDUINOMQTT
