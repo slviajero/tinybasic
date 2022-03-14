@@ -709,16 +709,16 @@ void dspvt52(char* c){
       vt52s=0; 
 			break;
 		case 'x':
-			switch(c) {
-				'p':
+			switch(*c) {
+				case 'p':
 					vt52mode=vt52print;
 					break;
-				'w':
+				case 'w':
 					vt52mode=vt52wiring;
 					break;
-				'g':
+				case 'g':
 					vt52mode=vt52graph;
-				't':
+				case 't':
 				default:
 					vt52mode=vt52text;
 					break;
