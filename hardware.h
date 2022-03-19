@@ -1,6 +1,6 @@
 /*
 
-	$Id: hardware.h,v 1.5 2022/03/19 17:49:43 stefan Exp stefan $
+	$Id: hardware.h,v 1.3 2022/02/27 15:45:35 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -73,7 +73,7 @@
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
-#undef ARDUINOMQTT
+#define ARDUINOMQTT
 #undef STANDALONE
 
 /* 
@@ -101,7 +101,7 @@
 #undef WEMOSSHIELD
 #undef ESP01BOARD
 #undef MEGASHIELD
-#define TTGOVGA
+#undef TTGOVGA
 #undef DUETFT
 #undef MEGATFT
 
@@ -159,8 +159,6 @@
 #define PS2DATAPIN	D2
 #define PS2IRQPIN	D9
 #define ARDUINOMQTT
-#define MEMSIZE 0
-#define MEMMODEL 2
 #endif
 
 // an ESP01 board 
@@ -168,7 +166,6 @@
 #define ARDUINOEEPROM
 #define ESPSPIFFS
 #define ARDUINOMQTT
-#define MEMSIZE 0
 #endif
 
 // mega with a Ethernet shield 
@@ -182,11 +179,9 @@
 #define ARDUINOWIRE
 #define ARDUINOPRT
 #define SDPIN 	4
-#define MEMSIZE 5120
 #endif
 
 // VGA system with SD card, standalone by default
-// max memory 32 kB with Wifi, 60 kB without Wifi
 #if defined(TTGOVGA)
 #define ARDUINOEEPROM
 #define ARDUINOPS2
@@ -194,9 +189,6 @@
 #define ARDUINOSD
 #define SDPIN   13
 #define STANDALONE 
-#ifdef ARDUINOMQTT
-#define MEMMODEL 2
-#endif
 #endif
 
 // MEGA with a TFT shield, standalone by default
@@ -521,7 +513,8 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
 	this is the VGA code for fablib - first attempt to do this now
 */
 #if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32) 
-fabgl::VGAController VGAController;
+//fabgl::VGAController VGAController;
+fabgl::VGA16Controller VGAController; // 16 color object with less memory 
 fabgl::Terminal      Terminal;
 Canvas cv(&VGAController);
 TerminalController tc(&Terminal);
@@ -1169,8 +1162,8 @@ PubSubClient bmqtt(bwifi);
 
 // the length of the outgoing and incomming topic 
 #define MQTTLENGTH 32
-char mqtt_otopic[MQTTLENGTH];
-char mqtt_itopic[MQTTLENGTH];
+static char mqtt_otopic[MQTTLENGTH];
+static char mqtt_itopic[MQTTLENGTH];
 
 // the buffer for incoming MQTT messages 
 // this is static and currently short
@@ -1186,7 +1179,7 @@ volatile char mqtt_obuffer[MQTTBLENGTH];
 volatile short mqtt_charsforsend;
 
 // the name of the client
-char mqttname[12] = "iotbasicxxx";
+static char mqttname[12] = "iotbasicxxx";
 
 // new client name
 void mqttsetname() {
@@ -1205,7 +1198,7 @@ void netbegin() {
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
 	WiFi.setAutoReconnect(true);
-  	WiFi.persistent(true);
+  // WiFi.persistent(true); 
 #endif
 #if defined(ARDUINO_ARCH_RP2040)
 	WiFi.begin(ssid, password);
@@ -1214,6 +1207,7 @@ void netbegin() {
 
 // the connected method
 char netconnected() {
+	if (WiFi.status() != WL_CONNECTED) {  WiFi.reconnect(); delay(10); };
 	return(WiFi.status() == WL_CONNECTED);
 }
 
@@ -1381,11 +1375,11 @@ short eread(address_t a) { return 0; }
    spreading arduino code in the interpreter code 
    also, this would be the place to insert the Wiring code
    for raspberry */
-/* not needed in ESP32 2.0.2 core any more
+/* not needed in ESP32 2.0.2 core any more */
 #ifdef ARDUINO_ARCH_ESP32
 void analogWrite(int a, int b){}
 #endif
-*/
+
 
 void aread(){ push(analogRead(pop())); }
 

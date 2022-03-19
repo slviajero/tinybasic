@@ -57,7 +57,7 @@
 
 	leave this unset if you use the definitions below
 */
-#define USESPICOSERIAL 
+#undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
 #undef DISPLAYCANSCROLL
@@ -65,7 +65,7 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -73,7 +73,7 @@
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
-#undef ARDUINOMQTT
+#define ARDUINOMQTT
 #undef STANDALONE
 
 /* 
@@ -96,13 +96,13 @@
     	TFT 7inch screen systems, standalone
 */
 
-#undef UNOPLAIN
+#define UNOPLAIN
 #undef AVRLCD
 #undef WEMOSSHIELD
 #undef ESP01BOARD
 #undef MEGASHIELD
-#undef TTGOVGA
-#define DUETFT
+#define TTGOVGA
+#undef DUETFT
 #undef MEGATFT
 
 /* 
@@ -159,8 +159,6 @@
 #define PS2DATAPIN	D2
 #define PS2IRQPIN	D9
 #define ARDUINOMQTT
-#define MEMSIZE 0
-#define MEMMODEL 2
 #endif
 
 // an ESP01 board 
@@ -168,7 +166,6 @@
 #define ARDUINOEEPROM
 #define ESPSPIFFS
 #define ARDUINOMQTT
-#define MEMSIZE 0
 #endif
 
 // mega with a Ethernet shield 
@@ -182,7 +179,6 @@
 #define ARDUINOWIRE
 #define ARDUINOPRT
 #define SDPIN 	4
-#define MEMSIZE 5120
 #endif
 
 // VGA system with SD card, standalone by default
@@ -190,9 +186,9 @@
 #define ARDUINOEEPROM
 #define ARDUINOPS2
 #define ARDUINOVGA
-#define ARDUINOSD
+#define  ARDUINOSD
 #define SDPIN   13
-#define STANDALONE
+#define STANDALONE 
 #endif
 
 // MEGA with a TFT shield, standalone by default
@@ -268,12 +264,12 @@
 #define ARDUINOSPI
 #endif
 
-// graphics adapter
+// graphics adapter only when grpahics
 #if !defined(ARDUINOTFT) && !defined(ARDUINOVGA)
 #undef HASGRAPH
 #endif
 
-// networking
+// networking may need SPI
 #ifdef ARDUINOMQTT
 #define ARDUINOSPI
 #endif
@@ -283,6 +279,7 @@
 #include <PS2Keyboard.h>
 #endif
 
+// ESPy stuff
 #ifdef ARDUINOPROGMEM
 #ifdef ARDUINO_ARCH_ESP32
 #include <pgmspace.h>
@@ -313,7 +310,7 @@
 #include <UTFT.h>
 #endif
 
-// experimental - only implemented in ESP8266
+// experimental 
 #ifdef ARDUINOMQTT
 #ifdef ARDUINO_ARCH_ESP8266
 #include <ESP8266WiFi.h>
@@ -516,7 +513,7 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
 	this is the VGA code for fablib - first attempt to do this now
 */
 #if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32) 
-fabgl::VGAController VGAController;
+fabgl::VGA16Controller VGAController;
 fabgl::Terminal      Terminal;
 Canvas cv(&VGAController);
 TerminalController tc(&Terminal);
@@ -528,14 +525,14 @@ Color vga_txt_background = Color::Black;
 void vgabegin() {
 	VGAController.begin(GPIO_NUM_22, GPIO_NUM_21, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_23, GPIO_NUM_15);
 	VGAController.setResolution(VGA_640x200_70Hz);
-  	Canvas cv(&VGAController);
+  Canvas cv(&VGAController);
 	Terminal.begin(&VGAController);
 	Terminal.setBackgroundColor(vga_txt_background);
 	Terminal.setForegroundColor(vga_txt_pen);
-  	Terminal.connectLocally();
-  	Terminal.clear();
-  	Terminal.enableCursor(true);
-  	Terminal.setTerminalType(TermType::VT52);
+  Terminal.connectLocally();
+  Terminal.clear();
+  Terminal.enableCursor(true);
+  Terminal.setTerminalType(TermType::VT52);
 }
 void vgascale(int* x, int* y) {
 	*y=*y*10/24;
@@ -557,25 +554,25 @@ void plot(int x, int y) {
 void line(int x0, int y0, int x1, int y1) {
 	vgascale(&x0, &y0);
 	vgascale(&x1, &y1);
-    cv.setPenColor(vga_graph_pen);
-    cv.setPenWidth(1);
-    cv.drawLine(x0, y0, x1, y1);
-    cv.setPenColor(vga_txt_pen);
+	cv.setPenColor(vga_graph_pen);
+	cv.setPenWidth(1);
+ 	cv.drawLine(x0, y0, x1, y1);
+ 	cv.setPenColor(vga_txt_pen);
 }
 void rect(int x0, int y0, int x1, int y1) { 
 	vgascale(&x0, &y0);
 	vgascale(&x1, &y1);
 	cv.setPenColor(vga_graph_pen);
-    cv.setPenWidth(1);
-    cv.drawRectangle(x0, y0, x1, y1);
-    cv.setPenColor(vga_txt_pen);
+	cv.setPenWidth(1);
+	cv.drawRectangle(x0, y0, x1, y1);
+	cv.setPenColor(vga_txt_pen);
 }
 void frect(int x0, int y0, int x1, int y1) {  
 	vgascale(&x0, &y0);
 	vgascale(&x1, &y1);
 	cv.setBrushColor(vga_graph_pen);
-    cv.fillRectangle(x0, y0, x1, y1);
-    cv.setBrushColor(vga_txt_background);
+	cv.fillRectangle(x0, y0, x1, y1);
+	cv.setBrushColor(vga_txt_background);
 }
 void circle(int x0, int y0, int r) {  
 	int rx = r;
@@ -583,9 +580,9 @@ void circle(int x0, int y0, int r) {
 	vgascale(&x0, &y0);
 	vgascale(&rx, &ry);
 	cv.setPenColor(vga_graph_pen);
-    cv.setPenWidth(1);
-    cv.drawEllipse(x0, y0, rx, ry);
-    cv.setPenColor(vga_txt_pen);
+	cv.setPenWidth(1);
+	cv.drawEllipse(x0, y0, rx, ry);
+	cv.setPenColor(vga_txt_pen);
 }
 void fcircle(int x0, int y0, int r) {  
 	int rx = r;
@@ -593,8 +590,8 @@ void fcircle(int x0, int y0, int r) {
 	vgascale(&x0, &y0);
 	vgascale(&rx, &ry);
 	cv.setBrushColor(vga_graph_pen);
-    cv.fillEllipse(x0, y0, rx, ry);
-    cv.setBrushColor(vga_txt_background);	
+	cv.fillEllipse(x0, y0, rx, ry);
+	cv.setBrushColor(vga_txt_background);	
 }
 
 void vgawrite(char c){
@@ -1164,8 +1161,8 @@ PubSubClient bmqtt(bwifi);
 
 // the length of the outgoing and incomming topic 
 #define MQTTLENGTH 32
-char mqtt_otopic[MQTTLENGTH];
-char mqtt_itopic[MQTTLENGTH];
+static char mqtt_otopic[MQTTLENGTH];
+static char mqtt_itopic[MQTTLENGTH];
 
 // the buffer for incoming MQTT messages 
 // this is static and currently short
@@ -1181,7 +1178,7 @@ volatile char mqtt_obuffer[MQTTBLENGTH];
 volatile short mqtt_charsforsend;
 
 // the name of the client
-char mqttname[12] = "iotbasicxxx";
+static char mqttname[12] = "iotbasicxxx";
 
 // new client name
 void mqttsetname() {
@@ -1200,7 +1197,6 @@ void netbegin() {
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
 	WiFi.setAutoReconnect(true);
-  	WiFi.persistent(true);
 #endif
 #if defined(ARDUINO_ARCH_RP2040)
 	WiFi.begin(ssid, password);
@@ -1209,6 +1205,8 @@ void netbegin() {
 
 // the connected method
 char netconnected() {
+  outsc("** WiFi status: "); outnumber(WiFi.status()); outcr();
+  if (WiFi.status() != WL_CONNECTED) {  WiFi.reconnect(); delay(10); }; 
 	return(WiFi.status() == WL_CONNECTED);
 }
 
@@ -1233,7 +1231,6 @@ void mqttbegin() {
 
 // reconnecting mqtt - exponential backoff here 
 char mqttreconnect() {
-	
 	// exponental backoff reconnect in 10 ms * 2^n intervals
 	short timer=10;
     char reconnect=0;
@@ -1334,13 +1331,13 @@ char mqttinch() {return 0;};
 */ 
 
 void ebegin(){
-#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)
+#if ( defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM)
   EEPROM.begin(EEPROMSIZE);
 #endif
 }
 
 void eflush(){
-#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)  
+#if ( defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM) 
   EEPROM.commit();
 #endif 
 }
@@ -1376,9 +1373,11 @@ short eread(address_t a) { return 0; }
    spreading arduino code in the interpreter code 
    also, this would be the place to insert the Wiring code
    for raspberry */
+/* not needed in ESP32 2.0.2 core any more */
 #ifdef ARDUINO_ARCH_ESP32
 void analogWrite(int a, int b){}
 #endif
+
 
 void aread(){ push(analogRead(pop())); }
 
@@ -1386,18 +1385,18 @@ void dread(){ push(digitalRead(pop())); }
 
 void awrite(number_t p, number_t v){
 	if (v >= 0 && v<256) analogWrite(p, v);
-	else error(ERANGE);
+	else error(EORANGE);
 }
 
 void dwrite(number_t p, number_t v){
 	if (v == 0) digitalWrite(p, LOW);
 	else if (v == 1) digitalWrite(p, HIGH);
-	else error(ERANGE);
+	else error(EORANGE);
 }
 
 void pinm(number_t p, number_t m){
 	if (m>=0 && m<=2) pinMode(p, m);
-	else error(ERANGE); 
+	else error(EORANGE); 
 }
 
 void bmillis() {
@@ -1504,7 +1503,7 @@ byte file;
 #if defined(RP2040LITTLEFS) || defined(ESPSPIFFS)
 char tmpfilename[10+SBUFSIZE];
 // add the prefix
-char* mkfilename(char* filename) {
+char* mkfilename(const char* filename) {
 	short i,j;
 	for(i=0; i<10 && rootfs[i]!=0; i++) tmpfilename[i]=rootfs[i];
 	tmpfilename[i++]='/';
@@ -1588,7 +1587,7 @@ char fileread(){
 }
 
 
-char ifileopen(char* filename){
+char ifileopen(const char* filename){
 #ifdef ARDUINOSD
 	ifile=SD.open(filename, FILE_READ);
 	return (int) ifile;
@@ -1622,7 +1621,7 @@ void ifileclose(){
 #endif
 }
 
-char ofileopen(char* filename, char* m){
+char ofileopen(char* filename, const char* m){
 #ifdef ARDUINOSD
 	if (*m == 'w') ofile=SD.open(filename, FILE_OWRITE);
 	if (*m == 'a') ofile=SD.open(filename, FILE_WRITE);
@@ -1840,7 +1839,7 @@ void formatdisk(short i) {
 	if (i>0 && i<256) {
 		if (EFS.format(i)) { EFS.begin(); outsc("ok"); } else { outsc("fail"); }
 		outcr();
-	} else error(ERANGE);
+	} else error(EORANGE);
 	return;
 #endif
 }
@@ -1999,7 +1998,7 @@ void wireopen(char* s) {
 		// here the slave code if this Arduino is a slave
 		// to be done
 	} else 
-		error(ERANGE);
+		error(EORANGE);
 #endif
 }
 

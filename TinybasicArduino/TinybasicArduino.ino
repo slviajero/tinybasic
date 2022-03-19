@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.130 2022/02/27 15:45:35 stefan Exp stefan $
+	$Id: basic.c,v 1.131 2022/03/13 14:44:42 stefan Exp stefan $
 
 	Stefan's IoT BASIC interpreter 
 
@@ -45,7 +45,7 @@
 #define HASDARKARTS
 #define HASIOT
 
-/* hardcoded memory size set 0 for automatic malloc */
+/* hardcoded memory size set 0 for automatic malloc don't redefine this beyond this point */
 #define MEMSIZE 0
 
 // debug mode switches 
@@ -145,16 +145,16 @@ void aread(){ push(analogRead(pop())); }
 void dread(){ push(digitalRead(pop())); }
 void awrite(number_t p, number_t v){
 	if (v >= 0 && v<256) analogWrite(p, v);
-	else error(ERANGE);
+	else error(EORANGE);
 }
 void dwrite(number_t p, number_t v){
 	if (v == 0) digitalWrite(p, LOW);
 	else if (v == 1) digitalWrite(p, HIGH);
-	else error(ERANGE);
+	else error(EORANGE);
 }
 void pinm(number_t p, number_t m){
 	if (m>=0 && m<=1) pinMode(p, m);
-	else error(ERANGE); 
+	else error(EORANGE); 
 }
 #endif
 
@@ -287,7 +287,7 @@ char fileread(){
 	if (c == -1 ) ert=-1;
 	return c;
 }
-char ifileopen(char* filename){
+char ifileopen(const char* filename){
 	ifile=fopen(filename, "r");
 	return (int) ifile;
 }
@@ -295,7 +295,7 @@ void ifileclose(){
 	if (ifile) fclose(ifile);
 	ifile=NULL;	
 }
-char ofileopen(char* filename, char* m){
+char ofileopen(char* filename, const char* m){
 	ofile=fopen(filename, m);
 	return (int) ofile; 
 }
@@ -406,10 +406,7 @@ void oradioopen(char *filename) {}
 	Code hardware dependencies
 */
 
-// with no filesystem there is no use for FILEIO code
-#ifndef FILESYSTEMDRIVER
-#undef HASFILEIO
-#endif
+
 
 /*
 	Layer 0 function - variable handling.
@@ -434,20 +431,25 @@ void oradioopen(char *filename) {}
 	just returns the static MEMSIZE
 */
 
-address_t ballocmem() {
+address_t ballocmem() { 
 	signed char i = 0;
 	
 	// memory models available, this is very convervative
-	const unsigned short memmodel[9] = {
+	const unsigned short memmodel[] = {
 		60000,  // DUE systems, RP2040 and ESP32, all POSIX systems - set to fit in one 16 bit page
-		40000, 	// simple ESP8266 systems without network, MSDOS small model 
-		32000, 	// complex ESP8266 with network and many additional suff
+    48000,  // DUE with a bit of additional stuff,
+		40000, 	// simple ESP8266 systems, MSDOS small model 
+		32000, 	// complex ESP8266 with network and a lot of additional suff
 		24000,  // Arduino MK boards, SAMD, Seeduino
+    16000,  // ESP systems with a lot of subsystems (1)
+    12000,  // ESP systems with a lot of subsystems (2)
+    8000,   // ESP systems with a lot of subsystems (3)
 		6000,   // Arduino AVR MEGA boards without SD
 		4096, 	// Arduino Nano Every, MEGA with a lot of stuff 
 		1024, 	// UNO
 		512, 		// AVR168 (theoretically - but better set MEMSIZE static)
-		128			// fallback, something has gone wrong
+		128,		// fallback, something has gone wrong
+    0      
 	}; 
 
 // this is tiny model MSDOS compile - dos chrashes on 
@@ -470,7 +472,7 @@ address_t ballocmem() {
 		mem=(signed char*)malloc(memmodel[i]);
 		if (mem != NULL) break;
 		i++;
-	} while (i<9);
+	} while (memmodel[i] != 0);
 	return memmodel[i]-1;
 }
 #else 
@@ -923,7 +925,7 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 
 
 	// is the index in range 
-	if ( (i < 1) || (i > h) ) { error(ERANGE); return; }
+	if ( (i < 1) || (i > h) ) { error(EORANGE); return; }
 
 	// set or get the array
 	if (m == 'g') {
@@ -976,7 +978,7 @@ char* getstring(char c, char d, address_t b) {
 	if (er != 0) return 0;
 
 	if ( (b < 1) || (b > z.a-strindexsize ) ) {
-		error(ERANGE); return 0;
+		error(EORANGE); return 0;
 	}
 
 	a=a+b-1+strindexsize;
@@ -1053,7 +1055,7 @@ void setstringlength(char c, char d, address_t l) {
 		z.a=l;
 		setnumber(a, strindexsize);
 	} else
-		error(ERANGE);
+		error(EORANGE);
 
 }
 
@@ -1078,7 +1080,7 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 		setnumber(a, strindexsize);	
 	}
 	else 
-		error(ERANGE);
+		error(EORANGE);
 }
 #endif
 
@@ -1203,7 +1205,7 @@ void debugtoken(){
 	outputtoken();
 }
 
-void debug(char *c){
+void debug(const char *c){
 	outch('*');
 	outspc();
 	outsc(c); 
@@ -1333,25 +1335,33 @@ void ioinit() {
 
 // a standalone system runs from keyboard and display
 #ifdef STANDALONE
- idd = IKEYBOARD;
- odd = ODSP;
+	idd = IKEYBOARD;
+	odd = ODSP;
 #endif
-  
+
+// this is only for RASPBERRY - wiring has to be started explicitly
 	wiringbegin();
+
+ // all serial protocolls
 	serialbegin();
+#ifdef ARDUINOPRT
+  prtbegin();
+#endif
+#ifdef ARDUINOSPI
+  spibegin();
+#endif
+#ifdef ARDUINOWIRE
+  wirebegin();
+#endif
+
+// filesystems and networks
+  fsbegin(TRUE);
 #ifdef ARDUINOMQTT
 	netbegin();  
 	mqttbegin();
 #endif
-#ifdef ARDUINOWIRE
-	wirebegin(); // wire has to be started early as much depends on it
-#endif
-#ifdef ARDUINOSPI
-	spibegin();
-#endif
-#ifdef ARDUINOPRT
-	prtbegin();
-#endif
+
+// the displays
 #ifdef ARDUINOPS2
 	kbdbegin();
 #endif
@@ -1364,6 +1374,8 @@ void ioinit() {
 #ifdef ARDUINOSENSORS
 	sensorbegin();
 #endif
+
+// the eeprom dummy 
 	ebegin();
 	iodefaults();
 }
@@ -1448,13 +1460,16 @@ char checkch(){
     	case IWIRE:
     		return 0;
 #endif
-#ifdef ARDUIN
+#ifdef ARDUINOPRT
 		case ISERIAL1:
 			return prtcheckch(); 
 #endif
 		case IKEYBOARD:
 #ifdef ARDUINOPS2		
-			return keyboard.peek();
+			// only works with the patched library https://github.com/slviajero/PS2Keyboard
+			// return keyboard.peek();
+			// for the original library  https://github.com/PaulStoffregen/PS2Keyboard use this code 
+			if (kbdavailable()) return kbdread();
 #endif
 #ifdef LCDSHIELD
 			return keypadread();
@@ -1600,7 +1615,7 @@ void outch(char c) {
 			filewrite(c);
 			break;
 #endif
-#ifdef ARDUINOPRT
+#ifdef ARDUNIOPRT
 		case OPRT:
 			prtwrite(c);
 			break;
@@ -1671,7 +1686,7 @@ void outs(char *ir, short l){
 
 
 // output a zero terminated string at ir - c style
-void outsc(char *c){
+void outsc(const char *c){
 	while (*c != 0) outch(*c++);
 }
 
@@ -2662,7 +2677,7 @@ void xpeek(){
 	else if (x < 0 && -x < elength())
 		push(eread(-x-1));
 	else {
-		error(ERANGE);
+		error(EORANGE);
 		return;
 	}
 }
@@ -2879,7 +2894,7 @@ void xmalloc() {
 	address_t h; 
 	address_t s;
 	s=pop();
-	if (s<1) {error(ERANGE); return; };
+	if (s<1) {error(EORANGE); return; };
 	h=pop();
 	push(bmalloc(TBUFFER, h%256, 0, s));
 }
@@ -3555,7 +3570,7 @@ void assignment() {
 			};
 
 			// does the source string fit into the destination
-			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(ERANGE); return; }
+			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(EORANGE); return; }
 
 			// this code is needed to make sure we can copy one string to the same string 
 			// without overwriting stuff, we go either left to right or backwards
@@ -4116,9 +4131,9 @@ nextvariable:
 		if (args != 1) {error(EARGS); return; }
 
 		x=pop();
-		if (x<=0) {error(ERANGE); return; }
+		if (x<=0) {error(EORANGE); return; }
 		if (t == STRINGVAR) {
-			if ( (x>255) && (strindexsize==1) ) {error(ERANGE); return; }
+			if ( (x>255) && (strindexsize==1) ) {error(EORANGE); return; }
 			(void) createstring(xcl, ycl, x);
 		} else {
 			(void) createarray(xcl, ycl, x);
@@ -4164,7 +4179,7 @@ void xpoke(){
 	else if (x < 0 && x >= -elength())
 			eupdate(-x-1, y);
 	else {
-		error(ERANGE);
+		error(EORANGE);
 	}
 }
 
@@ -4355,7 +4370,7 @@ void xsave() {
 }
 
 // loading a file 
-void xload(char * f) {
+void xload(const char * f) {
 	char filename[SBUFSIZE];
 	char ch;
 	address_t here2;
@@ -4428,7 +4443,7 @@ void xsave() {
 }
 
 // loading a file from EEPROM
-void xload(char* f) {
+void xload(const char* f) {
 	eload();
 	nexttoken();
 }
@@ -4584,7 +4599,7 @@ void xset(){
 #endif
 #ifdef ARDUINORF24
       	case 8: // set the power amplifier level of the module
-      		if ((args<0) && (args>3)) {error(ERANGE); return; } 
+      		if ((args<0) && (args>3)) {error(EORANGE); return; } 
       		rf24_pa=(rf24_pa_dbm_e) args;
       		radio.setPALevel(rf24_pa);
       		break;
@@ -4802,7 +4817,7 @@ void xcatalog() {
 
 	rootopen();
 	while (rootnextfile()) {
-		if( rootisfile()) {
+		if (rootisfile()) {
 			name=rootfilename();
 			if (*name != '_' && *name !='.' && streq(name, filename)){
 				outscf(name, 14); outspc();
@@ -4832,7 +4847,7 @@ void xdelete() {
 }
 
 void xopen() {
-#if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE)
+#if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE) 
 	char stream = IFILE; // default is file operation
 	char filename[SBUFSIZE];
 	char mode;
@@ -4912,7 +4927,7 @@ void xopen() {
 			break;
 #endif
 		default:
-			error(ERANGE);
+			error(EORANGE);
 			return;
 
 	}
@@ -4962,7 +4977,7 @@ void xfdisk() {
 	nexttoken();
 	parsearguments();
 	if (er != 0) return;
-	if (args > 1) error(ERANGE);
+	if (args > 1) error(EORANGE);
 	if (args == 0) push(0);
 	outsc("Format disk (y/N)?");
 	consins(sbuffer, SBUFSIZE);
@@ -5055,7 +5070,7 @@ void xcall() {
 #endif
 			break;
 		default:
-			error(ERANGE);
+			error(EORANGE);
 			return;			
 	}
 }
@@ -5193,7 +5208,7 @@ void xread(){
 			};
 
 			// does the source string fit into the destination
-			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(ERANGE); return; }
+			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(EORANGE); return; }
 
 			// this code is needed to make sure we can copy one string to the same string 
 			// without overwriting stuff, we go either left to right or backwards
@@ -5362,7 +5377,7 @@ void xeval(){
 	// here we have the string to evaluate in ir2 and copy it to the ibuffer
 	// only one line allowed, BUFSIZE is the limit
 	l=pop();
-	if (l>BUFSIZE-1) {error(ERANGE); return; }
+	if (l>BUFSIZE-1) {error(EORANGE); return; }
 	for (i=0; i<l; i++) ibuffer[i+1]=ir2[i];
 	ibuffer[l+1]=0;
 	if (DEBUG) {outsc("** Preparing to store line "); outnumber(line); outspc(); outsc(ibuffer+1); outcr(); }
@@ -5637,30 +5652,27 @@ void statement(){
 // the setup routine - Arduino style
 void setup() {
 
+	// start measureing time
+	timeinit();
+
+	// init all io functions 
+	ioinit();
+
   // get the BASIC memory 
   himem=memsize=ballocmem();
+  
+	// be ready for a new program
+ 	xnew();	
 
-  // start measureing time
-  timeinit();
-
-  // init all io functions 
-  ioinit();
-
-  // be ready for a new program
-  xnew(); 
-
-  //start the file system - silently
-  fsbegin(FALSE);
-
-  // check if there is something to autorun and prepare 
-  // the interpreter to got into autorun once loop is reached
-  if (! autorun()) {
-      // greet the user
-      printmessage(MGREET); outspc();
-      printmessage(EOUTOFMEMORY); outspc(); 
-      outnumber(memsize+1); outspc();
-      outnumber(elength()); outcr();
-  }
+ 	// check if there is something to autorun and prepare 
+ 	// the interpreter to got into autorun once loop is reached
+ 	if (! autorun()) {
+ 			// greet the user
+			printmessage(MGREET); outspc();
+			printmessage(EOUTOFMEMORY); outspc(); 
+			outnumber(memsize+1); outspc();
+			outnumber(elength()); outcr();
+ 	}
 }
 
 // the loop routine for interactive input 

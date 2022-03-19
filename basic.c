@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.132 2022/03/19 17:49:43 stefan Exp stefan $
+	$Id: basic.c,v 1.131 2022/03/13 14:44:42 stefan Exp stefan $
 
 	Stefan's IoT BASIC interpreter 
 
@@ -45,7 +45,7 @@
 #define HASDARKARTS
 #define HASIOT
 
-/* hardcoded memory size set 0 for automatic malloc */
+/* hardcoded memory size set 0 for automatic malloc don't redefine this becyond this point */
 #define MEMSIZE 0
 
 // debug mode switches 
@@ -404,12 +404,10 @@ void oradioopen(char *filename) {}
 
 /* 
 	Code hardware dependencies
+
+	Removed to be reworked
 */
 
-// with no filesystem there is no use for FILEIO code
-#ifndef FILESYSTEMDRIVER
-#undef HASFILEIO
-#endif
 
 /*
 	Layer 0 function - variable handling.
@@ -434,20 +432,25 @@ void oradioopen(char *filename) {}
 	just returns the static MEMSIZE
 */
 
-address_t ballocmem() {
+address_t ballocmem() { 
 	signed char i = 0;
 	
 	// memory models available, this is very convervative
-	const unsigned short memmodel[9] = {
+	const unsigned short memmodel[] = {
 		60000,  // DUE systems, RP2040 and ESP32, all POSIX systems - set to fit in one 16 bit page
-		40000, 	// simple ESP8266 systems without network, MSDOS small model 
-		32000, 	// complex ESP8266 with network and many additional suff
+    48000,  // DUE with a bit of additional stuff,
+		40000, 	// simple ESP8266 systems, MSDOS small model 
+		32000, 	// complex ESP8266 with network and a lot of additional suff
 		24000,  // Arduino MK boards, SAMD, Seeduino
+    16000,  // ESP systems with a lot of subsystems (1)
+    12000,  // ESP systems with a lot of subsystems (2)
+    8000,   // ESP systems with a lot of subsystems (3)
 		6000,   // Arduino AVR MEGA boards without SD
 		4096, 	// Arduino Nano Every, MEGA with a lot of stuff 
 		1024, 	// UNO
 		512, 		// AVR168 (theoretically - but better set MEMSIZE static)
-		128			// fallback, something has gone wrong
+		128,		// fallback, something has gone wrong
+    0      
 	}; 
 
 // this is tiny model MSDOS compile - dos chrashes on 
@@ -470,7 +473,7 @@ address_t ballocmem() {
 		mem=(signed char*)malloc(memmodel[i]);
 		if (mem != NULL) break;
 		i++;
-	} while (i<9);
+	} while (memmodel[i] != 0);
 	return memmodel[i]-1;
 }
 #else 
@@ -1337,21 +1340,29 @@ void ioinit() {
 	odd = ODSP;
 #endif
 
+// this is only for RASPBERRY - wiring has to be started explicitly
 	wiringbegin();
+
+// all serial protocolls
 	serialbegin();
+#ifdef ARDUINOPRT
+  prtbegin();
+#endif
+#ifdef ARDUINOSPI
+  spibegin();
+#endif
+#ifdef ARDUINOWIRE
+  wirebegin();
+#endif
+
+// filesystems and networks
+  fsbegin(FALSE);
 #ifdef ARDUINOMQTT
 	netbegin();  
 	mqttbegin();
 #endif
-#ifdef ARDUINOWIRE
-	wirebegin(); // wire has to be started early as much depends on it
-#endif
-#ifdef ARDUINOSPI
-	spibegin();
-#endif
-#ifdef ARDUINOPRT
-	prtbegin();
-#endif
+
+// the displays
 #ifdef ARDUINOPS2
 	kbdbegin();
 #endif
@@ -1364,6 +1375,8 @@ void ioinit() {
 #ifdef ARDUINOSENSORS
 	sensorbegin();
 #endif
+
+// the eeprom dummy 
 	ebegin();
 	iodefaults();
 }
@@ -1455,9 +1468,9 @@ char checkch(){
 		case IKEYBOARD:
 #ifdef ARDUINOPS2		
 			// only works with the patched library https://github.com/slviajero/PS2Keyboard
-			return keyboard.peek();
+			// return keyboard.peek();
 			// for the original library  https://github.com/PaulStoffregen/PS2Keyboard use this code 
-			//if (kbdavailable()) return kbdread();
+			if (kbdavailable()) return kbdread();
 #endif
 #ifdef LCDSHIELD
 			return keypadread();
@@ -4431,7 +4444,7 @@ void xsave() {
 }
 
 // loading a file from EEPROM
-void xload(char* f) {
+void xload(const char* f) {
 	eload();
 	nexttoken();
 }
@@ -4805,7 +4818,7 @@ void xcatalog() {
 
 	rootopen();
 	while (rootnextfile()) {
-		if( rootisfile()) {
+		if (rootisfile()) {
 			name=rootfilename();
 			if (*name != '_' && *name !='.' && streq(name, filename)){
 				outscf(name, 14); outspc();
@@ -5640,20 +5653,17 @@ void statement(){
 // the setup routine - Arduino style
 void setup() {
 
-	// get the BASIC memory 
-	himem=memsize=ballocmem();
-
 	// start measureing time
 	timeinit();
 
 	// init all io functions 
 	ioinit();
 
+  // get the BASIC memory 
+  himem=memsize=ballocmem();
+  
 	// be ready for a new program
  	xnew();	
-
- 	//start the file system - silently
- 	fsbegin(FALSE);
 
  	// check if there is something to autorun and prepare 
  	// the interpreter to got into autorun once loop is reached
