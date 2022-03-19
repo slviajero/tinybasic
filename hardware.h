@@ -1,6 +1,6 @@
 /*
 
-	$Id: hardware.h,v 1.3 2022/02/27 15:45:35 stefan Exp stefan $
+	$Id: hardware.h,v 1.5 2022/03/19 17:49:43 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -57,7 +57,7 @@
 
 	leave this unset if you use the definitions below
 */
-#define USESPICOSERIAL 
+#undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
 #undef DISPLAYCANSCROLL
@@ -65,7 +65,7 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -101,7 +101,7 @@
 #undef WEMOSSHIELD
 #undef ESP01BOARD
 #undef MEGASHIELD
-#undef TTGOVGA
+#define TTGOVGA
 #undef DUETFT
 #undef MEGATFT
 
@@ -186,13 +186,17 @@
 #endif
 
 // VGA system with SD card, standalone by default
+// max memory 32 kB with Wifi, 60 kB without Wifi
 #if defined(TTGOVGA)
 #define ARDUINOEEPROM
 #define ARDUINOPS2
 #define ARDUINOVGA
 #define ARDUINOSD
 #define SDPIN   13
-#define STANDALONE
+#define STANDALONE 
+#ifdef ARDUINOMQTT
+#define MEMMODEL 2
+#endif
 #endif
 
 // MEGA with a TFT shield, standalone by default
@@ -1377,9 +1381,11 @@ short eread(address_t a) { return 0; }
    spreading arduino code in the interpreter code 
    also, this would be the place to insert the Wiring code
    for raspberry */
+/* not needed in ESP32 2.0.2 core any more
 #ifdef ARDUINO_ARCH_ESP32
 void analogWrite(int a, int b){}
 #endif
+*/
 
 void aread(){ push(analogRead(pop())); }
 
@@ -1387,18 +1393,18 @@ void dread(){ push(digitalRead(pop())); }
 
 void awrite(number_t p, number_t v){
 	if (v >= 0 && v<256) analogWrite(p, v);
-	else error(ERANGE);
+	else error(EORANGE);
 }
 
 void dwrite(number_t p, number_t v){
 	if (v == 0) digitalWrite(p, LOW);
 	else if (v == 1) digitalWrite(p, HIGH);
-	else error(ERANGE);
+	else error(EORANGE);
 }
 
 void pinm(number_t p, number_t m){
 	if (m>=0 && m<=2) pinMode(p, m);
-	else error(ERANGE); 
+	else error(EORANGE); 
 }
 
 void bmillis() {
@@ -1505,7 +1511,7 @@ byte file;
 #if defined(RP2040LITTLEFS) || defined(ESPSPIFFS)
 char tmpfilename[10+SBUFSIZE];
 // add the prefix
-char* mkfilename(char* filename) {
+char* mkfilename(const char* filename) {
 	short i,j;
 	for(i=0; i<10 && rootfs[i]!=0; i++) tmpfilename[i]=rootfs[i];
 	tmpfilename[i++]='/';
@@ -1589,7 +1595,7 @@ char fileread(){
 }
 
 
-char ifileopen(char* filename){
+char ifileopen(const char* filename){
 #ifdef ARDUINOSD
 	ifile=SD.open(filename, FILE_READ);
 	return (int) ifile;
@@ -1623,7 +1629,7 @@ void ifileclose(){
 #endif
 }
 
-char ofileopen(char* filename, char* m){
+char ofileopen(char* filename, const char* m){
 #ifdef ARDUINOSD
 	if (*m == 'w') ofile=SD.open(filename, FILE_OWRITE);
 	if (*m == 'a') ofile=SD.open(filename, FILE_WRITE);
@@ -1841,7 +1847,7 @@ void formatdisk(short i) {
 	if (i>0 && i<256) {
 		if (EFS.format(i)) { EFS.begin(); outsc("ok"); } else { outsc("fail"); }
 		outcr();
-	} else error(ERANGE);
+	} else error(EORANGE);
 	return;
 #endif
 }
@@ -2000,7 +2006,7 @@ void wireopen(char* s) {
 		// here the slave code if this Arduino is a slave
 		// to be done
 	} else 
-		error(ERANGE);
+		error(EORANGE);
 #endif
 }
 

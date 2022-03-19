@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.h,v 1.4 2022/03/13 14:44:42 stefan Exp stefan $
+	$Id: basic.h,v 1.5 2022/03/19 17:49:43 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -542,7 +542,7 @@ const signed char tokens[] PROGMEM = {
 #define EOUTOFMEMORY 18
 #define ESTACK 		 19
 #define EDIM         20
-#define ERANGE 		 21
+#define EORANGE 	 21
 #define ESTRING      22
 #define EVARIABLE	 23
 #define EFILE 		 24
@@ -794,7 +794,7 @@ void printmessage(char);
 void error(signed char);
 void reseterror();
 void debugtoken();
-void debug(char*);
+void debug(const char*);
 
 // stack stuff
 void push(number_t);
@@ -831,9 +831,9 @@ short rtcread(char);
 // the file interface
 void filewrite(char);
 char fileread();
-char ifileopen(char*);
+char ifileopen(const char*);
 void ifileclose();
-char ofileopen(char*, char*);
+char ofileopen(char*, const char*);
 void ofileclose();
 int fileavailable();
 void rootopen();
@@ -904,7 +904,7 @@ char mqttinch();
 void outcr();
 void outspc();
 void outs(char*, short);
-void outsc(char*);
+void outsc(const char*);
 void outscf(char *, short);
 char innumber(number_t*);
 short parsenumber(char*, number_t*);
@@ -1048,7 +1048,7 @@ void xdump();
 void stringtosbuffer();
 void getfilename(char*, char);
 void xsave();
-void xload(char* f);
+void xload(const char* f);
 void xcatalog();
 void xdelete();
 void xopen();
@@ -1089,8 +1089,3 @@ void xavail();
 
 // the statement loop
 void statement();
-
-
-
-
-

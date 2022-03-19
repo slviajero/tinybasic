@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.131 2022/03/13 14:44:42 stefan Exp stefan $
+	$Id: basic.c,v 1.132 2022/03/19 17:49:43 stefan Exp stefan $
 
 	Stefan's IoT BASIC interpreter 
 
@@ -145,16 +145,16 @@ void aread(){ push(analogRead(pop())); }
 void dread(){ push(digitalRead(pop())); }
 void awrite(number_t p, number_t v){
 	if (v >= 0 && v<256) analogWrite(p, v);
-	else error(ERANGE);
+	else error(EORANGE);
 }
 void dwrite(number_t p, number_t v){
 	if (v == 0) digitalWrite(p, LOW);
 	else if (v == 1) digitalWrite(p, HIGH);
-	else error(ERANGE);
+	else error(EORANGE);
 }
 void pinm(number_t p, number_t m){
 	if (m>=0 && m<=1) pinMode(p, m);
-	else error(ERANGE); 
+	else error(EORANGE); 
 }
 #endif
 
@@ -287,7 +287,7 @@ char fileread(){
 	if (c == -1 ) ert=-1;
 	return c;
 }
-char ifileopen(char* filename){
+char ifileopen(const char* filename){
 	ifile=fopen(filename, "r");
 	return (int) ifile;
 }
@@ -295,7 +295,7 @@ void ifileclose(){
 	if (ifile) fclose(ifile);
 	ifile=NULL;	
 }
-char ofileopen(char* filename, char* m){
+char ofileopen(char* filename, const char* m){
 	ofile=fopen(filename, m);
 	return (int) ofile; 
 }
@@ -923,7 +923,7 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 
 
 	// is the index in range 
-	if ( (i < 1) || (i > h) ) { error(ERANGE); return; }
+	if ( (i < 1) || (i > h) ) { error(EORANGE); return; }
 
 	// set or get the array
 	if (m == 'g') {
@@ -976,7 +976,7 @@ char* getstring(char c, char d, address_t b) {
 	if (er != 0) return 0;
 
 	if ( (b < 1) || (b > z.a-strindexsize ) ) {
-		error(ERANGE); return 0;
+		error(EORANGE); return 0;
 	}
 
 	a=a+b-1+strindexsize;
@@ -1053,7 +1053,7 @@ void setstringlength(char c, char d, address_t l) {
 		z.a=l;
 		setnumber(a, strindexsize);
 	} else
-		error(ERANGE);
+		error(EORANGE);
 
 }
 
@@ -1078,7 +1078,7 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 		setnumber(a, strindexsize);	
 	}
 	else 
-		error(ERANGE);
+		error(EORANGE);
 }
 #endif
 
@@ -1203,7 +1203,7 @@ void debugtoken(){
 	outputtoken();
 }
 
-void debug(char *c){
+void debug(const char *c){
 	outch('*');
 	outspc();
 	outsc(c); 
@@ -1674,7 +1674,7 @@ void outs(char *ir, short l){
 
 
 // output a zero terminated string at ir - c style
-void outsc(char *c){
+void outsc(const char *c){
 	while (*c != 0) outch(*c++);
 }
 
@@ -2665,7 +2665,7 @@ void xpeek(){
 	else if (x < 0 && -x < elength())
 		push(eread(-x-1));
 	else {
-		error(ERANGE);
+		error(EORANGE);
 		return;
 	}
 }
@@ -2882,7 +2882,7 @@ void xmalloc() {
 	address_t h; 
 	address_t s;
 	s=pop();
-	if (s<1) {error(ERANGE); return; };
+	if (s<1) {error(EORANGE); return; };
 	h=pop();
 	push(bmalloc(TBUFFER, h%256, 0, s));
 }
@@ -3558,7 +3558,7 @@ void assignment() {
 			};
 
 			// does the source string fit into the destination
-			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(ERANGE); return; }
+			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(EORANGE); return; }
 
 			// this code is needed to make sure we can copy one string to the same string 
 			// without overwriting stuff, we go either left to right or backwards
@@ -4119,9 +4119,9 @@ nextvariable:
 		if (args != 1) {error(EARGS); return; }
 
 		x=pop();
-		if (x<=0) {error(ERANGE); return; }
+		if (x<=0) {error(EORANGE); return; }
 		if (t == STRINGVAR) {
-			if ( (x>255) && (strindexsize==1) ) {error(ERANGE); return; }
+			if ( (x>255) && (strindexsize==1) ) {error(EORANGE); return; }
 			(void) createstring(xcl, ycl, x);
 		} else {
 			(void) createarray(xcl, ycl, x);
@@ -4167,7 +4167,7 @@ void xpoke(){
 	else if (x < 0 && x >= -elength())
 			eupdate(-x-1, y);
 	else {
-		error(ERANGE);
+		error(EORANGE);
 	}
 }
 
@@ -4358,7 +4358,7 @@ void xsave() {
 }
 
 // loading a file 
-void xload(char * f) {
+void xload(const char * f) {
 	char filename[SBUFSIZE];
 	char ch;
 	address_t here2;
@@ -4587,7 +4587,7 @@ void xset(){
 #endif
 #ifdef ARDUINORF24
       	case 8: // set the power amplifier level of the module
-      		if ((args<0) && (args>3)) {error(ERANGE); return; } 
+      		if ((args<0) && (args>3)) {error(EORANGE); return; } 
       		rf24_pa=(rf24_pa_dbm_e) args;
       		radio.setPALevel(rf24_pa);
       		break;
@@ -4915,7 +4915,7 @@ void xopen() {
 			break;
 #endif
 		default:
-			error(ERANGE);
+			error(EORANGE);
 			return;
 
 	}
@@ -4965,7 +4965,7 @@ void xfdisk() {
 	nexttoken();
 	parsearguments();
 	if (er != 0) return;
-	if (args > 1) error(ERANGE);
+	if (args > 1) error(EORANGE);
 	if (args == 0) push(0);
 	outsc("Format disk (y/N)?");
 	consins(sbuffer, SBUFSIZE);
@@ -5058,7 +5058,7 @@ void xcall() {
 #endif
 			break;
 		default:
-			error(ERANGE);
+			error(EORANGE);
 			return;			
 	}
 }
@@ -5196,7 +5196,7 @@ void xread(){
 			};
 
 			// does the source string fit into the destination
-			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(ERANGE); return; }
+			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(EORANGE); return; }
 
 			// this code is needed to make sure we can copy one string to the same string 
 			// without overwriting stuff, we go either left to right or backwards
@@ -5365,7 +5365,7 @@ void xeval(){
 	// here we have the string to evaluate in ir2 and copy it to the ibuffer
 	// only one line allowed, BUFSIZE is the limit
 	l=pop();
-	if (l>BUFSIZE-1) {error(ERANGE); return; }
+	if (l>BUFSIZE-1) {error(EORANGE); return; }
 	for (i=0; i<l; i++) ibuffer[i+1]=ir2[i];
 	ibuffer[l+1]=0;
 	if (DEBUG) {outsc("** Preparing to store line "); outnumber(line); outspc(); outsc(ibuffer+1); outcr(); }
