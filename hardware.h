@@ -73,7 +73,8 @@
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
-#define ARDUINOMQTT
+#undef ARDUINOETH
+#undef ARDUINOMQTT
 #undef STANDALONE
 
 /* 
@@ -99,7 +100,7 @@
 #undef UNOPLAIN
 #undef AVRLCD
 #undef WEMOSSHIELD
-#define ESP01BOARD
+#undef ESP01BOARD
 #undef MEGASHIELD
 #undef TTGOVGA
 #undef DUETFT
@@ -118,6 +119,8 @@
 #define PS2DATAPIN 3
 #define PS2IRQPIN 2
 
+// Ethernet - 10 is the default
+//#define ETHPIN 10
 
 // list of default i2c addresses
 // some clock modules do this
@@ -312,6 +315,11 @@
 
 // experimental 
 #ifdef ARDUINOMQTT
+#ifdef ARDUINOETH
+// Ethernet
+#include <Ethernet.h>
+#else
+// Wifi
 #ifdef ARDUINO_ARCH_ESP8266
 #include <ESP8266WiFi.h>
 #endif
@@ -320,6 +328,7 @@
 #endif
 #ifdef ARDUINO_ARCH_RP2040
 #include <WiFiNINA.h>
+#endif
 #endif
 #include <PubSubClient.h>
 #endif
@@ -1154,11 +1163,13 @@ RF24 radio(rf24_ce, rf24_csn);
 */
 #ifdef ARDUINOMQTT
 #include "wifisettings.h"
-const char* mqtt_server = "test.mosquitto.org";
-const short mqtt_port = 1883;
+#ifdef ARDUINOETH
+EthernetClient bethclient;
+PubSubClient bmqtt(bethclient);
+#else
 WiFiClient bwifi;
 PubSubClient bmqtt(bwifi);
-
+#endif
 
 // the length of the outgoing and incomming topic 
 #define MQTTLENGTH 32
@@ -1194,21 +1205,31 @@ void mqttsetname() {
 // the begin method 
 // needs the settings from wifisettings.h
 void netbegin() {
+#ifdef ARDUINOETH
+#ifdef ETHPIN
+Ethernet.init(ETHPIN);
+#endif
+Ethernet.begin(mac);
+#else  
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
 	WiFi.setAutoReconnect(true);
-  // WiFi.persistent(true); 
 #endif
 #if defined(ARDUINO_ARCH_RP2040)
 	WiFi.begin(ssid, password);
+#endif
 #endif
 }
 
 // the connected method
 char netconnected() {
+#ifdef ARDUINOETH
+  return bethclient.connected();
+#else
 	if (WiFi.status() != WL_CONNECTED) {  WiFi.reconnect(); delay(10); };
 	return(WiFi.status() == WL_CONNECTED);
+#endif
 }
 
 // the mqtt callback function, using the byte type here
@@ -1462,6 +1483,11 @@ char tempname[SBUFSIZE];
 #ifdef ARDUINOSD
 File root;
 File file;
+#ifdef ARDUINO_ARCH_ESP32
+const char rootfsprefix[2] = "/";
+#else
+const char rootfsprefix[1] = "";
+#endif
 #endif
 #ifdef ESPSPIFFS
 const char rootfsprefix[2] = "/";
@@ -1505,7 +1531,7 @@ byte file;
 #endif
 
 // these filesystems have a path prefix
-#if defined(RP2040LITTLEFS) || defined(ESPSPIFFS)
+#if defined(RP2040LITTLEFS) || defined(ESPSPIFFS) || defined(ARDUINOSD) 
 char tmpfilename[10+SBUFSIZE];
 // add the prefix
 char* mkfilename(const char* filename) {
@@ -1600,7 +1626,7 @@ char fileread(){
 
 char ifileopen(const char* filename){
 #ifdef ARDUINOSD
-	ifile=SD.open(filename, FILE_READ);
+	ifile=SD.open(mkfilename(filename), FILE_READ);
 	return (int) ifile;
 #endif
 #ifdef ESPSPIFFS
@@ -1634,8 +1660,8 @@ void ifileclose(){
 
 char ofileopen(char* filename, const char* m){
 #ifdef ARDUINOSD
-	if (*m == 'w') ofile=SD.open(filename, FILE_OWRITE);
-	if (*m == 'a') ofile=SD.open(filename, FILE_WRITE);
+	if (*m == 'w') ofile=SD.open(mkfilename(filename), FILE_OWRITE);
+	if (*m == 'a') ofile=SD.open(mkfilename(filename), FILE_WRITE);
 	return (int) ofile;
 #endif
 #ifdef ESPSPIFFS
@@ -1691,7 +1717,7 @@ void rootopen() {
 #endif
 #endif
 #ifdef RP2040LITTLEFS
-	root=opendir(rootfs);
+	root=opendir(rootfsprefix);
 #endif
 #ifdef ARDUINOEFS
 	EFS.dirp=0;
@@ -1752,7 +1778,8 @@ int rootisfile() {
 
 const char* rootfilename() {
 #ifdef ARDUINOSD
-	return (char*) file.name();
+	//return (char*) file.name();
+ return rmrootfsprefix(file.name());
 #endif
 #ifdef ESPSPIFFS
 #ifdef ARDUINO_ARCH_ESP8266

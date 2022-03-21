@@ -73,6 +73,7 @@
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
+#undef ARDUINOETH
 #undef ARDUINOMQTT
 #undef STANDALONE
 
@@ -100,7 +101,7 @@
 #undef AVRLCD
 #undef WEMOSSHIELD
 #undef ESP01BOARD
-#define MEGASHIELD
+#undef MEGASHIELD
 #undef TTGOVGA
 #undef DUETFT
 #undef MEGATFT
@@ -118,6 +119,8 @@
 #define PS2DATAPIN 3
 #define PS2IRQPIN 2
 
+// Ethernet - 10 is the default
+//#define ETHPIN 10
 
 // list of default i2c addresses
 // some clock modules do this
@@ -312,6 +315,11 @@
 
 // experimental 
 #ifdef ARDUINOMQTT
+#ifdef ARDUINOETH
+// Ethernet
+#include <Ethernet.h>
+#else
+// Wifi
 #ifdef ARDUINO_ARCH_ESP8266
 #include <ESP8266WiFi.h>
 #endif
@@ -320,6 +328,7 @@
 #endif
 #ifdef ARDUINO_ARCH_RP2040
 #include <WiFiNINA.h>
+#endif
 #endif
 #include <PubSubClient.h>
 #endif
@@ -1154,11 +1163,13 @@ RF24 radio(rf24_ce, rf24_csn);
 */
 #ifdef ARDUINOMQTT
 #include "wifisettings.h"
-const char* mqtt_server = "test.mosquitto.org";
-const short mqtt_port = 1883;
+#ifdef ARDUINOETH
+EthernetClient bethclient;
+PubSubClient bmqtt(bethclient);
+#else
 WiFiClient bwifi;
 PubSubClient bmqtt(bwifi);
-
+#endif
 
 // the length of the outgoing and incomming topic 
 #define MQTTLENGTH 32
@@ -1194,21 +1205,31 @@ void mqttsetname() {
 // the begin method 
 // needs the settings from wifisettings.h
 void netbegin() {
+#ifdef ARDUINOETH
+#ifdef ETHPIN
+Ethernet.init(ETHPIN);
+#endif
+Ethernet.begin(mac);
+#else  
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
 	WiFi.setAutoReconnect(true);
-  // WiFi.persistent(true); 
 #endif
 #if defined(ARDUINO_ARCH_RP2040)
 	WiFi.begin(ssid, password);
+#endif
 #endif
 }
 
 // the connected method
 char netconnected() {
+#ifdef ARDUINOETH
+  return bethclient.connected();
+#else
 	if (WiFi.status() != WL_CONNECTED) {  WiFi.reconnect(); delay(10); };
 	return(WiFi.status() == WL_CONNECTED);
+#endif
 }
 
 // the mqtt callback function, using the byte type here

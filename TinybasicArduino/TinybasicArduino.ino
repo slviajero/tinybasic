@@ -4609,7 +4609,7 @@ void xset(){
 
 void xnetstat(){
 #ifdef ARDUINOMQTT
-	if (netconnected()) outsc("Wifi connected \n"); else outsc("Wifi not connected \n");
+	if (netconnected()) outsc("Network connected \n"); else outsc("Network not connected \n");
   outsc("MQTT state "); outnumber(mqttstate()); outcr();
  	outsc("MQTT out topic "); outsc(mqtt_otopic); outcr();
   outsc("MQTT inp topic "); outsc(mqtt_itopic); outcr();
