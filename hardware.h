@@ -99,7 +99,7 @@
 #undef UNOPLAIN
 #undef AVRLCD
 #undef WEMOSSHIELD
-#undef ESP01BOARD
+#define ESP01BOARD
 #undef MEGASHIELD
 #undef TTGOVGA
 #undef DUETFT
@@ -1450,6 +1450,9 @@ void byield() {
 
 /* 
 	The file system driver - all methods needed to support BASIC fs access
+
+	Prefix handling is still very simple - SD prefix
+
 */
 
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
@@ -1461,7 +1464,7 @@ File root;
 File file;
 #endif
 #ifdef ESPSPIFFS
-const char rootfs[2] = "/";
+const char rootfsprefix[2] = "/";
 #ifdef ARDUINO_ARCH_ESP8266
 Dir root;
 File file;
@@ -1491,7 +1494,7 @@ FILE* ofile;
 DIR* root;
 struct dirent* file;
 LittleFS_MBED *myFS;
-const char rootfs[10] = MBED_LITTLEFS_FILE_PREFIX;
+const char rootfsprefix[10] = MBED_LITTLEFS_FILE_PREFIX;
 #endif
 
 // use EEPROM as filesystem
@@ -1507,11 +1510,17 @@ char tmpfilename[10+SBUFSIZE];
 // add the prefix
 char* mkfilename(const char* filename) {
 	short i,j;
-	for(i=0; i<10 && rootfs[i]!=0; i++) tmpfilename[i]=rootfs[i];
+	for(i=0; i<10 && rootfsprefix[i]!=0; i++) tmpfilename[i]=rootfsprefix[i];
 	tmpfilename[i++]='/';
 	for(j=0; j<SBUFSIZE && filename[j]!=0; j++) tmpfilename[i++]=filename[j];
 	tmpfilename[i]=0;
 	return tmpfilename;
+}
+const char* rmrootfsprefix(const char* filename) {
+	short i=0;
+	while (filename[i] == rootfsprefix[i] && rootfsprefix[i] !=0 && filename[i] !=0 ) i++;
+	if (filename[i]=='/') i++;
+	return &filename[i];
 }
 #endif
 
@@ -1741,18 +1750,18 @@ int rootisfile() {
 }
 
 
-char* rootfilename() {
+const char* rootfilename() {
 #ifdef ARDUINOSD
 	return (char*) file.name();
 #endif
 #ifdef ESPSPIFFS
 #ifdef ARDUINO_ARCH_ESP8266
-   	// c_str() sometimes broken
-  	int i=0;
+	// c_str() and copy - real ugly
+  int i=0;
 	String s=root.fileName();
  	for (i=0; i<s.length(); i++) { tempname[i]=s[i]; }
  	tempname[i]=0;
-	return tempname;
+	return rmrootfsprefix(tempname);
 #endif
 #ifdef ARDUINO_ARCH_ESP32
 	return (char*) file.name();

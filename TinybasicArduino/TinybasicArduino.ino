@@ -1691,7 +1691,7 @@ void outsc(const char *c){
 }
 
 // output a zero terminated string in a formated box
-void outscf(char *c, short f){
+void outscf(const char *c, short f){
   short i = 0;
   while (*c != 0) { outch(*c++); i++; }
   if (f > i) {
@@ -4796,7 +4796,7 @@ void xtone(){
 */
 
 // string equal helper in catalog 
-char streq(char *s, char *m){
+char streq(const char *s, char *m){
 	short i=0;
 	while (m[i]!=0 && s[i]!=0 && i < SBUFSIZE){
 		if (s[i] != m[i]) return 0;
@@ -4809,7 +4809,7 @@ char streq(char *s, char *m){
 void xcatalog() {
 #if defined(FILESYSTEMDRIVER) 
 	char filename[SBUFSIZE];
-	char *name;
+	const char *name;
 
 	nexttoken();
 	getfilename(filename, 0);

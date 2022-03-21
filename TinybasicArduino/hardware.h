@@ -96,12 +96,12 @@
     	TFT 7inch screen systems, standalone
 */
 
-#define UNOPLAIN
+#undef UNOPLAIN
 #undef AVRLCD
 #undef WEMOSSHIELD
-#undef ESP01BOARD
+#define ESP01BOARD
 #undef MEGASHIELD
-#define TTGOVGA
+#undef TTGOVGA
 #undef DUETFT
 #undef MEGATFT
 
@@ -186,7 +186,7 @@
 #define ARDUINOEEPROM
 #define ARDUINOPS2
 #define ARDUINOVGA
-#define  ARDUINOSD
+#define ARDUINOSD
 #define SDPIN   13
 #define STANDALONE 
 #endif
@@ -513,7 +513,8 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
 	this is the VGA code for fablib - first attempt to do this now
 */
 #if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32) 
-fabgl::VGA16Controller VGAController;
+//fabgl::VGAController VGAController;
+fabgl::VGA16Controller VGAController; // 16 color object with less memory 
 fabgl::Terminal      Terminal;
 Canvas cv(&VGAController);
 TerminalController tc(&Terminal);
@@ -1197,6 +1198,7 @@ void netbegin() {
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
 	WiFi.setAutoReconnect(true);
+  // WiFi.persistent(true); 
 #endif
 #if defined(ARDUINO_ARCH_RP2040)
 	WiFi.begin(ssid, password);
@@ -1205,8 +1207,7 @@ void netbegin() {
 
 // the connected method
 char netconnected() {
-  outsc("** WiFi status: "); outnumber(WiFi.status()); outcr();
-  if (WiFi.status() != WL_CONNECTED) {  WiFi.reconnect(); delay(10); }; 
+	if (WiFi.status() != WL_CONNECTED) {  WiFi.reconnect(); delay(10); };
 	return(WiFi.status() == WL_CONNECTED);
 }
 
@@ -1231,6 +1232,7 @@ void mqttbegin() {
 
 // reconnecting mqtt - exponential backoff here 
 char mqttreconnect() {
+	
 	// exponental backoff reconnect in 10 ms * 2^n intervals
 	short timer=10;
     char reconnect=0;
@@ -1448,6 +1450,9 @@ void byield() {
 
 /* 
 	The file system driver - all methods needed to support BASIC fs access
+
+	Prefix handling is still very simple - SD prefix
+
 */
 
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
@@ -1459,7 +1464,7 @@ File root;
 File file;
 #endif
 #ifdef ESPSPIFFS
-const char rootfs[2] = "/";
+const char rootfsprefix[2] = "/";
 #ifdef ARDUINO_ARCH_ESP8266
 Dir root;
 File file;
@@ -1489,7 +1494,7 @@ FILE* ofile;
 DIR* root;
 struct dirent* file;
 LittleFS_MBED *myFS;
-const char rootfs[10] = MBED_LITTLEFS_FILE_PREFIX;
+const char rootfsprefix[10] = MBED_LITTLEFS_FILE_PREFIX;
 #endif
 
 // use EEPROM as filesystem
@@ -1505,11 +1510,17 @@ char tmpfilename[10+SBUFSIZE];
 // add the prefix
 char* mkfilename(const char* filename) {
 	short i,j;
-	for(i=0; i<10 && rootfs[i]!=0; i++) tmpfilename[i]=rootfs[i];
+	for(i=0; i<10 && rootfsprefix[i]!=0; i++) tmpfilename[i]=rootfsprefix[i];
 	tmpfilename[i++]='/';
 	for(j=0; j<SBUFSIZE && filename[j]!=0; j++) tmpfilename[i++]=filename[j];
 	tmpfilename[i]=0;
 	return tmpfilename;
+}
+const char* rmrootfsprefix(const char* filename) {
+	short i=0;
+	while (filename[i] == rootfsprefix[i] && rootfsprefix[i] !=0 && filename[i] !=0 ) i++;
+	if (filename[i]=='/') i++;
+	return &filename[i];
 }
 #endif
 
@@ -1739,18 +1750,18 @@ int rootisfile() {
 }
 
 
-char* rootfilename() {
+const char* rootfilename() {
 #ifdef ARDUINOSD
 	return (char*) file.name();
 #endif
 #ifdef ESPSPIFFS
 #ifdef ARDUINO_ARCH_ESP8266
-   	// c_str() sometimes broken
-  	int i=0;
+	// c_str() and copy - real ugly
+  int i=0;
 	String s=root.fileName();
  	for (i=0; i<s.length(); i++) { tempname[i]=s[i]; }
  	tempname[i]=0;
-	return tempname;
+	return rmrootfsprefix(tempname);
 #endif
 #ifdef ARDUINO_ARCH_ESP32
 	return (char*) file.name();
