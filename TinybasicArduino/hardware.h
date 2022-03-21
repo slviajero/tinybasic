@@ -73,7 +73,7 @@
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
-#define ARDUINOMQTT
+#undef ARDUINOMQTT
 #undef STANDALONE
 
 /* 
@@ -99,8 +99,8 @@
 #undef UNOPLAIN
 #undef AVRLCD
 #undef WEMOSSHIELD
-#define ESP01BOARD
-#undef MEGASHIELD
+#undef ESP01BOARD
+#define MEGASHIELD
 #undef TTGOVGA
 #undef DUETFT
 #undef MEGATFT
@@ -1462,6 +1462,11 @@ char tempname[SBUFSIZE];
 #ifdef ARDUINOSD
 File root;
 File file;
+#ifdef ARDUINO_ARCH_ESP32
+const char rootfsprefix[2] = "/";
+#else
+const char rootfsprefix[1] = "";
+#endif
 #endif
 #ifdef ESPSPIFFS
 const char rootfsprefix[2] = "/";
@@ -1505,7 +1510,7 @@ byte file;
 #endif
 
 // these filesystems have a path prefix
-#if defined(RP2040LITTLEFS) || defined(ESPSPIFFS)
+#if defined(RP2040LITTLEFS) || defined(ESPSPIFFS) || defined(ARDUINOSD) 
 char tmpfilename[10+SBUFSIZE];
 // add the prefix
 char* mkfilename(const char* filename) {
@@ -1600,7 +1605,7 @@ char fileread(){
 
 char ifileopen(const char* filename){
 #ifdef ARDUINOSD
-	ifile=SD.open(filename, FILE_READ);
+	ifile=SD.open(mkfilename(filename), FILE_READ);
 	return (int) ifile;
 #endif
 #ifdef ESPSPIFFS
@@ -1634,8 +1639,8 @@ void ifileclose(){
 
 char ofileopen(char* filename, const char* m){
 #ifdef ARDUINOSD
-	if (*m == 'w') ofile=SD.open(filename, FILE_OWRITE);
-	if (*m == 'a') ofile=SD.open(filename, FILE_WRITE);
+	if (*m == 'w') ofile=SD.open(mkfilename(filename), FILE_OWRITE);
+	if (*m == 'a') ofile=SD.open(mkfilename(filename), FILE_WRITE);
 	return (int) ofile;
 #endif
 #ifdef ESPSPIFFS
@@ -1691,7 +1696,7 @@ void rootopen() {
 #endif
 #endif
 #ifdef RP2040LITTLEFS
-	root=opendir(rootfs);
+	root=opendir(rootfsprefix);
 #endif
 #ifdef ARDUINOEFS
 	EFS.dirp=0;
@@ -1752,7 +1757,8 @@ int rootisfile() {
 
 const char* rootfilename() {
 #ifdef ARDUINOSD
-	return (char*) file.name();
+	//return (char*) file.name();
+ return rmrootfsprefix(file.name());
 #endif
 #ifdef ESPSPIFFS
 #ifdef ARDUINO_ARCH_ESP8266

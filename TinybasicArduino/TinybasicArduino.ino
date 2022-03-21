@@ -39,7 +39,7 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#define HASFLOAT
+#undef HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
 #define HASDARKARTS
