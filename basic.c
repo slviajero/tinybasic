@@ -317,6 +317,7 @@ int rootnextfile() {
   return FALSE;
 #endif
 }
+
 int rootisfile() {
 #ifndef MSDOS
   return (file->d_type == DT_REG);
@@ -325,13 +326,14 @@ int rootisfile() {
 #endif
 }
 
-char* rootfilename() { 
+const char* rootfilename() { 
 #ifndef MSDOS
   return (file->d_name);
 #else
   return 0;
 #endif  
 }
+
 int rootfilesize() { return 0; }
 void rootfileclose() {}
 void rootclose(){
@@ -446,6 +448,7 @@ address_t ballocmem() {
     8000,   // ESP systems with a lot of subsystems (3)
 		6000,   // Arduino AVR MEGA boards without SD
 		4096, 	// Arduino Nano Every, MEGA with a lot of stuff 
+		2048,   // AVR with a lot of additional stuff on them
 		1024, 	// UNO
 		512, 		// AVR168 (theoretically - but better set MEMSIZE static)
 		128,		// fallback, something has gone wrong
@@ -3066,13 +3069,15 @@ void factor(){
 			if (er != 0) return;
 			// not super clean - handling of terminal symbol dirty
 			// stringtobuffer needed 
+			while(*ir2==' ' || *ir2=='\t') ir2++;
+			if(*ir2=='-') { y=-1; ir2++;} else y=1;
 #ifdef HASFLOAT
 			(void) parsenumber2(ir2, &x);	
 #else 
 			(void) parsenumber(ir2, &x);
 #endif			
 			(void) pop();
-			push(x);
+			push(x*y);
 			nexttoken();
 			if (token != ')') {
 				error(EARGS);
