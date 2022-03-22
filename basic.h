@@ -79,7 +79,9 @@ typedef unsigned char uint8_t;
 #define STRSIZEDEF   32
 
 // the time intervall in ms needed for 
-// ESP8266 yields and network functions
+// ESP8266 yields, network client loops 
+// and other timing related functions 
+#define LONGYIELDINTERVAL 1000
 #define YIELDINTERVAL 32
 #define YIELDTIME 2
 
@@ -735,8 +737,15 @@ address_t data = 0;
 
 /*
 	IoT yield counter, we count when we did yield the last time
+	lastyield controlls the client loops of network functions 
+	like mqtt
+	lastlongyield controls longterm functions like DHCP lease 
+	renewal in Ethernet 
 */
+#ifdef ARDUINOMQTT
 static long lastyield=0;
+static long lastlongyield=0;
+#endif
 
 /* 
 
