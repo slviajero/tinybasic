@@ -1642,6 +1642,8 @@ void outch(char c) {
 		default:
 			break;
 	}
+	// yield after every character - untested, precaution for output of long strings
+	byield();
 }
 
 // send a newline
