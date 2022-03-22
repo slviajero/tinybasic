@@ -4254,8 +4254,8 @@ void dumpmem(address_t r, address_t b) {
 	while (i>0) {
 		outnumber(k); outspc();
 		for (j=0; j<8; j++) {
-			outnumber(mem[k++]); outspc();
-			delay(1); // slow down a little to yield 
+			outnumber(memread(k++)); outspc();
+			// delay(1); // slow down a little to yield - not needed any more
 			if (k > memsize) break;
 		}
 		outcr();
