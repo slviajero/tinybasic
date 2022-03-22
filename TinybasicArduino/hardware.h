@@ -99,7 +99,7 @@
 
 #undef UNOPLAIN
 #undef AVRLCD
-#undef WEMOSSHIELD
+#define WEMOSSHIELD
 #undef ESP01BOARD
 #undef MEGASHIELD
 #undef TTGOVGA

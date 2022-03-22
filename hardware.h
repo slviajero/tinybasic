@@ -1448,11 +1448,17 @@ void bpulsein() {
 */
 void byield() {	
 #ifdef ARDUINOMQTT
-	if ( millis()-lastyield > YIELDINTERVAL-1 ) {
-      bmqtt.loop();
-      lastyield=millis();
-      delay(YIELDTIME); 
-  	}
+	if (millis()-lastyield > YIELDINTERVAL-1) {
+		bmqtt.loop();
+		lastyield=millis();
+		delay(YIELDTIME); // give time to process the buffer changes by bmqtt loop
+  }
+  if (millis()-lastlongyield > LONGYIELDINTERVAL-1) {
+#ifdef ARDUINOETH
+  	Ethernet.maintain();
+#endif 
+  	lastlongyield=millis();
+  }
 #endif
   	delay(0);
 }
