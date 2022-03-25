@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.h,v 1.4 2022/03/13 14:44:42 stefan Exp stefan $
+	$Id: basic.h,v 1.6 2022/03/25 14:26:17 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -79,7 +79,9 @@ typedef unsigned char uint8_t;
 #define STRSIZEDEF   32
 
 // the time intervall in ms needed for 
-// ESP8266 yields and network functions
+// ESP8266 yields, network client loops 
+// and other timing related functions 
+#define LONGYIELDINTERVAL 1000
 #define YIELDINTERVAL 32
 #define YIELDTIME 2
 
@@ -735,8 +737,13 @@ address_t data = 0;
 
 /*
 	IoT yield counter, we count when we did yield the last time
+	lastyield controlls the client loops of network functions 
+	like mqtt
+	lastlongyield controls longterm functions like DHCP lease 
+	renewal in Ethernet 
 */
 static long lastyield=0;
+static long lastlongyield=0;
 
 /* 
 
@@ -876,6 +883,7 @@ void inb(char*, short);
 void kbdbegin();
 char kbdavailable();
 char kbdread();
+char kbdcheckch();
 
 // RF24 radio input 
 void iradioopen(char*);

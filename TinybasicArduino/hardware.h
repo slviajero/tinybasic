@@ -1,6 +1,6 @@
 /*
 
-	$Id: hardware.h,v 1.3 2022/02/27 15:45:35 stefan Exp stefan $
+	$Id: hardware.h,v 1.6 2022/03/25 14:26:17 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -69,12 +69,12 @@
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
-#undef RP2040LITTLEFS
-#undef ARDUINORTC
+#define RP2040LITTLEFS
+#define ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#undef ARDUINOMQTT
+#define ARDUINOMQTT
 #undef STANDALONE
 
 /* 
@@ -99,7 +99,7 @@
 
 #undef UNOPLAIN
 #undef AVRLCD
-#define WEMOSSHIELD
+#undef WEMOSSHIELD
 #undef ESP01BOARD
 #undef MEGASHIELD
 #undef TTGOVGA
@@ -366,7 +366,7 @@
 #define LFS_MBED_RP2040_VERSION_MIN_TARGET      "LittleFS_Mbed_RP2040 v1.1.0"
 #define LFS_MBED_RP2040_VERSION_MIN             1001000
 #define _LFS_LOGLEVEL_          1
-#define RP2040_FS_SIZE_KB       64
+#define RP2040_FS_SIZE_KB       1024
 #define FORCE_REFORMAT          false
 #include <LittleFS_Mbed_RP2040.h>
 #endif
@@ -661,11 +661,36 @@ char kbdavailable(){
 }
 
 char kbdread() {
-#ifdef PS2KEYBOARD
-	return keyboard.read();
+	char c;
+#ifdef PS2KEYBOARD	
+	do {
+		if (kbdavailable()) c=keyboard.read();
+		byield();
+	} while(c == 0);	
+	if (c == 13) c=10;
+	return c;
 #else
 #ifdef PS2FABLIB
-	return Terminal.read();
+	do {
+		if (kbdavailable()) c=Terminal.read();
+		byield();
+	} while(c == 0);	
+	if (c == 13) c=10;
+	return c;
+#endif
+#endif
+	return 0;
+}
+
+char kbdcheckch() {
+#ifdef PS2KEYBOARD
+// only works with the patched library https://github.com/slviajero/PS2Keyboard
+// return keyboard.peek();
+// for the original library  https://github.com/PaulStoffregen/PS2Keyboard use this code 
+	if (kbdavailable()) return kbdread();
+#else
+#ifdef PS2FABLIB
+	if (kbdavailable()) return kbdread();
 #endif
 #endif
 	return 0;
@@ -1227,7 +1252,12 @@ char netconnected() {
 #ifdef ARDUINOETH
   return bethclient.connected();
 #else
-	if (WiFi.status() != WL_CONNECTED) {  WiFi.reconnect(); delay(10); };
+	if (WiFi.status() != WL_CONNECTED) {  
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+	  WiFi.reconnect(); 
+	  delay(10); 
+#endif 	
+	};
 	return(WiFi.status() == WL_CONNECTED);
 #endif
 }
@@ -1448,11 +1478,17 @@ void bpulsein() {
 */
 void byield() {	
 #ifdef ARDUINOMQTT
-	if ( millis()-lastyield > YIELDINTERVAL-1 ) {
-      bmqtt.loop();
-      lastyield=millis();
-      delay(YIELDTIME); 
-  	}
+	if (millis()-lastyield > YIELDINTERVAL-1) {
+		bmqtt.loop();
+		lastyield=millis();
+		delay(YIELDTIME); // give time to process the buffer changes by bmqtt loop
+  }
+  if (millis()-lastlongyield > LONGYIELDINTERVAL-1) {
+#ifdef ARDUINOETH
+  	Ethernet.maintain();
+#endif 
+  	lastlongyield=millis();
+  }
 #endif
   	delay(0);
 }
@@ -1868,14 +1904,15 @@ void formatdisk(short i) {
 	return;
 #endif
 #ifdef ESPSPIFFS
-	if (SPIFFS.format()) { SPIFFS.begin(); outsc("ok"); } else { outsc("fail"); }
+	if (SPIFFS.format()) { SPIFFS.begin(); outsc("ok\n"); } else { outsc("fail\n"); }
 #endif
 #ifdef RP2040LITTLEFS
+  fs.reformat(&bd);
 	return;
 #endif
 #ifdef ARDUINOEFS
 	if (i>0 && i<256) {
-		if (EFS.format(i)) { EFS.begin(); outsc("ok"); } else { outsc("fail"); }
+		if (EFS.format(i)) { EFS.begin(); outsc("ok\n"); } else { outsc("fail\n"); }
 		outcr();
 	} else error(EORANGE);
 	return;
