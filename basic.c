@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.131 2022/03/13 14:44:42 stefan Exp stefan $
+	$Id: basic.c,v 1.133 2022/03/25 14:26:17 stefan Exp stefan $
 
 	Stefan's IoT BASIC interpreter 
 
@@ -45,7 +45,7 @@
 #define HASDARKARTS
 #define HASIOT
 
-/* hardcoded memory size set 0 for automatic malloc don't redefine this beyond this point */
+/* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
 #define MEMSIZE 0
 
 // debug mode switches 
@@ -55,7 +55,7 @@
 #include "basic.h"
 
 /* 
- 	Hardware dependend definitins code is isolated in hardware.h
+ 	Hardware dependend definitions code are isolated in hardware.h
  	The functions below are the hardware interface of the BASIC
  	interpreter for computers with an OS they are mostly stubs 
 
@@ -97,6 +97,7 @@ void vgawrite(char c){}
 void kbdbegin() {}
 char kbdavailable(){ return 0;}
 char kbdread() { return 0;}
+char kbdcheckch() { return 0;}
 
 // Arduino sensors
 void sensorbegin() {}
@@ -436,7 +437,7 @@ void oradioopen(char *filename) {}
 address_t ballocmem() { 
 	signed char i = 0;
 	
-	// memory models available, this is very convervative
+	// memory models available 
 	const unsigned short memmodel[] = {
 		60000,  // DUE systems, RP2040 and ESP32, all POSIX systems - set to fit in one 16 bit page
     48000,  // DUE with a bit of additional stuff,
@@ -456,7 +457,7 @@ address_t ballocmem() {
 	}; 
 
 // this is tiny model MSDOS compile - dos chrashes on 
-// file access with 60k allocated in a tiny DOC compiler model, 
+// file access with 60k allocated in a tiny DOS compiler model, 
 // don't use the 60k 
 #ifdef MSDOS
 	i=1;
@@ -1208,7 +1209,7 @@ void debugtoken(){
 	outputtoken();
 }
 
-void debug(const char *c){
+void bdebug(const char *c){
 	outch('*');
 	outspc();
 	outsc(c); 
@@ -1397,8 +1398,6 @@ void iodefaults() {
 
 // the generic inch code reading one character from a stream
 char inch(){
-	char c=0;
-
 	switch(id) {
 		case ISERIAL:
 			return serialread();		
@@ -1428,12 +1427,7 @@ char inch(){
 #endif				
 		case IKEYBOARD:
 #ifdef ARDUINOPS2		
-			do {
-				if (kbdavailable()) c=kbdread();
-				byield();
-			} while(c == 0);	
-    	if (c == 13) c=10;
-			return c;
+			return kbdread();
 #endif
 #ifdef LCDSHIELD
 			return keypadread();
@@ -1468,11 +1462,8 @@ char checkch(){
 			return prtcheckch(); 
 #endif
 		case IKEYBOARD:
-#ifdef ARDUINOPS2		
-			// only works with the patched library https://github.com/slviajero/PS2Keyboard
-			// return keyboard.peek();
-			// for the original library  https://github.com/PaulStoffregen/PS2Keyboard use this code 
-			if (kbdavailable()) return kbdread();
+#if defined(ARDUINOPS2) || defined(PS2FABLIB)	
+			return kbdcheckch();
 #endif
 #ifdef LCDSHIELD
 			return keypadread();
@@ -2986,7 +2977,7 @@ void xavail() {
 // nothing here should end with a new token - this is handled 
 // in factors calling function
 void factor(){
-	if (DEBUG) debug("factor\n");
+	if (DEBUG) bdebug("factor\n");
 	switch (token) {
 		case NUMBER: 
 			push(x);
@@ -3217,13 +3208,13 @@ void factor(){
 }
 
 void term(){
-	if (DEBUG) debug("term\n"); 
+	if (DEBUG) bdebug("term\n"); 
 	factor();
 	if (er != 0) return;
 
 nextfactor:
 	nexttoken();
-	if (DEBUG) debug("in term\n");
+	if (DEBUG) bdebug("in term\n");
 	if (token == '*'){
 		parseoperator(factor);
 		if (er != 0) return;
@@ -3254,11 +3245,11 @@ nextfactor:
 		}
 		goto nextfactor;
 	} 
-	if (DEBUG) debug("leaving term\n");
+	if (DEBUG) bdebug("leaving term\n");
 }
 
 void addexpression(){
-	if (DEBUG) debug("addexp\n");
+	if (DEBUG) bdebug("addexp\n");
 	if (token != '+' && token != '-') {
 		term();
 		if (er != 0) return;
@@ -3281,7 +3272,7 @@ nextterm:
 }
 
 void compexpression() {
-	if (DEBUG) debug("compexp\n"); 
+	if (DEBUG) bdebug("compexp\n"); 
 	addexpression();
 	if (er != 0) return;
 	switch (token){
@@ -3319,7 +3310,7 @@ void compexpression() {
 }
 
 void notexpression() {
-	if (DEBUG) debug("notexp\n");
+	if (DEBUG) bdebug("notexp\n");
 	if (token == TNOT) {
 		nexttoken();
 		compexpression();
@@ -3331,7 +3322,7 @@ void notexpression() {
 }
 
 void andexpression() {
-	if (DEBUG) debug("andexp\n");
+	if (DEBUG) bdebug("andexp\n");
 	notexpression();
 	if (er != 0) return;
 	if (token == TAND) {
@@ -3342,7 +3333,7 @@ void andexpression() {
 }
 
 void expression(){
-	if (DEBUG) debug("exp\n"); 
+	if (DEBUG) bdebug("exp\n"); 
 	andexpression();
 	if (er != 0) return;
 	if (token == TOR) {
@@ -4045,45 +4036,51 @@ void xlist(){
 	nexttoken();
  }
 
-
+// RUN and CONTINUE are the same function
 void xrun(){
 	if (token == TCONT) {
 		st=SRUN;
 		nexttoken();
-		goto statementloop;
-	} 
+	} else {
+		nexttoken();
+		parsearguments();
+		if (er != 0 ) return;
+		if (args > 1) { error(EARGS); return; }
+		if (args == 0) 
+			here=0;
+		else
+			findline(pop());
+		if (er != 0) return;
+		if (st == SINT) st=SRUN;
+		xclr();
+	}
 
-	nexttoken();
-	parsearguments();
-	if (er != 0 ) return;
-	if (args > 1) { error(EARGS); return; }
-	if (args == 0) 
-		here=0;
-	else
-		findline(pop());
-	if (er != 0) return;
-	if (st == SINT) st=SRUN;
-
-	xclr();
-
-statementloop:
-  // the original loop is not needed any more
-	// while ( (here < top) && (st == SRUN || st == SERUN) && ! er) statement();
+	// once statement is called it stays into a loop until the token stream 
+	// is exhausted. Then we return to interactive mode.
   statement();
 	st=SINT;
 }
 
-
-void xnew(){ // the general cleanup function
+// the general cleanup function
+void xnew(){ 
+	// all stacks are purged
 	clearst();
+	clrgosubstack();
+	clrforstack();
+	clrdata();
+
+
+	// program memory back to zero and variable heap cleared
 	himem=memsize;
 	top=0;
 	zeroblock(top,himem);
+	clrvars();
+
+	// error status reset
 	reseterror();
+
+	// interactive mode
 	st=SINT;
-	nvars=0;
-	clrgosubstack();
-	clrforstack();
 }
 
 
@@ -5438,7 +5435,7 @@ void xiter(){
 */
 
 void statement(){
-	if (DEBUG) debug("statement \n"); 
+	if (DEBUG) bdebug("statement \n"); 
 	while (token != EOL) {
 		if (debuglevel == 1) debugtoken();
 		if (debuglevel) outcr();
@@ -5647,11 +5644,14 @@ void statement(){
 				if (DEBUG) { outsc("** hoppla - unexpected token, skipped "); debugtoken(); }
 				nexttoken();
 		}
-// after each statement we check on a break character
-// and yield the cpu fo background activity
+		// after each statement we check on a break character
 		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;};  // on an Arduino entering "#" at runtime stops the program
+
+		// yield after each statement which is a 30-100 microsecond cycle 
+		// ALL backgriund tasks are handled in byield 
 		byield();
-// when an error is encountred the statement loop is ended
+
+		// when an error is encountred the statement loop is ended
 		if (er) return;
 	}
 }

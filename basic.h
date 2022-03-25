@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.h,v 1.4 2022/03/13 14:44:42 stefan Exp stefan $
+	$Id: basic.h,v 1.6 2022/03/25 14:26:17 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -885,6 +885,7 @@ void inb(char*, short);
 void kbdbegin();
 char kbdavailable();
 char kbdread();
+char kbdcheckch();
 
 // RF24 radio input 
 void iradioopen(char*);
