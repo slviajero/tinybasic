@@ -39,11 +39,11 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#undef HASFLOAT
-#define HASGRAPH
+#undef  HASFLOAT
+#undef  HASGRAPH
 #define HASDARTMOUTH
-#undef HASDARKARTS
-#undef HASIOT
+#undef  HASDARKARTS
+#undef  HASIOT
 
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
 #define MEMSIZE 1024
