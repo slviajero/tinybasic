@@ -55,7 +55,25 @@ basic.c is the program source. basic.h the header file. It can be compiled direc
 
 TinybasicArduino/TinybasicArduino.ino is an exact copy of basic.c. In addition to this file and basic.h you need hardware.h in your Arduino sketch directory. These are the platform specific definitions and a thin OS like layer for hardware abstraction. This code is under construction and will change soon. All platforms from tiny AVR168 up to the powerful ESP32 are covered by this one file. 
 
-(This has changed - until version 1.2.1 everything was in one file. 1.3b separates hardware from interpreter).
+For simple Arduino boards I prepared two single file versions in Arduino cloud as well as in GITHUB
+
+Use one of these two links 
+
+
+https://create.arduino.cc/editor/sl001/156e79f6-4ac0-453b-8190-63fe18cbb24a/preview
+
+https://github.com/slviajero/tinybasic/blob/main/TinybasicAVRLCD/TinybasicAVRLCD.ino
+
+
+to create a simple BASIC intepreter with LCD support.
+
+A bare minimum Arduino system is prepared here
+
+https://create.arduino.cc/editor/sl001/27a26f15-c23b-408d-8d39-e6948aead495/preview
+
+https://github.com/slviajero/tinybasic/tree/main/TinybasicUNOPLAIN
+
+The single file versions contain the full code but are not maintained regularly. They always will a a bit behind the newest code.
 
 utility/monitor.py is a little serial monitor to interact with the running BASIC interpreter on the Arduino. It allows very simple loading of files into the Arduino and saving of output to a file on a computer. utility/arduinoterm is a wrapper of monitor.py.
 
