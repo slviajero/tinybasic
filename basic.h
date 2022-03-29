@@ -742,10 +742,8 @@ address_t data = 0;
 	lastlongyield controls longterm functions like DHCP lease 
 	renewal in Ethernet 
 */
-#ifdef ARDUINOMQTT
 static long lastyield=0;
 static long lastlongyield=0;
-#endif
 
 /* 
 
@@ -871,6 +869,10 @@ void spibegin();
 // general I/O initialisation
 void ioinit();
 void iodefaults();
+
+// low level restart and sleep
+void restartsystem();
+void activatesleep();
 
 // character and string I/O functions
 void picogetchar(int);

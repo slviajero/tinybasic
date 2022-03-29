@@ -5072,6 +5072,8 @@ void xcall() {
 			eflush(); // flush the EEPROM dummy and then exit  
 #ifndef ARDUINO
 			exit(0);
+#else 
+			
 #endif
 			break;
 		default:

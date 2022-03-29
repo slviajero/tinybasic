@@ -100,7 +100,7 @@
 #undef UNOPLAIN
 #undef AVRLCD
 #undef WEMOSSHIELD
-#undef ESP01BOARD
+#define ESP01BOARD
 #undef MEGASHIELD
 #undef TTGOVGA
 #undef DUETFT
