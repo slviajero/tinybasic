@@ -13,7 +13,8 @@
 	The first set of definions define the target.
 	- MINGW switches on Windows calls. 
 	- MSDOS for MSDOS file access.
-	- MAC and Arduino don't need more settings
+	- MAC doesn't need more settings here
+	- RASPPI activates wiring code
 	- Review hardware.h for settings specific Arduino hardware settings
 	- HAS* activates or deactives features of the interpreter
 	- the extension flags control features and code size

@@ -69,12 +69,12 @@
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
-#define RP2040LITTLEFS
+#undef RP2040LITTLEFS
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#define ARDUINOMQTT
+#undef ARDUINOMQTT
 #undef STANDALONE
 
 /* 
@@ -1196,6 +1196,8 @@ WiFiClient bwifi;
 PubSubClient bmqtt(bwifi);
 #endif
 
+
+
 // the length of the outgoing and incomming topic 
 #define MQTTLENGTH 32
 static char mqtt_otopic[MQTTLENGTH];
@@ -1286,13 +1288,20 @@ char mqttreconnect() {
 	
 	// exponental backoff reconnect in 10 ms * 2^n intervals
 	short timer=10;
-    char reconnect=0;
-    mqttsetname();
+	char reconnect=0;
+
+	// all good and nothing to be done
+	if (bmqtt.connected()) return true;
+	
+	// create a random name right now
+	mqttsetname();
+
+	// try to reconnect
 	while (!bmqtt.connected() && timer < 400) {
 		bmqtt.connect(mqttname);
 		delay(timer);
 		timer=timer*2;
-    	reconnect=1;
+    reconnect=1;
 	}
 
 	// after reconnect resubscribe if there is a valid topic
