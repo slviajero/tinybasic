@@ -40,7 +40,7 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#undef  HASFLOAT
+#define HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
 #define HASDARKARTS
@@ -473,11 +473,20 @@ address_t ballocmem() {
 // section, use this for a start
 #ifdef MEMMODEL
 	i=MEMMODEL;
-#endif	
+#endif
 
 	// if the number type is only 2 bytes max memory is 32000
 	if (sizeof(number_t) <= 2) i=2;
 
+  // on ESP we know the memory - experimental code - 4000 heuristic
+  // based on networks
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+  int m=freememorysize()-4000;
+  mem=(signed char*)malloc(m);
+  if (mem != NULL) return m-1;
+#endif
+
+  // heuristic - rather odd
 	do {
 		mem=(signed char*)malloc(memmodel[i]);
 		if (mem != NULL) break;
@@ -5043,7 +5052,7 @@ void xusr() {
 				case 1: push(here); break;
 				case 2: push(himem); break;
 				case 3: push(nvars); break;
-				case 4: push(0); break;
+				case 4: push(freememorysize()); break;
 				case 5: push(0); break;
 				case 6: push(0); break;
 				case 7: push(gosubsp); break;

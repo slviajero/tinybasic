@@ -473,11 +473,20 @@ address_t ballocmem() {
 // section, use this for a start
 #ifdef MEMMODEL
 	i=MEMMODEL;
-#endif	
+#endif
 
 	// if the number type is only 2 bytes max memory is 32000
 	if (sizeof(number_t) <= 2) i=2;
 
+  // on ESP we know the memory - experimental code - 4000 heuristic
+  // based on networks
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+  int m=freememorysize()-4000;
+  mem=(signed char*)malloc(m);
+  if (mem != NULL) return m-1;
+#endif
+
+  // heuristic - rather odd
 	do {
 		mem=(signed char*)malloc(memmodel[i]);
 		if (mem != NULL) break;
@@ -612,6 +621,7 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 		b=b-addrsize+1;
 		z.a=vsize-(addrsize+3);
 		setnumber(b, addrsize);
+
 		b--;
 	}
 
@@ -908,9 +918,9 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 				return;
 #endif
 #if defined(ARDUINO) && defined(ARDUINOSENSORS)
-			case 'S':
-        if (m == 'g') *v=sensorread(i); 
-        return;
+		      case 'S':
+        		if (m == 'g') *v=sensorread(i); 
+        		return;
 #endif
 			case 0: 
 			default: {
@@ -2366,7 +2376,8 @@ void zeroblock(address_t b, address_t l){
 		error(EOUTOFMEMORY);
 		return;
 	}
-	if (l<1) return;
+	if (l<1) 
+		return;
 	for (i=0; i<l+1; i++) mem[b+i]=0;
 }
 
@@ -2419,9 +2430,9 @@ void storeline() {
 	remember the line number on the stack and the old top in here
 
 */
-	t1=x;			
-	here=top;		
-	newline=here;	 
+    t1=x;			
+    here=top;		
+    newline=here;	 
 	token=LINENUMBER;
 	do {
 		storetoken();
@@ -2433,11 +2444,10 @@ void storeline() {
 		nexttoken();
 	} while (token != EOL);
 
-	x=t1;									// recall the line number
+	x=t1;					// recall the line number
 	linelength=top-here;	// calculate the number of stored bytes
 
 /* 
-
 	stage 2: check if only a linenumber stored - then delete this line
 	
 */
@@ -2651,7 +2661,7 @@ void parsesubstring() {
 
 // absolute value helper
 void xabs(){
-	if ((x=pop())<0) x=-x;
+	if ((x=pop())<0) { x=-x; }
 	push(x);
 }
 
@@ -2813,7 +2823,6 @@ void streval(){
 		error(EUNKNOWN);
 		return;
 	} 
-
 	if (er != 0) return;
 	irl=ir2;
 	xl=pop();
@@ -5043,7 +5052,7 @@ void xusr() {
 				case 1: push(here); break;
 				case 2: push(himem); break;
 				case 3: push(nvars); break;
-				case 4: push(0); break;
+				case 4: push(freememorysize()); break;
 				case 5: push(0); break;
 				case 6: push(0); break;
 				case 7: push(gosubsp); break;

@@ -68,13 +68,13 @@
 #undef ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
-#undef ESPSPIFFS
+#define ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#undef ARDUINOMQTT
+#define ARDUINOMQTT
 #undef STANDALONE
 
 /* 
@@ -416,10 +416,22 @@ void timeinit() {}
 */
 void wiringbegin() {}
 
+
+/*
+ * helper functions OS near 
+ */
+
+address_t freememorysize() {
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+  return ESP.getFreeHeap();
+#endif
+  return 0;
+}
+
 /* 
 	the sleep and restart functions - only implemented for some controllers
 */
-#ifdef (ARDUINO_ARCH_AVR) 
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) 
 void(* callzero)() = 0;
 #endif
 
@@ -427,7 +439,7 @@ void restartsystem() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
 	ESP.restart();
 #endif
-#ifdef ARDUINO_ARCH_AVR
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) 
 	callzero();
 #endif
 }

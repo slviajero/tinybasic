@@ -757,6 +757,7 @@ static long lastlongyield=0;
 */
 
 // heap management 
+address_t freememorysize();
 address_t ballocmem();
 void byield();
 address_t bmalloc(signed char, char, char, short);
