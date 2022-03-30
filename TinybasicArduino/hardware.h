@@ -100,7 +100,7 @@
 #undef UNOPLAIN
 #undef AVRLCD
 #undef WEMOSSHIELD
-#define ESP01BOARD
+#undef ESP01BOARD
 #undef MEGASHIELD
 #undef TTGOVGA
 #undef DUETFT
@@ -415,6 +415,27 @@ void timeinit() {}
 	starting wiring is only needed on raspberry
 */
 void wiringbegin() {}
+
+/* 
+	the sleep and restart functions - only implemented for some controllers
+*/
+#ifdef ARDUINO_ARCH_AVR
+void(* callzero)() = 0;
+#endif
+
+void restartsystem() {
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+	ESP.restart();
+#endif
+#ifdef ARDUINO_ARCH_AVR
+	callzero();
+#endif
+}
+
+void activatesleep() {
+
+}
+
 
 /* 
 	start the SPI bus - this is a little mean as some libraries also 

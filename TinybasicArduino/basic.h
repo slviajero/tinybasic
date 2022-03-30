@@ -870,6 +870,10 @@ void spibegin();
 void ioinit();
 void iodefaults();
 
+// low level restart and sleep
+void restartsystem();
+void activatesleep();
+
 // character and string I/O functions
 void picogetchar(int);
 void outch(char);

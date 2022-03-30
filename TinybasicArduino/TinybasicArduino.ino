@@ -40,7 +40,7 @@
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#define HASFLOAT
+#undef  HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
 #define HASDARKARTS
@@ -78,6 +78,11 @@ void wiringbegin() {
 	wiringPiSetup();
 #endif
 }
+
+// low level restart and sleep
+void restartsystem() {exit(0);}
+void activatesleep() {}
+
 
 void spibegin() {}
 void fsbegin(char v) {}
@@ -5069,10 +5074,9 @@ void xcall() {
 	r=pop();
 	switch(r) {
 		case 0:
-			eflush(); // flush the EEPROM dummy and then exit  
-#ifndef ARDUINO
-			exit(0);
-#endif
+			// flush the EEPROM dummy and then exit 
+			eflush();  
+			restartsystem();
 			break;
 		default:
 			error(EORANGE);
