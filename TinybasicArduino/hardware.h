@@ -52,8 +52,8 @@
 		ARDUINOPRT, DISPLAYCANSCROLL, ARDUINOLCDI2C,
 		ARDUINOTFT
 	storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS
-	sensors ARDUINORTC, ARDUINOWIRE
-	network ARDUINORF24
+	sensors ARDUINORTC, ARDUINOWIRE, ARDUINOSENSORS
+	network ARDUINORF24, ARDUNIOMQTT
 
 	leave this unset if you use the definitions below
 */
@@ -75,6 +75,7 @@
 #undef ARDUINORF24
 #undef ARDUINOETH
 #define ARDUINOMQTT
+#undef ARDUINOSENSORS
 #undef STANDALONE
 
 /* 
@@ -420,10 +421,12 @@ void wiringbegin() {}
 /*
  * helper functions OS near 
  */
-
 address_t freememorysize() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   return ESP.getFreeHeap();
+#endif
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
+  return SP - (int) __malloc_heap_start;
 #endif
   return 0;
 }

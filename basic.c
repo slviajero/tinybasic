@@ -32,6 +32,14 @@
 /*
 	interpreter features
 */
+
+// full language set
+#define BASICFULL
+
+// minimal language set
+#undef  BASICMINIMAL
+
+// custom settings
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
@@ -45,6 +53,39 @@
 #define HASDARTMOUTH
 #define HASDARKARTS
 #define HASIOT
+
+#ifdef BASICMINIMAL
+#undef HASAPPLE1
+#define HASARDUINOIO
+#undef HASFILEIO
+#undef HASTONE
+#undef HASPULS
+#undef HASSTEFANSEXT
+#undef HASERRORMSG
+#undef HASVT52
+#undef HASFLOAT
+#undef HASGRAPH
+#undef HASDARTMOUTH
+#undef HASDARKARTS
+#undef HASIOT
+#endif
+
+
+#ifdef BASICFULL
+#define HASAPPLE1
+#define HASARDUINOIO
+#define HASFILEIO
+#define HASTONE
+#define HASPULS
+#define HASSTEFANSEXT
+#define HASERRORMSG
+#define HASVT52
+#define HASFLOAT
+#define HASGRAPH
+#define HASDARTMOUTH
+#define HASDARKARTS
+#define HASIOT
+#endif
 
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
 #define MEMSIZE 0
@@ -79,10 +120,12 @@ void wiringbegin() {
 #endif
 }
 
+// memory helper
+address_t freememorysize() {return 0;}
+
 // low level restart and sleep
 void restartsystem() {exit(0);}
 void activatesleep() {}
-
 
 void spibegin() {}
 void fsbegin(char v) {}
@@ -479,11 +522,27 @@ address_t ballocmem() {
 	if (sizeof(number_t) <= 2) i=2;
 
   // on ESP we know the memory - experimental code - 4000 heuristic
-  // based on networks
+  // based on networks / filesystem demand, a bit generous
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   int m=freememorysize()-4000;
-  mem=(signed char*)malloc(m);
-  if (mem != NULL) return m-1;
+  if (m>0) {
+    mem=(signed char*)malloc(m);
+    if (mem != NULL) return m-1;
+  }
+#endif
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
+  int overhead=192;
+#ifdef ARDUINOSD
+  overhead+=512;
+#endif
+#ifdef ARDUINOETH
+  overhead+=256;
+#endif
+  int m=freememorysize()-overhead;
+  if (m>0) {
+    mem=(signed char*)malloc(m);
+    if (mem != NULL) return m-1;
+  }
 #endif
 
   // heuristic - rather odd
