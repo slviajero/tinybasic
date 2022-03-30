@@ -417,6 +417,27 @@ void timeinit() {}
 void wiringbegin() {}
 
 /* 
+	the sleep and restart functions - only implemented for some controllers
+*/
+#ifdef (ARDUINO_ARCH_AVR) 
+void(* callzero)() = 0;
+#endif
+
+void restartsystem() {
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+	ESP.restart();
+#endif
+#ifdef ARDUINO_ARCH_AVR
+	callzero();
+#endif
+}
+
+void activatesleep() {
+
+}
+
+
+/* 
 	start the SPI bus - this is a little mean as some libraries also 
 	try to start the SPI which may lead to on override of the PIN settings
 	if the library code is not clean - currenty no conflict known

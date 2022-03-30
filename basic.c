@@ -79,6 +79,11 @@ void wiringbegin() {
 #endif
 }
 
+// low level restart and sleep
+void restartsystem() {exit(0);}
+void activatesleep() {}
+
+
 void spibegin() {}
 void fsbegin(char v) {}
 
@@ -607,7 +612,6 @@ address_t bmalloc(signed char t, char c, char d, short l) {
 		b=b-addrsize+1;
 		z.a=vsize-(addrsize+3);
 		setnumber(b, addrsize);
-
 		b--;
 	}
 
@@ -904,9 +908,9 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 				return;
 #endif
 #if defined(ARDUINO) && defined(ARDUINOSENSORS)
-		      case 'S':
-        		if (m == 'g') *v=sensorread(i); 
-        		return;
+			case 'S':
+        if (m == 'g') *v=sensorread(i); 
+        return;
 #endif
 			case 0: 
 			default: {
@@ -2362,8 +2366,7 @@ void zeroblock(address_t b, address_t l){
 		error(EOUTOFMEMORY);
 		return;
 	}
-	if (l<1) 
-		return;
+	if (l<1) return;
 	for (i=0; i<l+1; i++) mem[b+i]=0;
 }
 
@@ -2416,9 +2419,9 @@ void storeline() {
 	remember the line number on the stack and the old top in here
 
 */
-    t1=x;			
-    here=top;		
-    newline=here;	 
+	t1=x;			
+	here=top;		
+	newline=here;	 
 	token=LINENUMBER;
 	do {
 		storetoken();
@@ -2430,10 +2433,11 @@ void storeline() {
 		nexttoken();
 	} while (token != EOL);
 
-	x=t1;					// recall the line number
+	x=t1;									// recall the line number
 	linelength=top-here;	// calculate the number of stored bytes
 
 /* 
+
 	stage 2: check if only a linenumber stored - then delete this line
 	
 */
@@ -2647,7 +2651,7 @@ void parsesubstring() {
 
 // absolute value helper
 void xabs(){
-	if ((x=pop())<0) { x=-x; }
+	if ((x=pop())<0) x=-x;
 	push(x);
 }
 
@@ -2809,6 +2813,7 @@ void streval(){
 		error(EUNKNOWN);
 		return;
 	} 
+
 	if (er != 0) return;
 	irl=ir2;
 	xl=pop();
@@ -5069,12 +5074,9 @@ void xcall() {
 	r=pop();
 	switch(r) {
 		case 0:
-			eflush(); // flush the EEPROM dummy and then exit  
-#ifndef ARDUINO
-			exit(0);
-#else 
-			
-#endif
+			// flush the EEPROM dummy and then exit 
+			eflush();  
+			restartsystem();
 			break;
 		default:
 			error(EORANGE);
