@@ -68,13 +68,13 @@
 #undef ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
-#undef ESPSPIFFS
+#define ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#undef ARDUINOMQTT
+#define ARDUINOMQTT
 #undef ARDUINOSENSORS
 #undef STANDALONE
 
@@ -229,11 +229,18 @@
 	the non AVR arcitectures - this is somehow raw
 
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined (ARDUINO_ARCH_ESP32)
+#ifndef ARDUINO_ARCH_ESP32
+#include <avr/dtostrf.h>
+#endif
+#define ARDUINO 100
+#endif
 */
+
 #if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040)
 #include <avr/dtostrf.h>
 #define ARDUINO 100
 #endif
+
 
 /*
   Some settings and defaults
@@ -1872,7 +1879,7 @@ const char* rootfilename() {
 	return rmrootfsprefix(tempname);
 #endif
 #ifdef ARDUINO_ARCH_ESP32
-	return (char*) file.name();
+	return rmrootfsprefix(file.name());
 #endif
 #endif
 #ifdef RP2040LITTLEFS

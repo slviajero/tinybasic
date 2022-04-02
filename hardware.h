@@ -1879,7 +1879,7 @@ const char* rootfilename() {
 	return rmrootfsprefix(tempname);
 #endif
 #ifdef ARDUINO_ARCH_ESP32
-	return (char*) file.name();
+	return rmrootfsprefix(file.name());
 #endif
 #endif
 #ifdef RP2040LITTLEFS
