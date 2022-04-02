@@ -227,13 +227,20 @@
 
 /* 
 	the non AVR arcitectures - this is somehow raw
-*/
+
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined (ARDUINO_ARCH_ESP32)
 #ifndef ARDUINO_ARCH_ESP32
 #include <avr/dtostrf.h>
 #endif
 #define ARDUINO 100
 #endif
+*/
+
+#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040)
+#include <avr/dtostrf.h>
+#define ARDUINO 100
+#endif
+
 
 /*
   Some settings and defaults

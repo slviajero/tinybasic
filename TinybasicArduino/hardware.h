@@ -68,13 +68,13 @@
 #undef ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
-#define ESPSPIFFS
+#undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#define ARDUINOMQTT
+#undef ARDUINOMQTT
 #undef ARDUINOSENSORS
 #undef STANDALONE
 
@@ -227,11 +227,11 @@
 
 /* 
 	the non AVR arcitectures - this is somehow raw
-*/
+
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined (ARDUINO_ARCH_ESP32)
-#ifndef ARDUINO_ARCH_ESP32
+*/
+#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040)
 #include <avr/dtostrf.h>
-#endif
 #define ARDUINO 100
 #endif
 
