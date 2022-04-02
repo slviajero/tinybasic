@@ -30,16 +30,20 @@
 #undef RASPPI
 
 /*
-	interpreter features
+	interpreter feature sets
 */
 
 // full language set
 #define BASICFULL
 
+// full language set / integer
+#undef BASICINTEGER
+
 // minimal language set
 #undef  BASICMINIMAL
 
-// custom settings
+// custom settings undef all the the language sets 
+// when you def here
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
@@ -54,6 +58,8 @@
 #define HASDARKARTS
 #define HASIOT
 
+
+// Palo Alto plus Arduino functions
 #ifdef BASICMINIMAL
 #undef HASAPPLE1
 #define HASARDUINOIO
@@ -70,7 +76,24 @@
 #undef HASIOT
 #endif
 
+// all features minus float 
+#ifdef  BASICINTEGER
+#define HASAPPLE1
+#define HASARDUINOIO
+#define HASFILEIO
+#define HASTONE
+#define HASPULS
+#define HASSTEFANSEXT
+#define HASERRORMSG
+#define HASVT52
+#undef  HASFLOAT
+#define HASGRAPH
+#define HASDARTMOUTH
+#define HASDARKARTS
+#define HASIOT
+#endif
 
+// all features activated
 #ifdef BASICFULL
 #define HASAPPLE1
 #define HASARDUINOIO
