@@ -33,20 +33,20 @@
 */
 #define HASAPPLE1
 #define HASARDUINOIO
-#define HASFILEIO
+#undef  HASFILEIO
 #define HASTONE
-#define HASPULS
+#undef  HASPULS
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#define HASVT52
-#undef  HASFLOAT
+#undef  HASVT52
+#define HASFLOAT
 #undef  HASGRAPH
-#define HASDARTMOUTH
+#undef  HASDARTMOUTH
 #undef  HASDARKARTS
 #undef  HASIOT
 
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
-#define MEMSIZE 1200
+#define MEMSIZE 1024
 
 // debug mode switches 
 #define DEBUG 0
@@ -1200,7 +1200,7 @@ void statement();
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#undef ARDUINOEEPROM
+#define ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -1232,7 +1232,7 @@ void statement();
     	TFT 7inch screen systems, standalone
 */
 
-#define UNOPLAIN
+#undef UNOPLAIN
 #undef AVRLCD
 #undef WEMOSSHIELD
 #undef ESP01BOARD
