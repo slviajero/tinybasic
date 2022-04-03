@@ -68,13 +68,13 @@
 #undef ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
-#define ESPSPIFFS
+#undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#define ARDUINOMQTT
+#undef ARDUINOMQTT
 #undef ARDUINOSENSORS
 #undef STANDALONE
 
@@ -134,7 +134,6 @@
 
 // a Arduino with nothing else 
 #if defined(UNOPLAIN)
-#define USESPICOSERIAL
 #define ARDUINOEEPROM
 #endif
 
@@ -428,7 +427,7 @@ void wiringbegin() {}
 /*
  * helper functions OS near 
  */
-address_t freememorysize() {
+long freememorysize() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   return ESP.getFreeHeap();
 #endif
