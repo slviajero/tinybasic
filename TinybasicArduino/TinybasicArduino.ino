@@ -30,16 +30,21 @@
 #undef RASPPI
 
 /*
-	interpreter features
+	interpreter feature sets, choose one of the predefines 
+  or undefine all predefines and set the features in custom settings
 */
 
 // full language set
-#define BASICFULL
+#undef BASICFULL
+
+// full language set / integer
+#define BASICINTEGER
 
 // minimal language set
 #undef  BASICMINIMAL
 
-// custom settings
+// custom settings undef all the the language sets 
+// when you def here
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
@@ -54,6 +59,8 @@
 #define HASDARKARTS
 #define HASIOT
 
+
+// Palo Alto plus Arduino functions
 #ifdef BASICMINIMAL
 #undef HASAPPLE1
 #define HASARDUINOIO
@@ -70,7 +77,24 @@
 #undef HASIOT
 #endif
 
+// all features minus float 
+#ifdef  BASICINTEGER
+#define HASAPPLE1
+#define HASARDUINOIO
+#define HASFILEIO
+#define HASTONE
+#define HASPULS
+#define HASSTEFANSEXT
+#define HASERRORMSG
+#define HASVT52
+#undef  HASFLOAT
+#define HASGRAPH
+#define HASDARTMOUTH
+#define HASDARKARTS
+#define HASIOT
+#endif
 
+// all features activated
 #ifdef BASICFULL
 #define HASAPPLE1
 #define HASARDUINOIO
@@ -121,12 +145,11 @@ void wiringbegin() {
 }
 
 // memory helper
-address_t freememorysize() {return 0;}
+long freememorysize() {return 0;}
 
 // low level restart and sleep
 void restartsystem() {exit(0);}
 void activatesleep() {}
-
 
 void spibegin() {}
 void fsbegin(char v) {}
@@ -525,7 +548,8 @@ address_t ballocmem() {
   // on ESP we know the memory - experimental code - 4000 heuristic
   // based on networks / filesystem demand, a bit generous
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
-  int m=freememorysize()-4000;
+  long m=freememorysize()-4000;
+  if (m>maxaddr) m=maxaddr;
   if (m>0) {
     mem=(signed char*)malloc(m);
     if (mem != NULL) return m-1;
@@ -4019,53 +4043,69 @@ void xnext(){
 
 /* 
 	
-	list - this is also used in save
+	list - this is also used in save, list does a minimal formatting with a simple heuristic
 
 */
+signed char lastouttoken;
+signed char spaceafterkeyword;
 
 void outputtoken() {
 	unsigned short i;
 
+	if (spaceafterkeyword) {
+		if (token != '(' && token != LINENUMBER) outspc();
+		spaceafterkeyword=FALSE;
+	}
+
 	switch (token) {
 		case NUMBER:
 			outnumber(x);
-			return;
+			break;
 		case LINENUMBER: 
 			outnumber(x);
 			outspc();
-			return;
+			break;
 		case ARRAYVAR:
 		case STRINGVAR:
 		case VARIABLE:
 			outch(xc); 
 			if (yc != 0) outch(yc);
 			if (token == STRINGVAR) outch('$');
-			return;
+			break;
 		case STRING:
 			outch('"'); 
 			outs(ir, x); 
 			outch('"');
-			return;
+			break;;
 		default:
-			if (token < -3) {
-				if (token == TTHEN || token == TTO || token == TSTEP || token == TGOTO || token == TGOSUB) outspc(); 
+			if (token < -3 && token > -122) {
+				if ((token == TTHEN || 
+						token == TTO || 
+						token == TSTEP || 
+						token == TGOTO || 
+						token == TGOSUB ||
+						token == TOR ||
+						token == TAND ) && lastouttoken != LINENUMBER) outspc(); 
 				for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 				outsc(getkeyword(i)); 
-				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) outspc();
-				return;
+				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) spaceafterkeyword=TRUE;
+				break;
 			}	
 			if (token >= 32) {
 				outch(token);
-				return;
+				break;
 			} 
 			outch(token); outspc(); outnumber(token);
 	}
 
+	lastouttoken=token;
 }
 
 void xlist(){
 	number_t b, e;
 	char oflag = FALSE;
+	lastouttoken=0;
+	spaceafterkeyword=0;
 
 	nexttoken();
  	parsearguments();
@@ -5503,8 +5543,6 @@ void xiter(){
 
 	Statement is called once in interactive mode and terminates 
 	at end of line. 
-
-
 
 */
 
