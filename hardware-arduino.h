@@ -1,6 +1,6 @@
 /*
 
-	$Id: hardware.h,v 1.6 2022/03/25 14:26:17 stefan Exp stefan $
+	$Id: hardware-arduino.h,v 1.1 2022/04/04 04:49:22 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
