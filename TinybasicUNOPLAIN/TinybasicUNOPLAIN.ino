@@ -5457,11 +5457,12 @@ char expectexpr() {
 }
 
 
-// parses a list of expression
+// parses a list of expression, this may be recursive!
 void parsearguments() {
+	short argsl;
 
 	// begin counting
-	args=0; 
+	argsl=0; 
 
 	// having 0 args at the end of a command is legal
 	if (termsymbol()) return;
@@ -5470,12 +5471,14 @@ void parsearguments() {
 	do {
 		expression();
 		if (er != 0) break;
-		args++;
+		argsl++;
 		if (token != ',') break;
 		nexttoken();
 	} while (TRUE);
-}
 
+	// because of the recursion ...
+	args=argsl;
+}
 
 // expect exactly n arguments
 void parsenarguments(char n) {
