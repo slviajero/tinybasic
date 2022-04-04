@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.133 2022/03/25 14:26:17 stefan Exp stefan $
+	$Id: basic.c,v 1.134 2022/04/04 04:49:36 stefan Exp stefan $
 
 	Stefan's IoT BASIC interpreter 
 
@@ -35,10 +35,10 @@
 */
 
 // full language set
-#undef BASICFULL
+#define BASICFULL
 
 // full language set / integer
-#define BASICINTEGER
+#undef BASICINTEGER
 
 // minimal language set
 #undef  BASICMINIMAL
@@ -121,365 +121,27 @@
 #include "basic.h"
 
 /* 
- 	Hardware dependend definitions code are isolated in hardware.h
- 	The functions below are the hardware interface of the BASIC
- 	interpreter for computers with an OS they are mostly stubs 
-
-	To include hardware features edit hardware.h.
+ 	Hardware dependend definitions code are isolated in hardware-*.h
+	Currently there are two versions
+		hardware-arduino.h contains all platforms compiled in the Arduino IDE
+		(ESP8266, ESP32, AVR, MEGAAVR, SAM*, RP2040)
+		hardware-posix.h contains all platforms compiled in gcc with a POSIX OS
+		(Mac, Raspberry, Windows/MINGW) plus rudimentary MSDOS with tc2.0. The 
+		latter will be removed soon.
 */
 
 #ifdef ARDUINO
-#include "hardware.h"
+#include "hardware-arduino.h"
 #else 
-// serial settings
-const int serial_baudrate = 0;
-const int serial1_baudrate = 0;
-char sendcr = 0;
-short blockmode = 0;
-
-// raspberry pi wiring
-void wiringbegin() {
-#ifdef RASPPI
-	wiringPiSetup();
-#endif
-}
-
-// memory helper
-long freememorysize() {return 0;}
-
-// low level restart and sleep
-void restartsystem() {exit(0);}
-void activatesleep() {}
-
-void spibegin() {}
-void fsbegin(char v) {}
-
-// graphics
-void rgbcolor(int r, int g, int b) {}
-void vgacolor(short c) {}
-void plot(int x, int y) {}
-void line(int x0, int y0, int x1, int y1)   {}
-void rect(int x0, int y0, int x1, int y1)   {}
-void frect(int x0, int y0, int x1, int y1)  {}
-void circle(int x0, int y0, int r) {}
-void fcircle(int x0, int y0, int r) {}
-void vgabegin(){}
-void vgawrite(char c){}
-
-// external keboard handling
-void kbdbegin() {}
-char kbdavailable(){ return 0;}
-char kbdread() { return 0;}
-char kbdcheckch() { return 0;}
-
-// Arduino sensors
-void sensorbegin() {}
-number_t sensorread(short i) {return 0;};
-
-// networking and IoT
-void netbegin() {}
-char netconnected() { return 0; }
-void mqttbegin() {}
-int  mqttstate() {return -1;}
-void mqttsubscribe(char *t) {}
-void mqttsettopic(char *t) {}
-void mqttouts(char *m, short l) {}
-void mqttins(char *b, short nb) { z.a=0; };
-char mqttinch() {return 0;};
-
-// EEPROM handling - this is the minimal POSIX eeprom dummy
-uint8_t eeprom[EEPROMSIZE];
-void ebegin(){ 
-	int i;
-	FILE* efile;
-	for (i=0; i<EEPROMSIZE; i++) eeprom[i]=255;
-	efile=fopen("eeprom.dat", "r");
-	if (efile) fread(eeprom, EEPROMSIZE, 1, efile);
-}
-
-void eflush(){
-	FILE* efile;
-	efile=fopen("eeprom.dat", "w");
-	if (efile) fwrite(eeprom, EEPROMSIZE, 1, efile);
-}
-
-address_t elength() { return EEPROMSIZE; }
-void eupdate(address_t a, short c) { if (a>=0 && a<EEPROMSIZE) eeprom[a]=c; }
-short eread(address_t a) { if (a>=0 && a<EEPROMSIZE) return eeprom[a]; else return 255;  }
-
-// handling wiring I/O
-#ifndef RASPPI
-void aread(){ return; }
-void dread(){ return; }
-void awrite(number_t p, number_t v){}
-void dwrite(number_t p, number_t v){}
-void pinm(number_t p, number_t m){}
-#else
-void aread(){ push(analogRead(pop())); }
-void dread(){ push(digitalRead(pop())); }
-void awrite(number_t p, number_t v){
-	if (v >= 0 && v<256) analogWrite(p, v);
-	else error(EORANGE);
-}
-void dwrite(number_t p, number_t v){
-	if (v == 0) digitalWrite(p, LOW);
-	else if (v == 1) digitalWrite(p, HIGH);
-	else error(EORANGE);
-}
-void pinm(number_t p, number_t m){
-	if (m>=0 && m<=1) pinMode(p, m);
-	else error(EORANGE); 
-}
-#endif
-
-// handling time 
-// oldstyle posix
-#if ! defined(MSDOS) && ! defined(MINGW) && ! defined(RASPPI)
-void delay(number_t t) {usleep(t*1000);}
-#endif
-// ms style stuff
-#if defined(MINGW) || defined(MSDOS)
-void delay(number_t t) {Sleep(t);}
-#endif
-// raspberry take their delay function from wiring
-
-struct timeb start_time;
-void timeinit() { ftime(&start_time); }
-void bmillis() {
-	struct timeb thetime;
-	time_t dt;
-	number_t m;
-	ftime(&thetime);
-	dt=(thetime.time-start_time.time)*1000+(thetime.millitm-start_time.millitm);
-	m=(number_t) ( dt/(time_t)pop() % (time_t)maxnum);
-	push(m);
-}
-// we need to to millis by hand except for RASPPI with wiring
-#if ! defined(RASPPI)
-long millis() { push(1); bmillis(); return pop(); }
-#endif
-void bpulsein() { pop(); pop(); pop(); push(0); }
-
-// the display driver
-const int dsp_rows=0;
-const int dsp_columns=0;
-void dspwrite(char c){};
-void dspbegin() {};
-char dspwaitonscroll() { return 0; };
-char dspactive() {return FALSE; }
-void dspsetscrollmode(char c, short l) {}
-void dspsetcursor(short c, short r) {}
-
-// real time clock interface
-char rtcstring[18] = { 0 };
-
-// identical to arduino code -> isolate 
-char* rtcmkstr() {
-	int cc = 1;
-	short t;
-	char ch;
-	t=rtcget(2);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]=':';
-	t=rtcread(1);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]=':';
-	t=rtcread(0);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='-';
-	t=rtcread(3);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='/';
-	t=rtcread(4);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='/';
-	t=rtcread(5);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc]=0;
-	rtcstring[0]=cc-1;
-
-	return rtcstring;
-}
-
-short rtcread(char i) {
-	struct timeb thetime;
-	struct tm *ltime;
-	ftime(&thetime);
-	ltime=localtime(&thetime.time);
-	switch (i) {
-		case 0: 
-			return ltime->tm_sec;
-		case 1:
-			return ltime->tm_min;
-		case 2:
-			return ltime->tm_hour;
-		case 3:
-			return ltime->tm_mday;
-		case 4:
-			return ltime->tm_mon+1;
-		case 5:
-			return ltime->tm_year-100;
-		case 6:
-			return ltime->tm_wday;
-		case 7:
-			return 0;
-		default:
-			return 0;
-	}
-}
-short rtcget(char i) {return rtcread(i);}
-void rtcset(char i, short v) {}
-
-// handling real time os yield mechanisms
-void byield() {}
-
-// file I/O and dirs
-#define FILESYSTEMDRIVER
-FILE* ifile;
-FILE* ofile;
-#ifndef MSDOS
-// POSIX like OSes
-DIR* root;
-struct dirent* file; 
-#else
-// MSDOS to be done 
-void* root;
-void* file;
-#endif 
-
-// handling file IO
-void filewrite(char c) { if (ofile) fputc(c, ofile); else ert=1;}
-char fileread(){
-	char c;
-	if (ifile) c=fgetc(ifile); else { ert=1; return 0; }
-	if (c == -1 ) ert=-1;
-	return c;
-}
-char ifileopen(const char* filename){
-	ifile=fopen(filename, "r");
-	return (int) ifile;
-}
-void ifileclose(){
-	if (ifile) fclose(ifile);
-	ifile=NULL;	
-}
-char ofileopen(char* filename, const char* m){
-	ofile=fopen(filename, m);
-	return (int) ofile; 
-}
-void ofileclose(){ if (ofile) fclose(ofile); }
-int fileavailable(){ return !feof(ifile); }
-
-// handling directories - still rudimentary
-void rootopen() {
-#ifndef MSDOS
-	root=opendir ("./");
-#endif
-}
-
-int rootnextfile() {
-#ifndef MSDOS
-  file = readdir(root);
-  return (file != 0);
-#else 
-  return FALSE;
-#endif
-}
-
-int rootisfile() {
-#ifndef MSDOS
-  return (file->d_type == DT_REG);
-#else
-  return FALSE;
-#endif
-}
-
-const char* rootfilename() { 
-#ifndef MSDOS
-  return (file->d_name);
-#else
-  return 0;
-#endif  
-}
-
-int rootfilesize() { return 0; }
-void rootfileclose() {}
-void rootclose(){
-#ifndef MSDOS
-  (void) closedir(root);
-#endif  
-}
-
-void removefile(char *filename) {
-	remove(filename);
-}
-
-void formatdisk(short i) {
-	outsc("Format not implemented on this platform\n");
-}
-
-
-// handling the serial interface
-void serialbegin(){}
-void serialwrite(char c) { putchar(c); }
-char serialread() { return getchar(); }
-char serialcheckch(){ return TRUE; }
-char serialavailable() {return TRUE; }
-
-// reading from the console with inch
-void consins(char *b, short nb) {
-	char c;
-	
-	z.a=1;
-	while(z.a < nb) {
-		c=inch();
-		if (c == '\r') c=inch();
-		if (c == '\n' || c == -1 ) { /* terminal character is either newline or EOF */
-			break;
-		} else {
-			b[z.a++]=c;
-		} 
-	}
-	b[z.a]=0x00;
-	z.a--;
-	b[0]=(unsigned char)z.a;
-}
-
-
-// handling the aux serial interface
-void prtbegin() {}
-void prtwrite(char c) {}
-char prtread() {return 0;}
-char prtcheckch(){ return FALSE; }
-short prtavailable(){ return 0; }
-
-
-// default begin is as a master
-void wirebegin() {}
-void wireopen(char* s) {}
-void wireins(char *b, uint8_t l) { b[0]=0; z.a=0; }
-void wireouts(char *b, uint8_t l) {}
-
-/* 
-	read from the radio interface, radio is always block 
-	oriented. This function is called from ins for an entire 
-	line - see hardware.h for more info on block mode 
-*/
-void radioins(char *b, short nb) { b[0]=0; b[1]=0; z.a=0; }
-void radioouts(char *b, short l) {}
-void iradioopen(char *filename) {}
-void oradioopen(char *filename) {}
-
+#include "hardware-posix.h"
 #endif
 
 /* 
+
 	Code hardware dependencies
+
+	None so far
+
 */
 
 
@@ -655,7 +317,7 @@ char autorun() {
 	every objects is identified by name (c,d) and type t
 	3 bytes are used here but 2 would be enough
 */
-address_t bmalloc(signed char t, char c, char d, short l) {
+address_t bmalloc(signed char t, char c, char d, address_t l) {
 
 	address_t vsize;     // the length of the header
 	address_t b;
@@ -2650,11 +2312,12 @@ char expectexpr() {
 }
 
 
-// parses a list of expression
+// parses a list of expression, this may be recursive!
 void parsearguments() {
+	short argsl;
 
 	// begin counting
-	args=0; 
+	argsl=0; 
 
 	// having 0 args at the end of a command is legal
 	if (termsymbol()) return;
@@ -2663,10 +2326,13 @@ void parsearguments() {
 	do {
 		expression();
 		if (er != 0) break;
-		args++;
+		argsl++;
 		if (token != ',') break;
 		nexttoken();
 	} while (TRUE);
+
+	// because of the recursion ...
+	args=argsl;
 }
 
 
@@ -3449,8 +3115,10 @@ void expression(){
     	if, for, to, next, step, (break), stop (end), list, new, run, rem
     	break is not Palo ALto but fits here, end is identical to stop.
 
-*/
 
+	PRINT command 
+
+*/
 void xprint(){
 	char semicolon = FALSE;
 	char oldod;
@@ -3600,7 +3268,11 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, char ps) {
 }
 
 
-// the core assigment function
+/*
+
+	LET - the core assigment function, this is different from other BASICs
+
+*/
 void assignment() {
 	signed char t;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
@@ -3688,10 +3360,10 @@ void assignment() {
 }
 
 /*
-	input ["string",] variable [,["string",] variable]* 
+
+	INPUT ["string",] variable [,["string",] variable]* 
 
 */
-
 void showprompt() {
 	outsc("? ");
 }
@@ -3796,11 +3468,9 @@ nextvariable:
 
 /*
 
-	goto, gosub, return and its helpers
+	GOTO, GOSUB, RETURN and their helpers
 
 */
-
-
 void pushgosubstack(){
 	if (gosubsp < GOSUBDEPTH) {
 		gosubstack[gosubsp]=here;
@@ -3831,7 +3501,11 @@ void clrgosubstack() {
 	gosubsp=0;
 }
 
-// goto and gosub function for a simple one statement goto
+/*
+
+	GOTO and GOSUB function for a simple one statement goto
+
+*/
 void xgoto() {
 	signed char t=token;
 
@@ -3852,7 +3526,11 @@ void xgoto() {
 	nexttoken();
 }
 
-// return retrieves here from the gosub stack
+/*
+
+	RETURN retrieves here from the gosub stack
+
+*/
 void xreturn(){ 
 	popgosubstack();
 	if (er != 0) return;
@@ -3862,11 +3540,9 @@ void xreturn(){
 
 /* 
 
-	if and then
+	IF statement together with THEN 
 
 */
-
-
 void xif() {
 	
 	if (!expectexpr()) return;
@@ -3889,34 +3565,37 @@ void xif() {
 
 /* 
 
-	for, next and the apocryphal break
+	FOR, NEXT and the apocryphal BREAK
 
 */ 
 
 // find the NEXT token or the end of the program
 void findnextcmd(){
-	while (TRUE) {
-	    if (token == TNEXT) {
-	    	if (fnc == 0) return;
-	    	else fnc--;
-	    }
-	    if (token == TFOR) fnc++;
-	    if (here >= top) {
-	    	error(TFOR);
-	    	return;
-	    }
+	while (TRUE) {			
+		if (token == TNEXT) {
+	    if (fnc == 0) return;
+	    else fnc--;
+		}
+	  if (token == TFOR) fnc++;
+	  if (here >= top) {
+	    error(TFOR);
+	    return;
+	   }
 		nexttoken(); 
 	}
 }
 
-
 /*
-	for variable = expression to expression [STEP expression]
+
+	FOR variable [= expression [to expression]] [STEP expression]
 	for stores the variable, the increment and the boudary on the 
 	for stack. Changing steps and boundaries during the execution 
-	of a loop has no effect 
-*/
+	of a loop has no effect.
 
+	This is different from many other BASICS as FOR can be used 
+	as an open loop with no boundary
+
+*/
 void xfor(){
 	char xcl, ycl;
 	number_t b=1;
@@ -3958,7 +3637,8 @@ void xfor(){
 	setvar(xcl, ycl, b);
 	if (DEBUG) { 
 		outsc("** for loop with parameters var begin end step : ");
-		outch(xcl); outch(ycl); outspc(); outnumber(b); outspc(); outnumber(e); outspc(); outnumber(s); outcr(); }
+		outch(xcl); outch(ycl); outspc(); outnumber(b); outspc(); outnumber(e); outspc(); outnumber(s); outcr(); 
+	}
 	xc=xcl;
 	yc=ycl;
 	x=e;
@@ -3980,16 +3660,23 @@ void xfor(){
 }
 
 /*
-	an apocryphal feature here is the BREAK command ending a loop
+
+	BREAK - an apocryphal feature here is the BREAK command ending a loop
 	doesn't work well for nested loops - to be tested carefully
+
 */
 void xbreak(){
 	dropforstack();
+	if (er != 0) return;
 	findnextcmd();
 	nexttoken();
 }
 
-/* next variable statement */
+/* 
+
+	NEXT variable statement 
+
+*/
 void xnext(){
 	char xcl=0;
 	char ycl;
@@ -4044,6 +3731,7 @@ void xnext(){
 /* 
 	
 	list - this is also used in save, list does a minimal formatting with a simple heuristic
+	the formaters lastouttoken and spaceafterkeyword are experimental
 
 */
 signed char lastouttoken;
@@ -4053,7 +3741,7 @@ void outputtoken() {
 	unsigned short i;
 
 	if (spaceafterkeyword) {
-		if (token != '(' && token != LINENUMBER) outspc();
+		if (token != '(' && token != LINENUMBER && token !=':' ) outspc();
 		spaceafterkeyword=FALSE;
 	}
 
@@ -4093,6 +3781,7 @@ void outputtoken() {
 			}	
 			if (token >= 32) {
 				outch(token);
+				if (token == ':') outspc();
 				break;
 			} 
 			outch(token); outspc(); outnumber(token);
@@ -4151,7 +3840,9 @@ void xlist(){
 	nexttoken();
  }
 
-// RUN and CONTINUE are the same function
+/*
+	RUN and CONTINUE are the same function
+*/
 void xrun(){
 	if (token == TCONT) {
 		st=SRUN;
@@ -4176,7 +3867,11 @@ void xrun(){
 	st=SINT;
 }
 
-// the general cleanup function
+/*
+
+	NEW the general cleanup function - new deletes everything
+
+*/
 void xnew(){ 
 	// all stacks are purged
 	clearst();
@@ -4198,7 +3893,11 @@ void xnew(){
 	st=SINT;
 }
 
+/* 
 
+	REM - skip everything
+
+*/
 void xrem() {
 	while (token != LINENUMBER && token != EOL && here <= top) nexttoken(); 
 }
@@ -4212,10 +3911,9 @@ void xrem() {
 
 /* 
 
-	clearing variable space
+	CLR - clearing variable space
 
 */
-
 void xclr() {
 	clrvars();
 	clrgosubstack();
@@ -4227,10 +3925,9 @@ void xclr() {
 #ifdef HASAPPLE1
 /* 
 
-	the dimensioning of arrays and strings from Apple 1 BASIC
+	DIM - the dimensioning of arrays and strings from Apple 1 BASIC
 
 */
-
 void xdim(){
 	char xcl, ycl; 
 	signed char t;
@@ -4262,7 +3959,6 @@ nextvariable:
 		return;
 	}
 
-
 	nexttoken();
 	if (token == ',') {	
 		nexttoken();
@@ -4275,7 +3971,7 @@ nextvariable:
 
 /* 
 	
-	low level poke to the basic memory, works only up to 32767
+	POKE - low level poke to the basic memory, works only up to 32767
 
 */
 
@@ -4304,10 +4000,9 @@ void xpoke(){
 
 /*
 
-	the TAB spaces command of Apple 1 BASIC
+	TAB - spaces command of Apple 1 BASIC
 
 */
-
 void xtab(){
 
 	nexttoken();
@@ -4317,15 +4012,15 @@ void xtab(){
 	x=pop();
 	while (x-- > 0) outspc();	
 }
-
 #endif
+
+/* Stefan's additions */
 
 /*
 
-	Stefan's additions 
+	DUMP - memory dump program
 
 */
-
 void xdump() {
 	address_t a;
 	
@@ -4397,7 +4092,7 @@ void dumpmem(address_t r, address_t b) {
 	creates a C string from a BASIC string
 	after reading a BASIC string ir2 contains a pointer
 	to the data and x the string length
- */
+*/
 void stringtobuffer(char *buffer) {
 	short i;
 	i=x;
@@ -4436,7 +4131,11 @@ void getfilename(char *buffer, char d) {
 }
 
 #if defined(FILESYSTEMDRIVER)
-// save a file either to disk or to EEPROM
+/*
+
+	SAVE a file either to disk or to EEPROM
+
+*/
 void xsave() {
 	char filename[SBUFSIZE];
 	address_t here2;
@@ -4488,7 +4187,11 @@ void xsave() {
 	return;
 }
 
-// loading a file 
+/*
+
+ LOAD a file 
+
+*/
 void xload(const char * f) {
 	char filename[SBUFSIZE];
 	char ch;
@@ -4555,13 +4258,16 @@ void xload(const char * f) {
 	}
 }
 #else 
-// save a file to EEPROM
+/*
+	SAVE a file to EEPROM - minimal version for small Arduinos
+*/
 void xsave() {
 	esave(); 
 	nexttoken();
 }
-
-// loading a file from EEPROM
+/*
+	SLOAD a file from EEPROM - minimal version for small Arduinos
+*/
 void xload(const char* f) {
 	eload();
 	nexttoken();
@@ -4569,9 +4275,10 @@ void xload(const char* f) {
 #endif
 
 /*
-	get just one character from input or send one 
-*/
 
+	GET just one character from input 
+
+*/
 void xget(){
 	signed char t;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
@@ -4614,9 +4321,10 @@ void xget(){
 }
 
 /*
-	PUT writes one character to the default output stream
-*/
 
+	PUT writes one character to an output stream
+
+*/
 void xput(){
 	unsigned char ood=od;
 	short i;
@@ -4645,13 +4353,12 @@ void xput(){
 }
 
 /* 
-	the set command itself is also apocryphal it is a low level
+
+	SET - the command itself is also apocryphal it is a low level
 	control command setting certain properties
-	syntax, currently it is only 
+	syntax, currently it is only SET expression, expression
 
-	set expression
 */
-
 void xset(){
 	address_t fn;
 
@@ -4726,6 +4433,11 @@ void xset(){
 	}
 }
 
+/*
+
+	NETSTAT - network status command, rudimentary
+
+*/
 void xnetstat(){
 #ifdef ARDUINOMQTT
 	if (netconnected()) outsc("Network connected \n"); else outsc("Network not connected \n");
@@ -4741,8 +4453,9 @@ void xnetstat(){
 
 	The arduino io functions.
 
-*/
+	DWRITE - digital write 
 
+*/
 void xdwrite(){
 	nexttoken();
 	parsenarguments(2);
@@ -4752,6 +4465,11 @@ void xdwrite(){
 	dwrite(y, x);	
 }
 
+/*
+
+	AWRITE - analog write 
+
+*/
 void xawrite(){
 	nexttoken();
 	parsenarguments(2);
@@ -4761,6 +4479,11 @@ void xawrite(){
 	awrite(y, x);
 }
 
+/*
+
+	PINM - pin mode
+
+*/
 void xpinm(){
 	nexttoken();
 	parsenarguments(2);
@@ -4770,9 +4493,15 @@ void xpinm(){
 	pinm(y, x);	
 }
 
-// delay is broken down in 1 ms intervalls in 
-// order to call byield every 10 ms. This is 
-// needed for network functions
+/*
+	
+	DELAY in milliseconds
+
+	delay is broken down in 1 ms intervalls in 
+	order to call byield every YIELDINTERVAL ms. This is 
+	needed for network functions
+
+*/
 void xdelay(){
 	unsigned int i;
 	nexttoken();
@@ -4789,6 +4518,11 @@ void xdelay(){
 }
 
 #ifdef HASGRAPH
+/*
+
+	COLOR setting, accepting one or 3 arguments
+
+*/
 void xcolor() {
 	short r, g, b;
 	nexttoken();
@@ -4809,7 +4543,12 @@ void xcolor() {
 			break;
 	}
 }
-	
+
+/*
+
+	PLOT 
+
+*/
 void xplot() {
 	short x0, y0;
 	nexttoken();
@@ -4909,12 +4648,10 @@ void xtone(){
 #endif
 
 /*
-
-  	SD card DOS - basics to access an SD card as mass storage from BASIC
-
+ *	BASIC DOS - disk access programs, to control mass storage from BASIC
 */
 
-// string equal helper in catalog 
+// string match helper in catalog 
 char streq(const char *s, char *m){
 	short i=0;
 	while (m[i]!=0 && s[i]!=0 && i < SBUFSIZE){
@@ -4924,7 +4661,9 @@ char streq(const char *s, char *m){
 	return 1;
 }
 
-// basic directory function
+/*
+ *	CATALOG - basic directory function
+ */
 void xcatalog() {
 #if defined(FILESYSTEMDRIVER) 
 	char filename[SBUFSIZE];
@@ -4952,6 +4691,9 @@ void xcatalog() {
 	nexttoken();
 }
 
+/*
+ *	DELETE a file
+ */
 void xdelete() {
 #if defined(FILESYSTEMDRIVER)
 	char filename[SBUFSIZE];
@@ -4965,6 +4707,9 @@ void xdelete() {
 #endif
 }
 
+/*
+ *	OPEN a file or I/O stream - very raw mix of different functions
+ */
 void xopen() {
 #if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE) 
 	char stream = IFILE; // default is file operation
@@ -5054,12 +4799,17 @@ void xopen() {
 	nexttoken();
 }
 
-// open as a function 
+/*
+ *	OPEN as a function, currently only implemented for MQTT
+ */
 void xfopen() {
 	short chan = pop();
 	if (chan == 9) push(mqttstate()); else push(0);
 }
 
+/*
+ *	CLOSE a file or stream 
+ */
 void xclose() {
 #if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE)
 	char stream = IFILE;
@@ -5092,6 +4842,9 @@ void xclose() {
 	nexttoken();
 }
 
+/*
+ * FDISK - format internal disk storages of RP2040, ESP and the like
+ */
 void xfdisk() {
 	nexttoken();
 	parsearguments();
@@ -5105,16 +4858,11 @@ void xfdisk() {
 
 
 #ifdef HASSTEFANSEXT
-/*
-	low level function access of the interpreter
-	for each group of functions there is a call vector
-	and and argument.
-
-	Implemented call vectors
-		1: Serial code
-
-*/
-
+/*	
+ *	USR low level function access of the interpreter
+ *	for each group of functions there is a call vector
+ *	and and argument.
+ */
 void xusr() {
 	address_t a;
 	number_t n;
@@ -5176,6 +4924,9 @@ void xusr() {
 
 #endif
 
+/*
+ * CALL currently only to exit the interpreter
+ */
 void xcall() {
 	int r;
 
@@ -5195,13 +4946,16 @@ void xcall() {
 
 // the dartmouth stuff
 #ifdef HASDARTMOUTH
-
-// data is simply skipped 
+/*
+ * DATA is simply skipped when encountered as a command
+ */
 void xdata() {
 	while (!termsymbol()) nexttoken();
 }
 
-// function to find the next data record
+/* 
+ * for READ find the next data record, helper of READ
+ */
 void nextdatarecord() {
 	address_t h;
 	signed char s=1;
@@ -5268,7 +5022,10 @@ enddatarecord:
 }
 
 
-// this code resembles get - generic stream read code needed later
+/*
+ *	READ - find data records and insert them to variables
+ *	this code resembles get - generic stream read code needed later
+ */
 void xread(){
 	signed char t, t0;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  	// also remember if the left hand side is a pure string of something with an index 
@@ -5354,14 +5111,18 @@ void xread(){
 	token=t0;
 }
 
-// restore sets the data pointer to zero right now 
+/*
+ *	RESTORE sets the data pointer to zero right now 
+ */
 void xrestore(){
 	data=0;
 	nexttoken();
 }
 
 
-// def simply skips to the end of line right now
+/*
+ *	DEF a function, functions are tokenized as FN Arrayvar
+ */
 void xdef(){
 	char xcl1, ycl1, xcl2, ycl2;
 	address_t a;
@@ -5409,7 +5170,9 @@ void xdef(){
 	while (!termsymbol()) nexttoken();
 }
 
-// on is a bit like if 
+/*
+ *	ON is a bit like IF  
+ */
 void xon(){
 	number_t cr;
 	int ci;
@@ -5470,8 +5233,12 @@ void xon(){
 }
 #endif
 
-// the darkarts
 #ifdef HASDARKARTS
+/*
+ *	EVAL can modify a program, there are serious side effects
+ *	which are not caught (and cannot be). All FOR loops and RETURN 
+ *	vectors break if EVAL inserts in their range
+ */
 void xeval(){
 	short i, l;
 	address_t mline, line;
@@ -5523,6 +5290,9 @@ void xeval(){
 #endif
 
 #ifdef HASIOT
+/*
+ *	ITER generates iterators
+*/
 void xiter(){
 	nexttoken();
 }

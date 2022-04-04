@@ -2312,11 +2312,12 @@ char expectexpr() {
 }
 
 
-// parses a list of expression
+// parses a list of expression, this may be recursive!
 void parsearguments() {
+	short argsl;
 
 	// begin counting
-	args=0; 
+	argsl=0; 
 
 	// having 0 args at the end of a command is legal
 	if (termsymbol()) return;
@@ -2325,10 +2326,13 @@ void parsearguments() {
 	do {
 		expression();
 		if (er != 0) break;
-		args++;
+		argsl++;
 		if (token != ',') break;
 		nexttoken();
 	} while (TRUE);
+
+	// because of the recursion ...
+	args=argsl;
 }
 
 
@@ -4644,9 +4648,7 @@ void xtone(){
 #endif
 
 /*
-
-	disk access programs, basics to control mass storage from BASIC
-
+ *	BASIC DOS - disk access programs, to control mass storage from BASIC
 */
 
 // string match helper in catalog 
@@ -4660,10 +4662,8 @@ char streq(const char *s, char *m){
 }
 
 /*
-
-	CATALOG - basic directory function
-
-*/
+ *	CATALOG - basic directory function
+ */
 void xcatalog() {
 #if defined(FILESYSTEMDRIVER) 
 	char filename[SBUFSIZE];
@@ -4692,10 +4692,8 @@ void xcatalog() {
 }
 
 /*
-
-	DELETE a file
-
-*/
+ *	DELETE a file
+ */
 void xdelete() {
 #if defined(FILESYSTEMDRIVER)
 	char filename[SBUFSIZE];
@@ -4710,10 +4708,8 @@ void xdelete() {
 }
 
 /*
-
-	OPEN a file or I/O stream - very raw mix of different functions
-
-*/
+ *	OPEN a file or I/O stream - very raw mix of different functions
+ */
 void xopen() {
 #if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE) 
 	char stream = IFILE; // default is file operation
@@ -4804,20 +4800,16 @@ void xopen() {
 }
 
 /*
-
-	OPEN as a function, currently only implemented for MQTT
-
-*/
+ *	OPEN as a function, currently only implemented for MQTT
+ */
 void xfopen() {
 	short chan = pop();
 	if (chan == 9) push(mqttstate()); else push(0);
 }
 
 /*
-
-	CLOSE a file or stream 
-
-*/
+ *	CLOSE a file or stream 
+ */
 void xclose() {
 #if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE)
 	char stream = IFILE;
@@ -4851,10 +4843,8 @@ void xclose() {
 }
 
 /*
-
-	FDISK - format internal disk storages of RP2040, ESP and the like
-
-*/
+ * FDISK - format internal disk storages of RP2040, ESP and the like
+ */
 void xfdisk() {
 	nexttoken();
 	parsearguments();
@@ -4868,13 +4858,11 @@ void xfdisk() {
 
 
 #ifdef HASSTEFANSEXT
-/*
-	
-	USR low level function access of the interpreter
-	for each group of functions there is a call vector
-	and and argument.
-
-*/
+/*	
+ *	USR low level function access of the interpreter
+ *	for each group of functions there is a call vector
+ *	and and argument.
+ */
 void xusr() {
 	address_t a;
 	number_t n;
@@ -4937,10 +4925,8 @@ void xusr() {
 #endif
 
 /*
-
-	CALL currently only to exit the interpreter
-
-*/
+ * CALL currently only to exit the interpreter
+ */
 void xcall() {
 	int r;
 
@@ -4960,21 +4946,16 @@ void xcall() {
 
 // the dartmouth stuff
 #ifdef HASDARTMOUTH
-
 /*
-
-	DATA is simply skipped when encountered as a command
-
-*/
+ * DATA is simply skipped when encountered as a command
+ */
 void xdata() {
 	while (!termsymbol()) nexttoken();
 }
 
 /* 
-
-	function to find the next data record, helper of READ
-
-*/
+ * for READ find the next data record, helper of READ
+ */
 void nextdatarecord() {
 	address_t h;
 	signed char s=1;
@@ -5042,11 +5023,9 @@ enddatarecord:
 
 
 /*
-
-	READ - find data records and insert them to variables
-	this code resembles get - generic stream read code needed later
-
-*/
+ *	READ - find data records and insert them to variables
+ *	this code resembles get - generic stream read code needed later
+ */
 void xread(){
 	signed char t, t0;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  	// also remember if the left hand side is a pure string of something with an index 
@@ -5133,10 +5112,8 @@ void xread(){
 }
 
 /*
-
-	RESTORE sets the data pointer to zero right now 
-
-*/
+ *	RESTORE sets the data pointer to zero right now 
+ */
 void xrestore(){
 	data=0;
 	nexttoken();
@@ -5144,10 +5121,8 @@ void xrestore(){
 
 
 /*
-
-	DEF a function, functions are tokenized as FN Arrayvar
-
-*/
+ *	DEF a function, functions are tokenized as FN Arrayvar
+ */
 void xdef(){
 	char xcl1, ycl1, xcl2, ycl2;
 	address_t a;
@@ -5196,10 +5171,8 @@ void xdef(){
 }
 
 /*
-
-	ON is a bit like if 
-
-*/
+ *	ON is a bit like IF  
+ */
 void xon(){
 	number_t cr;
 	int ci;
@@ -5262,12 +5235,10 @@ void xon(){
 
 #ifdef HASDARKARTS
 /*
-
-	EVAL can modify a program, there are serious side effects
-	which are not caught (and cannot be). All FOR loops and RETURN 
-	vectors break if EVAL inserts in their range
-
-*/
+ *	EVAL can modify a program, there are serious side effects
+ *	which are not caught (and cannot be). All FOR loops and RETURN 
+ *	vectors break if EVAL inserts in their range
+ */
 void xeval(){
 	short i, l;
 	address_t mline, line;
@@ -5320,9 +5291,7 @@ void xeval(){
 
 #ifdef HASIOT
 /*
-
-	ITER generates iterators
-
+ *	ITER generates iterators
 */
 void xiter(){
 	nexttoken();
