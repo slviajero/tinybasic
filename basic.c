@@ -2320,7 +2320,7 @@ void parsearguments() {
 	argsl=0; 
 
 	// having 0 args at the end of a command is legal
-	if (termsymbol()) return;
+	if (termsymbol()) {args=argsl; return; }
 
 	// list of expressions separated by commas
 	do {
@@ -4919,6 +4919,8 @@ void xusr() {
 				default: push(0);
 			}
 			break;
+		default:
+			push(0);
 	}
 }
 
