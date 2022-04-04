@@ -46,7 +46,7 @@
 #undef  HASIOT
 
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
-#define MEMSIZE 1024
+#define MEMSIZE 900
 
 // debug mode switches 
 #define DEBUG 0
@@ -1195,8 +1195,8 @@ void statement();
 #undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
-#undef ARDUINOLCDI2C
+#define DISPLAYCANSCROLL
+#define ARDUINOLCDI2C
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
@@ -1233,7 +1233,7 @@ void statement();
 */
 
 #undef UNOPLAIN
-#define AVRLCD
+#undef AVRLCD
 #undef WEMOSSHIELD
 #undef ESP01BOARD
 #undef MEGASHIELD
@@ -1604,8 +1604,8 @@ short keypadread(){
 #ifdef ARDUINOLCDI2C
 #define DISPLAYDRIVER
 #include <LiquidCrystal_I2C.h>
-const int dsp_rows=4;
-const int dsp_columns=20;
+const int dsp_rows=2;
+const int dsp_columns=16;
 LiquidCrystal_I2C lcd(0x27, dsp_columns, dsp_rows);
 void dspbegin() {   lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
 void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
