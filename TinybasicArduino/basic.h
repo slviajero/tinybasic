@@ -760,7 +760,7 @@ static long lastlongyield=0;
 long freememorysize();
 address_t ballocmem();
 void byield();
-address_t bmalloc(signed char, char, char, short);
+address_t bmalloc(signed char, char, char, address_t);
 address_t bfind(signed char, char, char);
 address_t blength (signed char, char, char);
 void clrvars();
