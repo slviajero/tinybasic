@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.134 2022/04/04 04:49:36 stefan Exp stefan $
+	$Id: basic.c,v 1.135 2022/04/10 06:25:05 stefan Exp stefan $
 
 	Stefan's IoT BASIC interpreter 
 
@@ -137,41 +137,22 @@
 #endif
 
 /* 
-
 	Code hardware dependencies
-
 	None so far
-
 */
 
 
-
 /*
-	Layer 0 function - variable handling.
-
-	These function access variables, 
-	In this implementation variables are a 
-	static array and we simply subtract 'A' 
-	from the variable name to get the index
-	any other way to generate an index from a 
-	byte hash can be used just as well.
-
-	delvar and createvar as stubs for further 
-	use. They are not yet used consistenty in
-	the code.
+ *  Determine the possible basic memory size.
+ *	using malloc causes some overhead which can be relevant on the smaller  
+ *	boards. set MEMSIZE instead to a static value. In this case ballocmem 
+ *	just returns the static MEMSIZE.
+ *
  */
-
 #if MEMSIZE == 0
-/*
-	determine the possible basic memory size
-	using malloc causes some overhead which can be relevant on the smaller 
-	boards. set MEMSIZE instead to a static value. In this case ballocmem 
-	just returns the static MEMSIZE
-*/
-
 address_t ballocmem() { 
 	signed char i = 0;
-	
+
 	// memory models available 
 	const unsigned short memmodel[] = {
 		60000,  // DUE systems, RP2040 and ESP32, all POSIX systems - set to fit in one 16 bit page
@@ -191,48 +172,32 @@ address_t ballocmem() {
     0      
 	}; 
 
-// this is tiny model MSDOS compile - dos chrashes on 
-// file access with 60k allocated in a tiny DOS compiler model, 
-// don't use the 60k 
-#ifdef MSDOS
-	i=1;
-#endif
-
-// if a memodel is defined somewhere in the hardware
-// section, use this for a start
-#ifdef MEMMODEL
-	i=MEMMODEL;
-#endif
-
 	// if the number type is only 2 bytes max memory is 32000
-	if (sizeof(number_t) <= 2) i=2;
+	// if (sizeof(number_t) <= 2) i=2;
 
-  // on ESP we know the memory - experimental code - 4000 heuristic
-  // based on networks / filesystem demand, a bit generous
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
-  long m=freememorysize()-4000;
+  // on some platforms we know the free memory for BASIC 
+  long m=freememorysize();
   if (m>maxaddr) m=maxaddr;
   if (m>0) {
     mem=(signed char*)malloc(m);
     if (mem != NULL) return m-1;
   }
+
+/*
+ * if there is no valid freememorysize() result we need 
+ * to guess the size by doing malloc, MEMMODEL can be used
+ * to limit the max size.
+ *
+ * tiny model MSDOS needs more buffers 
+ * don't use the 60k 
+ */
+#ifdef MSDOS
+	i=1;
 #endif
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
-  int overhead=192;
-#ifdef ARDUINOSD
-  overhead+=512;
-#endif
-#ifdef ARDUINOETH
-  overhead+=256;
-#endif
-  int m=freememorysize()-overhead;
-  if (m>0) {
-    mem=(signed char*)malloc(m);
-    if (mem != NULL) return m-1;
-  }
+#ifdef MEMMODEL
+	i=MEMMODEL;
 #endif
 
-  // heuristic - rather odd
 	do {
 		mem=(signed char*)malloc(memmodel[i]);
 		if (mem != NULL) break;
@@ -244,8 +209,29 @@ address_t ballocmem() {
 address_t ballocmem(){ return MEMSIZE-1; };
 #endif
 
-// eeprom load / save functions 
-// save a file to EEPROM
+
+/*
+ *	Layer 0 function - variable handling.
+ *
+ *	These function access variables, 
+ *	In this implementation variables are a 
+ *	static array and we simply subtract 'A' 
+ *	from the variable name to get the index
+ *	any other way to generate an index from a 
+ *	byte hash can be used just as well.
+ *
+ *	delvar and createvar as stubs for further 
+ *	use. They are not yet used consistenty in
+ *	the code.
+ */
+
+/*
+ * eeprom load / save / autorun functions 
+ * needed for SAVE and LOAD to an EEPROM
+ * autorun is generic
+ */
+
+/* save a file to EEPROM */
 void esave() {
 	address_t a=0;
 	if (top+eheadersize < elength()) {
@@ -268,7 +254,7 @@ void esave() {
 	}
 }
 
-// load a file from EEPROM
+/* load a file from EEPROM */
 void eload() {
 	address_t a=0;
 	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
@@ -288,46 +274,41 @@ void eload() {
 	}
 }
 
-// autorun something 
+/* autorun something from EEPROM or a filesystem */
 char autorun() {
-// here eeprom run
 #if defined(ARDUINOEEPROM) || ! defined(ARDUINO) 
-  	if (eread(0) == 1){ // autorun from the EEPROM
-  		egetnumber(1, addrsize);
-  		top=z.a;
-  		st=SERUN;
-  		return TRUE;    // EEPROM autorun overrule filesystem autorun
-  	} 
+  if (eread(0) == 1){ // autorun from the EEPROM
+  	egetnumber(1, addrsize);
+  	top=z.a;
+  	st=SERUN;
+  	return TRUE; /* EEPROM autorun overrules filesystem autorun */
+ 	} 
 #endif
-// here filesystem autorun
 #if defined(FILESYSTEMDRIVER) || ! defined(ARDUINO)
-  	if (ifileopen("autoexec.bas")) {
-  		xload("autoexec.bas");
-  		st=SRUN;
-			ifileclose();
-			return TRUE;
-  	}
+  if (ifileopen("autoexec.bas")) {
+  	xload("autoexec.bas");
+  	st=SRUN;
+		ifileclose();
+		return TRUE;
+  }
 #endif
   return FALSE;
 }
 
 #ifdef HASAPPLE1
 /*
-	allocate a junk of memory for a variable on the heap
-	every objects is identified by name (c,d) and type t
-	3 bytes are used here but 2 would be enough
-*/
+ *	bmalloc() allocates a junk of memory for a variable on the 
+ *		heap every objects is identified by name (c,d) and type t
+ *		3 bytes are used here.
+ */
 address_t bmalloc(signed char t, char c, char d, address_t l) {
-
-	address_t vsize;     // the length of the header
+	address_t vsize;     /* the length of the header */
 	address_t b;
 
 	if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
 
-/*
-		check if the object already exists
-*/
-    if (bfind(t, c, d) != 0 ) { error(EVARIABLE); return 0; };
+	/* check if the object already exists */
+	if (bfind(t, c, d) != 0 ) { error(EVARIABLE); return 0; };
 
 	/* 
 		how much space is needed
@@ -336,21 +317,21 @@ address_t bmalloc(signed char t, char c, char d, address_t l) {
 			one byte for every string character
 	*/
 
-    switch(t) {
-    	case VARIABLE:
-    		vsize=numsize+3;
-    		break;
-    	case ARRAYVAR:
-    		vsize=numsize*l+addrsize+3;
-    		break;
-    	case TFN:
-    		vsize=addrsize+2+3;
-    		break;
-    	default:
-    		vsize=l+addrsize+3;
-    }
+	switch(t) {
+  	case VARIABLE:
+    	vsize=numsize+3;
+    	break;
+    case ARRAYVAR:
+    	vsize=numsize*l+addrsize+3;
+    	break;
+    case TFN:
+    	vsize=addrsize+2+3;
+    	break;
+    default:
+    	vsize=l+addrsize+3;
+ 	}
 	
-    /* enough memory ? */ 
+	/* enough memory ? */ 
 	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return 0;}
 
 	/* here we could create a hash, currently simplified
@@ -367,7 +348,6 @@ address_t bmalloc(signed char t, char c, char d, address_t l) {
 		b=b-addrsize+1;
 		z.a=vsize-(addrsize+3);
 		setnumber(b, addrsize);
-
 		b--;
 	}
 
@@ -379,11 +359,10 @@ address_t bmalloc(signed char t, char c, char d, address_t l) {
 }
 
 /*
-	bfind passes back the location of the object as result
-	the length of the object is in z.a as a side effect 
-*/
+ *	bfind() passes back the location of the object as result
+ *		the length of the object is in z.a as a side effect 
+ */
 address_t bfind(signed char t, char c, char d) {
-
 	address_t b = memsize;
 	signed char t1;
 	char c1, d1;
@@ -415,31 +394,29 @@ address_t bfind(signed char t, char c, char d) {
 	}
 
 	return 0;
-
 }
 
-// the length of an object
+/* the length of an object */
 address_t blength (signed char t, char c, char d) {
 	if (bfind(t, c, d)) return z.a; else return 0;
 }
 #endif
 
-
-// ununsed so far, simple variables are created on the fly
+/* ununsed so far, simple variables are created on the fly */
 void createvar(char c, char d){
 	return;
 }
 
-// get and create a variable 
+/* get and create a variable */
 number_t getvar(char c, char d){
 	address_t a;
 
 	if (DEBUG) { outsc("* getvar "); outch(c); outch(d); outspc(); outcr(); }
 
-	// the static variable array
+	/* the static variable array */
 	if (c >= 65 && c<=91 && d == 0) return vars[c-65];
 
-	// the special variables 
+	/* the special variables */
 	if ( c == '@' )
 		switch (d) {
 			case 'S': 
@@ -470,25 +447,26 @@ number_t getvar(char c, char d){
 	/* retrieve the value */
 	getnumber(a, numsize);
 	return z.i;
+
 #else
 	error(EVARIABLE);
 	return 0;
 #endif
 }
 
-// set and create a variable 
+/* set and create a variable */
 void setvar(char c, char d, number_t v){
 	address_t a;
 
 	if (DEBUG) { outsc("* setvar "); outch(c); outch(d); outspc(); outnumber(v); outcr(); }
 
-	// the static variable array
+	/* the static variable array */
 	if (c >= 65 && c<=91 && d == 0) {
 		vars[c-65]=v;
 		return;
 	}
 
-	// the special variables 
+	/* the special variables */
 	if ( c == '@' )
 		switch (d) {
 			case 'S': 
@@ -529,7 +507,7 @@ void setvar(char c, char d, number_t v){
 #endif
 }
 
-// clr all variables 
+/* clr all variables */
 void clrvars() {
 	signed char i;
 	for (i=0; i<VARSIZE; i++) vars[i]=0;
@@ -537,7 +515,7 @@ void clrvars() {
 	himem=memsize;
 }
 
-/*  the program memory access */
+/* the program memory access */
 void getnumber(address_t m, short n){
 	signed char i;
 
@@ -554,9 +532,6 @@ void getnumber(address_t m, short n){
 		default:
 			for (i=0; i<n; i++) z.c[i]=mem[m++];
 	}
-
-	// for (i=0; i<n; i++) z.c[i]=mem[m++];
-
 }
 
 /* the eeprom memory access */
@@ -623,7 +598,6 @@ address_t createarray(char c, char d, address_t i) {
 
 /* generic array access function */
 void array(char m, char c, char d, address_t i, number_t* v) {
-
 	address_t a;
 	address_t h;
 	char e = FALSE;
@@ -633,30 +607,28 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 	/* special arrays EEPROM, Display and Wang */
 	if (c == '@') {
 		switch(d) {
-			case 'E': {
+			case 'E': 
 				h=elength()/numsize;
 				a=elength()-numsize*i;
 				e=TRUE;
 				break;
-			}
-			case 'D': {
+			case 'D': 
 #if defined(DISPLAYDRIVER) && defined(DISPLAYCANSCROLL)
-        		if (dsp_rows == 0 || dsp_columns == 0) { return; }
-        		if (i<1 || i>dsp_columns*dsp_columns ) { return; }
-        		i--;
-        		a=i%dsp_columns;
-        		h=i/dsp_columns;
-        		// this should be encapsulated later into the display object
-        		if (m == 's') {
-          			if (*v == 0) e=' '; else e=*v;
-          			dspprintchar(e, a, h);
-          			if (*v == 32) dspbuffer[h][a]=0; else dspbuffer[h][a]=*v;
-        		} else {
-          			*v=(number_t)dspbuffer[h][a];          			
-        		}
+        if (dsp_rows == 0 || dsp_columns == 0) { return; }
+        if (i<1 || i>dsp_columns*dsp_columns ) { return; }
+        i--;
+        a=i%dsp_columns;
+        h=i/dsp_columns;
+        // this should be encapsulated later into the display object
+        if (m == 's') {
+          if (*v == 0) e=' '; else e=*v;
+          dspprintchar(e, a, h);
+          if (*v == 32) dspbuffer[h][a]=0; else dspbuffer[h][a]=*v;
+        } else {
+          *v=(number_t)dspbuffer[h][a];          			
+        }
 #endif
 				return;
-			}
 #if ! defined(ARDUINO) || defined(ARDUINORTC)
 			case 'T':
 				if (m == 'g') *v=rtcget(i); 
@@ -664,16 +636,15 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 				return;
 #endif
 #if defined(ARDUINO) && defined(ARDUINOSENSORS)
-		      case 'S':
-        		if (m == 'g') *v=sensorread(i); 
-        		return;
+			case 'S':
+        if (m == 'g') *v=sensorread(i, 0); 
+        return;
 #endif
 			case 0: 
-			default: {
+			default:
 				h=(himem-top)/numsize;
 				a=himem-numsize*(i)+1;
 				break;
-			}
 		}
 	} else {
 #ifdef HASAPPLE1
@@ -688,11 +659,10 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 #endif
 	}
 
-
-	// is the index in range 
+	/* is the index in range */
 	if ( (i < 1) || (i > h) ) { error(EORANGE); return; }
 
-	// set or get the array
+	/* set or get the array */
 	if (m == 'g') {
 		if (! e) { getnumber(a, numsize); } else { egetnumber(a, numsize); }
 		*v=z.i;
@@ -702,10 +672,13 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 	}
 }
 
+/* create a string on the heap */
 address_t createstring(char c, char d, address_t i) {
 #ifdef HASAPPLE1
 	address_t a;
+	
 	if (DEBUG) { outsc("Create string "); outch(c); outch(d); outspc(); outnumber(nvars); outcr(); }
+
 	if (bfind(STRINGVAR, c, d)) error(EVARIABLE); else a=bmalloc(STRINGVAR, c, d, i+strindexsize);
 	if (er != 0) return 0;
 	return a;
@@ -714,19 +687,19 @@ address_t createstring(char c, char d, address_t i) {
 #endif
 }
 
-// the -1+stringdexsize is needed because a string index starts with 1
+/* get a string, the -1+stringdexsize is needed because a string index starts with 1 */
 char* getstring(char c, char d, address_t b) {	
 	address_t a;
 
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
 
-	// direct access to the input buffer - deprectated but still there
+	/* direct access to the input buffer - deprectated but still there */
 	if ( c == '@' && d == 0) {
 		return ibuffer+b;
 	}  
 
 #ifdef HASAPPLE1
-	// special strings 
+	/* special strings */
 #if !defined(ARDUINO) || defined(ARDUINORTC)
 	if ( c== '@' && d == 'T') {
 		rtcmkstr();
@@ -734,7 +707,7 @@ char* getstring(char c, char d, address_t b) {
 	}
 #endif
 
-	// dynamically allocated strings
+	/* dynamically allocated strings */
 	if (! (a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, STRSIZEDEF);
 
 	if (DEBUG) { outsc("** heap address "); outnumber(a); outcr(); }
@@ -756,7 +729,7 @@ char* getstring(char c, char d, address_t b) {
 #endif
 }
  
- // this function is currently not used 
+/* this function is currently not used */
 number_t arraydim(char c, char d) {
 	if (c == '@')
 		switch (d) {
@@ -773,6 +746,7 @@ number_t arraydim(char c, char d) {
 }
 
 #ifdef HASAPPLE1
+/* dimension of a string as in DIM a$(100) */ 
 number_t stringdim(char c, char d) {
 	if (c == '@')
 		return BUFSIZE-1;
@@ -780,12 +754,12 @@ number_t stringdim(char c, char d) {
 	return blength(STRINGVAR, c, d)-strindexsize;
 }
 
+/* the length of a string as in LEN(A$) */
 number_t lenstring(char c, char d){
 	char* b;
 	number_t a;
 
-	if (c == '@' && d == 0)
-		return ibuffer[0];
+	if (c == '@' && d == 0) return ibuffer[0];
 
 #if !defined(ARDUINO) || defined(ARDUINORTC) 
 	if (c == '@' && d == 'T' ) {
@@ -801,6 +775,7 @@ number_t lenstring(char c, char d){
 	return z.a;
 }
 
+/* set the length of a string */
 void setstringlength(char c, char d, address_t l) {
 	address_t a; 
 
@@ -811,6 +786,7 @@ void setstringlength(char c, char d, address_t l) {
 
 	a=bfind(STRINGVAR, c, d);
 	if (er != 0) return;
+
 	if (a == 0) {
 		error(EVARIABLE);
 		return;
@@ -821,9 +797,9 @@ void setstringlength(char c, char d, address_t l) {
 		setnumber(a, strindexsize);
 	} else
 		error(EORANGE);
-
 }
 
+/* inset data into a string */
 void setstring(char c, char d, address_t w, char* s, address_t n) {
 	char *b;
 	address_t a;
@@ -849,16 +825,13 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 }
 #endif
 
-/* 
-	Layer 0 - keyword handling - PROGMEM logic goes here
-		getkeyword is the only access to the keyword array
-		in the code.  
-
-		Same for messages and errors
-
-		(here construction site right now)
-*/ 
-
+/*
+ *  Layer 0 - keyword handling - PROGMEM logic goes here
+ *		getkeyword(), getmessage(), and getokenvalue() are 
+ *		the only access to the keyword array in the code.  
+ *
+ *	Same for messages and errors
+ */ 
 char* getkeyword(unsigned short i) {
 
 	if (DEBUG) { outsc("** getkeyword from index "); outnumber(i); outcr(); }
@@ -890,7 +863,6 @@ signed char gettokenvalue(char i) {
 #endif
 }
 
-
 void printmessage(char i){
 #ifndef HASERRORMSG
 	if (i > EGENERAL) return;
@@ -899,19 +871,20 @@ void printmessage(char i){
 }
 
 /*
-  Layer 0 - error handling
-
-  The general error handler. The static variable er
-  contains the error state. 
-
-  Strategy: the error function writes the message and then 
-  clears the stack. All calling functions must check er and 
-  return after funtion calls with no further messages etc.
-  reseterror sets the error state to normal and end the 
-  run loop.
-
+ *	Layer 0 - error handling
+ *
+ * The general error handler. The static variable er
+ * contains the error state. 
+ * 
+ * debugtoken() writes a token for debug
+ * bdebug() is the general debug message function
+ *
+ * Strategy: the error() function writes the message and then 
+ * clears the stack. All calling functions must check er and 
+ * return after funtion calls with no further messages etc.
+ * reseterror() sets the error state to normal and end the 
+ * run loop.
 */ 
-
 void error(signed char e){
 	er=e;
 	// set input and output device back to default
@@ -979,10 +952,11 @@ void bdebug(const char *c){
 }
 
 /*
-	Arithmetic and runtime operations are mostly done
-	on a stack of number_t.
-*/
-
+ *	Arithmetic and runtime operations are mostly done
+ *	on a stack of number_t.
+ *
+ *	push(), pop(), clearst() handle the stack
+ */
 void push(number_t t){
 	if (DEBUG) {outsc("** push sp= "); outnumber(sp); outcr(); }
 	if (sp == STACKSIZE)
@@ -1005,6 +979,9 @@ void clearst(){
 	sp=0;
 }
 
+/*
+ * clear the cursor for the READ/DATA mechanism
+ */
 void clrdata() {
 #ifdef HASDARTMOUTH
 	data=0;
@@ -1012,14 +989,13 @@ void clrdata() {
 }
 
 /* 
-
-	Stack handling for gosub and for
-
-*/
-
+ *	Stack handling for gosub and for
+ */
 void pushforstack(){
 	short i, j;
+
 	if (DEBUG) { outsc("** forsp and here in pushforstack "); outnumber(forsp); outspc(); outnumber(here); outcr(); }
+	
 	// before pushing into the for stack we check is an
 	// old for exists - this is on reentering a for loop
 	for(i=0; i<forsp; i++) {
@@ -1047,7 +1023,6 @@ void pushforstack(){
 	} else 
 		error(EFOR);
 }
-
 
 void popforstack(){
 	if (forsp>0) {
@@ -1078,24 +1053,15 @@ void clrforstack() {
 }
 
 /* 
-
-	Input and output functions.
-
-	On Mac/Linux the interpreter is implemented to use only putchar 
-	and getchar.
-
-	These functions need to be provided by the stdio lib 
-	or by any other routine like a serial terminal or keyboard 
-	interface of an arduino.
- 
- 	ioinit(): called at setup to initialize what ever io is needed
- 	outch(): prints one ascii character 
- 	inch(): gets one character (and waits for it)
- 	checkch(): checks for one character (non blocking)
- 	ins(): reads an entire line (uses inch except for pioserial)
-
-*/
-
+ *	Input and output functions.
+ * 
+ * ioinit(): called at setup to initialize what ever io is needed
+ * outch(): prints one ascii character 
+ * inch(): gets one character (and waits for it)
+ * checkch(): checks for one character (non blocking)
+ * ins(): reads an entire line (uses inch except for pioserial)
+ *
+ */
 void ioinit() {
 
 // a standalone system runs from keyboard and display
@@ -1107,7 +1073,7 @@ void ioinit() {
 // this is only for RASPBERRY - wiring has to be started explicitly
 	wiringbegin();
 
- // all serial protocolls
+// all serial protocolls
 	serialbegin();
 #ifdef ARDUINOPRT
   prtbegin();
@@ -1152,13 +1118,18 @@ void iodefaults() {
 }
 
 /* 
+ *	The generic IO code 
+ *
+ * inch() reads one character from the stream, mostly blocking
+ * checkch() reads one character from the stream, unblocking, a peek(), 
+ *	inmplemented inconsistently
+ * availch() checks availablibity in the stream
+ * inb() a block read function for serial interfacing, developed for 
+ * 	AT message receiving 
+ */ 
 
-	The generic IO code 
-
-*/ 
-
-// the generic inch code reading one character from a stream
-char inch(){
+/* the generic inch code reading one character from a stream */
+char inch() {
 	switch(id) {
 		case ISERIAL:
 			return serialread();		
@@ -1179,8 +1150,8 @@ char inch(){
 			if (sbuffer[0]>0) return sbuffer[1]; else return 0;
 #endif
 #ifdef ARDUINOMQTT
-    	case IMQTT:
-    		return mqttinch();
+    case IMQTT:
+    	return mqttinch();
 #endif
 #ifdef ARDUINOPRT
 		case ISERIAL1:
@@ -1198,6 +1169,7 @@ char inch(){
 	return 0;
 }
 
+/* checking on a character in the stream */
 char checkch(){
 	switch (id) {
 		case ISERIAL:
@@ -1234,56 +1206,55 @@ char checkch(){
 	return 0;
 }
 
+/* character availability */
 short availch(){
 	switch (id) {
-    	case ISERIAL:
-      		return serialavailable(); 
+    case ISERIAL:
+      return serialavailable(); 
 #ifdef FILESYSTEMDRIVER
-    	case IFILE:
-    		return fileavailable();
+   	case IFILE:
+    	return fileavailable();
 #endif
 #ifdef ARDUINORF24
-    	case IRADIO:
-    		return radio.available();
+    case IRADIO:
+    	return radio.available();
 #endif    		
 #ifdef ARDUINOMQTT
-    	case IMQTT:
-    		return mqtt_messagelength;
+    case IMQTT:
+    	return mqtt_messagelength;
 #endif    		
 #ifdef ARDUINOWIRE
-    	case IWIRE:
-    		return 1;
+    case IWIRE:
+    	return 1;
 #endif
 #ifdef ARDUINOPRT
-    	case ISERIAL1:
-      		return prtavailable();
+    case ISERIAL1:
+      return prtavailable();
 #endif
-    	case IKEYBOARD:
+    case IKEYBOARD:
 #ifdef ARDUINOPS2   
-      		return kbdavailable();
+      return kbdavailable();
 #endif
 #ifdef LCDSHIELD
-      		return (keypadread() != 0);
+      return (keypadread() != 0);
 #endif
-	    	break;
+	    break;
 	}
 	return 0;
 }
 
-
-
 #ifdef ARDUINOPRT
 /* 
-	the block mode reader for esp and sensor modules 
- 	on a serial interface, it tries to read as many 
- 	characters as possible into a buffer
- 	blockmode = 1 reads once availch() bytes
- 	blockmode > 1 implements a timeout mechanism and tries 
- 		to read until blockmode milliseconds have expired
- 		this is needed for esps and other sensors without
- 		flow control and volatile timing to receive more 
- 		then 64 bytes 
-*/
+ *	the block mode reader for esp and sensor modules 
+ * 	on a serial interface, it tries to read as many 
+ * 	characters as possible into a buffer
+ *	blockmode = 1 reads once availch() bytes
+ *	blockmode > 1 implements a timeout mechanism and tries 
+ *		to read until blockmode milliseconds have expired
+ *		this is needed for esps and other sensors without
+ *		flow control and volatile timing to receive more 
+ *		then 64 bytes 
+ */
 void inb(char *b, short nb) {
 	long m;
 	short i = 0;
@@ -1313,22 +1284,20 @@ void inb(char *b, short nb) {
 #endif
 
 /* 
-	ins is the generic reader into a string, by default 
-	it works in line mode and ends reading after newline
-
-  the first element of the buffer is the lower byte of the length
-
-  this is corrected later in xinput, z.a has to be set as 
-  a side effect
-
-  for streams providing entire strings as an input the 
-  respective string method is called
-
-  all other streams are read using consins for character by character
-  input until a terminal character is reached
-  
-*/
-
+ *	ins() is the generic reader into a string, by default 
+ *	it works in line mode and ends reading after newline
+ *
+ *	the first element of the buffer is the lower byte of the length
+ *
+ * 	this is corrected later in xinput, z.a has to be set as 
+ *	a side effect
+ *
+ *	for streams providing entire strings as an input the 
+ *	respective string method is called
+ *
+ *	all other streams are read using consins() for character by character
+ *	input until a terminal character is reached
+ */
 void ins(char *b, short nb) {
   	char c;
   	short i = 1;
@@ -1357,9 +1326,10 @@ void ins(char *b, short nb) {
   	}  
 }
 
-
-// output one character to a stream
-// block oriented i/o like in radio not implemented here
+/*
+ * outch() outputs one character to a stream
+ * block oriented i/o like in radio not implemented here
+ */
 void outch(char c) {
 	switch(od) {
 		case OSERIAL:
@@ -1394,11 +1364,10 @@ void outch(char c) {
 		default:
 			break;
 	}
-	// yield after every character - untested, precaution for output of long strings
-	byield();
+	byield(); /* yield after every character for esps */
 }
 
-// send a newline
+/* send a newline */
 void outcr() {
 #ifdef ARDUINOPRT
 	if (sendcr) outch('\r');
@@ -1406,19 +1375,19 @@ void outcr() {
 	outch('\n');
 } 
 
-// send a space
+/* send a space */
 void outspc() {
 	outch(' ');
 }
 
 /*
-	output a string of length x at index ir - basic style
-	default is a character by character operation, block 
-	oriented write needs special functions
-
-*/
+ *	outs() outputs a string of length x at index ir - basic style
+ *	default is a character by character operation, block 
+ *	oriented write needs special functions
+ */
 void outs(char *ir, short l){
 	int i;
+
 	switch (od) {
 #ifdef ARDUINORF24
 		case ORADIO:
@@ -1441,15 +1410,15 @@ void outs(char *ir, short l){
 	byield(); // triggers yield on ESP8266 
 }
 
-
-// output a zero terminated string at ir - c style
+/* output a zero terminated string at ir - c style */
 void outsc(const char *c){
 	while (*c != 0) outch(*c++);
 }
 
-// output a zero terminated string in a formated box
+/* output a zero terminated string in a formated box */
 void outscf(const char *c, short f){
   short i = 0;
+
   while (*c != 0) { outch(*c++); i++; }
   if (f > i) {
     f=f-i;
@@ -1457,13 +1426,15 @@ void outscf(const char *c, short f){
   }
 }
 
-
-// reading a number from a char buffer 
-// maximum number of digits is adjusted to 16
-// ugly here, testcode when introducting 
-// number_t was strictly 16 bit before
+/* 
+ *	reading a number from a char buffer 
+ *	maximum number of digits is adjusted to 16
+ *	ugly here, testcode when introducting 
+ *	number_t was only 16 bit before
+ */
 short parsenumber(char *c, number_t *r) {
 	short nd = 0;
+
 	*r=0;
 	while (*c >= '0' && *c <= '9' && *c != 0) {
 		*r=*r*10+*c++-'0';
@@ -1472,8 +1443,10 @@ short parsenumber(char *c, number_t *r) {
 	}
 	return nd;
 }
+
+
 #ifdef HASFLOAT
-// a poor man's atof implementation with character count
+/* a poor man's atof implementation with character count */
 short parsenumber2(char *c, number_t *r) {
 	short nd = 0;
 	short i;
@@ -1514,9 +1487,11 @@ short parsenumber2(char *c, number_t *r) {
 }
 #endif
 
-// convert a number to a string
-// the use of long v here is a hack related to HASFLOAT 
-// unfinished here and need to be improved
+/*
+ *	convert a number to a string
+ *	the use of long v here is a hack related to HASFLOAT 
+ *	unfinished here and needs to be improved
+ */
 short writenumber(char *c, number_t vi){
 	short nd = 0;	
 	long v;
@@ -1554,14 +1529,16 @@ short writenumber(char *c, number_t vi){
 } 
 
 #ifdef HASFLOAT
-// this is for floats, going back to library functions
-// for a starter.
+/*
+ * this is for floats, going back to library functions
+ * for a starter.
+ */
 short writenumber2(char *c, number_t vi) {
-
 	short i;
-  	number_t f;
-  	short exponent = 0; 
-  	char eflag=0;
+  number_t f;
+  short exponent = 0; 
+  char eflag=0;
+
 	// pseudo integers are displayed as integer
 	// zero trapped here
 	f=floor(vi);
@@ -1573,39 +1550,40 @@ short writenumber2(char *c, number_t vi) {
 #ifndef ARDUINO
 	return sprintf(c, "%g", vi);
 #else
-  	f=vi;
-    while (fabs(f)<1.0)   { f=f*10; exponent--; }
-  	while (fabs(f)>=10.0-0.00001) { f=f/10; exponent++; }
+	f=vi;
+	while (fabs(f)<1.0)   { f=f*10; exponent--; }
+  while (fabs(f)>=10.0-0.00001) { f=f/10; exponent++; }
 
-  	// small numbers
-  	if (exponent > -2 && exponent < 7) { 
-    	dtostrf(vi, 0, 5, c);
-  	} else {
-    	dtostrf(f, 0, 5, c);
-    	eflag=TRUE;
-  	}
+  // small numbers
+  if (exponent > -2 && exponent < 7) { 
+    dtostrf(vi, 0, 5, c);
+  } else {
+    dtostrf(f, 0, 5, c);
+    eflag=TRUE;
+  }
 	
-  	// remove trailing zeros
-  	for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
-  	i--;
+  // remove trailing zeros
+  for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
+  i--;
 	while (c[i] == '0' && i>1) {i--;}
 	i++;
 
-  	// add the exponent
-  	if (eflag) {
-    	c[i++]='E';
-    	i+=writenumber(c+i, exponent);
-  	}
+  // add the exponent
+  if (eflag) {
+    c[i++]='E';
+    i+=writenumber(c+i, exponent);
+  }
 
-  	c[i]=0;
+  c[i]=0;
 	return i;
 
 #endif
 }
 #endif
 
-// use sbuffer as a char buffer to get a number input 
-// still not float ready
+/*
+ * innumber() uses sbuffer as a char buffer to get a number input 
+ */
 char innumber(number_t *r) {
 	short i = 1;
 	short s = 1;
@@ -1648,7 +1626,7 @@ again:
 	return 0;
 }
 
-// prints a number
+/* prints a number */
 void outnumber(number_t n){
 	short nd;
 
@@ -1656,72 +1634,62 @@ void outnumber(number_t n){
 	nd=writenumber(sbuffer, n);
 #else
 	nd=writenumber2(sbuffer, n);
-#endif
-
-	//outsc(sbuffer); 
+#endif 
 	outs(sbuffer, nd);
 
 	// number formats in Palo Alto style
 	while (nd < form) {outspc(); nd++; };
-
 }
 
 /* 
-
-	Layer 1 functions - providing data into the global variable and 
-	changing the interpreter state
-
-*/
-
+ *	Layer 1 functions - providing data into the global variable and 
+ *	changing the interpreter state
+ */
 
 /*
+ *	Lexical analyser - tokenizes the input line.
+ *
+ *	nexttoken() increments the input buffer index bi and delivers values in the global 
+ *		variable token, with arguments in the accumulator x and the index register ir
+ *		xc is used in the routine. 
+ *
+ *	xc, ir and x change values in nexttoken and deliver the result to the calling
+ *	function.
+ *
+ *	bi and ibuffer should not be changed or used for any other function in 
+ *	interactive node as they contain the state of nexttoken(). In run mode 
+ *	bi and ibuffer are not used as the program is fully tokenized in mem.
+ */ 
 
-	Lexical analyser - tokenizes the input line.
-
-	nexttoken() increments the input buffer index bi and delivers values in the global 
-	variable token, with arguments in the accumulator x and the index register ir
-	xc is used in the routine. 
-
-	xc, ir and x change values in nexttoken and deliver the result to the calling
-	function.
-
-	bi and ibuffer should not be changed or used for any other function in 
-	interactive node as they contain the state of nexttoken(). In run mode 
-	bi and ibuffer are not used as the program is fully tokenized in mem.
-
-	debugtoken() is the debug function for the tokenizer
-	whitespaces() skips whitespaces
-
-*/ 
-
-
+/* skip whitespaces */
 void whitespaces(){
 	while (*bi == ' ' || *bi == '\t') bi++;
 }
 
+/* the token stream */
 void nexttoken() {
   
-	// RUN mode vs. INT mode
+	/* RUN mode vs. INT mode, in RUN mode we read from mem via gettoken() */
 	if (st == SRUN || st == SERUN) {
 		gettoken();
 		if (debuglevel>1) debugtoken();
 		return;
 	}
 
-	// after change in buffer logic the first byte is reserved for the length
+	/* after change in buffer logic the first byte is reserved for the length */
 	if (bi == ibuffer) bi++;
 
-	// remove whitespaces outside strings
+	/* remove whitespaces outside strings */
 	whitespaces();
 
-	// end of line token 
+	/* end of line token */
 	if (*bi == '\0') { 
 		token=EOL; 
 		if (DEBUG) debugtoken();
 		return; 
 	}
 
-	// unsigned numbers, value returned in x
+	/* unsigned numbers, value returned in x */
 	if (*bi <='9' && *bi >= '0'){
 #ifndef HASFLOAT
 		bi+=parsenumber(bi, &x);
@@ -1733,7 +1701,7 @@ void nexttoken() {
 		return;
 	}
 
-	// strings between " " or " EOL, value returned in ir
+	/* strings between " " or " EOL, value returned in ir */
 	if (*bi == '"'){
 		x=0;
 		bi++;
@@ -1748,7 +1716,7 @@ void nexttoken() {
 		return;
 	}
 
-	// single character operators are their own tokens
+	/* single character operators are their own tokens */
 	if (*bi == '+' || *bi == '-' || *bi == '*' || *bi == '/' || *bi == '%'  ||
 		*bi == '\\' || *bi == ':' || *bi == ',' || *bi == '(' || *bi == ')' ) { 
 			token=*bi; 
@@ -1757,16 +1725,18 @@ void nexttoken() {
 			return; 
 	}  
 
-	// relations
-	// single character relations are their own token
-	// >=, =<, =<, =>, <> are tokenized
+/*
+ *	relations
+ *	single character relations are their own token
+ *	>=, =<, =<, =>, <> are tokenized
+ */
 	if (*bi == '=') {
 		bi++;
 		whitespaces();
 		if (*bi == '>') {
 			token=GREATEREQUAL;
 			bi++;
-		} else if (*bi == '<'){
+		} else if (*bi == '<') {
 			token=LESSEREQUAL;
 			bi++;
 		} else {
@@ -1805,13 +1775,13 @@ void nexttoken() {
 		return;
 	}
 
-	/* 
-		keyworks and variables
-		isolate a word, bi points to the beginning, x is the length of the word
-	 	ir points to the end of the word after isolating.
-	 	@ is a letter here to make the special @ arrays possible 
-	 */
-
+/* 
+ *	keyworks and variables
+ *
+ *	isolate a word, bi points to the beginning, x is the length of the word
+ *	ir points to the end of the word after isolating.
+ *	@ is a letter here to make the special @ arrays possible 
+ */
 	x=0;
 	ir=bi;
 	while (-1) {
@@ -1820,7 +1790,7 @@ void nexttoken() {
 			*ir-=32;
 			ir++;
 			x++;
-		} else if (*ir >= '@' && *ir <= 'Z'){
+		} else if (*ir >= '@' && *ir <= 'Z') { 
 			ir++;
 			x++;
 		} else {
@@ -1829,22 +1799,19 @@ void nexttoken() {
 	}
 
 /* 
-
-	ir is reused here to implement string compares
-	scanning the keyword array. 
-	Once a keyword is detected the input buffer is advanced 
-	by its length, and the token value is returned. 
-
-	keywords are an array of null terminated strings.
-
-*/
-
+ *	ir is reused here to implement string compares
+ *	scanning the keyword array. 
+ *	Once a keyword is detected the input buffer is advanced 
+ *	by its length, and the token value is returned. 
+ *
+ *	keywords are an array of null terminated strings.
+ */
 	yc=0;
-	while (gettokenvalue(yc) != 0){
+	while (gettokenvalue(yc) != 0) {
 		ir=getkeyword(yc);
 		xc=0;
 		while (*(ir+xc) != 0) {
-			if (*(ir+xc) != *(bi+xc)){
+			if (*(ir+xc) != *(bi+xc)) {
 				yc++;
 				xc=0;
 				break;
@@ -1859,13 +1826,12 @@ void nexttoken() {
 	}
 
 /*
-	a variable has length 1 in the first version
-	 its literal value is returned in xc
-	in addition to this, a number or $ is accepted as 
-	second character like in Apple 1 BASIC
-
-*/
-	if ( x == 1 || (x == 2 && *bi == '@') ){
+ *	a variable has length 1 in the first version
+ *	its literal value is returned in xc
+ *	in addition to this, a number or $ is accepted as 
+ *	second character like in Apple 1 BASIC
+ */
+	if ( x == 1 || (x == 2 && *bi == '@') ) {
 		token=VARIABLE;
 		xc=*bi;
 		yc=0;
@@ -1894,7 +1860,6 @@ void nexttoken() {
 
 
 /* single letters are parsed and stored */
-
 	token=*bi;
 	bi++;
 	if (DEBUG) debugtoken();
@@ -1902,39 +1867,38 @@ void nexttoken() {
 }
 
 /* 
-	Layer 1 - program editor 
+ * Layer 1 - program editor 
+ *
+ *	Editing the program, the structure of a line is 
+ *	LINENUMBER linenumber(2 or more bytes) token(n bytes)
+ *
+ * store* stores something to memory 
+ * get* retrieves information
+ *
+ *	No matter how long number_t is in the C implementation
+ *	we pack into bytes, this is clumsy but portable
+ *	the store and get commands all operate on here 
+ *	and advance it
+ *
+ *	storetoken() operates on the variable top. 
+ *	We always append at the end and then sort. 
+ *
+ *	gettoken() operate on the variable here 
+ *	which will also be the key variable in run mode.
+ *
+ *	tokens are stored including their payload.
+ *
+ *	This group of functions changes global states and
+ *	cannot be called at program runtime with saving
+ *	the relevant global variable to the stack.
+ */
 
-	Editing the program, the structure of a line is 
-	LINENUMBER linenumber(2bytes) token(n bytes)
-
-	store* stores something to memory 
-	get* retrieves information
-
-	No matter how long int is in the C implementation
-	we pack into bytes, this is clumsy but portable
-	the store and get commands all operate on here 
-	and advance it
-
-	Storetoken operates on the variable top. 
-	We always append at the end and the sort. 
-
-	Gettoken operate on the variable here 
-	which will also be the key variable in run mode.
-
-	Tokens are stored including their payload.
-
-	This group of functions changes global states and
-	cannot be called at program runtime with saving
-	the relevant global variable to the stack.
-
-	Error handling is still incomplete.
-*/
-
+/* check if we still have memory left */
 char nomemory(number_t b){
 	if (top >= himem-b) return TRUE; else return FALSE;
 }
 
-// store a token - check free memory before changing anything
+/* store a token - check free memory before changing anything */
 void storetoken() {
 	short i=x;
 	switch (token) {
@@ -1978,7 +1942,7 @@ void storetoken() {
 } 
 
 
-// wrapper around mem access for eeprom autorun on small Arduinos
+/* wrapper around mem access for eeprom autorun on small Arduinos */
 char memread(address_t i){
 	if (st != SERUN) {
 		return mem[i];
@@ -1987,7 +1951,7 @@ char memread(address_t i){
 	}
 }
 
-// get a token from memory
+/* get a token from memory */
 void gettoken() {
 
 	// if we have reached the end of the program, EOL is always returned
@@ -2029,7 +1993,7 @@ void gettoken() {
 		}
 }
 
-// goto the first line of a program
+/* goto the first line of a program */
 void firstline() {
 	if (top == 0) {
 		x=0;
@@ -2039,7 +2003,7 @@ void firstline() {
 	gettoken();
 }
 
-// goto the next line, search forward
+/* goto the next line, search forward */
 void nextline() {
 	while (here < top) {
 		gettoken();
@@ -2052,7 +2016,7 @@ void nextline() {
 	}
 }
 
-// find a line, search from the beginning
+/* find a line, search from the beginning */
 void findline(address_t l) {
 	here=0;
 	while (here < top) {
@@ -2062,7 +2026,7 @@ void findline(address_t l) {
 	error(ELINE);
 }
 
-// finds the line of a location
+/* finds the line of a location */
 address_t myline(address_t h) {
 	address_t l=0; 
 	address_t l1=0;
@@ -2087,12 +2051,9 @@ address_t myline(address_t h) {
 }
 
 /*
-
-   	Move a block of storage beginng at b ending at e
-  	to destination d. No error handling here!!
-
-*/
-
+ *	Move a block of storage beginng at b ending at e
+ *	to destination d. No error handling here!!
+ */
 void moveblock(address_t b, address_t l, address_t d){
 	address_t i;
 
@@ -2115,6 +2076,7 @@ void moveblock(address_t b, address_t l, address_t d){
 	//outsc("** Done moving /n");
 }
 
+/* zero a block of memory */
 void zeroblock(address_t b, address_t l){
 	address_t i;
 
@@ -2122,29 +2084,27 @@ void zeroblock(address_t b, address_t l){
 		error(EOUTOFMEMORY);
 		return;
 	}
-	if (l<1) 
-		return;
+	if (l<1) return;
+
 	for (i=0; i<l+1; i++) mem[b+i]=0;
 }
 
 /*
-
-	Line editor: 
-
-	stage 1: no matter what the line number is - store at the top
-   				remember the location in here.
-	stage 2: see if it is only an empty line - try to delete this line
-	stage 3: calculate lengthes and free memory and make room at the 
-				appropriate place
-	stage 4: copy to the right place 
-
-	Very fragile code. 
-
-	zeroblock statements commented out after EOL code was fixed
-	
-*/
-
+ *	Line editor: 
+ *
+ *	stage 1: no matter what the line number is - store at the top
+ *   	remember the location in here.
+ *	stage 2: see if it is only an empty line - try to delete this line
+ *	stage 3: calculate lengthes and free memory and make room at the 
+ *		appropriate place
+ *	stage 4: copy to the right place 
+ *
+ *	Very fragile code. 
+ *
+ *	zeroblock statements commented out after EOL code was fixed
+ */
 #ifdef DEBUG
+/* diagnosis function */
 void diag(){
 	outsc("top, here, y and x\n");
 	outnumber(top); outspc();
@@ -2174,11 +2134,11 @@ void storeline() {
 /*
 	stage 1: append the line at the end of the memory,
 	remember the line number on the stack and the old top in here
-
 */
-    t1=x;			
-    here=top;		
-    newline=here;	 
+
+	t1=x;			
+	here=top;		
+	newline=here;	 
 	token=LINENUMBER;
 	do {
 		storetoken();
@@ -2195,7 +2155,6 @@ void storeline() {
 
 /* 
 	stage 2: check if only a linenumber stored - then delete this line
-	
 */
 
 	if (linelength == (lnlength)) {  		
@@ -2285,34 +2244,33 @@ void storeline() {
 }
 
 /* 
- 
- calculates an expression, with a recursive descent algorithm
- using the functions term, factor and expression
- all function use the stack to pass values back. We use the 
- Backus-Naur form of basic from here https://rosettacode.org/wiki/BNF_Grammar
- implementing a C style logical expression model
+ * the code in this section calculates an expression, with a recursive 
+ * descent algorithm 
+ *
+ * all function use the stack to pass values back. We use the 
+ * Backus-Naur form of basic from here https://rosettacode.org/wiki/BNF_Grammar
+ * implementing a C style logical expression model
+ */
 
-*/
-
+/* the terminal symbol */
 char termsymbol() {
 	return ( token == LINENUMBER ||  token == ':' || token == EOL);
 }
 
-// a little helpers - one token expect 
+/* a little helpers - one token expect */ 
 char expect(signed char t, char e) {
 	nexttoken();
 	if (token != t) {error(e); return FALSE; } else return TRUE;
 }
 
-// a little helpers - expression expect
+/* a little helpers - expression expect */
 char expectexpr() {
 	nexttoken();
 	expression();
 	if (er != 0) return FALSE; else return TRUE;
 }
 
-
-// parses a list of expression, this may be recursive!
+/* parses a list of expression, this may be recursive! */
 void parsearguments() {
 	short argsl;
 
@@ -2409,13 +2367,17 @@ void parsesubstring() {
 }
 #endif
 
-// absolute value helper
+/* 
+ * ABS absolute value 
+ */
 void xabs(){
 	if ((x=pop())<0) { x=-x; }
 	push(x);
 }
 
-// sign
+/*
+ * SGN evaluates the sign
+ */
 void xsgn(){
 	x=pop();
 	if (x>0) x=1;
@@ -2423,8 +2385,10 @@ void xsgn(){
 	push(x);
 }
 
-// on an arduino, negative values of peek address 
-// the EEPROM range -1 .. -1024 on an UNO
+/*
+ * PEEK on an arduino, negative values of peek address 
+ * the EEPROM range -1 .. -1024 on an UNO
+ */
 void xpeek(){
 	address_t amax;
 
@@ -2443,7 +2407,9 @@ void xpeek(){
 	}
 }
 
-// the fre function 
+/*
+ * FRE reports free memory
+ */ 
 void xfre() {
 	if (pop() >=0 )
 		push(himem-top);
@@ -2451,8 +2417,9 @@ void xfre() {
 		push(elength());
 }
 
-
-// very basic random number generator with constant seed.
+/*
+ * RND very basic random number generator with constant seed.
+ */
 void rnd() {
 	number_t r;
 	r=pop();
@@ -2465,7 +2432,10 @@ void rnd() {
 
 
 #ifndef HASFLOAT
-// a very simple approximate square root formula. 
+/*
+ * SQR - a very simple approximate square root formula 
+ *	for integers, for floats we use the library
+ */
 void sqr(){
 	number_t t,r;
 	number_t l=0;
@@ -2491,7 +2461,9 @@ void sqr(){
 #endif
 
 #ifndef HASFLOAT
-// powers 
+/*
+ * POW(X, N) evaluates powers, replaces ^ 
+ */ 
 void xpow(){
 	number_t n;
 	number_t a;
@@ -2516,8 +2488,10 @@ void xpow(){
 }
 #endif
 
-// evaluates a string value, FALSE if there is no string
-// ir2 has the string location, the stack has the length
+/* 
+ * stringvalue() evaluates a string value, FALSE if there is no string
+ * ir2 has the string location, the stack has the length
+ */
 char stringvalue() {
 	char xcl;
 	char ycl;
@@ -2557,10 +2531,12 @@ char stringvalue() {
 	return TRUE;
 }
 
-// (numerical) evaluation of a string expression used for 
-// comparison and for string rightvalues as numbers
-// the token rewind here is needed as streval is called in 
-// factor - no factor function can nexttoken
+/*
+ * (numerical) evaluation of a string expression, used for 
+ * comparison and for string rightvalues as numbers
+ * the token rewind here is needed as streval is called in 
+ * factor - no factor function can nexttoken
+ */
 void streval(){
 	char *irl;
 	address_t xl, x;
@@ -2583,7 +2559,6 @@ void streval(){
 		b1=bi;
 
 	t=token;
-
 	nexttoken();
 
 	if (token != '=' && token != NOTEQUAL) {
@@ -2595,8 +2570,8 @@ void streval(){
 		if (xl == 0) push(0); else push(irl[0]); // a zero string length evaluate to 0
 		return; 
 	}
-	t=token;
 
+	t=token;
 	nexttoken(); 
 	//debugtoken();
 
@@ -2618,39 +2593,26 @@ neq:
 }
 
 #ifdef HASFLOAT
-void xsin() {
-	push(sin(pop()));
-}
-
-void xcos() {
-	push(cos(pop()));
-}
-
-void xtan() {
-	push(tan(pop()));
-}
-
-void xatan() {
-	push(atan(pop()));
-}
-
-void xlog() {
-	push(log(pop()));
-}
-
-void xexp() {
-	push(exp(pop()));
-}
-
-void xint() {
-	push(floor(pop()));
-}
+/* 
+ * floating point arithmetic 
+ * SIN, COS, TAN, ATAN, LOG, EXP, INT
+ * INT is always there
+ */
+void xsin() { push(sin(pop())); }
+void xcos() { push(cos(pop())); }
+void xtan() { push(tan(pop())); }
+void xatan() { push(atan(pop())); }
+void xlog() { push(log(pop())); }
+void xexp() { push(exp(pop())); }
+void xint() { push(floor(pop())); }
 #else 
 void xint() {}
 #endif
 
 #ifdef HASDARKARTS
-// allocate a chunk of memory, currently limited to 8 bits
+/*
+ * MALLOC allocates a chunk of memory, currently limited to 8 bits
+ */
 void xmalloc() {
 	address_t h; 
 	address_t s;
@@ -2660,7 +2622,9 @@ void xmalloc() {
 	push(bmalloc(TBUFFER, h%256, 0, s));
 }
 
-// find an object on the heap
+/*
+ * FIND an object on the heap
+ */
 void xfind() {
 	address_t h;
 	h=pop();
@@ -2669,13 +2633,19 @@ void xfind() {
 #endif
 
 #ifdef HASIOT
-// NEXT can be a function in the context of iterators
+/*
+ * NEXT can be a function in the context of iterators
+ *	not yet implemented
+ */
 void xinext() {
 	push(pop());
 }
 #endif
 
 #ifdef HASDARTMOUTH
+/*
+ * FN function evaluation
+ */
 void xfn() {
 	char fxc, fyc;
 	char vxc, vyc;
@@ -2684,7 +2654,6 @@ void xfn() {
 	number_t xt;
 
 	// the name of the function
-
 	if (!expect(ARRAYVAR, EUNKNOWN)) return;
 	fxc=xc;
 	fyc=yc;
@@ -2729,6 +2698,9 @@ void xfn() {
 #endif
 
 #ifdef HASIOT
+/* 
+ * AVAIL of a stream - are there characters in the stream
+ */
 void xavail() {
 	unsigned char oid=id;
 	id=pop();
@@ -2737,10 +2709,26 @@ void xavail() {
 }
 #endif
 
+/*
+ * Recursive expression parser functions 
+ *
+ * factor(); term(); addexpression(); compexpression();
+ * notexpression(); andexpression(); expression() 
+ *
+ * doing
+ *
+ * functions, numbers; *, /, %; +, -; =, <>, =>, <=;
+ * NOT; AND; OR   
+ *
+ */
 
-// the factor function - contrary to all other function
-// nothing here should end with a new token - this is handled 
-// in factors calling function
+/*
+ *	factor() - contrary to all other function
+ *	nothing here should end with a new token - this is handled 
+ *	in factors calling function
+ * 
+ * evaluates constants, variables and all functions
+ */
 void factor(){
 	if (DEBUG) bdebug("factor\n");
 	switch (token) {
@@ -2818,6 +2806,9 @@ void factor(){
 			break;	
 		case TOPEN:
 			parsefunction(xfopen, 1);
+			break;
+		case TSENSOR:
+			parsefunction(xfsensor, 2);
 			break;
 		case TVAL:
 			nexttoken();
@@ -2972,6 +2963,9 @@ void factor(){
 	}
 }
 
+/*
+ *	term() evaluates multiplication, division and mod
+ */
 void term(){
 	if (DEBUG) bdebug("term\n"); 
 	factor();
@@ -3109,16 +3103,16 @@ void expression(){
 }
 
 /* 
-	The commands and their helpers
-    
-    Palo Alto BASIC languge set - print, let, input, goto, gosub, return,
-    	if, for, to, next, step, (break), stop (end), list, new, run, rem
-    	break is not Palo ALto but fits here, end is identical to stop.
+ * The commands and their helpers
+ *    
+ * Palo Alto BASIC languge set - PRINT, LET, INPUT, GOTO, GOSUB, RETURN,
+ *    	IF, FOR, TO, NEXT, STEP, BREAK, STOP, END, LIST, NEW, RUN, REM
+ *    	BREAK is not Palo ALto but fits here, eEND is identical to STOP.
+ */
 
-
-	PRINT command 
-
-*/
+/*
+ *	PRINT command 
+ */
 void xprint(){
 	char semicolon = FALSE;
 	char oldod;
@@ -3186,18 +3180,15 @@ separators:
 }
 
 /* 
-	
-	assigment code for various lefthand and righthand side. 
-
-	lefthandside is a helper function for reuse in other 
-	commands. It determines the address the value is to be 
-	assigned to and whether the assignment target is a 
-	"pure" i.e. subscriptless string expression
-
-	assignnumber assigns a number to a given lefthandside
-
-*/
-
+ *	LET assigment code for various lefthand and righthand side. 
+ *
+ *	lefthandside is a helper function for reuse in other 
+ *	commands. It determines the address the value is to be 
+ *	assigned to and whether the assignment target is a 
+ *	"pure" i.e. subscriptless string expression
+ *
+ *	assignnumber assigns a number to a given lefthandside
+ */
 void lefthandside(address_t* i, char* ps) {
 
 	switch (token) {
@@ -3244,35 +3235,33 @@ void lefthandside(address_t* i, char* ps) {
 
 void assignnumber(signed char t, char xcl, char ycl, address_t i, char ps) {
 
-		switch (t) {
-			case VARIABLE:
-				x=pop();
-				setvar(xcl, ycl , x);
-				break;
-			case ARRAYVAR: 
-				x=pop();	
-				array('s', xcl, ycl, i, &x);
-				break;
+	switch (t) {
+		case VARIABLE:
+			x=pop();
+			setvar(xcl, ycl , x);
+			break;
+		case ARRAYVAR: 
+			x=pop();	
+			array('s', xcl, ycl, i, &x);
+			break;
 #ifdef HASAPPLE1
-			case STRINGVAR:
-				ir=getstring(xcl, ycl, i);
-				if (er != 0) return;
-				ir[0]=pop();
-				if (ps)
-					setstringlength(xcl, ycl, 1);
-				else 
-					if (lenstring(xcl, ycl) < i && i < stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
-				break;
+		case STRINGVAR:
+			ir=getstring(xcl, ycl, i);
+			if (er != 0) return;
+			ir[0]=pop();
+			if (ps)
+				setstringlength(xcl, ycl, 1);
+			else 
+				if (lenstring(xcl, ycl) < i && i < stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
+			break;
 #endif
-		}
+	}
 }
 
 
 /*
-
-	LET - the core assigment function, this is different from other BASICs
-
-*/
+ *	LET - the core assigment function, this is different from other BASICs
+ */
 void assignment() {
 	signed char t;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
@@ -3360,10 +3349,8 @@ void assignment() {
 }
 
 /*
-
-	INPUT ["string",] variable [,["string",] variable]* 
-
-*/
+ *	INPUT ["string",] variable [,["string",] variable]* 
+ */
 void showprompt() {
 	outsc("? ");
 }
@@ -3467,10 +3454,8 @@ nextvariable:
 }
 
 /*
-
-	GOTO, GOSUB, RETURN and their helpers
-
-*/
+ *	GOTO, GOSUB, RETURN and their helpers
+ */
 void pushgosubstack(){
 	if (gosubsp < GOSUBDEPTH) {
 		gosubstack[gosubsp]=here;
@@ -3502,10 +3487,8 @@ void clrgosubstack() {
 }
 
 /*
-
-	GOTO and GOSUB function for a simple one statement goto
-
-*/
+ *	GOTO and GOSUB function for a simple one statement goto
+ */
 void xgoto() {
 	signed char t=token;
 
@@ -3527,10 +3510,8 @@ void xgoto() {
 }
 
 /*
-
-	RETURN retrieves here from the gosub stack
-
-*/
+ *	RETURN retrieves here from the gosub stack
+ */
 void xreturn(){ 
 	popgosubstack();
 	if (er != 0) return;
@@ -3539,14 +3520,11 @@ void xreturn(){
 
 
 /* 
-
-	IF statement together with THEN 
-
-*/
+ *	IF statement together with THEN 
+ */
 void xif() {
 	
 	if (!expectexpr()) return;
-
 	x=pop();
 	if (DEBUG) { outnumber(x); outcr(); } 
 
@@ -3564,12 +3542,10 @@ void xif() {
 }
 
 /* 
-
-	FOR, NEXT and the apocryphal BREAK
-
-*/ 
-
-// find the NEXT token or the end of the program
+ *	FOR, NEXT and the apocryphal BREAK
+ *
+ * find the NEXT token or the end of the program
+ */ 
 void findnextcmd(){
 	while (TRUE) {			
 		if (token == TNEXT) {
@@ -3586,16 +3562,14 @@ void findnextcmd(){
 }
 
 /*
-
-	FOR variable [= expression [to expression]] [STEP expression]
-	for stores the variable, the increment and the boudary on the 
-	for stack. Changing steps and boundaries during the execution 
-	of a loop has no effect.
-
-	This is different from many other BASICS as FOR can be used 
-	as an open loop with no boundary
-
-*/
+ *	FOR variable [= expression [to expression]] [STEP expression]
+ *	for stores the variable, the increment and the boudary on the 
+ *	for stack. Changing steps and boundaries during the execution 
+ *	of a loop has no effect.
+ *
+ *	This is different from many other BASICS as FOR can be used 
+ *	as an open loop with no boundary
+ */
 void xfor(){
 	char xcl, ycl;
 	number_t b=1;
@@ -3660,11 +3634,9 @@ void xfor(){
 }
 
 /*
-
-	BREAK - an apocryphal feature here is the BREAK command ending a loop
-	doesn't work well for nested loops - to be tested carefully
-
-*/
+ *	BREAK - an apocryphal feature here is the BREAK command ending a loop
+ *	doesn't work well for nested loops - to be tested carefully
+ */
 void xbreak(){
 	dropforstack();
 	if (er != 0) return;
@@ -3673,10 +3645,8 @@ void xbreak(){
 }
 
 /* 
-
-	NEXT variable statement 
-
-*/
+ *	NEXT variable statement 
+ */
 void xnext(){
 	char xcl=0;
 	char ycl;
@@ -3729,11 +3699,9 @@ void xnext(){
 }
 
 /* 
-	
-	list - this is also used in save, list does a minimal formatting with a simple heuristic
-	the formaters lastouttoken and spaceafterkeyword are experimental
-
-*/
+ *	TOKEN output - this is also used in save, list does a minimal formatting with a simple heuristic
+ * 	the formaters lastouttoken and spaceafterkeyword are experimental
+ */
 signed char lastouttoken;
 signed char spaceafterkeyword;
 
@@ -3790,6 +3758,9 @@ void outputtoken() {
 	lastouttoken=token;
 }
 
+/*
+ * LIST programs to an output device
+ */
 void xlist(){
 	number_t b, e;
 	char oflag = FALSE;
@@ -3841,8 +3812,8 @@ void xlist(){
  }
 
 /*
-	RUN and CONTINUE are the same function
-*/
+ *	RUN and CONTINUE are the same function
+ */
 void xrun(){
 	if (token == TCONT) {
 		st=SRUN;
@@ -3868,10 +3839,8 @@ void xrun(){
 }
 
 /*
-
-	NEW the general cleanup function - new deletes everything
-
-*/
+ * NEW the general cleanup function - new deletes everything
+ */
 void xnew(){ 
 	// all stacks are purged
 	clearst();
@@ -3894,26 +3863,20 @@ void xnew(){
 }
 
 /* 
-
-	REM - skip everything
-
-*/
+ *	REM - skip everything 
+ */
 void xrem() {
 	while (token != LINENUMBER && token != EOL && here <= top) nexttoken(); 
 }
 
 /* 
-
-	The Apple 1 BASIC additions
-
-*/
-
+ *	The Apple 1 BASIC additions
+ * CLR, DIM, POKE, TAB
+ */
 
 /* 
-
-	CLR - clearing variable space
-
-*/
+ *	CLR - clearing variable space
+ */
 void xclr() {
 	clrvars();
 	clrgosubstack();
@@ -3924,10 +3887,8 @@ void xclr() {
 
 #ifdef HASAPPLE1
 /* 
-
-	DIM - the dimensioning of arrays and strings from Apple 1 BASIC
-
-*/
+ *	DIM - the dimensioning of arrays and strings from Apple 1 BASIC
+ */
 void xdim(){
 	char xcl, ycl; 
 	signed char t;
@@ -3970,11 +3931,8 @@ nextvariable:
 
 
 /* 
-	
-	POKE - low level poke to the basic memory, works only up to 32767
-
-*/
-
+ *	POKE - low level poke to the basic memory, works only up to 32767
+ */
 void xpoke(){
 	address_t amax;
 
@@ -3999,28 +3957,26 @@ void xpoke(){
 }
 
 /*
-
-	TAB - spaces command of Apple 1 BASIC
-
-*/
+ *	TAB - spaces command of Apple 1 BASIC
+ */
 void xtab(){
-
 	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
-
 	x=pop();
 	while (x-- > 0) outspc();	
 }
 #endif
 
-/* Stefan's additions */
+/* 
+ *	Stefan's additions to Palo Alto BASIC
+ * DUMP, SAVE, LOAD, GET, PUT, SET
+ *
+ */
 
 /*
-
-	DUMP - memory dump program
-
-*/
+ *	DUMP - memory dump program
+ */
 void xdump() {
 	address_t a;
 	
@@ -4052,6 +4008,9 @@ void xdump() {
 	nexttoken();
 }
 
+/*
+ * helper of DUMP, wrote the memory out
+ */
 void dumpmem(address_t r, address_t b) {
 	address_t j, i;	
 	address_t k;
@@ -4062,7 +4021,6 @@ void dumpmem(address_t r, address_t b) {
 		outnumber(k); outspc();
 		for (j=0; j<8; j++) {
 			outnumber(memread(k++)); outspc();
-			// delay(1); // slow down a little to yield - not needed any more
 			if (k > memsize) break;
 		}
 		outcr();
@@ -4089,10 +4047,10 @@ void dumpmem(address_t r, address_t b) {
 }
 
 /*
-	creates a C string from a BASIC string
-	after reading a BASIC string ir2 contains a pointer
-	to the data and x the string length
-*/
+ *	creates a C string from a BASIC string
+ *	after reading a BASIC string ir2 contains a pointer
+ *	to the data and x the string length
+ */
 void stringtobuffer(char *buffer) {
 	short i;
 	i=x;
@@ -4132,10 +4090,8 @@ void getfilename(char *buffer, char d) {
 
 #if defined(FILESYSTEMDRIVER)
 /*
-
-	SAVE a file either to disk or to EEPROM
-
-*/
+ *	SAVE a file either to disk or to EEPROM
+ */
 void xsave() {
 	char filename[SBUFSIZE];
 	address_t here2;
@@ -4188,10 +4144,8 @@ void xsave() {
 }
 
 /*
-
- LOAD a file 
-
-*/
+ * LOAD a file 
+ */
 void xload(const char * f) {
 	char filename[SBUFSIZE];
 	char ch;
@@ -4275,10 +4229,8 @@ void xload(const char* f) {
 #endif
 
 /*
-
-	GET just one character from input 
-
-*/
+ *	GET just one character from input 
+ */
 void xget(){
 	signed char t;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
@@ -4321,10 +4273,8 @@ void xget(){
 }
 
 /*
-
-	PUT writes one character to an output stream
-
-*/
+ *	PUT writes one character to an output stream
+ */
 void xput(){
 	unsigned char ood=od;
 	short i;
@@ -4353,12 +4303,10 @@ void xput(){
 }
 
 /* 
-
-	SET - the command itself is also apocryphal it is a low level
-	control command setting certain properties
-	syntax, currently it is only SET expression, expression
-
-*/
+ *	SET - the command itself is also apocryphal it is a low level
+ *	control command setting certain properties
+ *	syntax, currently it is only SET expression, expression
+ */
 void xset(){
 	address_t fn;
 
@@ -4434,10 +4382,8 @@ void xset(){
 }
 
 /*
-
-	NETSTAT - network status command, rudimentary
-
-*/
+ *	NETSTAT - network status command, rudimentary
+ */
 void xnetstat(){
 #ifdef ARDUINOMQTT
 	if (netconnected()) outsc("Network connected \n"); else outsc("Network not connected \n");
@@ -4450,12 +4396,10 @@ void xnetstat(){
 }
 
 /*
-
-	The arduino io functions.
-
-	DWRITE - digital write 
-
-*/
+ * The arduino io functions.
+ *
+ *	DWRITE - digital write 
+ */
 void xdwrite(){
 	nexttoken();
 	parsenarguments(2);
@@ -4466,10 +4410,8 @@ void xdwrite(){
 }
 
 /*
-
-	AWRITE - analog write 
-
-*/
+ * AWRITE - analog write 
+ */
 void xawrite(){
 	nexttoken();
 	parsenarguments(2);
@@ -4480,10 +4422,8 @@ void xawrite(){
 }
 
 /*
-
-	PINM - pin mode
-
-*/
+ * PINM - pin mode
+ */
 void xpinm(){
 	nexttoken();
 	parsenarguments(2);
@@ -4494,14 +4434,12 @@ void xpinm(){
 }
 
 /*
-	
-	DELAY in milliseconds
-
-	delay is broken down in 1 ms intervalls in 
-	order to call byield every YIELDINTERVAL ms. This is 
-	needed for network functions
-
-*/
+ * DELAY in milliseconds
+ *
+ * delay is broken down in 1 ms intervalls in 
+ * order to call byield every YIELDINTERVAL ms. This is 
+ * needed for network functions
+ */
 void xdelay(){
 	unsigned int i;
 	nexttoken();
@@ -4519,10 +4457,8 @@ void xdelay(){
 
 #ifdef HASGRAPH
 /*
-
-	COLOR setting, accepting one or 3 arguments
-
-*/
+ *	COLOR setting, accepting one or 3 arguments
+ */
 void xcolor() {
 	short r, g, b;
 	nexttoken();
@@ -4545,10 +4481,8 @@ void xcolor() {
 }
 
 /*
-
-	PLOT 
-
-*/
+ * PLOT a pixel on the screen
+ */
 void xplot() {
 	short x0, y0;
 	nexttoken();
@@ -4559,7 +4493,9 @@ void xplot() {
 	plot(x0, y0);
 }
 
-
+/*
+ * LINE draws a line 
+ */
 void xline() {
 	short x0, y0, x1, y1;
 	nexttoken();
@@ -4622,7 +4558,6 @@ void xfcircle() {
 
 #ifdef HASTONE
 void xtone(){
-
 	nexttoken();
 	parsearguments();
 	if (er != 0) return;
@@ -4630,26 +4565,24 @@ void xtone(){
 		error(EARGS);
 		return;
 	}
-
-#if !defined(ARDUINO) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_ESP32)
-	clearst();
-	return;
-#else 
-	x=pop();
-	y=pop();
-	if (args == 2) {
-		tone(y,x);
-	} else {
-		z.i=pop();
-		tone(z.i, y, x);
-	}
-#endif		
+	btone(args);	
 }
 #endif
 
+
+/* 
+ * IoT functions - sensor reader, experimentral
+ */
+void xfsensor() {
+	short s, a;
+	a=pop();
+	s=pop();
+	push(0);
+}
+
 /*
  *	BASIC DOS - disk access programs, to control mass storage from BASIC
-*/
+ */
 
 // string match helper in catalog 
 char streq(const char *s, char *m){

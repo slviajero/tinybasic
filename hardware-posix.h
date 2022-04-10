@@ -1,6 +1,6 @@
 /*
 
-	$Id: hardware-posix.h,v 1.1 2022/04/04 04:49:29 stefan Exp stefan $
+	$Id: hardware-posix.h,v 1.2 2022/04/10 06:25:05 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -40,8 +40,14 @@ void wiringbegin() {
 #endif
 }
 
-// memory helper
-long freememorysize() {return 0;}
+// memory helper, 16 bit by default, DOS tiny memory model
+long freememorysize() {
+#ifdef MSDOS
+	return 48000;
+#else
+	return 65536;
+#endif  
+}
 
 // low level restart and sleep
 void restartsystem() {exit(0);}
@@ -67,10 +73,6 @@ void kbdbegin() {}
 char kbdavailable(){ return 0;}
 char kbdread() { return 0;}
 char kbdcheckch() { return 0;}
-
-// Arduino sensors
-void sensorbegin() {}
-number_t sensorread(short i) {return 0;};
 
 // networking and IoT
 void netbegin() {}
@@ -155,6 +157,8 @@ void bmillis() {
 long millis() { push(1); bmillis(); return pop(); }
 #endif
 void bpulsein() { pop(); pop(); pop(); push(0); }
+void btone(short a) { pop(); pop(); if (a == 3) pop(); }
+
 
 // the display driver
 const int dsp_rows=0;
@@ -372,4 +376,9 @@ void radioouts(char *b, short l) {}
 void iradioopen(char *filename) {}
 void oradioopen(char *filename) {}
 
+// Arduino sensors
+void sensorbegin() {}
+number_t sensorread(short s, short v) {return 0;};
+
 #endif
+
