@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.h,v 1.6 2022/03/25 14:26:17 stefan Exp stefan $
+	$Id: basic.h,v 1.7 2022/04/10 06:25:05 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -210,6 +210,8 @@ typedef unsigned char uint8_t;
 #define TINSTR  -30
 #define TVAL 	-29
 #define TNETSTAT -28
+#define TSENSOR  -27
+#define TWIRE 	-26
 // constants used for some obscure purposes 
 #define TBUFFER -4
 // unused right now from earlier code to be removed soon
@@ -218,7 +220,7 @@ typedef unsigned char uint8_t;
 #define NEWLINE -1
 
 // the number of keywords, and the base index of the keywords
-#define NKEYWORDS	3+19+14+12+10+5+2+7+7+6+9
+#define NKEYWORDS	3+19+14+12+10+5+2+7+7+6+11
 #define BASEKEYWORD -121
 
 /*
@@ -328,7 +330,7 @@ const char smillis[]  PROGMEM = "MILLIS";
 const char sazero[]   PROGMEM = "AZERO";
 #endif
 #ifdef HASTONE
-const char stone[]    PROGMEM = "ATONE";
+const char stone[]    PROGMEM = "PLAYTONE";
 #endif
 #ifdef HASPULSE
 const char splusein[] PROGMEM = "PULSEIN";
@@ -389,6 +391,8 @@ const char sstr[]		PROGMEM  = "STR";
 const char sinstr[]		PROGMEM  = "INSTR";
 const char sval[]		PROGMEM  = "VAL";
 const char snetstat[]	PROGMEM  = "NETSTAT";
+const char ssensor[]	PROGMEM  = "SENSOR";
+const char swire[]		PROGMEM  = "WIRE";
 #endif
 
 // the keyword storage
@@ -449,7 +453,7 @@ const char* const keyword[] PROGMEM = {
 #endif
 #ifdef HASIOT
 	siter, savail, sstr, sinstr, sval, 
-	snetstat,
+	snetstat, ssensor, swire,
 #endif
 // the end 
 	0
@@ -514,6 +518,7 @@ const signed char tokens[] PROGMEM = {
 // IOT extensions
 #ifdef HASIOT
 	TITER, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
+	TSENSOR, TWIRE,
 #endif
 // the end
 	0
@@ -957,6 +962,11 @@ void dwrite(number_t, number_t);
 void pinm(number_t, number_t);
 void bmillis();
 void bpulsein();
+void btone(short);
+
+// sensor control 
+void sensorbegin();
+number_t sensorread(short, short);
 
 /* 	
 	Layer 1 function, provide data and do the heavy lifting 
@@ -1093,12 +1103,13 @@ void xdef();
 void xon();
 void clrdata();
 
-// the darkarts
+// the darkarts and IOT
 void xmalloc();
 void xfind();
 void xeval();
 void xiter();
 void xavail();
+void xfsensor();
 
 // the statement loop
 void statement();

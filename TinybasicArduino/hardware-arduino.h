@@ -1,6 +1,6 @@
 /*
 
-	$Id: hardware.h,v 1.6 2022/03/25 14:26:17 stefan Exp stefan $
+	$Id: hardware-arduino.h,v 1.2 2022/04/10 06:25:05 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -38,7 +38,6 @@
  	The code still contains hardware hueristics from my own projects, 
  	will be removed in the future
 
-
 */
 
 #if defined(ARDUINO) && ! defined(__HARDWAREH__)
@@ -65,7 +64,7 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#undef ARDUINOEEPROM
+#define ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #define ESPSPIFFS
@@ -75,7 +74,7 @@
 #undef ARDUINORF24
 #undef ARDUINOETH
 #define ARDUINOMQTT
-#undef ARDUINOSENSORS
+#define ARDUINOSENSORS
 #undef STANDALONE
 
 /* 
@@ -129,6 +128,15 @@
 // this is the default lowest adress
 #define EEPROMI2CADDR 0x050
 #define RTCI2CADDR 0x068
+
+/*
+ * Sensor library code - experimental
+ */
+#define ARDUINOSENSORS
+#define ARDUINODHT
+#define DHTTYPE DHT22
+#define DHTPIN 2
+#undef ARDUINOLMS6
 
 // the hardware models
 
@@ -425,14 +433,22 @@ void wiringbegin() {}
 
 
 /*
- * helper functions OS near 
+ * helper functions OS, heuristic on how much memory is 
+ * available in BASIC
  */
 long freememorysize() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
-  return ESP.getFreeHeap();
+  return ESP.getFreeHeap() - 4000;
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
-  return SP - (int) __malloc_heap_start;
+  int overhead=192;
+#ifdef ARDUINOSD
+  overhead+=512;
+#endif
+#ifdef ARDUINOETH
+  overhead+=256;
+#endif
+  return SP - (int) __malloc_heap_start - overhead;
 #endif
   return 0;
 }
@@ -1142,37 +1158,6 @@ void rtcset(char i, short v) {
 EepromFS EFS(EEPROMI2CADDR, EFSEEPROMSIZE);
 #endif
 
-
-/* 
-	Arduino Sensor library code - very experimental 
-*/
-#ifdef ARDUINOSENSORS
-#include "DHT.h"
-#include <Arduino_LSM6DSOX.h>
-// https://www.arduino.cc/en/Reference/Arduino_LSM6DSOX
-#define DHTTYPE DHT11
-#define DHTPIN 22
-DHT dht(DHTPIN, DHTTYPE);
-void sensorbegin(){
-
-  dht.begin();
-}
-number_t sensorread(short i) {
-  switch (i) {
-    case 1:
-      return dht.readHumidity();
-    case 2:
-      return dht.readTemperature();
-    default:
-      return 0;
-  }
-}
-#else
-void sensorbegin() {}
-number_t sensorread(short i) {return 0;};
-#endif
-
-
 /* 
 	start a secondary serial port for printing and/or networking 
 */
@@ -1237,8 +1222,6 @@ PubSubClient bmqtt(bethclient);
 WiFiClient bwifi;
 PubSubClient bmqtt(bwifi);
 #endif
-
-
 
 // the length of the outgoing and incomming topic 
 #define MQTTLENGTH 32
@@ -1326,9 +1309,8 @@ void mqttbegin() {
 }
 
 // reconnecting mqtt - exponential backoff here 
+// exponental backoff reconnect in 10 ms * 2^n intervals
 char mqttreconnect() {
-	
-	// exponental backoff reconnect in 10 ms * 2^n intervals
 	short timer=10;
 	char reconnect=0;
 
@@ -1360,6 +1342,7 @@ int mqttstate() {
 // subscribing to a topic
 void mqttsubscribe(char *t) {
 	short i;
+
 	for (i=0; i<MQTTLENGTH; i++) {
 		if ((mqtt_itopic[i]=t[i]) == 0 ) break;
 	}
@@ -1377,6 +1360,7 @@ void mqttunsubscribe() {
 // basic can do only one topic 
 void mqttsettopic(char *t) {
 	int i;
+
 	for (i=0; i<MQTTLENGTH; i++) {
 		if ((mqtt_otopic[i]=t[i]) == 0 ) break;
 	}
@@ -1385,6 +1369,7 @@ void mqttsettopic(char *t) {
 // print a mqtt message
 void mqttouts(char *m, short l) {
 	int i=0;
+
 	while(mqtt_charsforsend < MQTTBLENGTH && i<l) mqtt_obuffer[mqtt_charsforsend++]=m[i++];
 	if (mqtt_obuffer[mqtt_charsforsend-1] == '\n' || mqtt_charsforsend > MQTTBLENGTH) {
 		if (!mqttreconnect()) {ert=1; return;};
@@ -1406,6 +1391,7 @@ void mqttins(char *b, short nb) {
 char mqttinch() {
 	char ch=0;
 	short i;
+
 	if (mqtt_messagelength>0) {
 		ch=mqtt_buffer[0];
 		for (i=0; i<mqtt_messagelength-1; i++) mqtt_buffer[i]=mqtt_buffer[i+1];
@@ -1519,14 +1505,29 @@ void bpulsein() {
   push(pt);
 }
 
+void btone(short a) {
+	x=pop();
+	y=pop();
+#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_ESP32)
+	if (a == 3) pop();
+	return;
+#else 
+	if (a == 2) {
+		tone(y,x);
+	} else {
+		tone(pop(), y, x);
+	}
+#endif	
+}
+
 
 /* 
-	the yield function is called after every statement
-	if allows background tasks on OSes like FreeRTOS 
-	On an ESP8266 this function is called every 100 microseconds
-	(after each statement) in RUN mode. BASIC DELAY calls 
-	this every YIELDTIME ms. 
-*/
+ *	the byield function is called after every statement
+ *	if allows background tasks on OSes like FreeRTOS 
+ *	On an ESP8266 this function is called every 100 microseconds
+ *	(after each statement) in RUN mode. BASIC DELAY calls 
+ * 	this every YIELDTIME ms. 
+ */
 void byield() {	
 #ifdef ARDUINOMQTT
 	if (millis()-lastyield > YIELDINTERVAL-1) {
@@ -1541,7 +1542,7 @@ void byield() {
   	lastlongyield=millis();
   }
 #endif
-  	delay(0);
+  delay(0);
 }
 
 /* 
@@ -2227,4 +2228,53 @@ void oradioopen(char *filename) {
 #endif
 }
 
+
+/* 
+ *	Arduino Sensor library code 
+ *		The sensorread() is a generic function called by 
+ *		SENSOR basic function and command. The first argument
+ *		is the sensor and the second argument the value.
+ *		sensorread(n, 0) checks if the sensorstatus.
+ */
+#ifdef ARDUINOSENSORS
+#ifdef ARDUINODHT
+#include "DHT.h"
+DHT dht(DHTPIN, DHTTYPE);
+#endif
+#ifdef ARDUINOLMS6
+#include <Arduino_LSM6DSOX.h>
+// https://www.arduino.cc/en/Reference/Arduino_LSM6DSOX
+#endif
+
+void sensorbegin(){
+#ifdef ARDUINODHT
+  dht.begin();
+#endif
+}
+
+number_t sensorread(short s, short v) {
+  switch (s) {
+    case 1:
+#ifdef ARDUINODHT
+			switch (v) {
+				case 0:
+					return 1;
+				case 1:
+					return dht.readHumidity();
+				case 2:
+					return dht.readTemperature();
+			}     	
+#endif
+      return 0;
+    default:
+      return 0;
+  }
+}
+
+#else
+void sensorbegin() {}
+number_t sensorread(short s, short v) {return 0;};
+#endif
+
+// defined HARDWARE_H
 #endif
