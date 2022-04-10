@@ -2261,7 +2261,7 @@ number_t sensorread(short s, short v) {
 					return 1;
 				case 1:
 					return dht.readHumidity();
-				case 2;
+				case 2:
 					return dht.readTemperature();
 			}     	
 #endif

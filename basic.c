@@ -4577,7 +4577,7 @@ void xfsensor() {
 	short s, a;
 	a=pop();
 	s=pop();
-	push(0);
+	push(sensorread(s, a));
 }
 
 /*
