@@ -15,9 +15,9 @@
 */
 
 /*
-	if the PROGMEM macro is define we compile on the Arduino IDE
-	we undef all hardware settings otherwise
-*/
+ *	if the PROGMEM macro is define we compile on the Arduino IDE
+ *	we undef all hardware settings otherwise a little odd
+ */
 #ifdef ARDUINO_ARCH_MBED
 #define PROGMEM
 #endif
@@ -35,8 +35,8 @@
 #endif
 
 /* 
-	MSDOS, Mac, Linux and Windows 
-*/
+ *	MSDOS, Mac, Linux and Windows 
+ */
 #ifndef ARDUINO
 typedef unsigned char uint8_t;
 #define PROGMEM
@@ -64,39 +64,41 @@ typedef unsigned char uint8_t;
 #endif
 #endif
 
-// general definitions
+/* general definitions, needed on some old compilers */
 #define TRUE  1
 #define FALSE 0
 
-// various buffer sizes
-#define BUFSIZE 	128
-#define SBUFSIZE	32
-#define VARSIZE		26
-#define STACKSIZE 	15
-#define GOSUBDEPTH 	4
-#define FORDEPTH 	4
-#define ARRAYSIZEDEF 10
-#define STRSIZEDEF   32
+/* various buffer sizes */
+#define BUFSIZE 		128
+#define SBUFSIZE		32
+#define VARSIZE			26
+/* the small memory model with shallow stacks */
+#define STACKSIZE		15
+#define GOSUBDEPTH		4
+#define FORDEPTH		4
+/* default sizes of arrays and strings if they are not DIMed */
+#define ARRAYSIZEDEF	10
+#define STRSIZEDEF		32
 
-// the time intervall in ms needed for 
-// ESP8266 yields, network client loops 
-// and other timing related functions 
+/*
+ *	the time intervall in ms needed for 
+ *	ESP8266 yields, network client loops 
+ *	and other timing related functions 
+ */
 #define LONGYIELDINTERVAL 1000
 #define YIELDINTERVAL 32
 #define YIELDTIME 2
 
-// the default EEPROM dummy size
+/* the default EEPROM dummy size */
 #define EEPROMSIZE 1024
 
 /*
-
-   	The tokens:
-
-	All single character operators are their own tokens
-	ASCII values above 0x7f are used for tokens of keywords.
-
-*/
-
+ * The tokens for the BASIC keywords
+ *
+ *	All single character operators are their own tokens
+ *	ASCII values above 0x7f are used for tokens of keywords.
+ *	EOL is a token
+ */
 #define EOL			 0
 #define NUMBER   	 -127
 #define LINENUMBER   -126
@@ -104,11 +106,11 @@ typedef unsigned char uint8_t;
 #define VARIABLE 	 -124
 #define STRINGVAR 	 -123
 #define ARRAYVAR     -122
-// multi character tokens - BASEKEYWORD (3)
+/* multi character tokens - BASEKEYWORD (3) */
 #define GREATEREQUAL -121
 #define LESSEREQUAL  -120
 #define NOTEQUAL	 -119
-// this is the Palo Alto Language Set (19)
+/* this is the Palo Alto Language Set (19) */
 #define TPRINT  -118
 #define TLET    -117
 #define TINPUT  -116
@@ -128,7 +130,7 @@ typedef unsigned char uint8_t;
 #define TRND	-102
 #define TSIZE   -101
 #define TREM 	-100
-// this is the Apple 1 language set in addition to Palo Alto (14)
+/* this is the Apple 1 language set in addition to Palo Alto (14) */
 #define TNOT    -99
 #define TAND	-98
 #define TOR  	-97
@@ -143,7 +145,7 @@ typedef unsigned char uint8_t;
 #define TTHEN   -88
 #define TEND    -87
 #define TPOKE	-86
-// Stefan's tinybasic additions (12)
+/* Stefan's tinybasic additions (12) */
 #define TCONT   -85
 #define TSQR	-84
 #define TPOW	-83
@@ -156,27 +158,27 @@ typedef unsigned char uint8_t;
 #define TPUT    -76
 #define TSET    -75
 #define TCLS    -74
-// Arduino functions (10)
+/* Arduino functions (10) */
 #define TPINM	-73
 #define TDWRITE	-72
 #define TDREAD	-71
 #define TAWRITE	-70
-#define TAREAD  -69
-#define TDELAY  -68
-#define TMILLIS  -67
-#define TTONE   -66
-#define TPULSEIN  -65
-#define TAZERO	  -64
-// the DOS functions (5)
-#define TCATALOG -63
-#define TDELETE  -62
+#define TAREAD	-69
+#define TDELAY	-68
+#define TMILLIS	-67
+#define TTONE	-66
+#define TPULSEIN	-65
+#define TAZERO		-64
+/* the DOS functions (5) */
+#define TCATALOG	-63
+#define TDELETE	-62
 #define TOPEN 	-61
-#define TCLOSE  -60
+#define TCLOSE 	-60
 #define TFDISK  -59
-// low level access of internal routines (2)
+/* low level access of internal routines (2) */
 #define TUSR	-58
 #define TCALL 	-57
-// mathematical functions (7)
+/* mathematical functions (7) */
 #define TSIN 	-56
 #define TCOS    -55
 #define TTAN 	-54
@@ -184,7 +186,7 @@ typedef unsigned char uint8_t;
 #define TLOG    -52
 #define TEXP    -51
 #define TINT    -50
-// graphics - experimental - rudimentary (7)
+/* graphics - experimental - rudimentary (7) */
 #define TCOLOR 	-49
 #define TPLOT   -48
 #define TLINE 	-47
@@ -192,18 +194,18 @@ typedef unsigned char uint8_t;
 #define TRECT   -45
 #define TFCIRCLE -44
 #define TFRECT   -43
-// the dark arts and Dartmouth extensions (6)
+/* the dark arts and Dartmouth extensions (6) */
 #define TDATA	-42
 #define TREAD   -41
 #define TRESTORE -40
 #define TDEF     -39
 #define TFN 	-38
 #define TON     -37
-// darkarts (3)
+/* darkarts (3) */
 #define TMALLOC -36
 #define TFIND   -35
 #define TEVAL   -34
-// iot extensions (6)
+/* iot extensions (6) */
 #define TITER	-33
 #define TAVAIL	-32
 #define TSTR    -31
@@ -212,35 +214,33 @@ typedef unsigned char uint8_t;
 #define TNETSTAT -28
 #define TSENSOR  -27
 #define TWIRE 	-26
-// constants used for some obscure purposes 
+/* constants used for some obscure purposes */
 #define TBUFFER -4
-// unused right now from earlier code to be removed soon
+/* unused right now from earlier code to be removed soon */
 #define TERROR  -3
 #define UNKNOWN -2
 #define NEWLINE -1
 
-// the number of keywords, and the base index of the keywords
+/* the number of keywords, and the base index of the keywords */
 #define NKEYWORDS	3+19+14+12+10+5+2+7+7+6+11
 #define BASEKEYWORD -121
 
 /*
-	Interpreter states 
-	SRUN means running from a programm
-	SINT means interactive mode
-	SERUN means running directly from EEPROM
-	(enum would be the right way of doing this.)
-	BREAKCHAR is the character stopping the program on Ardunios
+ *	Interpreter states 
+ *	SRUN means running from a programm
+ *	SINT means interactive mode
+ *	SERUN means running directly from EEPROM
+ *		(enum would be the right way of doing this.)
+ *	BREAKCHAR is the character stopping the program on Ardunios
 */
-
 #define SINT 0
 #define SRUN 1
 #define SERUN 2
 #define BREAKCHAR '#'
 
 /* 
-	Arduino input and output models
-*/
-
+ *	Arduino input and output channels
+ */
 #define OSERIAL 1
 #define ODSP 2
 #define OPRT 4
@@ -258,13 +258,12 @@ typedef unsigned char uint8_t;
 #define IFILE 16
 
 /*
-	All BASIC keywords
-*/
-
+ *	All BASIC keywords for the tokens
+ */
 const char sge[]   PROGMEM = "=>";
 const char sle[]   PROGMEM = "<=";
 const char sne[]   PROGMEM = "<>";
-// Palo Alto language set
+/* Palo Alto language set */
 const char sprint[]  PROGMEM = "PRINT";
 const char slet[]    PROGMEM = "LET";
 const char sinput[]  PROGMEM = "INPUT";
@@ -284,7 +283,7 @@ const char sabs[]    PROGMEM = "ABS";
 const char srnd[]    PROGMEM = "RND";
 const char ssize[]   PROGMEM = "SIZE";
 const char srem[]    PROGMEM = "REM";
-// Apple 1 language set
+/* Apple 1 language set */
 #ifdef HASAPPLE1
 const char snot[]    PROGMEM = "NOT";
 const char sand[]    PROGMEM = "AND";
@@ -301,7 +300,7 @@ const char sthen[]   PROGMEM = "THEN";
 const char sbend[]    PROGMEM = "END";
 const char spoke[]   PROGMEM = "POKE";
 #endif
-// Stefan's tinybasic additions
+/* Stefan's tinybasic additions */
 #ifdef HASSTEFANSEXT
 const char scont[]   PROGMEM = "CONT";
 const char ssqr[]    PROGMEM = "SQR";
@@ -310,6 +309,7 @@ const char sfre[]    PROGMEM = "FRM";
 const char sdump[]   PROGMEM = "DUMP";
 const char sbreak[]  PROGMEM = "BREAK";
 #endif
+/* LOAD and SAVE is always there */
 const char ssave[]   PROGMEM = "SAVE";
 const char sload[]   PROGMEM = "LOAD";
 #ifdef HASSTEFANSEXT
@@ -318,7 +318,7 @@ const char sput[]    PROGMEM = "PUT";
 const char sset[]    PROGMEM = "SET";
 const char scls[]    PROGMEM = "CLS";
 #endif
-// Arduino functions
+/* Arduino functions */
 #ifdef HASARDUINOIO
 const char spinm[]    PROGMEM = "PINM";
 const char sdwrite[]  PROGMEM = "DWRITE";
@@ -335,7 +335,7 @@ const char stone[]    PROGMEM = "PLAYTONE";
 #ifdef HASPULSE
 const char splusein[] PROGMEM = "PULSEIN";
 #endif
-// SD Card DOS functions
+/* DOS functions */
 #ifdef HASFILEIO
 const char scatalog[] PROGMEM = "CATALOG";
 const char sdelete[]  PROGMEM = "DELETE";
@@ -343,12 +343,12 @@ const char sfopen[]   PROGMEM = "OPEN";
 const char sfclose[]  PROGMEM = "CLOSE";
 const char sfdisk[]  PROGMEM = "FDISK";
 #endif
-// low level access functions
+/* low level access functions */
 #ifdef HASSTEFANSEXT
 const char susr[]  PROGMEM = "USR";
 const char scall[] PROGMEM = "CALL";
 #endif
-// mathematics
+/* mathematics */
 #ifdef HASFLOAT
 const char ssin[]  PROGMEM = "SIN";
 const char scos[]  PROGMEM = "COS";
@@ -357,8 +357,9 @@ const char satan[] PROGMEM = "ATAN";
 const char slog[]  PROGMEM = "LOG";
 const char sexp[]  PROGMEM = "EXP";
 #endif
-const char sint[]  PROGMEM = "INT"; // int is always needed 
-// elemetars graphics for tft display
+/* INT is always needed to make float/int programs compatible */
+const char sint[]  PROGMEM = "INT"; 
+/* elemetars graphics */
 #ifdef HASGRAPH
 const char scolor[]  PROGMEM  = "COLOR";
 const char splot[]   PROGMEM  = "PLOT";
@@ -368,7 +369,7 @@ const char srect[]   PROGMEM  = "RECT";
 const char sfcircle[] PROGMEM  = "FCIRCLE";
 const char sfrect[]   PROGMEM  = "FRCT";
 #endif
-// Dartmouth BASIC extensions 
+/* Dartmouth BASIC extensions */
 #ifdef HASDARTMOUTH
 const char sdata[]  	PROGMEM  = "DATA";
 const char sread[]  	PROGMEM  = "READ";
@@ -377,13 +378,13 @@ const char sdef[] 	PROGMEM  = "DEF";
 const char sfn[]   	PROGMEM  = "FN";
 const char son[]   	PROGMEM  = "ON";
 #endif
-// The Darkarts commands unthinkable in Dartmouth
+/* The Darkarts commands unthinkable in Dartmouth */
 #ifdef HASDARKARTS
 const char smalloc[]	PROGMEM  = "MALLOC";
 const char sfind[]		PROGMEM  = "FIND";
 const char seval[]		PROGMEM  = "EVAL";
 #endif
-// iot extensions
+/* iot extensions */
 #ifdef HASIOT
 const char siter[]		PROGMEM  = "ITER";
 const char savail[]		PROGMEM  = "AVAIL";
@@ -395,20 +396,17 @@ const char ssensor[]	PROGMEM  = "SENSOR";
 const char swire[]		PROGMEM  = "WIRE";
 #endif
 
-// the keyword storage
+/* zero terminated keyword storage */
 const char* const keyword[] PROGMEM = {
-// Palo Alto BASIC
 	sge, sle, sne, sprint, slet, sinput, 
 	sgoto, sgosub, sreturn, sif, sfor, sto,
 	sstep, snext, sstop, slist, snew, srun,
 	sabs, srnd, ssize, srem,
-// Apple 1 BASIC additions
 #ifdef HASAPPLE1
 	snot, sand, sor, slen, ssgn, speek, sdim,
 	sclr, slomem, shimem, stab, sthen, 
 	sbend, spoke,
 #endif
-// Stefan's additions
 #ifdef HASSTEFANSEXT
 	scont, ssqr, spow, sfre, sdump, sbreak, 
 #endif
@@ -416,7 +414,6 @@ const char* const keyword[] PROGMEM = {
 #ifdef HASSTEFANSEXT
 	sget, sput, sset, scls,
 #endif
-// Arduino stuff
 #ifdef HASARDUINOIO
     spinm, sdwrite, sdread, sawrite, saread, 
     sdelay, smillis, sazero,  
@@ -427,20 +424,16 @@ const char* const keyword[] PROGMEM = {
 #ifdef HASPULSE
 	splusein,
 #endif
-// SD Card DOS
 #ifdef HASFILEIO
     scatalog, sdelete, sfopen, sfclose, sfdisk,
 #endif
-// low level access
 #ifdef HASSTEFANSEXT
     susr, scall,
 #endif
-// mathematical functions 
 #ifdef HASFLOAT
     ssin, scos, stan, satan, slog, sexp,
 #endif
     sint,
-// graphics 
 #ifdef HASGRAPH
     scolor, splot, sline, scircle, srect, 
     sfcircle, sfrect,
@@ -455,22 +448,18 @@ const char* const keyword[] PROGMEM = {
 	siter, savail, sstr, sinstr, sval, 
 	snetstat, ssensor, swire,
 #endif
-// the end 
 	0
 };
 
-// the token dictonary needed for scalability
+/* the zero terminated token dictonary needed for scalability */
 const signed char tokens[] PROGMEM = {
-// Palo Alto BASIC
 	GREATEREQUAL, LESSEREQUAL, NOTEQUAL, TPRINT, TLET,    
     TINPUT, TGOTO, TGOSUB, TRETURN, TIF, TFOR, TTO, TSTEP,
     TNEXT, TSTOP, TLIST, TNEW, TRUN, TABS, TRND, TSIZE, TREM,
-// this is the Apple 1 language set in addition to Palo Alto (14)
 #ifdef HASAPPLE1
     TNOT, TAND, TOR, TLEN, TSGN, TPEEK, TDIM, TCLR, TLOMEM,
     THIMEM, TTAB, TTHEN, TEND, TPOKE,
 #endif
-// Stefan's tinybasic additions (11)
 #ifdef HASSTEFANSEXT
 	TCONT, TSQR, TPOW, TFRE, TDUMP, TBREAK, 
 #endif
@@ -478,7 +467,6 @@ const signed char tokens[] PROGMEM = {
 #ifdef HASSTEFANSEXT	
 	TGET, TPUT, TSET, TCLS,
 #endif
-// Arduino functions (10)
 #ifdef HASARDUINOIO
 	TPINM, TDWRITE, TDREAD, TAWRITE, TAREAD, TDELAY, TMILLIS,
 	TAZERO, 
@@ -489,45 +477,36 @@ const signed char tokens[] PROGMEM = {
 #ifdef HASPULSE
 	TPULSEIN, 
 #endif
-// the SD card DOS functions (4)
 #ifdef HASFILEIO
 	TCATALOG, TDELETE, TOPEN, TCLOSE, TFDISK,
 #endif
-// low level access of internal routines
 #ifdef HASSTEFANSEXT
 	TUSR, TCALL,
 #endif
-// mathematical functions 
 #ifdef HASFLOAT
 	TSIN, TCOS, TTAN, TATAN, TLOG, TEXP,
 #endif
 	TINT,
-// graphics - experimental - rudimentary
 #ifdef HASGRAPH
 	TCOLOR, TPLOT, TLINE, TCIRCLE, TRECT, 
 	TFCIRCLE, TFRECT,
 #endif
-// Dartmouth BASIC extensions 
 #ifdef HASDARTMOUTH
 	TDATA, TREAD, TRESTORE, TDEF, TFN, TON,
 #endif
-// the Darkarts commands that shouldn't be there
 #ifdef HASDARKARTS
 	TMALLOC, TFIND, TEVAL, 
 #endif
-// IOT extensions
 #ifdef HASIOT
 	TITER, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
 	TSENSOR, TWIRE,
 #endif
-// the end
 	0
 };
 
-
 /*
-	the message catalogue also moved to progmem
-*/
+ *	the message catalog
+ */
 #define MFILE		0
 #define MPROMPT		1
 #define MGREET		2
@@ -604,19 +583,20 @@ const char* const message[] PROGMEM = {
 };
 
 /*
-	code for variable numbers and addresses sizes
-	the original code was 16 bit but can be extended here
-	works but with the tacit assumption that 
-	sizeof(number_t) >= sizeof(address_t) 
-	floating point here is under construction we always 
-	assume that float >= 4 bytes in the following
-
-	maxnum: the maximum accurate(!) integer of a 
-		32 bit float 
-	strindexsize: the index size of strings either 
-		1 byte or 2 bytes - no other values supported
-
-*/
+ *	code for variable numbers and addresses sizes
+ *	the original code was 16 bit but can be extended here
+ * 	to arbitrary types 
+ *
+ *	works with the tacit assumption that 
+ *	sizeof(number_t) >= sizeof(address_t) 
+ *	floating point here is under construction we always 
+ *	assume that float >= 4 bytes in the following
+ *
+ *	maxnum: the maximum accurate(!) integer of a 
+ *		32 bit float 
+ *	strindexsize: the index size of strings either 
+ *		1 byte or 2 bytes - no other values supported
+ */
 #ifdef HASFLOAT
 typedef float number_t;
 const number_t maxnum=16777216; 
@@ -671,7 +651,6 @@ const address_t maxaddr=(address_t)(~0);
 
 	fnc counts the depth of for - next loop nesting
 
-	ifile, ofile are the filedescriptors for input/output
 
 */
 static number_t stack[STACKSIZE];
@@ -719,7 +698,7 @@ static char form = 0;
 
 static signed char args;
 
-// this is unsigned hence address_t 
+/* this is unsigned hence address_t */
 static address_t rd;
 
 // output and input vector
@@ -728,96 +707,86 @@ static unsigned char od;
 
 // default IO - not constant, can be changed at runtime 
 // through a user call
-
 static unsigned char idd = ISERIAL;
 static unsigned char odd = OSERIAL;
 
 // the runtime debuglevel
 char debuglevel = 0;
 
-// data pointer
+/* data pointer */
 #ifdef HASDARTMOUTH
 address_t data = 0;
 #endif
 
 /*
-	IoT yield counter, we count when we did yield the last time
-	lastyield controlls the client loops of network functions 
-	like mqtt
-	lastlongyield controls longterm functions like DHCP lease 
-	renewal in Ethernet 
-*/
+ * IoT yield counter, we count when we did yield the last time
+ *	lastyield controlls the client loops of network functions 
+ *	like mqtt
+ *	lastlongyield controls longterm functions like DHCP lease 
+ *	renewal in Ethernet 
+ */
 static long lastyield=0;
 static long lastlongyield=0;
 
+/* formaters lastouttoken and spaceafterkeyword to make a nice LIST */
+signed char lastouttoken;
+signed char spaceafterkeyword;
+
 /* 
+ * Function prototypes, ordered by layers
+ * HAL - hardware abstraction
+ * Layer 0 - memory and I/O
+ * Layer 1 - Program storage and control
+ * Layer 2 - Where stuff happens
+ */
 
-	Function prototypes - this would go to basic.h at some point in time
+/*
+ *	HAL - see hardware-*.h
+ *  This is the hardware abstraction layer of the BASIC
+ *	interpreter 
+ */
 
-	Layer 0 functions 
+/* setup codes */
+void timeinit();
+void wiringbegin();
 
-	variable and memory handling - interface between memory 
- 	and variable storage
-
-*/
-
-// heap management 
+/* low level mem and hardware features */
 long freememorysize();
-address_t ballocmem();
-void byield();
-address_t bmalloc(signed char, char, char, address_t);
-address_t bfind(signed char, char, char);
-address_t blength (signed char, char, char);
-void clrvars();
+void restartsystem();
+void activatesleep();
 
-// normal variables
-void  createvar(char, char);
-number_t getvar(char, char);
-void  setvar(char, char, number_t);
+/* start the spi bus */
+void spibegin();
 
-// low level memory access packing n*8bit bit into n 8 bit objects
-// e* is for Arduino EEPROM
-void  getnumber(address_t, short);
-void  setnumber(address_t, short);
-void  egetnumber(address_t, short);
-void  esetnumber(address_t, short);
+/* the hardware interface display driver functions, need to be 
+	implemented for the display driver to work */
+void dspbegin();
+void dspprintchar(char, short, short);
+void dspclear();
 
-// array handling
-address_t createarray(char, char, address_t);
-void  array(char, char, char, address_t, number_t*);
+/* keyboard code */
+void kbdbegin();
+char kbdavailable();
+char kbdread();
+char kbdcheckch();
 
-// string handling 
-address_t createstring(char, char, address_t);
-char* getstring(char, char, address_t);
-void  setstring(char, char, address_t, char *, address_t);
+/* graphics functions */
+void rgbcolor(int, int, int);
+void vgacolor(short c);
+void vgascale(int*, int*);
+void plot(int, int);
+void line(int, int, int, int);  
+void rect(int, int, int, int);
+void frect(int, int, int, int);
+void circle(int, int, int);
+void fcircle(int, int, int);
 
-// access memory dimensions and for strings also the actual length
-number_t arraydim(char, char);
-number_t stringdim(char, char);
-number_t lenstring(char, char);
-void setstringlength(char, char, address_t);
 
-// get keywords and tokens from PROGMEM
-char* getkeyword(unsigned short);
-char* getmessage(char);
-signed char gettokenvalue(char);
-void printmessage(char);
+/* text output to a VGA display */
+void vgabegin();
+void vgawrite(char);
 
-// error handling
-void error(signed char);
-void reseterror();
-void debugtoken();
-void debug(const char*);
-
-// stack stuff
-void push(number_t);
-number_t pop();
-void drop();
-void clearst();
-
-// generic display code - used for Shield, I2C, and TFT
-// provided by the BASIC interpreter with no/little HW 
-// dependence
+/* generic display code */
 void dspwrite(char);
 void dspbegin();
 char dspwaitonscroll();
@@ -826,22 +795,50 @@ void dspsetscrollmode(char, short);
 void dspsetcursor(short, short);
 void dspbufferclear();
 
-// the hardware interface display driver functions, need to be 
-// implemented for the display driver to work
-void dspbegin();
-void dspprintchar(char, short, short);
-void dspclear();
-
-// text output to a VGA display 
-void vgawrite(char);
-
-// real time clock and wire code  
+/* real time clock */
 char* rtcmkstr();
 void rtcset(char, short);
 short rtcget(char);
 short rtcread(char);
 
-// the file interface
+/* network and mqtt functions */
+void netbegin();
+char netconnected();
+void mqttsetname();
+void mqttbegin();
+int  mqttstate();
+void mqttsubscribe(char*);
+void mqttsettopic(char*);
+void mqttouts(char *, short);
+void mqttins(char *, short);
+char mqttinch();
+
+/* low level EEPROM handling */
+void ebegin();
+void eflush();
+address_t elength();
+short eread(address_t);
+void eupdate(address_t, short);
+
+/* arduino io functions */
+void aread();
+void dread();
+void awrite(number_t, number_t);
+void dwrite(number_t, number_t);
+void pinm(number_t, number_t);
+void bmillis();
+void bpulsein();
+void btone(short);
+
+/* timing control for ESP and network */
+void byield();
+void yieldfunction();
+void longyieldfunction();
+
+/* the file interface */
+char* mkfilename(const char*);
+const char* rmrootfsprefix(const char*);
+void fsbegin(char);
 void filewrite(char);
 char fileread();
 char ifileopen(const char*);
@@ -858,129 +855,148 @@ void rootfileclose();
 void rootclose();
 void formatdisk(short i);
 
-// input output
-// initiating wiring (only needed on rasp)
-void wiringbegin();
-
-// these are the platfrom depended lowlevel functions
+/* low level serial code */
 void serialbegin();
-void prtbegin();
-
-// timing functions
-void timeinit();
-
-// start the spi bus
-void spibegin();
-
-// general I/O initialisation
-void ioinit();
-void iodefaults();
-
-// low level restart and sleep
-void restartsystem();
-void activatesleep();
-
-// character and string I/O functions
 void picogetchar(int);
-void outch(char);
-char inch();
-char checkch();
-short availch();
-void ins(char*, short); 
-void inb(char*, short);
+char serialread();
+void serialwrite(char);
+short serialcheckch();
+short serialavailable();
+void consins(char*, short);
+void prtbegin();
+char prtread();
+void prtwrite(char);
+short prtcheckch();
+short prtavailable();
 
-// keyboard code
-void kbdbegin();
-char kbdavailable();
-char kbdread();
-char kbdcheckch();
-
-// RF24 radio input 
-void iradioopen(char*);
-void oradioopen(char*);
-void radioins(char*, short);
-void radioouts(char* , short);
-
-// generic wire access
+/* generic wire access */
 void wirebegin();
 void wireopen(char*);
 void wireins(char*, uint8_t);
 void wireouts(char*, uint8_t);
 
-// network and mqtt functions - very experimental
-void netbegin();
-char netconnected();
-void mqttbegin();
-int  mqttstate();
-void mqttsubscribe(char*);
-void mqttsettopic(char*);
-void mqttouts(char *, short);
-void mqttins(char *, short);
-char mqttinch();
+/* RF24 radio input */
+void iradioopen(char*);
+void oradioopen(char*);
+void radioins(char*, short);
+void radioouts(char* , short);
 
-// generic I/O functions
+/* sensor control */
+void sensorbegin();
+number_t sensorread(short, short);
+
+/*
+ * Layer 0 functions - I/O and memory management 
+ */
+
+/* make room for BASIC */
+address_t ballocmem(); 
+
+/* handle files im EEPROM */
+void eload();
+void esave();
+char autorun();
+
+/* the variable heap from Apple 1 BASIC */
+address_t bmalloc(signed char, char, char, address_t);
+address_t bfind(signed char, char, char);
+address_t blength (signed char, char, char);
+
+/* normal variables of number_t */
+void reatevar(char, char);
+number_t getvar(char, char);
+void setvar(char, char, number_t);
+void clrvars();
+
+/*	low level memory access packing n*8bit bit into n 8 bit objects
+	e* is for Arduino EEPROM */
+void getnumber(address_t, short);
+void setnumber(address_t, short);
+void egetnumber(address_t, short);
+void esetnumber(address_t, short);
+
+/* array and string handling */
+address_t createarray(char, char, address_t);
+void array(char, char, char, address_t, number_t*);
+address_t createstring(char, char, address_t);
+char* getstring(char, char, address_t);
+number_t arraydim(char, char);
+number_t stringdim(char, char);
+number_t lenstring(char, char);
+void setstringlength(char, char, address_t);
+void setstring(char, char, address_t, char *, address_t);
+
+/* get keywords and tokens from PROGMEM */
+char* getkeyword(unsigned short);
+char* getmessage(char);
+signed char gettokenvalue(char);
+void printmessage(char);
+
+/* error handling */
+void error(signed char);
+void reseterror();
+void debugtoken();
+void bdebug(const char*);
+
+/* the arithemtic stack */
+void push(number_t);
+number_t pop();
+void drop();
+void clearst();
+
+/* READ DATA handling */
+void clrdata();
+
+/* FOR NEXT GOSUB stacks */
+void pushforstack();
+void popforstack();
+void dropforstack();
+void clrforstack();
+void pushgosubstack();
+void popgosubstack();
+void dropgosubstack();
+void clrgosubstack();
+
+/* general I/O initialisation */
+void ioinit();
+void iodefaults();
+
+/* character and string I/O functions */
+/* input */
+char inch();
+char checkch();
+short availch();
+void inb(char*, short);
+void ins(char*, short); 
+
+/* output */
+void outch(char);
 void outcr();
 void outspc();
 void outs(char*, short);
 void outsc(const char*);
 void outscf(const char *, short);
-char innumber(number_t*);
+
+/* I/O of number_t - floats and integers */
 short parsenumber(char*, number_t*);
 short parsenumber2(char*, number_t*);
-void outnumber(number_t);
 short writenumber(char*, number_t);
 short writenumber2(char*, number_t);
-
-// EEPROM handling 
-void ebegin();
-void eflush();
-address_t elength();
-short eread(address_t);
-void eupdate(address_t, short);
-void eload();
-void esave();
-
-// generic autorun - mainly eeprom but also file
-char autorun();
-
-// graphics functions 
-void rgbcolor(int, int, int);
-void vgacolor(short c);
-void vgascale(int*, int*);
-void plot(int, int);
-void line(int, int, int, int);  
-void rect(int, int, int, int);
-void frect(int, int, int, int);
-void circle(int, int, int);
-void fcircle(int, int, int);
-
-// arduino io functions 
-void aread();
-void dread();
-void awrite(number_t, number_t);
-void dwrite(number_t, number_t);
-void pinm(number_t, number_t);
-void bmillis();
-void bpulsein();
-void btone(short);
-
-// sensor control 
-void sensorbegin();
-number_t sensorread(short, short);
+char innumber(number_t*);
+void outnumber(number_t);
 
 /* 	
-	Layer 1 function, provide data and do the heavy lifting 
-	for layer 2.
-*/
+ * Layer 1 functions, provide data and do the heavy lifting 
+ * for layer 2 including lexical analysis, storing programs 
+ * and expression evaluation 
+ */
 
-// lexical analysis
+/* lexical analysis */
 void whitespaces();
-void debugtoken();
 void nexttoken();
 
-// storeing and retrieving programs
+/* storing and retrieving programs */
 char nomemory(number_t);
-void dumpmem(address_t, address_t);
 void storetoken(); 
 char memread(address_t);
 void gettoken();
@@ -993,27 +1009,40 @@ void zeroblock(address_t, address_t);
 void diag();
 void storeline();
 
-// read arguments from the token stream.
-char  termsymbol();
-void  parsesubstring();
-void  parsesubscripts();
-void  parsenarguments(char);
-void  parsearguments();
+/* read arguments from the token stream and process them */
+char termsymbol();
+char expect(signed char, char);
+char expectexpr();
+void parsearguments();
+void parsenarguments(char);
+void parsesubscripts();
+void parsefunction(void (*)(), short);
+void parseoperator(void (*)());
+void parsesubstring();
 
-// mathematics and other functions / int and float
+/* mathematics and other functions for int and float */
+void xabs();
+void xsgn();
+void xpeek();
+void fre();
 void rnd();
 void sqr();
 void xpow();
-void fre();
-void xpeek();
-void xabs();
-void xsgn();
 
-// string values 
+/* string values and string evaluation */
 char stringvalue();
 void streval();
 
-// expression evaluation 
+/* floating point functions */
+void xsin();
+void xcos();
+void xtan();
+void xatan();
+void xlog();
+void xexp();
+void xint();
+
+/* expression evaluation */
 void factor();
 void term();
 void addexpression();
@@ -1023,39 +1052,28 @@ void andexpression();
 void expression();
 
 /* 
-	Layer 2 - statements call Layer 1 functions and 
-	use the global variables 
-*/
+ * Layer 2 - statements and functions 
+ * use the global variables 
+ */
 
-// basic commands of the core language set
+/* basic commands of the core language set */
 void xprint();
-void assignment();
 void lefthandside(address_t*, char*);
 void assignnumber(signed char, char, char, address_t, char);
+void assignment();
 void showprompt();
 void xinput();
 void xgoto();
 void xreturn();
 void xif();
 
-// optional FOR NEXT loops
+/* optional FOR NEXT loops */
 void findnextcmd();
 void xfor();
-void xnext();
 void xbreak();
-void pushforstack();
-void popforstack();
-void dropforstack();
-void clrforstack();
+void xnext();
 
-// GOSUB commands
-void xreturn();
-void pushgosubstack();
-void popgosubstack();
-void dropgosubstack();
-void clrgosubstack();
-
-// control commands and misc
+/* control commands and misc */
 void outputtoken();
 void xlist();
 void xrun();
@@ -1066,12 +1084,47 @@ void xdim();
 void xpoke();
 void xtab();
 void xdump();
+void dumpmem(address_t, address_t);
 
-// file access and other i/o
-void stringtosbuffer();
+/* file access and other i/o */
+void stringtobuffer();
 void getfilename(char*, char);
 void xsave();
 void xload(const char* f);
+void xget();
+void xput();
+void xset();
+void xnetstat();
+
+/* Arduino IO control interface */
+void xdwrite();
+void xawrite();
+void xpinm();
+void xdelay();
+void xtone();
+
+/* graphics commands */
+void xcolor();
+void xplot();
+void xline();
+void xrect();
+void xcircle();
+void xfrect();
+void xfcircle();
+
+/* the darkarts */
+void xmalloc();
+void xfind();
+void xeval();
+
+/* IoT commands */
+void xinext();
+void xiter();
+void xavail();
+void xfsensor();
+
+/* File I/O functions */
+char streq(const char*, char*);
 void xcatalog();
 void xdelete();
 void xopen();
@@ -1079,37 +1132,18 @@ void xfopen();
 void xclose();
 void xfdisk();
 
-// low level I/O in BASIC
-void xget();
-void xput();
-void xset();
-
-// Arduino IO control
-void xdwrite();
-void xawrite();
-void xpinm();
-void xdelay();
-void xtone();
-
-// low level access functions
+/* low level access functions */
 void xcall();
 void xusr();
 
-// the dartmouth stuff
+/* the dartmouth stuff */
 void xdata();
+void nextdatarecord();
 void xread();
 void xrestore();
 void xdef();
+void xfn();
 void xon();
-void clrdata();
 
-// the darkarts and IOT
-void xmalloc();
-void xfind();
-void xeval();
-void xiter();
-void xavail();
-void xfsensor();
-
-// the statement loop
+/* the statement loop */
 void statement();
