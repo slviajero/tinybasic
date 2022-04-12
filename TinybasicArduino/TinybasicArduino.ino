@@ -34,17 +34,19 @@
   or undefine all predefines and set the features in custom settings
 */
 
-// full language set
+/*
+ * BASICFUL: full language set
+ * BASICINTEGER: integer BASIC with full language 
+ * BASICMINIMAL: minimal language
+ */
 #define BASICFULL
-
-// full language set / integer
-#undef BASICINTEGER
-
-// minimal language set
+#undef	BASICINTEGER
 #undef  BASICMINIMAL
 
-// custom settings undef all the the language sets 
-// when you def here
+/*
+ * custom settings undef all the the language sets 
+ * when you def here
+ */ 
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
@@ -60,7 +62,7 @@
 #define HASIOT
 
 
-// Palo Alto plus Arduino functions
+/* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
 #undef HASAPPLE1
 #define HASARDUINOIO
@@ -77,7 +79,7 @@
 #undef HASIOT
 #endif
 
-// all features minus float 
+/* all features minus float */
 #ifdef  BASICINTEGER
 #define HASAPPLE1
 #define HASARDUINOIO
@@ -94,7 +96,7 @@
 #define HASIOT
 #endif
 
-// all features activated
+/* all features activated */
 #ifdef BASICFULL
 #define HASAPPLE1
 #define HASARDUINOIO
@@ -117,19 +119,20 @@
 // debug mode switches 
 #define DEBUG 0
 
-// the core basic language headers including some Arduino device stuff
+/*
+ * the core basic language headers including some Arduino device stuff
+ */
 #include "basic.h"
 
 /* 
- 	Hardware dependend definitions code are isolated in hardware-*.h
-	Currently there are two versions
-		hardware-arduino.h contains all platforms compiled in the Arduino IDE
-		(ESP8266, ESP32, AVR, MEGAAVR, SAM*, RP2040)
-		hardware-posix.h contains all platforms compiled in gcc with a POSIX OS
-		(Mac, Raspberry, Windows/MINGW) plus rudimentary MSDOS with tc2.0. The 
-		latter will be removed soon.
-*/
-
+ *	Hardware dependend definitions code are isolated in hardware-*.h
+ *	Currently there are two versions
+ *		hardware-arduino.h contains all platforms compiled in the Arduino IDE
+ *		(ESP8266, ESP32, AVR, MEGAAVR, SAM*, RP2040)
+ *		hardware-posix.h contains all platforms compiled in gcc with a POSIX OS
+ *		(Mac, Raspberry, Windows/MINGW) plus rudimentary MSDOS with tc2.0. The 
+ *		latter will be removed soon.
+ */
 #ifdef ARDUINO
 #include "hardware-arduino.h"
 #else 
@@ -137,9 +140,9 @@
 #endif
 
 /* 
-	Code hardware dependencies
-	None so far
-*/
+ *	Code hardware dependencies
+ *	Removed
+ */
 
 
 /*
@@ -153,7 +156,6 @@
 address_t ballocmem() { 
 	signed char i = 0;
 
-	// memory models available 
 	const unsigned short memmodel[] = {
 		60000,  // DUE systems, RP2040 and ESP32, all POSIX systems - set to fit in one 16 bit page
     48000,  // DUE with a bit of additional stuff,
@@ -175,7 +177,7 @@ address_t ballocmem() {
 	// if the number type is only 2 bytes max memory is 32000
 	// if (sizeof(number_t) <= 2) i=2;
 
-  // on some platforms we know the free memory for BASIC 
+/* on some platforms we know the free memory for BASIC */
   long m=freememorysize();
   if (m>maxaddr) m=maxaddr;
   if (m>0) {
@@ -192,7 +194,7 @@ address_t ballocmem() {
  * don't use the 60k 
  */
 #ifdef MSDOS
-	i=1;
+  i=1;
 #endif
 #ifdef MEMMODEL
 	i=MEMMODEL;
@@ -236,9 +238,10 @@ void esave() {
 	address_t a=0;
 	if (top+eheadersize < elength()) {
 		a=0;
-		eupdate(a++, 0); // EEPROM per default is 255, 0 indicates that there is a program
+		/* EEPROM per default is 255, 0 indicates that there is a program */
+		eupdate(a++, 0); 
 
-		// store the size of the program in byte 1,2 of the EEPROM	
+		/* store the size of the program in byte 1,2 of the EEPROM*/
 		z.a=top;
 		esetnumber(a, addrsize);
 		a+=addrsize;
@@ -260,7 +263,7 @@ void eload() {
 	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
 		a++;
 
-		// how long is it?
+		/* how long is it? */
 		egetnumber(a, addrsize);
 		top=z.a;
 		a+=addrsize;
@@ -269,7 +272,8 @@ void eload() {
 			mem[a-eheadersize]=eread(a);
 			a++;
 		}
-	} else { // no valid program data is stored 
+	} else { 
+		/* no valid program data is stored */
 		error(EEEPROM);
 	}
 }
@@ -310,13 +314,12 @@ address_t bmalloc(signed char t, char c, char d, address_t l) {
 	/* check if the object already exists */
 	if (bfind(t, c, d) != 0 ) { error(EVARIABLE); return 0; };
 
-	/* 
-		how much space is needed
-			3 bytes for the token and the 2 name characters
-			numsize for every number including array length
-			one byte for every string character
-	*/
-
+/* 
+ *	how much space is needed
+ *		3 bytes for the token and the 2 name characters
+ *		numsize for every number including array length
+ *		one byte for every string character
+ */
 	switch(t) {
   	case VARIABLE:
     	vsize=numsize+3;
@@ -331,19 +334,18 @@ address_t bmalloc(signed char t, char c, char d, address_t l) {
     	vsize=l+addrsize+3;
  	}
 	
-	/* enough memory ? */ 
+/* enough memory ? */ 
 	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return 0;}
 
-	/* here we could create a hash, currently simplified
+/* here we could create a hash, currently simplified
 	 the hash is the first digit of the variable plus the token */
-
 	b=himem;
 	mem[b--]=c;
 	mem[b--]=d;
 	mem[b--]=t;
 
-	/* for strings, arrays and buffers write the (maximum) length 
-	   directly after the header */
+/* for strings, arrays and buffers write the (maximum) length 
+	  directly after the header */
 	if (t == ARRAYVAR || t == STRINGVAR || t == TBUFFER) {
 		b=b-addrsize+1;
 		z.a=vsize-(addrsize+3);
@@ -351,7 +353,7 @@ address_t bmalloc(signed char t, char c, char d, address_t l) {
 		b--;
 	}
 
-	/* reserve space for the payload */
+/* reserve space for the payload */
 	himem-=vsize;
 	nvars++;
 
@@ -413,10 +415,10 @@ number_t getvar(char c, char d){
 
 	if (DEBUG) { outsc("* getvar "); outch(c); outch(d); outspc(); outcr(); }
 
-	/* the static variable array */
+/* the static variable array */
 	if (c >= 65 && c<=91 && d == 0) return vars[c-65];
 
-	/* the special variables */
+/* the special variables */
 	if ( c == '@' )
 		switch (d) {
 			case 'S': 
@@ -440,11 +442,11 @@ number_t getvar(char c, char d){
 		}
 
 #ifdef HASAPPLE1
-	/* dynamically allocated vars, create them on the fly if needed */
+/* dynamically allocated vars, create them on the fly if needed */
 	if (!(a=bfind(VARIABLE, c, d))) a=bmalloc(VARIABLE, c, d, 0);
 	if (er != 0) return 0;
 	
-	/* retrieve the value */
+/* retrieve the value */
 	getnumber(a, numsize);
 	return z.i;
 
@@ -460,13 +462,13 @@ void setvar(char c, char d, number_t v){
 
 	if (DEBUG) { outsc("* setvar "); outch(c); outch(d); outspc(); outnumber(v); outcr(); }
 
-	/* the static variable array */
+/* the static variable array */
 	if (c >= 65 && c<=91 && d == 0) {
 		vars[c-65]=v;
 		return;
 	}
 
-	/* the special variables */
+/* the special variables */
 	if ( c == '@' )
 		switch (d) {
 			case 'S': 
@@ -495,11 +497,11 @@ void setvar(char c, char d, number_t v){
 		}
 
 #ifdef HASAPPLE1
-	/* dynamically allocated vars */
+/* dynamically allocated vars */
 	if ( !(a=bfind(VARIABLE, c, d))) a=bmalloc(VARIABLE, c, d, 0);
 	if (er != 0) return;
 
-	/* set the valus */
+/* set the valus */
 	z.i=v;
 	setnumber(a, numsize);
 #else 	
@@ -648,7 +650,7 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 		}
 	} else {
 #ifdef HASAPPLE1
-		/* dynamically allocated arrays autocreated if needed */ 
+/* dynamically allocated arrays autocreated if needed */ 
 		if ( !(a=bfind(ARRAYVAR, c, d)) ) a=createarray(c, d, ARRAYSIZEDEF);
 		if (er != 0) return;
 		h=z.a/numsize;
@@ -659,10 +661,10 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 #endif
 	}
 
-	/* is the index in range */
+/* is the index in range */
 	if ( (i < 1) || (i > h) ) { error(EORANGE); return; }
 
-	/* set or get the array */
+/* set or get the array */
 	if (m == 'g') {
 		if (! e) { getnumber(a, numsize); } else { egetnumber(a, numsize); }
 		*v=z.i;
@@ -693,13 +695,13 @@ char* getstring(char c, char d, address_t b) {
 
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
 
-	/* direct access to the input buffer - deprectated but still there */
+/* direct access to the input buffer - deprectated but still there */
 	if ( c == '@' && d == 0) {
 		return ibuffer+b;
 	}  
 
 #ifdef HASAPPLE1
-	/* special strings */
+/* special strings */
 #if !defined(ARDUINO) || defined(ARDUINORTC)
 	if ( c== '@' && d == 'T') {
 		rtcmkstr();
@@ -707,7 +709,7 @@ char* getstring(char c, char d, address_t b) {
 	}
 #endif
 
-	/* dynamically allocated strings */
+/* dynamically allocated strings */
 	if (! (a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, STRSIZEDEF);
 
 	if (DEBUG) { outsc("** heap address "); outnumber(a); outcr(); }
@@ -887,9 +889,9 @@ void printmessage(char i){
 */ 
 void error(signed char e){
 	er=e;
-	// set input and output device back to default
+/* set input and output device back to default */
 	iodefaults();
-	// find the line number
+/* find the line number */
 	if (st != SINT) {
 		outnumber(myline(here));
 		outch(':');
@@ -996,8 +998,8 @@ void pushforstack(){
 
 	if (DEBUG) { outsc("** forsp and here in pushforstack "); outnumber(forsp); outspc(); outnumber(here); outcr(); }
 	
-	// before pushing into the for stack we check is an
-	// old for exists - this is on reentering a for loop
+/* before pushing into the for stack we check is an
+	 old for exists - this is on reentering a for loop */
 	for(i=0; i<forsp; i++) {
 		if (forstack[i].varx == xc && forstack[i].vary == yc) {
 			for(j=i; j<forsp-1; j++) {
@@ -1052,6 +1054,36 @@ void clrforstack() {
 	fnc=0;
 }
 
+void pushgosubstack(){
+	if (gosubsp < GOSUBDEPTH) {
+		gosubstack[gosubsp]=here;
+		gosubsp++;	
+	} else 
+		error(EGOSUB);
+}
+
+void popgosubstack(){
+	if (gosubsp>0) {
+		gosubsp--;
+	} else {
+		error(ERETURN);
+		return;
+	} 
+	here=gosubstack[gosubsp];
+}
+
+void dropgosubstack(){
+	if (gosubsp>0) {
+		gosubsp--;
+	} else {
+		error(EGOSUB);
+	} 
+}
+
+void clrgosubstack() {
+	gosubsp=0;
+}
+
 /* 
  *	Input and output functions.
  * 
@@ -1064,16 +1096,16 @@ void clrforstack() {
  */
 void ioinit() {
 
-// a standalone system runs from keyboard and display
+/* a standalone system runs from keyboard and display */
 #ifdef STANDALONE
 	idd = IKEYBOARD;
 	odd = ODSP;
 #endif
 
-// this is only for RASPBERRY - wiring has to be started explicitly
+/* this is only for RASPBERRY - wiring has to be started explicitly */
 	wiringbegin();
 
-// all serial protocolls
+/* all serial protocolls, ttl channels, SPI and Wire */
 	serialbegin();
 #ifdef ARDUINOPRT
   prtbegin();
@@ -1085,29 +1117,31 @@ void ioinit() {
   wirebegin();
 #endif
 
-// filesystems and networks
+/* filesystems and networks */
   fsbegin(TRUE);
 #ifdef ARDUINOMQTT
 	netbegin();  
 	mqttbegin();
 #endif
 
-// the displays
-#ifdef ARDUINOPS2
+/* the displays */
+#ifdef ARDUINOPS2 
 	kbdbegin();
 #endif
 #ifdef DISPLAYDRIVER
 	dspbegin();
 #endif
 #ifdef ARDUINOVGA
-	vgabegin(); // mind this - the fablib code is special here 
+	vgabegin(); /* mind this - the fablib code is special here */
 #endif
 #ifdef ARDUINOSENSORS
 	sensorbegin();
 #endif
 
-// the eeprom dummy 
+/* the eeprom dummy */
 	ebegin();
+
+/* activate the iodefaults */
 	iodefaults();
 }
 
@@ -1118,7 +1152,7 @@ void iodefaults() {
 }
 
 /* 
- *	The generic IO code 
+ *	Layer 0 - The generic IO code 
  *
  * inch() reads one character from the stream, mostly blocking
  * checkch() reads one character from the stream, unblocking, a peek(), 
@@ -1143,8 +1177,8 @@ char inch() {
 			if (sbuffer[0]>0) return sbuffer[1]; else return 0;
 #endif
 #ifdef ARDUINORF24
-		// radio is not character oriented, this is only added to make GET work
-		// for single byte payloads, radio, like file is treated nonblocking here
+/* radio is not character oriented, this is only added to make GET work
+		or single byte payloads, radio, like file is treated nonblocking here */
 		case IRADIO:
 			radioins(sbuffer, SBUFSIZE-1);
 			if (sbuffer[0]>0) return sbuffer[1]; else return 0;
@@ -1319,7 +1353,7 @@ void ins(char *b, short nb) {
 #endif
   		default:
 #ifdef ARDUINOPRT
-  			// blockmode only implemented for ISERIAL1 
+  			/* blockmode only implemented for ISERIAL1 right now */
   			if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
 #endif
   			consins(b, nb);
@@ -1358,13 +1392,13 @@ void outch(char c) {
 #endif
 #ifdef ARDUINOMQTT
 		case OMQTT:
-			mqttouts(&c, 1); // buffering for the PRINT command
+			mqttouts(&c, 1); /* buffering for the PRINT command */
 			break;
 #endif
 		default:
 			break;
 	}
-	byield(); /* yield after every character for esps */
+	byield(); /* yield after every character for ESP8266 */
 }
 
 /* send a newline */
@@ -1407,7 +1441,7 @@ void outs(char *ir, short l){
 		default:
 			for(i=0; i<l; i++) outch(ir[i]);
 	}
-	byield(); // triggers yield on ESP8266 
+	byield(); /* triggers yield on ESP8266 */
 }
 
 /* output a zero terminated string at ir - c style */
@@ -1499,7 +1533,7 @@ short writenumber(char *c, number_t vi){
 	short s = 1;
 	char c1;
 
-	// not really needed any more
+/* not really needed any more */
 	v=(long)vi;
 
 	if (v<0) {
@@ -1539,14 +1573,14 @@ short writenumber2(char *c, number_t vi) {
   short exponent = 0; 
   char eflag=0;
 
-	// pseudo integers are displayed as integer
-	// zero trapped here
+/* pseudo integers are displayed as integer
+		zero trapped here */
 	f=floor(vi);
 	if (f == vi && fabs(vi) < maxnum) {
 		return writenumber(c, vi);
 	}
 
-	// floats are displayed using the libraries
+/* floats are displayed using the libraries */
 #ifndef ARDUINO
 	return sprintf(c, "%g", vi);
 #else
@@ -1554,7 +1588,7 @@ short writenumber2(char *c, number_t vi) {
 	while (fabs(f)<1.0)   { f=f*10; exponent--; }
   while (fabs(f)>=10.0-0.00001) { f=f/10; exponent++; }
 
-  // small numbers
+/* small numbers */
   if (exponent > -2 && exponent < 7) { 
     dtostrf(vi, 0, 5, c);
   } else {
@@ -1562,13 +1596,13 @@ short writenumber2(char *c, number_t vi) {
     eflag=TRUE;
   }
 	
-  // remove trailing zeros
+/* remove trailing zeros */
   for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
   i--;
 	while (c[i] == '0' && i>1) {i--;}
 	i++;
 
-  // add the exponent
+/* add the exponent */
   if (eflag) {
     c[i++]='E';
     i+=writenumber(c+i, exponent);
@@ -1637,7 +1671,7 @@ void outnumber(number_t n){
 #endif 
 	outs(sbuffer, nd);
 
-	// number formats in Palo Alto style
+/* number formats in Palo Alto style */
 	while (nd < form) {outspc(); nd++; };
 }
 
@@ -1669,27 +1703,27 @@ void whitespaces(){
 /* the token stream */
 void nexttoken() {
   
-	/* RUN mode vs. INT mode, in RUN mode we read from mem via gettoken() */
+/* RUN mode vs. INT mode, in RUN mode we read from mem via gettoken() */
 	if (st == SRUN || st == SERUN) {
 		gettoken();
 		if (debuglevel>1) debugtoken();
 		return;
 	}
 
-	/* after change in buffer logic the first byte is reserved for the length */
+/* after change in buffer logic the first byte is reserved for the length */
 	if (bi == ibuffer) bi++;
 
-	/* remove whitespaces outside strings */
+/* remove whitespaces outside strings */
 	whitespaces();
 
-	/* end of line token */
+/* end of line token */
 	if (*bi == '\0') { 
 		token=EOL; 
 		if (DEBUG) debugtoken();
 		return; 
 	}
 
-	/* unsigned numbers, value returned in x */
+/* unsigned numbers, value returned in x */
 	if (*bi <='9' && *bi >= '0'){
 #ifndef HASFLOAT
 		bi+=parsenumber(bi, &x);
@@ -1701,7 +1735,7 @@ void nexttoken() {
 		return;
 	}
 
-	/* strings between " " or " EOL, value returned in ir */
+/* strings between " " or " EOL, value returned in ir */
 	if (*bi == '"'){
 		x=0;
 		bi++;
@@ -1716,7 +1750,7 @@ void nexttoken() {
 		return;
 	}
 
-	/* single character operators are their own tokens */
+/* single character operators are their own tokens */
 	if (*bi == '+' || *bi == '-' || *bi == '*' || *bi == '/' || *bi == '%'  ||
 		*bi == '\\' || *bi == ':' || *bi == ',' || *bi == '(' || *bi == ')' ) { 
 			token=*bi; 
@@ -1836,7 +1870,7 @@ void nexttoken() {
 		xc=*bi;
 		yc=0;
 		bi++;
-		//whitespaces();
+/* removed: whitespaces(); */
 		if (*bi >= '0' && *bi <= '9') { 
 			yc=*bi;
 			bi++;
@@ -1845,7 +1879,7 @@ void nexttoken() {
 			yc=*bi;
 			bi++;
 		}
-		//whitespaces();
+/* removed: whitespaces(); */
 		if (*bi == '$') {
 			token=STRINGVAR;
 			bi++;
@@ -1954,8 +1988,8 @@ char memread(address_t i){
 /* get a token from memory */
 void gettoken() {
 
-	// if we have reached the end of the program, EOL is always returned
-	// we don't rely on mem having a trailing EOL
+/* if we have reached the end of the program, EOL is always returned
+		we don't rely on mem having a trailing EOL */
 	if (here >= top) {
 		token=EOL;
 		return;
@@ -1980,10 +2014,10 @@ void gettoken() {
 			yc=memread(here++);
 			break;
 		case STRING:
-			x=(unsigned char)memread(here++);  // if we run interactive or from mem, pass back the mem location
-			if (st == SERUN) { // we run from EEPROM and cannot simply pass a pointer
+			x=(unsigned char)memread(here++);		// if we run interactive or from mem, pass back the mem location
+			if (st == SERUN) { 									// we run from EEPROM and cannot simply pass a pointer
 				for(int i=0; i<x; i++) {
-					ibuffer[i]=memread(here+i);   // we (ab)use the input buffer which is not needed here
+					ibuffer[i]=memread(here+i);			// we (ab)use the input buffer which is not needed here
 				}
 				ir=ibuffer;
 			} else {
@@ -2057,7 +2091,7 @@ address_t myline(address_t h) {
 void moveblock(address_t b, address_t l, address_t d){
 	address_t i;
 
-	//outsc("** Moving block: "); outnumber(b); outspc(); outnumber(l); outspc(); outnumber(d); outcr();
+/* removed outsc("** Moving block: "); outnumber(b); outspc(); outnumber(l); outspc(); outnumber(d); outcr(); */
 	if (d+l > himem) {
 		error(EOUTOFMEMORY);
 		return;
@@ -2073,7 +2107,7 @@ void moveblock(address_t b, address_t l, address_t d){
 		for (i=0; i<l; i++) 
 			mem[d+i]=mem[b+i]; 
 
-	//outsc("** Done moving /n");
+/* removed outsc("** Done moving /n"); */
 }
 
 /* zero a block of memory */
@@ -2122,20 +2156,19 @@ void storeline() {
 	address_t here2, here3; 
 	address_t t1, t2;
 
-	// zero is an illegal line number
+/* zero is an illegal line number */
 	if (x == 0) {
 		error(ELINE);
 		return;
 	}
 
-// the data pointer becomes invalid once the code has been changed
+/* the data pointer becomes invalid once the code has been changed */
 	clrdata();
 
 /*
-	stage 1: append the line at the end of the memory,
-	remember the line number on the stack and the old top in here
-*/
-
+ *	stage 1: append the line at the end of the memory,
+ *	remember the line number on the stack and the old top in here
+ */
 	t1=x;			
 	here=top;		
 	newline=here;	 
@@ -2150,13 +2183,12 @@ void storeline() {
 		nexttoken();
 	} while (token != EOL);
 
-	x=t1;					// recall the line number
+	x=t1;									// recall the line number
 	linelength=top-here;	// calculate the number of stored bytes
 
 /* 
-	stage 2: check if only a linenumber stored - then delete this line
-*/
-
+ *	stage 2: check if only a linenumber stored - then delete this line
+ */
 	if (linelength == (lnlength)) {  		
 		top-=(lnlength);
 		y=x;					
@@ -2175,9 +2207,9 @@ void storeline() {
 	}
 
 /* 
-	stage 3, a nontrivial line with linenumber x is to be stored
-	try to find it first by walking through all lines 
-*/
+ *	stage 3, a nontrivial line with linenumber x is to be stored
+ *	try to find it first by walking through all lines 
+ */
 	else {	
 		y=x;
 		here2=here;
@@ -2195,11 +2227,12 @@ void storeline() {
 			if (x > y) break;
 		}
 
-		// at this point y contains the number of the line to be inserted
-		// x contains the number of the first line with a higher line number
-		// or 0 if the line is to be inserted at the end
-		// here points to the following line and here2 points to the previous line
-
+/* 
+ *	at this point y contains the number of the line to be inserted
+ *	x contains the number of the first line with a higher line number
+ *	or 0 if the line is to be inserted at the end
+ *	here points to the following line and here2 points to the previous line
+ */
 		if (x == 0) { 
 			here=here3-lnlength;
 			gettoken();
@@ -2216,9 +2249,9 @@ void storeline() {
 		here=here2-lnlength;
 		t2=here;
 		gettoken();
-		if (x == y) {     // the line already exists and has to be replaced
-			here2=t2;  // this is the line we are dealing with
-			here=t1;   // this is the next line
+		if (x == y) {		// the line already exists and has to be replaced
+			here2=t2;  		// this is the line we are dealing with
+			here=t1;   		// this is the next line
 			y=here-here2; // the length of the line as it is 
 			if (linelength == y) {     // no change in line length
 				moveblock(top-linelength, linelength, here2);
@@ -2244,8 +2277,8 @@ void storeline() {
 }
 
 /* 
- * the code in this section calculates an expression, with a recursive 
- * descent algorithm 
+ * Layer 1 - the code in this section calculates an expression
+ * with a recursive descent algorithm 
  *
  * all function use the stack to pass values back. We use the 
  * Backus-Naur form of basic from here https://rosettacode.org/wiki/BNF_Grammar
@@ -2294,13 +2327,13 @@ void parsearguments() {
 }
 
 
-// expect exactly n arguments
+/* expect exactly n arguments */
 void parsenarguments(char n) {
 	parsearguments();
 	if (args != n ) error(EARGS);
 }
 
-// counts and parses the number of arguments given in brakets
+/* counts and parses the number of arguments given in brakets */
 void parsesubscripts() {
 	args=0;
 	if (token != '(') return; // zero arguments is legal here
@@ -2311,8 +2344,8 @@ void parsesubscripts() {
 }
 
 
-// parse a function argument ae is the number of 
-// expected expressions in the argument list
+/* parse a function argument ae is the number of 
+	expected expressions in the argument list */
 void parsefunction(void (*f)(), short ae){
 	nexttoken();
 	parsesubscripts();
@@ -2320,7 +2353,7 @@ void parsefunction(void (*f)(), short ae){
 	if (args == ae) f(); else error(EARGS);
 }
 
-// helper function in the recursive decent parser
+/* helper function in the recursive decent parser */
 void parseoperator(void (*f)()) {
 	nexttoken();
 	f();
@@ -2329,18 +2362,19 @@ void parseoperator(void (*f)()) {
 	x=pop();
 }
 
-// substring evaluation, mind the rewinding here - a bit of a hack
 #ifdef HASAPPLE1
+/* substring evaluation, mind the rewinding here - a bit of a hack */
 void parsesubstring() {
 	char xc1, yc1; 
 	address_t h1; // remember the here
 	char* bi1;
 
-	// remember the string name
+/* remember the string name */
 	xc1=xc;
 	yc1=yc;
 
-  if (st == SINT) // this is a hack - we rewind a token ! 
+/* this is a hack - we rewind a token ! */
+  if (st == SINT) 
 		bi1=bi; 
 	else 
 		h1=here; 
@@ -2356,7 +2390,8 @@ void parsesubstring() {
 			push(lenstring(xc1, yc1));
 			break;
 		case 0: 
-			if (st == SINT) // this is a hack - we rewind a token !
+/* this is a hack - we rewind a token !	*/
+			if (st == SINT) 
 				bi=bi1;
 			else 
 				here=h1; 
@@ -2394,7 +2429,7 @@ void xpeek(){
 
 	x=pop();
 
-	// this is a hack again, 16 bit numbers can't peek big addresses
+/* this is a hack again, 16 bit numbers can't peek big addresses */
 	if ((long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
 
 	if (x >= 0 && x<amax) 
@@ -2553,8 +2588,9 @@ void streval(){
 	irl=ir2;
 	xl=pop();
 
+/* get ready for rewind. */
 	if (st != SINT)
-		h1=here; // get ready for rewind.
+		h1=here; 
 	else 
 		b1=bi;
 
@@ -2562,8 +2598,9 @@ void streval(){
 	nexttoken();
 
 	if (token != '=' && token != NOTEQUAL) {
+/* rewind one token if not comparison	 */
 		if (st != SINT)
-			here=h1; // rewind one token if not comparison
+			here=h1; 
 		else 
 			bi=b1;
 		token=t;
@@ -2607,106 +2644,6 @@ void xexp() { push(exp(pop())); }
 void xint() { push(floor(pop())); }
 #else 
 void xint() {}
-#endif
-
-#ifdef HASDARKARTS
-/*
- * MALLOC allocates a chunk of memory, currently limited to 8 bits
- */
-void xmalloc() {
-	address_t h; 
-	address_t s;
-	s=pop();
-	if (s<1) {error(EORANGE); return; };
-	h=pop();
-	push(bmalloc(TBUFFER, h%256, 0, s));
-}
-
-/*
- * FIND an object on the heap
- */
-void xfind() {
-	address_t h;
-	h=pop();
-	push(bfind(TBUFFER, h%256, 0));
-}
-#endif
-
-#ifdef HASIOT
-/*
- * NEXT can be a function in the context of iterators
- *	not yet implemented
- */
-void xinext() {
-	push(pop());
-}
-#endif
-
-#ifdef HASDARTMOUTH
-/*
- * FN function evaluation
- */
-void xfn() {
-	char fxc, fyc;
-	char vxc, vyc;
-	address_t a;
-	address_t h1, h2;
-	number_t xt;
-
-	// the name of the function
-	if (!expect(ARRAYVAR, EUNKNOWN)) return;
-	fxc=xc;
-	fyc=yc;
-
-	// and the argument
-	nexttoken();
-	if (token != '(') {error(EUNKNOWN); return; }
-
-	nexttoken();
-	expression();
-	if (er != 0) return;
-
-	if (token != ')') {error(EUNKNOWN); return; }
-
-	// find the function structure and retrieve the payload
-	if ( (a=bfind(TFN, fxc, fyc)) == 0 ) {error(EUNKNOWN); return; }
-	getnumber(a, addrsize);
-	h1=z.a;
-	vxc=mem[a+addrsize];
-	vyc=mem[a+addrsize+1];
-
-	// remember the original value of the variable and set it
-	xt=getvar(vxc, vyc);
-	if (DEBUG) {outsc("** saving the original running var "); outch(vxc); outch(vyc); outspc(); outnumber(xt); outcr();}
-
-
-	setvar(vxc, vyc, pop());
-
-	// store here and then evaluate the function
-	h2=here;
-	here=h1;
-	if (DEBUG) {outsc("** evaluating expressing at "); outnumber(here); outcr(); }
-
-	if (!expectexpr()) return;
-
-	// restore everything
-	here=h2;
-	setvar(vxc, vyc, xt);
-
-	// no nexttoken as this is called in factor
-}
-#endif
-
-#ifdef HASIOT
-/* 
- * AVAIL of a stream - are there characters in the stream
- */
-void xavail() {
-	unsigned char oid=id;
-	id=pop();
-	push(availch());
-	id=oid;
-}
 #endif
 
 /*
@@ -2757,7 +2694,7 @@ void factor(){
 			if (er != 0 ) return;
 			if (token != ')') { error(EARGS); return; }
 			break;
-// Palo Alto BASIC functions
+/* Palo Alto BASIC functions */
 		case TABS: 
 			parsefunction(xabs, 1);
 			break;
@@ -2767,7 +2704,7 @@ void factor(){
 		case TSIZE:
 			push(himem-top);
 			break;
-// Apple 1 BASIC functions
+/* Apple 1 BASIC functions */
 #ifdef HASAPPLE1
 		case TSGN: 
 			parsefunction(xsgn, 1);
@@ -2816,8 +2753,8 @@ void factor(){
 			nexttoken();
 			if (! stringvalue()) { error(EUNKNOWN); return; }
 			if (er != 0) return;
-			// not super clean - handling of terminal symbol dirty
-			// stringtobuffer needed 
+/* not super clean - handling of terminal symbol dirty
+		stringtobuffer needed !! */
 			while(*ir2==' ' || *ir2=='\t') ir2++;
 			if(*ir2=='-') { y=-1; ir2++;} else y=1;
 #ifdef HASFLOAT
@@ -2860,14 +2797,14 @@ void factor(){
 		case THIMEM:
 			push(himem);
 			break;
-// Apple 1 string compare code
+/* Apple 1 string compare code */
 		case STRING:
 		case STRINGVAR:
 			streval();
 			if (er != 0 ) return;
 			break;
 #endif
-//  Stefan's tinybasic additions
+/*  Stefan's tinybasic additions */
 #ifdef HASSTEFANSEXT
 		case TSQR: 
 			parsefunction(sqr, 1);
@@ -2882,7 +2819,7 @@ void factor(){
 			parsefunction(xpow, 2);
 			break;
 #endif
-// Arduino I/O
+/* Arduino I/O */
 #ifdef HASARDUINOIO
 		case TAREAD: 
 			parsefunction(aread, 1);
@@ -2906,7 +2843,7 @@ void factor(){
 #endif			
 			break;
 #endif
-// mathematical functions
+/* mathematical functions in case we have float */
 #ifdef HASFLOAT
 		case TSIN:
 			parsefunction(xsin, 1);
@@ -2927,7 +2864,7 @@ void factor(){
 			parsefunction(xexp, 1);
 			break;
 #endif
-		// int is always present to make programs compatible
+/* int is always present to make programs compatible */
 		case TINT:
 			parsefunction(xint, 1);
 			break;
@@ -2956,7 +2893,7 @@ void factor(){
 			break;
 #endif
 
-// unknown function
+/* unknown function */
 		default:
 			error(EUNKNOWN);
 			return;
@@ -3007,6 +2944,7 @@ nextfactor:
 	if (DEBUG) bdebug("leaving term\n");
 }
 
+/* add and subtract */
 void addexpression(){
 	if (DEBUG) bdebug("addexp\n");
 	if (token != '+' && token != '-') {
@@ -3030,6 +2968,7 @@ nextterm:
 	}
 }
 
+/* comparisions */
 void compexpression() {
 	if (DEBUG) bdebug("compexp\n"); 
 	addexpression();
@@ -3068,6 +3007,7 @@ void compexpression() {
 	}
 }
 
+/* boolean NOT */
 void notexpression() {
 	if (DEBUG) bdebug("notexp\n");
 	if (token == TNOT) {
@@ -3080,6 +3020,7 @@ void notexpression() {
 		compexpression();
 }
 
+/* boolean AND */
 void andexpression() {
 	if (DEBUG) bdebug("andexp\n");
 	notexpression();
@@ -3091,6 +3032,7 @@ void andexpression() {
 	} 
 }
 
+/* expression function and boolean OR */
 void expression(){
 	if (DEBUG) bdebug("exp\n"); 
 	andexpression();
@@ -3103,7 +3045,7 @@ void expression(){
 }
 
 /* 
- * The commands and their helpers
+ * Layer 2 - The commands and their helpers
  *    
  * Palo Alto BASIC languge set - PRINT, LET, INPUT, GOTO, GOSUB, RETURN,
  *    	IF, FOR, TO, NEXT, STEP, BREAK, STOP, END, LIST, NEW, RUN, REM
@@ -3190,7 +3132,6 @@ separators:
  *	assignnumber assigns a number to a given lefthandside
  */
 void lefthandside(address_t* i, char* ps) {
-
 	switch (token) {
 		case VARIABLE:
 			nexttoken();
@@ -3234,7 +3175,6 @@ void lefthandside(address_t* i, char* ps) {
 }
 
 void assignnumber(signed char t, char xcl, char ycl, address_t i, char ps) {
-
 	switch (t) {
 		case VARIABLE:
 			x=pop();
@@ -3361,7 +3301,7 @@ void xinput(){
 	
 	nexttoken();
 
-	// modifiers of the input statement
+/* modifiers of the input statement */
 	if (token == '&') {
 
 		if(!expectexpr()) return;
@@ -3428,14 +3368,14 @@ nextvariable:
 	}
 
 #ifdef HASAPPLE1
-	/* strings are not passed through the input buffer but inputed directly 
-	   in the string memory location */
+/* strings are not passed through the input buffer but inputed directly 
+	  in the string memory location */
 	if (token == STRINGVAR) {
 		ir=getstring(xc, yc, 1); 
 		if (prompt) showprompt();
 		ins(ir-1, stringdim(xc, yc));
-		/* this is the length information correction for large strings, ins
-			stored the string length in z.a as a side effect */
+/* this is the length information correction for large strings, ins
+		stored the string length in z.a as a side effect */
 		if (xc != '@' && strindexsize == 2) { 
 			*(ir-2)=z.b.l;
 			*(ir-1)=z.b.h;
@@ -3455,38 +3395,7 @@ nextvariable:
 
 /*
  *	GOTO, GOSUB, RETURN and their helpers
- */
-void pushgosubstack(){
-	if (gosubsp < GOSUBDEPTH) {
-		gosubstack[gosubsp]=here;
-		gosubsp++;	
-	} else 
-		error(EGOSUB);
-}
-
-void popgosubstack(){
-	if (gosubsp>0) {
-		gosubsp--;
-	} else {
-		error(ERETURN);
-		return;
-	} 
-	here=gosubstack[gosubsp];
-}
-
-void dropgosubstack(){
-	if (gosubsp>0) {
-		gosubsp--;
-	} else {
-		error(EGOSUB);
-	} 
-}
-
-void clrgosubstack() {
-	gosubsp=0;
-}
-
-/*
+ *
  *	GOTO and GOSUB function for a simple one statement goto
  */
 void xgoto() {
@@ -3502,8 +3411,8 @@ void xgoto() {
 	findline(x);
 	if (er != 0) return;
 
-	// goto in interactive mode switched to RUN mode
-	// no clearing of variables and stacks
+/* goto in interactive mode switched to RUN mode
+		no clearing of variables and stacks */
 	if (st == SINT) st=SRUN;
 
 	nexttoken();
@@ -3528,10 +3437,10 @@ void xif() {
 	x=pop();
 	if (DEBUG) { outnumber(x); outcr(); } 
 
-	// on condition false skip the entire line 
+/* on condition false skip the entire line */
 	if (!x) while(token != LINENUMBER && token != EOL) nexttoken();
 	
-	// a then token is interpreted as simple one statement goto	
+/* a then token is interpreted as simple one statement goto	*/
 	if (token == TTHEN) {
 		nexttoken();
 		if (token == NUMBER) {
@@ -3576,13 +3485,13 @@ void xfor(){
 	number_t e=maxnum;
 	number_t s=1;
 	
-	// there has to be a variable
+/* there has to be a variable */
 	if (!expect(VARIABLE, EUNKNOWN)) return;
 	xcl=xc;
 	ycl=yc;
 
-	// this is not standard BASIC all combinations of 
-	// FOR TO STEP are allowed
+/* this is not standard BASIC all combinations of 
+		FOR TO STEP are allowed */
 	nexttoken();
 	if (token == '=') { 
 		if (!expectexpr()) return;
@@ -3607,7 +3516,7 @@ void xfor(){
 	if (st == SINT)
 		here=bi-ibuffer;
 
-	// here we know everything to set up the loop	
+/*  here we know everything to set up the loop */
 	setvar(xcl, ycl, b);
 	if (DEBUG) { 
 		outsc("** for loop with parameters var begin end step : ");
@@ -3621,9 +3530,9 @@ void xfor(){
 	if (er != 0) return;
 
 /*
-	this tests the condition and stops if it is fulfilled already from start 
-	there is an apocryphal feature here: STEP 0 is legal triggers an infinite loop
-*/
+ *	this tests the condition and stops if it is fulfilled already from start 
+ *	there is an apocryphal feature here: STEP 0 is legal triggers an infinite loop
+ */
 	if ( (y > 0 && getvar(xc, yc)>x) || (y < 0 && getvar(xc, yc)<x ) ) { 
 		dropforstack();
 		findnextcmd();
@@ -3655,7 +3564,7 @@ void xnext(){
 
 	nexttoken();
 
-	// one variable is accepted as an argument, no list
+/* one variable is accepted as an argument, no list */
 	if (token == VARIABLE) {
 		if (DEBUG) { outsc("** variable argument "); outch(xc); outch(yc); outcr(); }
 		xcl=xc;
@@ -3667,13 +3576,12 @@ void xnext(){
 		}
 	}
 
-	// remember the current position
+/* remember the current position */
 	h=here;
 	popforstack();
 	if (er != 0) return;
-	// a variable argument in next clears the for stack 
-	// down as BASIC programs can and do jump out to a outer 
-	// next
+/* a variable argument in next clears the for stack 
+		down as BASIC programs can and do jump out to a outer next */
 	if (xcl) {
 		while (xcl != xc || ycl != yc ) {
 			popforstack();
@@ -3681,17 +3589,17 @@ void xnext(){
 		} 
 	}
 
-	// y=0 an infinite loop with step 0
+	/* y=0 an infinite loop with step 0 */
 	t=getvar(xc, yc)+y;
 	setvar(xc, yc, t);
 
-	// do we need another iteration, STEP 0 always triggers an infinite loop
+	/* do we need another iteration, STEP 0 always triggers an infinite loop */
 	if ( (y==0) || (y > 0 && t <= x) || (y < 0 && t >= x) ) {
-		// push the loop with the new values back to the for stack
+	/* push the loop with the new values back to the for stack */
 		pushforstack();
 		if (st == SINT) bi=ibuffer+here;
 	} else {
-		// last iteration completed we stay here after the next
+	/* last iteration completed we stay here after the next */
 		here=h;
 	}
 	nexttoken();
@@ -3700,11 +3608,7 @@ void xnext(){
 
 /* 
  *	TOKEN output - this is also used in save, list does a minimal formatting with a simple heuristic
- * 	the formaters lastouttoken and spaceafterkeyword are experimental
  */
-signed char lastouttoken;
-signed char spaceafterkeyword;
-
 void outputtoken() {
 	unsigned short i;
 
@@ -3799,14 +3703,14 @@ void xlist(){
 		gettoken();
 		if (token == LINENUMBER && oflag) {
 			outcr();
-			// wait after every line on small displays
-			// if ( dspactive() && (dsp_rows < 10) ){ if ( inch() == 27 ) break;}
+/* wait after every line on small displays
+   rempved if ( dspactive() && (dsp_rows < 10) ){ if ( inch() == 27 ) break;} */
 			if (dspactive()) 
 				if ( dspwaitonscroll() == 27 ) break;
 		}
 	}
 	if (here == top && oflag) outputtoken();
-    if (e == 32767 || b != e) outcr(); // supress newlines in "list 50" - a little hack
+    if (e == 32767 || b != e) outcr(); /* supress newlines in "list 50" - a little hack */
 
 	nexttoken();
  }
@@ -3832,8 +3736,8 @@ void xrun(){
 		xclr();
 	}
 
-	// once statement is called it stays into a loop until the token stream 
-	// is exhausted. Then we return to interactive mode.
+/* once statement is called it stays into a loop until the token stream 
+		is exhausted. Then we return to interactive mode. */
   statement();
 	st=SINT;
 }
@@ -3842,23 +3746,23 @@ void xrun(){
  * NEW the general cleanup function - new deletes everything
  */
 void xnew(){ 
-	// all stacks are purged
+/* all stacks are purged */
 	clearst();
 	clrgosubstack();
 	clrforstack();
 	clrdata();
 
 
-	// program memory back to zero and variable heap cleared
+/* program memory back to zero and variable heap cleared */
 	himem=memsize;
 	top=0;
 	zeroblock(top,himem);
 	clrvars();
 
-	// error status reset
+/* error status reset */
 	reseterror();
 
-	// interactive mode
+/* interactive mode */
 	st=SINT;
 }
 
@@ -3936,8 +3840,8 @@ nextvariable:
 void xpoke(){
 	address_t amax;
 
-	// like in peek
-	// this is a hack again, 16 bit numbers can't peek big addresses
+/* like in peek
+	this is a hack again, 16 bit numbers can't peek big addresses */
 	if ( (long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
 
 	nexttoken();
@@ -4111,11 +4015,11 @@ void xsave() {
 			return;
 		} 
 
-		// save the output mode and then save
+/* save the output mode and then save */
 		push(od);
 		od=OFILE;
 		
-		// the core save - xlist() not used any more 
+/* the core save - xlist() not used any more */
 		here2=here;
 		here=0;
 		gettoken();
@@ -4127,13 +4031,13 @@ void xsave() {
 		if (here == top) outputtoken();
    	outcr(); 
    	
-   	// back to where we were
+/* back to where we were */
    	here=here2;
 
-   	// restore the output mode
+/* restore the output mode */
 		od=pop();
 
-   	// clean up
+/* clean up */
 		ofileclose();
 
 	}
@@ -4165,9 +4069,10 @@ void xload(const char * f) {
 		nexttoken();
 	} else {
 
-		// if load is called during runtime it chains
-		// load the program as new but perserve the variables
-		// gosub and for stacks are cleared 
+/*	if load is called during runtime it chains
+ *	load the program as new but perserve the variables
+ *	gosub and for stacks are cleared 
+ */
 		if ( st == SRUN ) { 
 			chain=TRUE; 
 			st=SINT; 
@@ -4203,7 +4108,7 @@ void xload(const char * f) {
 		}   	
 		ifileclose();
 
-		// go back to run mode and start from the first line
+/* go back to run mode and start from the first line */
 		if (chain) {
 			st=SRUN;
 			here=0;
@@ -4213,15 +4118,15 @@ void xload(const char * f) {
 }
 #else 
 /*
-	SAVE a file to EEPROM - minimal version for small Arduinos
-*/
+ *	SAVE a file to EEPROM - minimal version for small Arduinos
+ */
 void xsave() {
 	esave(); 
 	nexttoken();
 }
 /*
-	SLOAD a file from EEPROM - minimal version for small Arduinos
-*/
+ *	LOAD a file from EEPROM - minimal version for small Arduinos
+ */
 void xload(const char* f) {
 	eload();
 	nexttoken();
@@ -4232,15 +4137,15 @@ void xload(const char* f) {
  *	GET just one character from input 
  */
 void xget(){
-	signed char t;  // remember the left hand side token until the end of the statement, type of the lhs
-	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
-	char xcl, ycl; // to preserve the left hand side variable names
-	address_t i=1;      // and the beginning of the destination string  
+	signed char t;	// remember the left hand side token until the end of the statement, type of the lhs
+	char ps=TRUE;		// also remember if the left hand side is a pure string of something with an index 
+	char xcl, ycl;	// to preserve the left hand side variable names
+	address_t i=1;	// and the beginning of the destination string  
 	unsigned char oid=id;
 
 	nexttoken();
 
-	// modifiers of the get statement
+/* modifiers of the get statement */
 	if (token == '&') {
 
 		if (!expectexpr()) return;
@@ -4252,19 +4157,19 @@ void xget(){
 		nexttoken();
 	}
 
-	// this code evaluates the left hand side - remember type and name
+/* this code evaluates the left hand side - remember type and name */
 	ycl=yc;
 	xcl=xc;
 	t=token;
 
-	// find the indices 
+/* find the indices */
 	lefthandside(&i, &ps);
 	if (er != 0) return;
 
-	// get the data
+/* get the data */
 	if (availch()) push(inch()); else push(0);
 
-	// store the data element as a number
+/* store the data element as a number */
 	assignnumber(t, xcl, ycl, i, ps);
 
 	nexttoken();
@@ -4281,7 +4186,7 @@ void xput(){
 
 	nexttoken();
 
-	// modifiers of the put statement
+/* modifiers of the put statement */
 	if (token == '&') {
 
 		if(!expectexpr()) return;
@@ -4455,6 +4360,20 @@ void xdelay(){
 	}
 }
 
+/* tone if the platform has it */
+#ifdef HASTONE
+void xtone(){
+	nexttoken();
+	parsearguments();
+	if (er != 0) return;
+	if (args>3 || args<2) {
+		error(EARGS);
+		return;
+	}
+	btone(args);	
+}
+#endif
+
 #ifdef HASGRAPH
 /*
  *	COLOR setting, accepting one or 3 arguments
@@ -4555,20 +4474,109 @@ void xfcircle() {
 }
 #endif
 
+#ifdef HASDARKARTS
+/*
+ * MALLOC allocates a chunk of memory, currently limited to 8 bits
+ */
+void xmalloc() {
+	address_t h; 
+	address_t s;
+	s=pop();
+	if (s<1) {error(EORANGE); return; };
+	h=pop();
+	push(bmalloc(TBUFFER, h%256, 0, s));
+}
 
-#ifdef HASTONE
-void xtone(){
-	nexttoken();
-	parsearguments();
-	if (er != 0) return;
-	if (args>3 || args<2) {
-		error(EARGS);
+/*
+ * FIND an object on the heap
+ */
+void xfind() {
+	address_t h;
+	h=pop();
+	push(bfind(TBUFFER, h%256, 0));
+}
+
+/*
+ *	EVAL can modify a program, there are serious side effects
+ *	which are not caught (and cannot be). All FOR loops and RETURN 
+ *	vectors break if EVAL inserts in their range
+ */
+void xeval(){
+	short i, l;
+	address_t mline, line;
+
+
+/* get the line number to store */
+	if (!expectexpr()) return;
+	line=pop();
+
+	if (token != ',') {
+		error(EUNKNOWN);
 		return;
 	}
-	btone(args);	
+
+/* the line to be stored */
+	nexttoken();
+	if (! stringvalue()) {
+		error(EARGS); return; 
+	}
+
+/* here we have the string to evaluate in ir2 and copy it to the ibuffer
+		only one line allowed, BUFSIZE is the limit */
+	l=pop();
+	if (l>BUFSIZE-1) {error(EORANGE); return; }
+	for (i=0; i<l; i++) ibuffer[i+1]=ir2[i];
+	ibuffer[l+1]=0;
+	if (DEBUG) {outsc("** Preparing to store line "); outnumber(line); outspc(); outsc(ibuffer+1); outcr(); }
+
+/* we find the line we are currently at */
+	if (st != SINT) {
+		mline=myline(here);
+		if (DEBUG) {outsc("** myline is "); outnumber(mline); outcr(); }
+	}
+
+/* go to interactive mode and try to store the line */
+	x=line;							// the linennumber
+	push(st); st=SINT;	// go to (fake) interactive mode
+	bi=ibuffer;					// go to the beginning of the line
+	storeline();				// try to store it
+	st=pop();						// go back to run mode
+
+/* find my line - side effects not checked here */
+	if (st != SINT) {
+		findline(mline);
+		nextline();
+	}
 }
 #endif
 
+
+#ifdef HASIOT
+/*
+ * NEXT can be a function in the context of iterators
+ *	not yet implemented
+ */
+void xinext() {
+	push(pop());
+}
+
+/*
+ *	ITER generates iterators
+ * 	not yet implemented 
+ */
+void xiter(){
+	nexttoken();
+}
+
+/* 
+ * AVAIL of a stream - are there characters in the stream
+ */
+void xavail() {
+	unsigned char oid=id;
+	id=pop();
+	push(availch());
+	id=oid;
+}
 
 /* 
  * IoT functions - sensor reader, experimentral
@@ -4579,6 +4587,8 @@ void xfsensor() {
 	s=pop();
 	push(sensorread(s, a));
 }
+#endif
+
 
 /*
  *	BASIC DOS - disk access programs, to control mass storage from BASIC
@@ -4869,7 +4879,7 @@ void xcall() {
 	r=pop();
 	switch(r) {
 		case 0:
-			// flush the EEPROM dummy and then exit 
+/* flush the EEPROM dummy and then exit */
 			eflush();  
 			restartsystem();
 			break;
@@ -4879,7 +4889,7 @@ void xcall() {
 	}
 }
 
-// the dartmouth stuff
+/* the dartmouth stuff */
 #ifdef HASDARTMOUTH
 /*
  * DATA is simply skipped when encountered as a command
@@ -4956,17 +4966,16 @@ enddatarecord:
 
 }
 
-
 /*
  *	READ - find data records and insert them to variables
  *	this code resembles get - generic stream read code needed later
  */
 void xread(){
 	signed char t, t0;  // remember the left hand side token until the end of the statement, type of the lhs
-	char ps=TRUE;  	// also remember if the left hand side is a pure string of something with an index 
-	char xcl, ycl; 	// to preserve the left hand side variable names
-	address_t i=1;  // and the beginning of the destination string 
-	signed char datat; // the type of the data element
+	char ps=TRUE;  			// also remember if the left hand side is a pure string of something with an index 
+	char xcl, ycl; 			// to preserve the left hand side variable names
+	address_t i=1;  		// and the beginning of the destination string 
+	signed char datat;	// the type of the data element
 	address_t lendest, lensource, newlength;
 	int j;
 	
@@ -5091,18 +5100,71 @@ void xdef(){
 		outcr();
 	}
 
-	// find the function
+/* find the function */
 	if ( (a=bfind(TFN, xcl1, ycl1)) == 0 ) a=bmalloc(TFN, xcl1, ycl1, 0);
 	if (DEBUG) {outsc("** found function structure at "); outnumber(a); outcr(); }
 
-	// store the payload - the here address - and the name of the variable
+/* store the payload - the here address - and the name of the variable */
 	z.a=here;
 	setnumber(a, addrsize);
 	mem[a+addrsize]=xcl2;
 	mem[a+addrsize+1]=ycl2;
 
-	// skip whatever comes next
+/* skip whatever comes next */
 	while (!termsymbol()) nexttoken();
+}
+
+/*
+ * FN function evaluation
+ */
+void xfn() {
+	char fxc, fyc;
+	char vxc, vyc;
+	address_t a;
+	address_t h1, h2;
+	number_t xt;
+
+/* the name of the function */
+	if (!expect(ARRAYVAR, EUNKNOWN)) return;
+	fxc=xc;
+	fyc=yc;
+
+/* and the argument */
+	nexttoken();
+	if (token != '(') {error(EUNKNOWN); return; }
+
+	nexttoken();
+	expression();
+	if (er != 0) return;
+
+	if (token != ')') {error(EUNKNOWN); return; }
+
+/* find the function structure and retrieve the payload */
+	if ( (a=bfind(TFN, fxc, fyc)) == 0 ) {error(EUNKNOWN); return; }
+	getnumber(a, addrsize);
+	h1=z.a;
+	vxc=mem[a+addrsize];
+	vyc=mem[a+addrsize+1];
+
+/* remember the original value of the variable and set it */
+	xt=getvar(vxc, vyc);
+	if (DEBUG) {outsc("** saving the original running var "); outch(vxc); outch(vyc); outspc(); outnumber(xt); outcr();}
+
+
+	setvar(vxc, vyc, pop());
+
+/* store here and then evaluate the function */
+	h2=here;
+	here=h1;
+	if (DEBUG) {outsc("** evaluating expressing at "); outnumber(here); outcr(); }
+
+	if (!expectexpr()) return;
+
+/* restore everything */
+	here=h2;
+	setvar(vxc, vyc, xt);
+
+/* no nexttoken as this is called in factor !! */
 }
 
 /*
@@ -5116,30 +5178,30 @@ void xon(){
 	
 	if(!expectexpr()) return;
 
-	// the result of the condition, can be any number
-	// even large
+/* the result of the condition, can be any number
+		even large */
 	cr=pop();
 	if (DEBUG) { outsc("** in on condition found "); outnumber(cr); outcr(); } 
 
-	// is there a goto or gosub
+/* is there a goto or gosub */
 	if ( token != TGOSUB && token != TGOTO)  {
 		error(EUNKNOWN);
 		return;
 	}
 
-	// remember if we do gosub or goto
+/* remember if we do gosub or goto */
 	t=token;
 
-	// how many arguments have we got here
+/* how many arguments have we got here */
 	nexttoken();
 	parsearguments();
 	if (er != 0) return;
 	if (args == 0) { error(EARGS); return; }
 	
-	// do we have more arguments then the condition?
+/* do we have more arguments then the condition? */
 	if (cr > args && cr <= 0) ci=0; else ci=(int)cr;
 
-	// now find the line to jump to and clean the stack
+/* now find the line to jump to and clean the stack */
 	while (args) {
 		tmp=pop();
 		if (args == ci) line=tmp;
@@ -5147,110 +5209,41 @@ void xon(){
 	}
 	
 	if (DEBUG) { outsc("** in on found line as target "); outnumber(line); outcr(); }
-	// no line found to jump to
+/* no line found to jump to */
 	if (line == 0) {
 		nexttoken();
 		return;
 	}
 
-	// prepare for the jump	
+/* prepare for the jump	*/
 	if (t == TGOSUB) pushgosubstack();
 	if (er != 0) return;
 
 	findline(line);
 	if (er != 0) return;
 
-	// goto in interactive mode switched to RUN mode
-	// no clearing of variables and stacks
+/* goto in interactive mode switched to RUN mode
+		no clearing of variables and stacks */
 	if (st == SINT) st=SRUN;
 
 	nexttoken();
 }
 #endif
 
-#ifdef HASDARKARTS
-/*
- *	EVAL can modify a program, there are serious side effects
- *	which are not caught (and cannot be). All FOR loops and RETURN 
- *	vectors break if EVAL inserts in their range
- */
-void xeval(){
-	short i, l;
-	address_t mline, line;
-
-
-	// get the line number to store
-	if (!expectexpr()) return;
-	line=pop();
-
-	if (token != ',') {
-		error(EUNKNOWN);
-		return;
-	}
-
-	// the line to be stored
-	nexttoken();
-	if (! stringvalue()) {
-		error(EARGS); return; 
-	}
-
-	// here we have the string to evaluate in ir2 and copy it to the ibuffer
-	// only one line allowed, BUFSIZE is the limit
-	l=pop();
-	if (l>BUFSIZE-1) {error(EORANGE); return; }
-	for (i=0; i<l; i++) ibuffer[i+1]=ir2[i];
-	ibuffer[l+1]=0;
-	if (DEBUG) {outsc("** Preparing to store line "); outnumber(line); outspc(); outsc(ibuffer+1); outcr(); }
-
-	// we find the line we are currently at
-	if (st != SINT) {
-		mline=myline(here);
-		if (DEBUG) {outsc("** myline is "); outnumber(mline); outcr(); }
-	}
-
-	
-	// go to interactive mode and try to store the line
-	x=line;             // the linennumber
-	push(st); st=SINT;  // go to (fake) interactive mode
-	bi=ibuffer; 		// go to the beginning of the line
-	storeline();  		// try to store it
-	st=pop();			// go back to run mode
-
-	// find my line - side effects not checked here
-	if (st != SINT) {
-		findline(mline);
-		nextline();
-	}
-}
-#endif
-
-#ifdef HASIOT
-/*
- *	ITER generates iterators
-*/
-void xiter(){
-	nexttoken();
-}
-#endif
-
-
 /* 
-
-	statement processes an entire basic statement until the end 
-	of the line. 
-
-	The statement loop is a bit odd and requires some explanation.
-	A statement function called in the central switch here must either
-	call nexttoken as its last action to feed the loop with a new token 
-	and then break or it must return which means that the rest of the 
-	line is ignored. A function that doesn't call nexttoken and just 
-	breaks causes an infinite loop.
-
-	Statement is called once in interactive mode and terminates 
-	at end of line. 
-
-*/
-
+ *	statement processes an entire basic statement until the end 
+ *	of the line. 
+ *
+ *	The statement loop is a bit odd and requires some explanation.
+ *	A statement function called in the central switch here must either
+ *	call nexttoken as its last action to feed the loop with a new token 
+ *	and then break or it must return which means that the rest of the 
+ *	line is ignored. A function that doesn't call nexttoken and just 
+ *	breaks causes an infinite loop.
+ *
+ *	statement is called once in interactive mode and terminates 
+ *	at end of line. 
+ */
 void statement(){
 	if (DEBUG) bdebug("statement \n"); 
 	while (token != EOL) {
@@ -5260,7 +5253,7 @@ void statement(){
 			case LINENUMBER:
 				nexttoken();
 				break;
-// Palo Alto BASIC language set + BREAK
+/* Palo Alto BASIC language set + BREAK */
 			case TPRINT:
 				xprint();
 				break;
@@ -5306,7 +5299,7 @@ void statement(){
 			case TLIST:
 				xlist();
 				break;
-			case TNEW: // return here because new input is needed
+			case TNEW: 		// return here because new input is needed
 				xnew();
 				return;
 			case TCONT:
@@ -5316,7 +5309,7 @@ void statement(){
 			case TREM:
 				xrem();
 				break;
-// Apple 1 language set 
+/* Apple 1 language set */
 #ifdef HASAPPLE1
 			case TDIM:
 				xdim();
@@ -5331,7 +5324,7 @@ void statement(){
 				xpoke();
 				break;
 #endif
-// Stefan's tinybasic additions
+/* Stefan's tinybasic additions */
 			case TDUMP:
 				xdump();
 				break;
@@ -5357,7 +5350,7 @@ void statement(){
 				outch(12);
 				nexttoken();
 				break;
-// Arduino IO
+/* Arduino IO */
 #ifdef HASARDUINOIO
 			case TDWRITE:
 				xdwrite();
@@ -5377,7 +5370,7 @@ void statement(){
 				break;	
 #endif
 #endif
-// SD card DOS function 
+/* BASIC DOS function */
 #ifdef HASFILEIO
 			case TCATALOG:
 				xcatalog();
@@ -5395,11 +5388,11 @@ void statement(){
 				xfdisk();
 				break;
 #endif
-// low level functions 
+/* low level functions */
 			case TCALL:
 				xcall();
 				break;	
-// graphics 
+/* graphics */
 #ifdef HASGRAPH
 			case TCOLOR:
 				xcolor();
@@ -5450,7 +5443,7 @@ void statement(){
 				xiter();
 				break;	
 #endif
-// and all the rest
+/* and all the rest */
 			case UNKNOWN:
 				error(EUNKNOWN);
 				return;
@@ -5461,37 +5454,39 @@ void statement(){
 				if (DEBUG) { outsc("** hoppla - unexpected token, skipped "); debugtoken(); }
 				nexttoken();
 		}
-		// after each statement we check on a break character
-		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;};  // on an Arduino entering "#" at runtime stops the program
+/* after each statement we check on a break character 
+		on an Arduino entering "#" at runtime stops the program */
+		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;}; 
 
-		// yield after each statement which is a 30-100 microsecond cycle 
-		// ALL backgriund tasks are handled in byield 
+/* yield after each statement which is a 30-100 microsecond cycle 
+		ALL backgriund tasks are handled in byield */
 		byield();
 
-		// when an error is encountred the statement loop is ended
+/* when an error is encountred the statement loop is ended */
 		if (er) return;
 	}
 }
 
-// the setup routine - Arduino style
+/*
+ *	the setup routine - Arduino style
+ */
 void setup() {
 
-	// start measureing time
+/* start measureing time */
 	timeinit();
 
-	// init all io functions 
+/* init all io functions */
 	ioinit();
 
-  // get the BASIC memory 
+/* get the BASIC memory */
   himem=memsize=ballocmem();
   
-	// be ready for a new program
+/* be ready for a new program */
  	xnew();	
 
- 	// check if there is something to autorun and prepare 
- 	// the interpreter to got into autorun once loop is reached
- 	if (! autorun()) {
- 			// greet the user
+/* check if there is something to autorun and prepare 
+		the interpreter to got into autorun once loop is reached */
+ 	if (!autorun()) {
 			printmessage(MGREET); outspc();
 			printmessage(EOUTOFMEMORY); outspc(); 
 			outnumber(memsize+1); outspc();
@@ -5499,12 +5494,16 @@ void setup() {
  	}
 }
 
-// the loop routine for interactive input 
+/* 
+ *	the loop routine for interactive input 
+ */
 void loop() {
 
-	// autorun state was found in setup, autorun now but only once
-	// autorun BASIC programs return to interactive after completion
-	// autorun code always must loop in itself
+/*
+ *	autorun state was found in setup, autorun now but only once
+ *	autorun BASIC programs return to interactive after completion
+ *	autorun code always must loop in itself
+ */
 	if (st == SERUN ) {
 		xrun();
     top=0;
@@ -5515,18 +5514,18 @@ void loop() {
 		st=SINT;
 	}
 
-	// always return to default io channels once interactive mode is reached
+/* always return to default io channels once interactive mode is reached */
 	iodefaults();
 
-	// the prompt and the input request
+/* the prompt and the input request */
 	printmessage(MPROMPT);
 	ins(ibuffer, BUFSIZE-2);
         
-    // tokenize first token from the input buffer
+/* tokenize first token from the input buffer */
 	bi=ibuffer;
 	nexttoken();
 
-	// a number triggers the line storage, anything else is executed
+/* a number triggers the line storage, anything else is executed */
     if (token == NUMBER) {
          storeline();		
     } else {
@@ -5534,11 +5533,11 @@ void loop() {
       	statement();   
     }
 
-    // here, at last, all errors need to be catched
+/* here, at last, all errors need to be catched and back to interactive input*/
     if (er) reseterror();
 }
 
-
+/* if we are not on an Arduino */
 #ifndef ARDUINO
 int main(){
 	setup();
