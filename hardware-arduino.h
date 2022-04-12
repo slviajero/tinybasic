@@ -1553,11 +1553,9 @@ void eupdate(address_t a, short c) { return; }
 short eread(address_t a) { return 0; }
 #endif
 
-
 /* 
  *	the wrappers of the arduino io functions, to avoid 
  */	
-
 /* not needed in ESP32 2.0.2 core any more */
 #ifdef ARDUINO_ARCH_ESP32
 void analogWrite(int a, int b){}
@@ -1614,7 +1612,6 @@ void btone(short a) {
 #endif	
 }
 
-
 /* 
  *	the byield function is called after every statement
  *	it allows two levels of background tasks. 
@@ -1658,16 +1655,6 @@ void longyieldfunction() {
   	Ethernet.maintain();
 #endif 
 }
-
-
-/* 
- *	Platform dependend IO functions, implemented models are
- *		- Arduino Serial 
- *		- Arduino Picoserial
- *		- SD filesystems
- *		- SPIFFS filesystems
- *
- */
 
 /* 
  *	The file system driver - all methods needed to support BASIC fs access
