@@ -39,9 +39,9 @@
  * BASICINTEGER: integer BASIC with full language 
  * BASICMINIMAL: minimal language
  */
-#define BASICFULL
+#undef  BASICFULL
 #undef	BASICINTEGER
-#undef  BASICMINIMAL
+#define  BASICMINIMAL
 
 /*
  * custom settings undef all the the language sets 
@@ -3007,6 +3007,7 @@ void compexpression() {
 	}
 }
 
+#ifdef HASAPPLE1
 /* boolean NOT */
 void notexpression() {
 	if (DEBUG) bdebug("notexp\n");
@@ -3043,6 +3044,21 @@ void expression(){
 		push(x || y);
 	}  
 }
+#else 
+
+/* expression function simplified */
+void expression(){
+	if (DEBUG) bdebug("exp\n"); 
+	compexpression();
+	if (er != 0) return;
+	if (token == TOR) {
+		parseoperator(expression);
+		if (er != 0) return;
+		push(x || y);
+	}  
+}
+#endif
+
 
 /* 
  * Layer 2 - The commands and their helpers
@@ -4905,11 +4921,10 @@ void nextdatarecord() {
 	address_t h;
 	signed char s=1;
 
-	// save the location of the interpreter
+/* save the location of the interpreter */
 	h=here;
 
-	// data at zero means we need to init it, by searching
-	// the first data record
+/* data at zero means we need to init it, by searching the first data record */
 	if (data == 0) {
 		here=0;
 		while (here<top && token!=TDATA) gettoken();
@@ -4917,9 +4932,13 @@ void nextdatarecord() {
 	} 
 
 processdata:
-	// data at top means we have exhausted all data 
-	// nothing more to be done here, however we simulate
-	// a number value of 0 here
+/*
+ * data at top means we have exhausted all data, 
+ * nothing more to be done here, however we simulate
+ * a number value of 0 here and don't throw an error
+ * this is not Dartmouth style, more consistent with
+ * iterables
+ */
 	if (data == top) { 
 		token=NUMBER;
 		x=0;
@@ -4928,7 +4947,7 @@ processdata:
 		return;
 	}
 	
-	// we process the data record
+/* we process the data record */
 	here=data;
 	gettoken();
 	if (token == '-') {s=-1; gettoken();}
@@ -4981,42 +5000,41 @@ void xread(){
 	
 	nexttoken();
 
-	// this code evaluates the left hand side - remember type and name
+/* this code evaluates the left hand side - remember type and name */
 	ycl=yc;
 	xcl=xc;
 	t=token;
 
 	if (DEBUG) {outsc("assigning to variable "); outch(xcl); outch(ycl); outsc(" type "); outnumber(t); outcr();}
 
-	// find the indices and draw the next token of read
+/* find the indices and draw the next token of read */
 	lefthandside(&i, &ps);
 	if (er != 0) return;
 
-	// if the token after lhs is not a termsymbol, something is wrong
+/* if the token after lhs is not a termsymbol, something is wrong */
 	if (! termsymbol()) {error(EUNKNOWN); return; }
 	t0=token;
 
 	nextdatarecord();
 	if (er!=0) return;
 
-	// assigne the value to the lhs - redundant code to assignment
+/* assign the value to the lhs - redundant code to assignment */
 	switch (token) {
 		case NUMBER:
-			// store the number on the stack
+/* a number is stored on the stack */
 			push(x);
 			assignnumber(t, xcl, ycl, i, ps);
 			break;
 		case STRING:	
-			// store the source string data
+/* a string is stored in ir2 */
 			ir2=ir;
 			lensource=x;
 
-			// the destination address of the lefthandside, on the fly create
-			// included
+/* the destination address of the lefthandside, on the fly create included */
 			ir=getstring(xcl, ycl, i);
 			if (er != 0) return;
 
-			// the length of the lefthandsie string
+/* the length of the lefthandsie string */
 			lendest=lenstring(xcl, ycl);
 
 			if (DEBUG) {
@@ -5026,17 +5044,17 @@ void xread(){
 				outsc("** read dest string dimension "); outnumber(stringdim(xcl, ycl)); outcr();
 			};
 
-			// does the source string fit into the destination
+/* does the source string fit into the destination */
 			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(EORANGE); return; }
 
-			// this code is needed to make sure we can copy one string to the same string 
-			// without overwriting stuff, we go either left to right or backwards
+/* this code is needed to make sure we can copy one string to the same string 
+	without overwriting stuff, we go either left to right or backwards */
 			if (x > i) 
 				for (j=0; j<lensource; j++) { ir[j]=ir2[j];}
 			else
 				for (j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
 
-			// classical Apple 1 behaviour is string truncation in substring logic
+/* classical Apple 1 behaviour is string truncation in substring logic */
 			newlength = i+lensource-1;	
 		
 			setstringlength(xcl, ycl, newlength);
@@ -5046,7 +5064,7 @@ void xread(){
 			return;
 	}
 
-	// no nexttoken here as we have already a termsymbol
+/* no nexttoken here as we have already a termsymbol */
 	if (DEBUG) {
 		outsc("** leaving xread with "); outnumber(token); outcr();
 		outsc("** at here "); outnumber(here); outcr();
@@ -5071,25 +5089,25 @@ void xdef(){
 	char xcl1, ycl1, xcl2, ycl2;
 	address_t a;
 
-	// do we define a function
+/*  do we define a function */
 	if (!expect(TFN, EUNKNOWN)) return;
 
-	// the name of the function, it is tokenized as an array
+/* the name of the function, it is tokenized as an array */
 	if (!expect(ARRAYVAR, EUNKNOWN)) return;
 	xcl1=xc;
 	ycl1=yc;
 
-	// the argument 
+/* the argument variable */ 
 	if (!expect('(', EUNKNOWN)) return;
 	if (!expect(VARIABLE, EUNKNOWN)) return;
 	xcl2=xc;
 	ycl2=yc;
 	if (!expect(')', EUNKNOWN)) return;
 
-	// the assignment
+/* the assignment */
 	if (!expect('=', EUNKNOWN)) return;
 
-	// ready to store the function
+/* ready to store the function */
 	if (DEBUG) {
 		outsc("** DEF FN with function "); 
 		outch(xcl1); outch(ycl1); 
@@ -5325,15 +5343,16 @@ void statement(){
 				break;
 #endif
 /* Stefan's tinybasic additions */
-			case TDUMP:
-				xdump();
-				break;
 			case TSAVE:
 				xsave();
 				break;
 			case TLOAD: 
 				xload(0);
 				return; // load doesn't like break as the ibuffer is messed up;
+#ifdef HASSTEFANSEXT
+			case TDUMP:
+				xdump();
+				break;	
 			case TGET:
 				xget();
 				break;
@@ -5350,6 +5369,11 @@ void statement(){
 				outch(12);
 				nexttoken();
 				break;
+/* low level functions as part of Stefan's extension */
+			case TCALL:
+				xcall();
+				break;	
+#endif
 /* Arduino IO */
 #ifdef HASARDUINOIO
 			case TDWRITE:
@@ -5388,10 +5412,6 @@ void statement(){
 				xfdisk();
 				break;
 #endif
-/* low level functions */
-			case TCALL:
-				xcall();
-				break;	
 /* graphics */
 #ifdef HASGRAPH
 			case TCOLOR:
@@ -5486,7 +5506,7 @@ void setup() {
 
 /* check if there is something to autorun and prepare 
 		the interpreter to got into autorun once loop is reached */
- 	if (! autorun()) {
+ 	if (!autorun()) {
 			printmessage(MGREET); outspc();
 			printmessage(EOUTOFMEMORY); outspc(); 
 			outnumber(memsize+1); outspc();

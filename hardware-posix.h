@@ -411,8 +411,8 @@ void formatdisk(short i) {
 void serialbegin(){}
 void serialwrite(char c) { putchar(c); }
 char serialread() { return getchar(); }
-char serialcheckch(){ return TRUE; }
-char serialavailable() {return TRUE; }
+short serialcheckch(){ return TRUE; }
+short serialavailable() {return TRUE; }
 
 /*
  * reading from the console with inch 
@@ -442,7 +442,7 @@ void consins(char *b, short nb) {
 void prtbegin() {}
 void prtwrite(char c) {}
 char prtread() {return 0;}
-char prtcheckch(){ return FALSE; }
+short prtcheckch(){ return FALSE; }
 short prtavailable(){ return 0; }
 
 /* 

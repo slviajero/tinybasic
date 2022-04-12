@@ -61,6 +61,7 @@
 #undef ARDUINOPRT
 #undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
+#undef ARDUINONOKIA51
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
@@ -304,6 +305,11 @@
 #define ARDUINOSPI
 #endif
 
+/* the NOKIA display needs SPI */
+#ifdef ARDUINONOKIA51
+#define ARDUINOSPI
+#endif
+
 /* 
  * graphics adapter only when graphics hardware, overriding the 
  * language setting 
@@ -357,6 +363,22 @@
 /* Standard wire */
 #ifdef ARDUINOWIRE
 #include <Wire.h>
+#endif
+
+
+/* 
+ * the display library includes for LCD
+ */
+#ifdef LCDSHIELD 
+#include <LiquidCrystal.h>
+#endif
+
+#ifdef ARDUINOLCDI2C
+#include <LiquidCrystal_I2C.h>
+#endif
+
+#ifdef ARDUINONOKIA51
+#include <U8g2lib.h>
 #endif
 
 /*
@@ -590,7 +612,6 @@ void spibegin() {
  */
 #ifdef LCDSHIELD 
 #define DISPLAYDRIVER
-#include <LiquidCrystal.h>
 /* LCD shield pins to Arduino
  *  RS, EN, d4, d5, d6, d7; 
  * backlight on pin 10;
@@ -619,7 +640,6 @@ short keypadread(){
  */ 
 #ifdef ARDUINOLCDI2C
 #define DISPLAYDRIVER
-#include <LiquidCrystal_I2C.h>
 const int dsp_rows=4;
 const int dsp_columns=20;
 LiquidCrystal_I2C lcd(0x27, dsp_columns, dsp_rows);
@@ -627,6 +647,20 @@ void dspbegin() {   lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
 void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
 #endif
+
+
+/* 
+ * A Nokia 5110 with ug8lib2 - stub, unimplemented
+ */ 
+#ifdef ARDUINONOKIA51
+#define DISPLAYDRIVER
+const int dsp_rows=6;
+const int dsp_columns=10;
+void dspbegin() { }
+void dspprintchar(char c, short col, short row) {}
+void dspclear() {}
+#endif
+
 
 /*
  * SD1963 TFT display code with UTFT.
@@ -1629,6 +1663,7 @@ void btone(short a) {
  * 	this every YIELDTIME ms. 
  */
 void byield() {	
+#if defined(ARDUINOMQTT) || defined(ARDUINOETH)
 	if (millis()-lastyield > YIELDINTERVAL-1) {
 		yieldfunction();
 		lastyield=millis();
@@ -1638,7 +1673,7 @@ void byield() {
   	longyieldfunction();
   	lastlongyield=millis();
   }
-#endif
+ #endif
   delay(0);
 }
 
