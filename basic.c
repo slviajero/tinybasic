@@ -42,6 +42,7 @@
 #define BASICFULL
 #undef	BASICINTEGER
 #undef  BASICMINIMAL
+#undef  BASICTINYWITHFLOAT
 
 /*
  * custom settings undef all the the language sets 
@@ -60,7 +61,6 @@
 #define HASDARTMOUTH
 #define HASDARKARTS
 #define HASIOT
-
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -112,6 +112,26 @@
 #define HASDARKARTS
 #define HASIOT
 #endif
+
+/* a Tinybasic with float support */
+#ifdef BASICTINYWITHFLOAT
+#undef HASAPPLE1
+#define HASARDUINOIO
+#undef HASFILEIO
+#undef HASTONE
+#undef HASPULS
+#define HASSTEFANSEXT
+#define HASERRORMSG
+#undef HASVT52
+#define HASFLOAT
+#undef HASGRAPH
+#undef HASDARTMOUTH
+#undef HASDARKARTS
+#undef HASIOT
+#endif
+
+
+
 
 /* 
  *	Language feature dependencies
