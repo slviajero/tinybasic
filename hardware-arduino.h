@@ -310,6 +310,11 @@
 #define ARDUINOSPI
 #endif
 
+/* Networking needs the background task capability */
+#if defined(ARDUINOMQTT) || defined(ARDUINOETH)
+#define ARDUINOBGTASK
+#endif
+
 /* 
  * graphics adapter only when graphics hardware, overriding the 
  * language setting 
@@ -625,11 +630,11 @@ void dspclear() { lcd.clear(); }
 short keypadread(){
 	short a=analogRead(A0);
 	if (a > 850) return 0;
-	else if (a>600 && a<800) return 's';
-	else if (a>400 && a<600) return 'l';
-	else if (a>200 && a<400) return 'd';
-	else if (a>60  && a<200) return 'u';
-	else if (a<60)           return 'r';
+	else if (a>600 && a<800) return 10;
+	else if (a>400 && a<600) return 'L';
+	else if (a>200 && a<400) return 'D';
+	else if (a>60  && a<200) return 'U';
+	else if (a<60)           return 'R';
 	return 0;
 }
 #endif
@@ -1110,7 +1115,7 @@ void dspwrite(char c){
     	if (dspmyrow >= dsp_rows) dspscroll(); 
     	dspmycol=0;
     	return;
-    case 12: // form feed is clear screen - deprecated
+    case 12: // form feed is clear screen 
     	dspbufferclear();
     	dspclear();
     	return;
@@ -1167,8 +1172,10 @@ void dspwrite(char c){
 #endif
 
 	switch(c) {
-  	case 12: // form feed is clear screen
+  	case 12: // form feed is clear screen plus home
     	dspclear();
+    	dspmyrow=0;
+      dspmycol=0;
     	return;
   	case 10: // this is LF Unix style doing also a CR
     	dspmyrow=(dspmyrow + 1)%dsp_rows;
@@ -1650,6 +1657,9 @@ void btone(short a) {
  *	the byield function is called after every statement
  *	it allows two levels of background tasks. 
  *
+ *	ARDUINOBGTASK controls if time for background tasks is 
+ * 	needed, usually set by hardware features
+ *
  * 	YIELDINTERVAL by default is 32, generating a 32 ms call
  *		to the network loop function. YIELDTIME is 2 generating
  *		a 2 ms wait after the network loop to allow for buffer 
@@ -1663,7 +1673,7 @@ void btone(short a) {
  * 	this every YIELDTIME ms. 
  */
 void byield() {	
-#if defined(ARDUINOMQTT) || defined(ARDUINOETH)
+#if defined(ARDUINOBGTASK)
 	if (millis()-lastyield > YIELDINTERVAL-1) {
 		yieldfunction();
 		lastyield=millis();

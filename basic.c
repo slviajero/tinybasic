@@ -39,9 +39,9 @@
  * BASICINTEGER: integer BASIC with full language 
  * BASICMINIMAL: minimal language
  */
-#undef  BASICFULL
+#define BASICFULL
 #undef	BASICINTEGER
-#define  BASICMINIMAL
+#undef  BASICMINIMAL
 
 /*
  * custom settings undef all the the language sets 
@@ -51,7 +51,7 @@
 #define HASARDUINOIO
 #define HASFILEIO
 #define HASTONE
-#define HASPULS
+#define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
@@ -68,7 +68,7 @@
 #define HASARDUINOIO
 #undef HASFILEIO
 #undef HASTONE
-#undef HASPULS
+#undef HASPULSE
 #undef HASSTEFANSEXT
 #undef HASERRORMSG
 #undef HASVT52
@@ -85,7 +85,7 @@
 #define HASARDUINOIO
 #define HASFILEIO
 #define HASTONE
-#define HASPULS
+#define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
@@ -111,6 +111,16 @@
 #define HASDARTMOUTH
 #define HASDARKARTS
 #define HASIOT
+#endif
+
+/* 
+ *	Language feature dependencies
+ * 
+ * Dartmouth and darkarts needs the heap which is in Apple 1
+ * IoT needs strings and the heap, also Apple 1
+ */
+#if defined(HASDARTMOUTH) || defined(HASDARKARTS) || defined(HASIOT)
+#define HASAPPLE1
 #endif
 
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
@@ -4357,9 +4367,11 @@ void xpinm(){
 /*
  * DELAY in milliseconds
  *
+ * if background tasks are needed by the hardware.
  * delay is broken down in 1 ms intervalls in 
  * order to call byield every YIELDINTERVAL ms. This is 
- * needed for network functions
+ * typically needed for network functions.
+ * Otherwise just plain delay.
  */
 void xdelay(){
 	unsigned int i;
@@ -4367,6 +4379,7 @@ void xdelay(){
 	parsenarguments(1);
 	if (er != 0) return;
 
+#ifdef ARDUINOBGTASK
 	x=pop();
 	if (x>0) {
 		for(i=0; i<x; i++) {
@@ -4374,6 +4387,9 @@ void xdelay(){
 			if ( i%YIELDINTERVAL==0 ) byield();
 		}
 	}
+#else 
+	delay(pop());
+#endif
 }
 
 /* tone if the platform has it */
@@ -4662,8 +4678,8 @@ void xdelete() {
 	if (er != 0) return; 
 
 	removefile(filename);
-	nexttoken();
 #endif
+	nexttoken();
 }
 
 /*
@@ -4805,16 +4821,19 @@ void xclose() {
  * FDISK - format internal disk storages of RP2040, ESP and the like
  */
 void xfdisk() {
+#if defined(FILESYSTEMDRIVER)
 	nexttoken();
 	parsearguments();
+	debugtoken();
 	if (er != 0) return;
 	if (args > 1) error(EORANGE);
 	if (args == 0) push(0);
 	outsc("Format disk (y/N)?");
 	consins(sbuffer, SBUFSIZE);
 	if (sbuffer[1] == 'y') formatdisk(pop());
+#endif
+	nexttoken();
 }
-
 
 #ifdef HASSTEFANSEXT
 /*	
@@ -5265,8 +5284,10 @@ void xon(){
 void statement(){
 	if (DEBUG) bdebug("statement \n"); 
 	while (token != EOL) {
+#ifdef HASSTEFANSEXT
 		if (debuglevel == 1) debugtoken();
 		if (debuglevel) outcr();
+#endif
 		switch(token){
 			case LINENUMBER:
 				nexttoken();

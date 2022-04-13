@@ -61,10 +61,11 @@
 #undef ARDUINOPRT
 #undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
+#undef ARDUINONOKIA51
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#undef ARDUINOEEPROM
+#define ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -304,6 +305,16 @@
 #define ARDUINOSPI
 #endif
 
+/* the NOKIA display needs SPI */
+#ifdef ARDUINONOKIA51
+#define ARDUINOSPI
+#endif
+
+/* Networking needs the background task capability */
+#if defined(ARDUINOMQTT) || defined(ARDUINOETH)
+#define ARDUINOBGTASK
+#endif
+
 /* 
  * graphics adapter only when graphics hardware, overriding the 
  * language setting 
@@ -357,6 +368,22 @@
 /* Standard wire */
 #ifdef ARDUINOWIRE
 #include <Wire.h>
+#endif
+
+
+/* 
+ * the display library includes for LCD
+ */
+#ifdef LCDSHIELD 
+#include <LiquidCrystal.h>
+#endif
+
+#ifdef ARDUINOLCDI2C
+#include <LiquidCrystal_I2C.h>
+#endif
+
+#ifdef ARDUINONOKIA51
+#include <U8g2lib.h>
 #endif
 
 /*
@@ -590,7 +617,6 @@ void spibegin() {
  */
 #ifdef LCDSHIELD 
 #define DISPLAYDRIVER
-#include <LiquidCrystal.h>
 /* LCD shield pins to Arduino
  *  RS, EN, d4, d5, d6, d7; 
  * backlight on pin 10;
@@ -602,14 +628,14 @@ void dspbegin() { 	lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
 void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
 short keypadread(){
-	short a=analogRead(A0);
-	if (a > 850) return 0;
-	else if (a>600 && a<800) return 's';
-	else if (a>400 && a<600) return 'l';
-	else if (a>200 && a<400) return 'd';
-	else if (a>60  && a<200) return 'u';
-	else if (a<60)           return 'r';
-	return 0;
+  short a=analogRead(A0);
+  if (a > 850) return 0;
+  else if (a>600 && a<800) return 10;
+  else if (a>400 && a<600) return 'L';
+  else if (a>200 && a<400) return 'D';
+  else if (a>60  && a<200) return 'U';
+  else if (a<60)           return 'R';
+  return 0;
 }
 #endif
 
@@ -619,7 +645,6 @@ short keypadread(){
  */ 
 #ifdef ARDUINOLCDI2C
 #define DISPLAYDRIVER
-#include <LiquidCrystal_I2C.h>
 const int dsp_rows=4;
 const int dsp_columns=20;
 LiquidCrystal_I2C lcd(0x27, dsp_columns, dsp_rows);
@@ -627,6 +652,20 @@ void dspbegin() {   lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
 void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
 #endif
+
+
+/* 
+ * A Nokia 5110 with ug8lib2 - stub, unimplemented
+ */ 
+#ifdef ARDUINONOKIA51
+#define DISPLAYDRIVER
+const int dsp_rows=6;
+const int dsp_columns=10;
+void dspbegin() { }
+void dspprintchar(char c, short col, short row) {}
+void dspclear() {}
+#endif
+
 
 /*
  * SD1963 TFT display code with UTFT.
@@ -1133,9 +1172,11 @@ void dspwrite(char c){
 #endif
 
 	switch(c) {
-  	case 12: // form feed is clear screen
-    	dspclear();
-    	return;
+    case 12: // form feed is clear screen plus home
+      dspclear();
+      dspmyrow=0;
+      dspmycol=0;
+      return;
   	case 10: // this is LF Unix style doing also a CR
     	dspmyrow=(dspmyrow + 1)%dsp_rows;
     	dspmycol=0;
@@ -1616,6 +1657,9 @@ void btone(short a) {
  *	the byield function is called after every statement
  *	it allows two levels of background tasks. 
  *
+ *	ARDUINOBGTASK controls if time for background tasks is 
+ * 	needed, usually set by hardware features
+ *
  * 	YIELDINTERVAL by default is 32, generating a 32 ms call
  *		to the network loop function. YIELDTIME is 2 generating
  *		a 2 ms wait after the network loop to allow for buffer 
@@ -1629,6 +1673,7 @@ void btone(short a) {
  * 	this every YIELDTIME ms. 
  */
 void byield() {	
+#if defined(ARDUINOBGTASK)
 	if (millis()-lastyield > YIELDINTERVAL-1) {
 		yieldfunction();
 		lastyield=millis();
@@ -1638,6 +1683,7 @@ void byield() {
   	longyieldfunction();
   	lastlongyield=millis();
   }
+ #endif
   delay(0);
 }
 
@@ -2409,14 +2455,11 @@ void oradioopen(char *filename) {
  *		is the sensor and the second argument the value.
  *		sensorread(n, 0) checks if the sensorstatus.
  */
- 
 #ifdef ARDUINOSENSORS
-
 #ifdef ARDUINODHT
 #include "DHT.h"
 DHT dht(DHTPIN, DHTTYPE);
 #endif
-
 #ifdef ARDUINOLMS6
 #include <Arduino_LSM6DSOX.h>
 /* https://www.arduino.cc/en/Reference/Arduino_LSM6DSOX */

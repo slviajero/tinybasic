@@ -68,14 +68,23 @@ typedef unsigned char uint8_t;
 #define TRUE  1
 #define FALSE 0
 
-/* various buffer sizes */
-#define BUFSIZE 		128
-#define SBUFSIZE		32
-#define VARSIZE			26
-/* the small memory model with shallow stacks */
+
+#if defined(ARDUINO_ARCH_AVR)
+/* the small memory model with shallow stacks and small buffers */
+#define BUFSIZE 		80
 #define STACKSIZE		15
 #define GOSUBDEPTH		4
 #define FORDEPTH		4
+#else 
+/* the for larger microcontrollers and real computers */
+#define BUFSIZE 		128
+#define STACKSIZE		64
+#define GOSUBDEPTH		8
+#define FORDEPTH		8
+#endif
+/* more duffers and vars */
+#define SBUFSIZE		32
+#define VARSIZE			26
 /* default sizes of arrays and strings if they are not DIMed */
 #define ARRAYSIZEDEF	10
 #define STRSIZEDEF		32
@@ -646,11 +655,18 @@ const address_t maxaddr=(address_t)(~0);
 
 	rd is the random number storage.
 
+	fnc counts the depth of for - next loop nesting
+
+	args is the global arg count variable
+
 	id and od are the input and output model for an arduino
 		they are set to serial by default
 
-	fnc counts the depth of for - next loop nesting
+	idd and odd are the default values of the above
 
+	debuglevel is the statement loop debug level
+
+	data is the data pointer of the READ/DATA mechanism
 
 */
 static number_t stack[STACKSIZE];
@@ -701,16 +717,16 @@ static signed char args;
 /* this is unsigned hence address_t */
 static address_t rd;
 
-// output and input vector
+/* output and input vector */
 static unsigned char id;
 static unsigned char od;
 
-// default IO - not constant, can be changed at runtime 
-// through a user call
+/* default IO - not constant, can be changed at runtime 
+	through a user call */
 static unsigned char idd = ISERIAL;
 static unsigned char odd = OSERIAL;
 
-// the runtime debuglevel
+/* the runtime debuglevel */
 char debuglevel = 0;
 
 /* data pointer */
@@ -780,7 +796,6 @@ void rect(int, int, int, int);
 void frect(int, int, int, int);
 void circle(int, int, int);
 void fcircle(int, int, int);
-
 
 /* text output to a VGA display */
 void vgabegin();
