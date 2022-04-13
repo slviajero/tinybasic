@@ -628,14 +628,14 @@ void dspbegin() { 	lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
 void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
 short keypadread(){
-  short a=analogRead(A0);
-  if (a > 850) return 0;
-  else if (a>600 && a<800) return 10;
-  else if (a>400 && a<600) return 'L';
-  else if (a>200 && a<400) return 'D';
-  else if (a>60  && a<200) return 'U';
-  else if (a<60)           return 'R';
-  return 0;
+	short a=analogRead(A0);
+	if (a > 850) return 0;
+	else if (a>600 && a<800) return 10;
+	else if (a>400 && a<600) return 'L';
+	else if (a>200 && a<400) return 'D';
+	else if (a>60  && a<200) return 'U';
+	else if (a<60)           return 'R';
+	return 0;
 }
 #endif
 
@@ -1115,7 +1115,7 @@ void dspwrite(char c){
     	if (dspmyrow >= dsp_rows) dspscroll(); 
     	dspmycol=0;
     	return;
-    case 12: // form feed is clear screen - deprecated
+    case 12: // form feed is clear screen 
     	dspbufferclear();
     	dspclear();
     	return;
@@ -1172,11 +1172,11 @@ void dspwrite(char c){
 #endif
 
 	switch(c) {
-    case 12: // form feed is clear screen plus home
-      dspclear();
-      dspmyrow=0;
+  	case 12: // form feed is clear screen plus home
+    	dspclear();
+    	dspmyrow=0;
       dspmycol=0;
-      return;
+    	return;
   	case 10: // this is LF Unix style doing also a CR
     	dspmyrow=(dspmyrow + 1)%dsp_rows;
     	dspmycol=0;
@@ -1571,13 +1571,20 @@ void eflush(){
 address_t elength() { 
 #if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)
   return EEPROMSIZE;
-#else
-  return EEPROM.length(); 
 #endif
+#ifdef ARDUINO_ARCH_AVR
+#ifndef ARDUINO_AVR_LARDU_328E
+  return EEPROM.length(); 
+#else 
+  return 512;
+#endif
+#endif
+  return 0;
 }
 
 void eupdate(address_t a, short c) { 
-#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)
+#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_AVR_LARDU_328E)
+
   EEPROM.write(a, c);
 #else
   EEPROM.update(a, c); 

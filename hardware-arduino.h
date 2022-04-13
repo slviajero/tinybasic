@@ -1571,13 +1571,19 @@ void eflush(){
 address_t elength() { 
 #if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)
   return EEPROMSIZE;
-#else
-  return EEPROM.length(); 
 #endif
+#ifdef ARDUINO_ARCH_AVR
+#ifndef ARDUINO_AVR_LARDU_328E
+  return EEPROM.length(); 
+#else 
+  return 512;
+#endif
+#endif
+  return 0;
 }
 
 void eupdate(address_t a, short c) { 
-#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)
+#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)|| defined(ARDUINO_AVR_LARDU_328E)
   EEPROM.write(a, c);
 #else
   EEPROM.update(a, c); 
