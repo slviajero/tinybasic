@@ -1,42 +1,43 @@
 /*
 
-	$Id: hardware-arduino.h,v 1.2 2022/04/10 06:25:05 stefan Exp stefan $
+  $Id: hardware-arduino.h,v 1.2 2022/04/10 06:25:05 stefan Exp stefan $
 
-	Stefan's basic interpreter 
+  Stefan's basic interpreter 
 
-	Playing around with frugal programming. See the licence file on 
-	https://github.com/slviajero/tinybasic for copyright/left.
+  Playing around with frugal programming. See the licence file on 
+  https://github.com/slviajero/tinybasic for copyright/left.
     (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
 
-	Author: Stefan Lenz, sl001@serverfabrik.de
+  Author: Stefan Lenz, sl001@serverfabrik.de
 
-	Hardware definition file coming with TinybasicArduino.ino aka basic.c
+  Hardware definition file coming with TinybasicArduino.ino aka basic.c
 
-	- ARDUINOLCD, ARDUINOTFT and LCDSHIELD active the LCD code, 
-		LCDSHIELD automatically defines the right settings for 
-		the classical shield modules
-	- ARDUINOPS2 activates the PS2 code. Default pins are 2 and 3.
-		If you use other pins the respective changes have to be made 
-			below. 
-	- _if_  and PS2 are both activated STANDALONE cause the Arduino
-			to start with keyboard and lcd as standard devices.
-	- ARDUINOEEPROM includes the EEPROM access code
-	- ARDUINOEFS, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS activate filesystem code 
-	- activating Picoserial, Picoserial doesn't work on MEGA
+  - ARDUINOLCD, ARDUINOTFT and LCDSHIELD active the LCD code, 
+    LCDSHIELD automatically defines the right settings for 
+    the classical shield modules
+  - ARDUINOPS2 activates the PS2 code. Default pins are 2 and 3.
+    If you use other pins the respective changes have to be made 
+      below. 
+  - _if_  and PS2 are both activated STANDALONE cause the Arduino
+      to start with keyboard and lcd as standard devices.
+  - ARDUINOEEPROM includes the EEPROM access code
+  - ARDUINOEFS, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS activate filesystem code 
+  - activating Picoserial, Picoserial doesn't work on MEGA
 
-	Architectures and the definitions from the Arduino IDE
+  Architectures and the definitions from the Arduino IDE
 
-	 	ARDUINO_ARCH_SAM: no tone command, dtostrf
-	 	ARDUINO_ARCH_RP2040: dtostrf (for ARDUINO_NANO_RP2040_CONNECT)
-	 	ARDUINO_ARCH_SAMD: dtostrf (for ARDUINO_SAMD_MKRWIFI1010, ARDUINO_SEEED_XIAO_M0)
-		ARDUINO_ARCH_ESP8266: SPIFFS, dtostrf (ESP8266)
- 		ARDUINO_AVR_MEGA2560, ARDUARDUINO_SAM_DUE: second serial port is Serial1 - no software serial
- 		ARDUARDUINO_SAM_DUE: hardware heuristics
- 		ARDUINO_ARCH_AVR: nothing
- 		ARDUINO_ARCH_EXP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
+    ARDUINO_ARCH_SAM: no tone command, dtostrf
+    ARDUINO_ARCH_RP2040: dtostrf (for ARDUINO_NANO_RP2040_CONNECT)
+    ARDUINO_ARCH_SAMD: dtostrf (for ARDUINO_SAMD_MKRWIFI1010, ARDUINO_SEEED_XIAO_M0)
+    ARDUINO_ARCH_ESP8266: SPIFFS, dtostrf (ESP8266)
+    ARDUINO_AVR_MEGA2560, ARDUARDUINO_SAM_DUE: second serial port is Serial1 - no software serial
+    ARDUARDUINO_SAM_DUE: hardware heuristics
+    ARDUINO_ARCH_AVR: nothing
+    ARDUINO_AVR_LARDU_328E: odd EEPROM code, seems to work, somehow
+    ARDUINO_ARCH_EXP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
 
- 	The code still contains hardware hueristics from my own projects, 
- 	will be removed in the future
+  The code still contains hardware heuristics from my own projects, 
+  will be removed in the future
 
 */
 
@@ -65,7 +66,7 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -627,14 +628,16 @@ LiquidCrystal lcd( 8,  9,  4,  5,  6,  7);
 void dspbegin() { 	lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
 void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
+#define HASKEYPAD
+/* elementary keypad reader left=1, right=2, up=3, down=4, select=<lf> */
 short keypadread(){
 	short a=analogRead(A0);
 	if (a > 850) return 0;
 	else if (a>600 && a<800) return 10;
-	else if (a>400 && a<600) return 'L';
-	else if (a>200 && a<400) return 'D';
-	else if (a>60  && a<200) return 'U';
-	else if (a<60)           return 'R';
+	else if (a>400 && a<600) return '1'; 
+	else if (a>200 && a<400) return '3';
+	else if (a>60  && a<200) return '4';
+	else if (a<60)           return '2';
 	return 0;
 }
 #endif
@@ -858,29 +861,29 @@ char kbdavailable(){
 	return Terminal.available();
 #endif
 #endif
+#ifdef HASKEYPAD
+	return keypadread()!=0;
+#endif	
 	return 0;
 }
 
 char kbdread() {
 	char c;
+	while(!kbdavailable()) byield();
 #ifdef PS2KEYBOARD	
-	do {
-		if (kbdavailable()) c=keyboard.read();
-		byield();
-	} while(c == 0);	
-	if (c == 13) c=10;
-	return c;
-#else
+	c=keyboard.read();
+#endif
 #ifdef PS2FABLIB
-	do {
-		if (kbdavailable()) c=Terminal.read();
-		byield();
-	} while(c == 0);	
+	c=Terminal.read();
+#endif
+#ifdef HASKEYPAD
+	c=keypadread();
+/* on a keypad wait for key release and then some more */
+	while(kbdavailable()) byield();
+  delay(100);
+#endif	
 	if (c == 13) c=10;
 	return c;
-#endif
-#endif
-	return 0;
 }
 
 char kbdcheckch() {
@@ -896,6 +899,9 @@ char kbdcheckch() {
 	if (kbdavailable()) return kbdread();
 #endif
 #endif
+#ifdef HASKEYPAD
+		return keypadread();
+#endif	
 	return 0;
 }
 
@@ -1583,8 +1589,7 @@ address_t elength() {
 }
 
 void eupdate(address_t a, short c) { 
-#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_AVR_LARDU_328E)
-
+#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)|| defined(ARDUINO_AVR_LARDU_328E)
   EEPROM.write(a, c);
 #else
   EEPROM.update(a, c); 
@@ -2241,7 +2246,7 @@ short serialavailable() {
  */
 void consins(char *b, short nb) {
 	char c;
-
+ 
 	z.a = 1;
 #ifdef USESPICOSERIAL
 	if (id == ISERIAL) {
@@ -2268,7 +2273,7 @@ void consins(char *b, short nb) {
 	}
 	b[z.a]=0;
 	z.a--;
-    b[0]=(unsigned char)z.a; 
+  b[0]=(unsigned char)z.a; 
 }
 
 /* 

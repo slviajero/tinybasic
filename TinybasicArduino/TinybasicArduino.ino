@@ -37,12 +37,13 @@
 /*
  * BASICFUL: full language set
  * BASICINTEGER: integer BASIC with full language 
+ * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define BASICFULL
-#undef	BASICINTEGER
-#undef  BASICMINIMAL
-#undef  BASICTINYWITHFLOAT
+#undef   BASICFULL
+#define	 BASICINTEGER
+#undef   BASICMINIMAL
+#undef   BASICTINYWITHFLOAT
 
 /*
  * custom settings undef all the the language sets 
@@ -130,9 +131,6 @@
 #undef HASIOT
 #endif
 
-
-
-
 /* 
  *	Language feature dependencies
  * 
@@ -144,7 +142,7 @@
 #endif
 
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
-#define MEMSIZE 0
+#define MEMSIZE 512
 
 // debug mode switches 
 #define DEBUG 0
@@ -451,6 +449,8 @@ number_t getvar(char c, char d){
 /* the special variables */
 	if ( c == '@' )
 		switch (d) {
+			case 'A':
+				return availch();
 			case 'S': 
 				return ert;
 			case 'I':
@@ -1221,14 +1221,10 @@ char inch() {
 		case ISERIAL1:
 			return prtread();
 #endif				
+#if defined(ARDUINOPS2)	|| defined(HASKEYPAD)				
 		case IKEYBOARD:
-#ifdef ARDUINOPS2		
 			return kbdread();
 #endif
-#ifdef LCDSHIELD
-			return keypadread();
-#endif
-			break;
 	}
 	return 0;
 }
@@ -1259,11 +1255,8 @@ char checkch(){
 			return prtcheckch(); 
 #endif
 		case IKEYBOARD:
-#if defined(ARDUINOPS2) || defined(PS2FABLIB)	
+#if defined(ARDUINOPS2) || defined(PS2FABLIB)	|| defined(HASKEYPAD)
 			return kbdcheckch();
-#endif
-#ifdef LCDSHIELD
-			return keypadread();
 #endif
 			break;
 	}
@@ -1296,11 +1289,8 @@ short availch(){
       return prtavailable();
 #endif
     case IKEYBOARD:
-#ifdef ARDUINOPS2   
+#if defined(ARDUINOPS2) || defined(HASKEYPAD)  
       return kbdavailable();
-#endif
-#ifdef LCDSHIELD
-      return (keypadread() != 0);
 #endif
 	    break;
 	}
