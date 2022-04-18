@@ -67,15 +67,15 @@
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
-#define ARDUINOEFS
+#undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
-#define ARDUINORTC
-#define ARDUINOWIRE
+#undef ARDUINORTC
+#undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#define ARDUINOMQTT
+#undef ARDUINOMQTT
 #undef ARDUINOSENSORS
 #undef STANDALONE
 
@@ -153,7 +153,7 @@
 /*
  * Sensor library code - experimental
  */
-#define ARDUINOSENSORS
+#undef ARDUINOSENSORS
 #define ARDUINODHT
 #define DHTTYPE DHT22
 #define DHTPIN 1
@@ -271,11 +271,11 @@
 #define DISPLAYCANSCROLL
 #define ARDUINOLCDI2C
 #define ARDUINOEEPROM
+#define ARDUINOPRT
 #define ARDUINOEFS
 #define ARDUINORTC
 #define ARDUINOWIRE
 #define EEPROMI2CADDR 0x057 /* use clock EEPROM, set to 0x050 for external EEPROM */
-#define ARDUINOSENSORS
 #define STANDALONE
 #endif
 
@@ -2322,11 +2322,11 @@ void consins(char *b, short nb) {
 
 /* 
  * Start a secondary serial port for printing and/or networking 
- * This is either Serial1 on a MEGA or DUE or a SoftwareSerial 
+ * This is either Serial1 on a MEGA or DUE or Nano Every or a SoftwareSerial 
  * instance
  */
 #ifdef ARDUINOPRT
-#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE)
+#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE) && !defined(ARDUINO_AVR_NANO_EVERY)
 #include <SoftwareSerial.h>
 /* definition of the serial port pins from "pretzel board"
 for UNO 11 is not good for rx */

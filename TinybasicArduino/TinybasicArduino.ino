@@ -40,8 +40,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define  BASICFULL
-#undef   BASICINTEGER
+#undef   BASICFULL
+#define   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 

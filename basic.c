@@ -20,7 +20,7 @@
 	- the extension flags control features and code size
 
 	MEMSIZE sets the BASIC main memory to a fixed value,
-		if MEMSIZE=0 a heuristic is used s
+		if MEMSIZE=0 a heuristic is used.
 
 	** IMPORTANT - look into hardware-arduino.h for the HW settings ***
 
