@@ -67,15 +67,15 @@
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
-#undef ARDUINOEFS
+#define ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
-#undef ARDUINORTC
-#undef ARDUINOWIRE
+#define ARDUINORTC
+#define ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#undef ARDUINOMQTT
+#define ARDUINOMQTT
 #undef ARDUINOSENSORS
 #undef STANDALONE
 
@@ -95,8 +95,13 @@
 		optional keyboard and i2c display
 	TTGOVGA: 
 		TTGO VGA1.4 system with PS2 keyboard, standalone
-  	MEGATFT, DUETFT
-    	TFT 7inch screen systems, standalone
+  MEGATFT, DUETFT
+    TFT 7inch screen systems, standalone
+  NANOBOARD
+    Arduino Nano Every board with PS2 keyboard and sensor 
+    kit
+  ESP01BOARD
+    ESP01 based board as a sensor / MQTT interface
 */
 
 #undef UNOPLAIN
@@ -107,6 +112,7 @@
 #undef TTGOVGA
 #undef DUETFT
 #undef MEGATFT
+#undef NANOBOARD
 
 /* 
 	PIN settings and I2C addresses for various hardware configurations
@@ -117,9 +123,10 @@
 	#define PS2DATAPIN, PS2IRQPIN sets PS2 pin
 */
 
-/* PS2 Keyboard pins on a DUE or MEGA */
-#define PS2DATAPIN 3
-#define PS2IRQPIN 2
+/* PS2 Keyboard pins for AVR - use one interrupt pin 2 and one date pin 
+    5 not 4 because 4 conflicts with SDPIN of the standard SD shield */
+#define PS2DATAPIN 5
+#define PS2IRQPIN  2
 
 /* Ethernet - 10 is the default */
 //#define ETHPIN 10
@@ -139,17 +146,17 @@
  * 0x050 this is the default lowest adress of standard EEPROMs
  * default for the size is 4096, define your EFS EEPROM size here 
  */
-#define EEPROMI2CADDR 0x050
+#define EEPROMI2CADDR 0x057
 #define RTCI2CADDR 0x068
 #undef EFSEEPROMSIZE
 
 /*
  * Sensor library code - experimental
  */
-#undef ARDUINOSENSORS
-#undef ARDUINODHT
-#define DHTTYPE DHT11
-#define DHTPIN 22
+#define ARDUINOSENSORS
+#define ARDUINODHT
+#define DHTTYPE DHT22
+#define DHTPIN 1
 #undef ARDUINOLMS6
 
 /*
@@ -255,6 +262,20 @@
 #define PS2DATAPIN 9
 #define PS2IRQPIN  8
 #define SDPIN 53
+#define STANDALONE
+#endif
+
+#if defined(NANOBOARD)
+#undef USESPICOSERIAL 
+#define ARDUINOPS2
+#define DISPLAYCANSCROLL
+#define ARDUINOLCDI2C
+#define ARDUINOEEPROM
+#define ARDUINOEFS
+#define ARDUINORTC
+#define ARDUINOWIRE
+#define EEPROMI2CADDR 0x057 /* use clock EEPROM, set to 0x050 for external EEPROM */
+#define ARDUINOSENSORS
 #define STANDALONE
 #endif
 
@@ -417,7 +438,7 @@
 #ifdef ARDUINO_ARCH_ESP32
 #include <WiFi.h>
 #endif
-#ifdef ARDUINO_ARCH_RP2040
+#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD)
 #include <WiFiNINA.h>
 #endif
 #endif
@@ -542,10 +563,33 @@ void wiringbegin() {}
 /*
  * helper functions OS, heuristic on how much memory is 
  * available in BASIC
+ * Arduino information from
+ * data from https://docs.arduino.cc/learn/programming/memory-guide
  */
+
+#if defined(ARDUINO_ARCH_SAMD)
+extern "C" char* sbrk(int incr);
+int freeRam() {
+  char top;
+  return &top - reinterpret_cast<char*>(sbrk(0));
+}
+#endif
+
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
+int freeRam() {
+  extern int __heap_start,*__brkval;
+  int v;
+  return (int)&v - (__brkval == 0  
+    ? (int)&__heap_start : (int) __brkval);  
+}
+#endif
+
 long freememorysize() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   return ESP.getFreeHeap() - 4000;
+#endif
+#if defined(ARDUINO_ARCH_SAMD)
+  return freeRam() - 4000;
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
   int overhead=192;
@@ -555,7 +599,7 @@ long freememorysize() {
 #ifdef ARDUINOETH
   overhead+=256;
 #endif
-  return SP - (int) __malloc_heap_start - overhead;
+  return freeRam() - overhead;
 #endif
   return 0;
 }
@@ -1393,7 +1437,7 @@ Ethernet.begin(mac);
 	WiFi.begin(ssid, password);
 	WiFi.setAutoReconnect(true);
 #endif
-#if defined(ARDUINO_ARCH_RP2040)
+#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD)
 	WiFi.begin(ssid, password);
 #endif
 #endif
@@ -1899,7 +1943,7 @@ char ifileopen(const char* filename){
 	return (int) ifile;
 #endif
 #ifdef ARDUINOEFS
-	ifile=EFS.fopen(filename, "r");
+	ifile=EFS.fopen((char *) filename, "r");
 	return (int) ifile;
 #endif
 	return 0;
@@ -1930,11 +1974,11 @@ char ofileopen(char* filename, const char* m){
 	return (int) ofile;
 #endif
 #ifdef RP2040LITTLEFS
-	ofile=fopen(mkfilename(filename), m);
+	ofile=fopen(mkfilename(filename), (char *)m);
 	return (int) ofile; 
 #endif
 #ifdef ARDUINOEFS
-	ofile=EFS.fopen(filename, m);
+	ofile=EFS.fopen((char *)filename, (char *) m);
 	return (int) ofile; 
 #endif
 	return 0;
@@ -2307,7 +2351,7 @@ char prtread() {
 	return Serial1.read();
 }
 
-char prtcheckch() {
+short prtcheckch() {
 	if (Serial1.available()) return Serial1.peek(); else return 0;
 }
 

@@ -1,42 +1,43 @@
 /*
 
-	$Id: hardware-arduino.h,v 1.2 2022/04/10 06:25:05 stefan Exp stefan $
+  $Id: hardware-arduino.h,v 1.2 2022/04/10 06:25:05 stefan Exp stefan $
 
-	Stefan's basic interpreter 
+  Stefan's basic interpreter 
 
-	Playing around with frugal programming. See the licence file on 
-	https://github.com/slviajero/tinybasic for copyright/left.
+  Playing around with frugal programming. See the licence file on 
+  https://github.com/slviajero/tinybasic for copyright/left.
     (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
 
-	Author: Stefan Lenz, sl001@serverfabrik.de
+  Author: Stefan Lenz, sl001@serverfabrik.de
 
-	Hardware definition file coming with TinybasicArduino.ino aka basic.c
+  Hardware definition file coming with TinybasicArduino.ino aka basic.c
 
-	- ARDUINOLCD, ARDUINOTFT and LCDSHIELD active the LCD code, 
-		LCDSHIELD automatically defines the right settings for 
-		the classical shield modules
-	- ARDUINOPS2 activates the PS2 code. Default pins are 2 and 3.
-		If you use other pins the respective changes have to be made 
-			below. 
-	- _if_  and PS2 are both activated STANDALONE cause the Arduino
-			to start with keyboard and lcd as standard devices.
-	- ARDUINOEEPROM includes the EEPROM access code
-	- ARDUINOEFS, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS activate filesystem code 
-	- activating Picoserial, Picoserial doesn't work on MEGA
+  - ARDUINOLCD, ARDUINOTFT and LCDSHIELD active the LCD code, 
+    LCDSHIELD automatically defines the right settings for 
+    the classical shield modules
+  - ARDUINOPS2 activates the PS2 code. Default pins are 2 and 3.
+    If you use other pins the respective changes have to be made 
+      below. 
+  - _if_  and PS2 are both activated STANDALONE cause the Arduino
+      to start with keyboard and lcd as standard devices.
+  - ARDUINOEEPROM includes the EEPROM access code
+  - ARDUINOEFS, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS activate filesystem code 
+  - activating Picoserial, Picoserial doesn't work on MEGA
 
-	Architectures and the definitions from the Arduino IDE
+  Architectures and the definitions from the Arduino IDE
 
-	 	ARDUINO_ARCH_SAM: no tone command, dtostrf
-	 	ARDUINO_ARCH_RP2040: dtostrf (for ARDUINO_NANO_RP2040_CONNECT)
-	 	ARDUINO_ARCH_SAMD: dtostrf (for ARDUINO_SAMD_MKRWIFI1010, ARDUINO_SEEED_XIAO_M0)
-		ARDUINO_ARCH_ESP8266: SPIFFS, dtostrf (ESP8266)
- 		ARDUINO_AVR_MEGA2560, ARDUARDUINO_SAM_DUE: second serial port is Serial1 - no software serial
- 		ARDUARDUINO_SAM_DUE: hardware heuristics
- 		ARDUINO_ARCH_AVR: nothing
- 		ARDUINO_ARCH_EXP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
+    ARDUINO_ARCH_SAM: no tone command, dtostrf
+    ARDUINO_ARCH_RP2040: dtostrf (for ARDUINO_NANO_RP2040_CONNECT)
+    ARDUINO_ARCH_SAMD: dtostrf (for ARDUINO_SAMD_MKRWIFI1010, ARDUINO_SEEED_XIAO_M0)
+    ARDUINO_ARCH_ESP8266: SPIFFS, dtostrf (ESP8266)
+    ARDUINO_AVR_MEGA2560, ARDUARDUINO_SAM_DUE: second serial port is Serial1 - no software serial
+    ARDUARDUINO_SAM_DUE: hardware heuristics
+    ARDUINO_ARCH_AVR: nothing
+    ARDUINO_AVR_LARDU_328E: odd EEPROM code, seems to work, somehow
+    ARDUINO_ARCH_EXP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
 
- 	The code still contains hardware hueristics from my own projects, 
- 	will be removed in the future
+  The code still contains hardware heuristics from my own projects, 
+  will be removed in the future
 
 */
 
@@ -66,15 +67,15 @@
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
-#undef ARDUINOEFS
+#define ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
-#undef ARDUINORTC
-#undef ARDUINOWIRE
+#define ARDUINORTC
+#define ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#undef ARDUINOMQTT
+#define ARDUINOMQTT
 #undef ARDUINOSENSORS
 #undef STANDALONE
 
@@ -94,8 +95,13 @@
 		optional keyboard and i2c display
 	TTGOVGA: 
 		TTGO VGA1.4 system with PS2 keyboard, standalone
-  	MEGATFT, DUETFT
-    	TFT 7inch screen systems, standalone
+  MEGATFT, DUETFT
+    TFT 7inch screen systems, standalone
+  NANOBOARD
+    Arduino Nano Every board with PS2 keyboard and sensor 
+    kit
+  ESP01BOARD
+    ESP01 based board as a sensor / MQTT interface
 */
 
 #undef UNOPLAIN
@@ -106,6 +112,7 @@
 #undef TTGOVGA
 #undef DUETFT
 #undef MEGATFT
+#undef NANOBOARD
 
 /* 
 	PIN settings and I2C addresses for various hardware configurations
@@ -116,9 +123,10 @@
 	#define PS2DATAPIN, PS2IRQPIN sets PS2 pin
 */
 
-/* PS2 Keyboard pins on a DUE or MEGA */
-#define PS2DATAPIN 3
-#define PS2IRQPIN 2
+/* PS2 Keyboard pins for AVR - use one interrupt pin 2 and one date pin 
+    5 not 4 because 4 conflicts with SDPIN of the standard SD shield */
+#define PS2DATAPIN 5
+#define PS2IRQPIN  2
 
 /* Ethernet - 10 is the default */
 //#define ETHPIN 10
@@ -138,17 +146,17 @@
  * 0x050 this is the default lowest adress of standard EEPROMs
  * default for the size is 4096, define your EFS EEPROM size here 
  */
-#define EEPROMI2CADDR 0x050
+#define EEPROMI2CADDR 0x057
 #define RTCI2CADDR 0x068
 #undef EFSEEPROMSIZE
 
 /*
  * Sensor library code - experimental
  */
-#undef ARDUINOSENSORS
-#undef ARDUINODHT
-#define DHTTYPE DHT11
-#define DHTPIN 22
+#define ARDUINOSENSORS
+#define ARDUINODHT
+#define DHTTYPE DHT22
+#define DHTPIN 1
 #undef ARDUINOLMS6
 
 /*
@@ -254,6 +262,20 @@
 #define PS2DATAPIN 9
 #define PS2IRQPIN  8
 #define SDPIN 53
+#define STANDALONE
+#endif
+
+#if defined(NANOBOARD)
+#undef USESPICOSERIAL 
+#define ARDUINOPS2
+#define DISPLAYCANSCROLL
+#define ARDUINOLCDI2C
+#define ARDUINOEEPROM
+#define ARDUINOEFS
+#define ARDUINORTC
+#define ARDUINOWIRE
+#define EEPROMI2CADDR 0x057 /* use clock EEPROM, set to 0x050 for external EEPROM */
+#define ARDUINOSENSORS
 #define STANDALONE
 #endif
 
@@ -416,7 +438,7 @@
 #ifdef ARDUINO_ARCH_ESP32
 #include <WiFi.h>
 #endif
-#ifdef ARDUINO_ARCH_RP2040
+#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD)
 #include <WiFiNINA.h>
 #endif
 #endif
@@ -541,10 +563,33 @@ void wiringbegin() {}
 /*
  * helper functions OS, heuristic on how much memory is 
  * available in BASIC
+ * Arduino information from
+ * data from https://docs.arduino.cc/learn/programming/memory-guide
  */
+
+#if defined(ARDUINO_ARCH_SAMD)
+extern "C" char* sbrk(int incr);
+int freeRam() {
+  char top;
+  return &top - reinterpret_cast<char*>(sbrk(0));
+}
+#endif
+
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
+int freeRam() {
+  extern int __heap_start,*__brkval;
+  int v;
+  return (int)&v - (__brkval == 0  
+    ? (int)&__heap_start : (int) __brkval);  
+}
+#endif
+
 long freememorysize() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   return ESP.getFreeHeap() - 4000;
+#endif
+#if defined(ARDUINO_ARCH_SAMD)
+  return freeRam() - 4000;
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
   int overhead=192;
@@ -554,7 +599,7 @@ long freememorysize() {
 #ifdef ARDUINOETH
   overhead+=256;
 #endif
-  return SP - (int) __malloc_heap_start - overhead;
+  return freeRam() - overhead;
 #endif
   return 0;
 }
@@ -1392,7 +1437,7 @@ Ethernet.begin(mac);
 	WiFi.begin(ssid, password);
 	WiFi.setAutoReconnect(true);
 #endif
-#if defined(ARDUINO_ARCH_RP2040)
+#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD)
 	WiFi.begin(ssid, password);
 #endif
 #endif
@@ -1898,7 +1943,7 @@ char ifileopen(const char* filename){
 	return (int) ifile;
 #endif
 #ifdef ARDUINOEFS
-	ifile=EFS.fopen(filename, "r");
+	ifile=EFS.fopen((char *) filename, "r");
 	return (int) ifile;
 #endif
 	return 0;
@@ -1929,11 +1974,11 @@ char ofileopen(char* filename, const char* m){
 	return (int) ofile;
 #endif
 #ifdef RP2040LITTLEFS
-	ofile=fopen(mkfilename(filename), m);
+	ofile=fopen(mkfilename(filename), (char *)m);
 	return (int) ofile; 
 #endif
 #ifdef ARDUINOEFS
-	ofile=EFS.fopen(filename, m);
+	ofile=EFS.fopen((char *)filename, (char *) m);
 	return (int) ofile; 
 #endif
 	return 0;
@@ -2245,7 +2290,7 @@ short serialavailable() {
  */
 void consins(char *b, short nb) {
 	char c;
-
+ 
 	z.a = 1;
 #ifdef USESPICOSERIAL
 	if (id == ISERIAL) {
@@ -2272,7 +2317,7 @@ void consins(char *b, short nb) {
 	}
 	b[z.a]=0;
 	z.a--;
-	b[0]=(unsigned char)z.a; 
+  b[0]=(unsigned char)z.a; 
 }
 
 /* 
@@ -2306,7 +2351,7 @@ char prtread() {
 	return Serial1.read();
 }
 
-char prtcheckch() {
+short prtcheckch() {
 	if (Serial1.available()) return Serial1.peek(); else return 0;
 }
 
