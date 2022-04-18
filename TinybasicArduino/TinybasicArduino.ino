@@ -40,8 +40,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef   BASICFULL
-#define	 BASICINTEGER
+#define  BASICFULL
+#undef   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -93,7 +93,7 @@
 #undef  HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
-#define HASDARKARTS
+#undef HASDARKARTS
 #define HASIOT
 #endif
 
@@ -142,7 +142,7 @@
 #endif
 
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
-#define MEMSIZE 512
+#define MEMSIZE 0
 
 // debug mode switches 
 #define DEBUG 0
@@ -5543,7 +5543,9 @@ void setup() {
 			outnumber(memsize+1); outspc();
 			outnumber(elength()); outcr();
  	}
+ 
 }
+
 
 /* 
  *	the loop routine for interactive input 
@@ -5570,7 +5572,7 @@ void loop() {
 
 /* the prompt and the input request */
 	printmessage(MPROMPT);
-	ins(ibuffer, BUFSIZE-2);
+  ins(ibuffer, BUFSIZE-2);
         
 /* tokenize first token from the input buffer */
 	bi=ibuffer;
