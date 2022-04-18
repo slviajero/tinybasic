@@ -112,7 +112,7 @@
 #undef TTGOVGA
 #undef DUETFT
 #undef MEGATFT
-#undef NANOBOARD
+#define NANOBOARD
 
 /* 
 	PIN settings and I2C addresses for various hardware configurations
@@ -1943,7 +1943,7 @@ char ifileopen(const char* filename){
 	return (int) ifile;
 #endif
 #ifdef ARDUINOEFS
-	ifile=EFS.fopen((char *) filename, "r");
+	ifile=EFS.fopen(filename, "r");
 	return (int) ifile;
 #endif
 	return 0;
@@ -1974,11 +1974,11 @@ char ofileopen(char* filename, const char* m){
 	return (int) ofile;
 #endif
 #ifdef RP2040LITTLEFS
-	ofile=fopen(mkfilename(filename), (char *)m);
+	ofile=fopen(mkfilename(filename), m);
 	return (int) ofile; 
 #endif
 #ifdef ARDUINOEFS
-	ofile=EFS.fopen((char *)filename, (char *) m);
+	ofile=EFS.fopen(filename, m);
 	return (int) ofile; 
 #endif
 	return 0;
