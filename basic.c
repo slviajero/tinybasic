@@ -1398,7 +1398,7 @@ void outch(char c) {
 			filewrite(c);
 			break;
 #endif
-#ifdef ARDUNIOPRT
+#ifdef ARDUINOPRT
 		case OPRT:
 			prtwrite(c);
 			break;
