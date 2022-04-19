@@ -112,7 +112,7 @@
 #undef TTGOVGA
 #undef DUETFT
 #undef MEGATFT
-#define NANOBOARD
+#undef NANOBOARD
 
 /* 
 	PIN settings and I2C addresses for various hardware configurations
@@ -276,7 +276,7 @@
 #define ARDUINORTC
 #define ARDUINOWIRE
 #define EEPROMI2CADDR 0x057 /* use clock EEPROM, set to 0x050 for external EEPROM */
-#define STANDALONE
+//#define STANDALONE
 #endif
 
 /* 
@@ -2341,9 +2341,7 @@ void prtbegin() {
 }
 
 void prtwrite(char c) {
-#ifdef ARDUINOPRT
 	Serial1.write(c);
-#endif
 }
 
 char prtread() {
