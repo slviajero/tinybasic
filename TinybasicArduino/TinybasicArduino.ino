@@ -41,7 +41,7 @@
  * BASICMINIMAL: minimal language
  */
 #undef   BASICFULL
-#define   BASICINTEGER
+#define  BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -4889,7 +4889,7 @@ void xusr() {
 				case 2: push(himem); break;
 				case 3: push(nvars); break;
 				case 4: push(freememorysize()); break;
-				case 5: push(0); break;
+				case 5: push(freeRam()); break;
 				case 6: push(0); break;
 				case 7: push(gosubsp); break;
 				case 8: push(fnc); break;

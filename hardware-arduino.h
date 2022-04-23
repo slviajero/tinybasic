@@ -67,7 +67,7 @@
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
-#undef ARDUINOEFS
+#define ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
@@ -75,7 +75,7 @@
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#undef ARDUINOMQTT
+#define ARDUINOMQTT
 #undef ARDUINOSENSORS
 #undef STANDALONE
 
@@ -153,7 +153,7 @@
 /*
  * Sensor library code - experimental
  */
-#undef ARDUINOSENSORS
+#define ARDUINOSENSORS
 #define ARDUINODHT
 #define DHTTYPE DHT22
 #define DHTPIN 1
@@ -573,14 +573,16 @@ int freeRam() {
   char top;
   return &top - reinterpret_cast<char*>(sbrk(0));
 }
-#endif
-
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
+#elif defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
 int freeRam() {
   extern int __heap_start,*__brkval;
   int v;
   return (int)&v - (__brkval == 0  
     ? (int)&__heap_start : (int) __brkval);  
+}
+#else
+int freeRam() {
+  return 0; 
 }
 #endif
 

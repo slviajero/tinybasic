@@ -20,9 +20,8 @@
 	- the extension flags control features and code size
 
 	MEMSIZE sets the BASIC main memory to a fixed value,
-		if MEMSIZE=0 a heuristic is used.
-
-	** IMPORTANT - look into hardware-arduino.h for the HW settings ***
+		if MEMSIZE=0 a heuristic is used stepping down 
+		from 60000 to 128 bytes.
 
 */
 
@@ -41,10 +40,10 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define BASICFULL
-#undef	BASICINTEGER
-#undef  BASICMINIMAL
-#undef  BASICTINYWITHFLOAT
+#undef   BASICFULL
+#define  BASICINTEGER
+#undef   BASICMINIMAL
+#undef   BASICTINYWITHFLOAT
 
 /*
  * custom settings undef all the the language sets 
@@ -94,7 +93,7 @@
 #undef  HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
-#define HASDARKARTS
+#undef HASDARKARTS
 #define HASIOT
 #endif
 
@@ -131,9 +130,6 @@
 #undef HASDARKARTS
 #undef HASIOT
 #endif
-
-
-
 
 /* 
  *	Language feature dependencies
@@ -4893,7 +4889,7 @@ void xusr() {
 				case 2: push(himem); break;
 				case 3: push(nvars); break;
 				case 4: push(freememorysize()); break;
-				case 5: push(0); break;
+				case 5: push(freeRam()); break;
 				case 6: push(0); break;
 				case 7: push(gosubsp); break;
 				case 8: push(fnc); break;
@@ -5547,7 +5543,9 @@ void setup() {
 			outnumber(memsize+1); outspc();
 			outnumber(elength()); outcr();
  	}
+ 
 }
+
 
 /* 
  *	the loop routine for interactive input 
@@ -5574,7 +5572,7 @@ void loop() {
 
 /* the prompt and the input request */
 	printmessage(MPROMPT);
-	ins(ibuffer, BUFSIZE-2);
+  ins(ibuffer, BUFSIZE-2);
         
 /* tokenize first token from the input buffer */
 	bi=ibuffer;
