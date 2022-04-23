@@ -41,7 +41,7 @@
  * BASICMINIMAL: minimal language
  */
 #undef   BASICFULL
-#define  BASICINTEGER
+#define   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -238,7 +238,6 @@ address_t ballocmem() {
 #else 
 address_t ballocmem(){ return MEMSIZE-1; };
 #endif
-
 
 /*
  *	Layer 0 function - variable handling.
@@ -1155,14 +1154,12 @@ void ioinit() {
 #endif
 
 /* the displays */
-#ifdef ARDUINOPS2 
 	kbdbegin();
-#endif
 #ifdef DISPLAYDRIVER
 	dspbegin();
 #endif
 #ifdef ARDUINOVGA
-	vgabegin(); /* mind this - the fablib code is special here */
+	vgabegin();  /* mind this - the fablib code is special here */
 #endif
 #ifdef ARDUINOSENSORS
 	sensorbegin();
@@ -1221,7 +1218,7 @@ char inch() {
 		case ISERIAL1:
 			return prtread();
 #endif				
-#if defined(ARDUINOPS2)	|| defined(HASKEYPAD)				
+#if defined(HASKEYBOARD)	|| defined(HASKEYPAD)				
 		case IKEYBOARD:
 			return kbdread();
 #endif
@@ -1255,7 +1252,7 @@ char checkch(){
 			return prtcheckch(); 
 #endif
 		case IKEYBOARD:
-#if defined(ARDUINOPS2) || defined(PS2FABLIB)	|| defined(HASKEYPAD)
+#if defined(HASKEYBOARD)	|| defined(HASKEYPAD)
 			return kbdcheckch();
 #endif
 			break;
@@ -1289,7 +1286,7 @@ short availch(){
       return prtavailable();
 #endif
     case IKEYBOARD:
-#if defined(ARDUINOPS2) || defined(HASKEYPAD)  
+#if defined(HASKEYBOARD) || defined(HASKEYPAD)  
       return kbdavailable();
 #endif
 	    break;
@@ -4888,8 +4885,8 @@ void xusr() {
 				case 1: push(here); break;
 				case 2: push(himem); break;
 				case 3: push(nvars); break;
-				case 4: push(freememorysize()); break;
-				case 5: push(freeRam()); break;
+				case 4: push(freeRam()); break;
+				case 5: push(0); break;
 				case 6: push(0); break;
 				case 7: push(gosubsp); break;
 				case 8: push(fnc); break;

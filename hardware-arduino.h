@@ -67,7 +67,7 @@
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
-#define ARDUINOEFS
+#undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
@@ -75,7 +75,7 @@
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#define ARDUINOMQTT
+#undef ARDUINOMQTT
 #undef ARDUINOSENSORS
 #undef STANDALONE
 
@@ -153,11 +153,12 @@
 /*
  * Sensor library code - experimental
  */
-#define ARDUINOSENSORS
+#ifdef ARDUINOSENSORS
 #define ARDUINODHT
 #define DHTTYPE DHT22
 #define DHTPIN 1
 #undef ARDUINOLMS6
+#endif
 
 /*
  * the hardware models
@@ -223,7 +224,6 @@
  */
 #if defined(TTGOVGA)
 #define ARDUINOEEPROM
-#define ARDUINOPS2
 #define ARDUINOVGA
 #define ARDUINOSD
 #define ARDUINOMQTT
@@ -567,7 +567,7 @@ void wiringbegin() {}
  * data from https://docs.arduino.cc/learn/programming/memory-guide
  */
 
-#if defined(ARDUINO_ARCH_SAMD)
+#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM)
 extern "C" char* sbrk(int incr);
 int freeRam() {
   char top;
@@ -580,20 +580,25 @@ int freeRam() {
   return (int)&v - (__brkval == 0  
     ? (int)&__heap_start : (int) __brkval);  
 }
+#elif defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+int freeRam() {
+  return ESP.getFreeHeap();
+}
 #else
 int freeRam() {
   return 0; 
 }
 #endif
 
+/*
+ * Heuristic Wifi systems reserve 4k by default, small 8 bit AVR try to guess sizes conservatively
+ * RP2040 not yet implemented
+ */
 long freememorysize() {
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
-  return ESP.getFreeHeap() - 4000;
-#endif
-#if defined(ARDUINO_ARCH_SAMD)
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD) 
   return freeRam() - 4000;
 #endif
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM)
   int overhead=192;
 #ifdef ARDUINOSD
   overhead+=512;
@@ -715,7 +720,6 @@ void dspprintchar(char c, short col, short row) {}
 void dspclear() {}
 #endif
 
-
 /*
  * SD1963 TFT display code with UTFT.
  * Tested witth SD1963 800*480 board. 
@@ -769,10 +773,10 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
  * terminal emulation
  */
 #if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32) 
-//fabgl::VGAController VGAController;
+//static fabgl::VGAController VGAController;
 fabgl::VGA16Controller VGAController; // 16 color object with less memory 
-fabgl::Terminal      Terminal;
-Canvas cv(&VGAController);
+static fabgl::Terminal      Terminal;
+static Canvas cv(&VGAController);
 TerminalController tc(&Terminal);
 Color vga_graph_pen = Color::BrightWhite;
 Color vga_graph_brush = Color::Black;
@@ -782,13 +786,12 @@ Color vga_txt_background = Color::Black;
 void vgabegin() {
 	VGAController.begin(GPIO_NUM_22, GPIO_NUM_21, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_23, GPIO_NUM_15);
 	VGAController.setResolution(VGA_640x200_70Hz);
-  Canvas cv(&VGAController);
 	Terminal.begin(&VGAController);
 	Terminal.setBackgroundColor(vga_txt_background);
 	Terminal.setForegroundColor(vga_txt_pen);
   Terminal.connectLocally();
   Terminal.clear();
-  Terminal.enableCursor(true);
+  Terminal.enableCursor(true); 
   Terminal.setTerminalType(TermType::VT52);
 }
 void vgascale(int* x, int* y) {
@@ -866,11 +869,12 @@ void vgabegin(){}
 void vgawrite(char c){}
 #endif
 
-
 /* 
  * Keyboard code for either the Fablib Terminal class or 
  * PS2Keyboard - please note that you need the ESP patched 
  * version here as mentioned above
+ * 
+ * sets HASKEYBOARD to inform basic about this capability
  * 
  * keyboards can implement 
  * 	kbdbegin()
@@ -880,10 +884,12 @@ void vgawrite(char c){}
  */
 #ifdef ARDUINO_TTGO_T7_V14_Mini32
 #define PS2FABLIB
+#define HASKEYBOARD
 fabgl::PS2Controller PS2Controller;
 #else
 #if defined(ARDUINO) && defined(ARDUINOPS2)
 #define PS2KEYBOARD
+#define HASKEYBOARD
 PS2Keyboard keyboard;
 #endif
 #endif
@@ -1655,10 +1661,11 @@ short eread(address_t a) { return 0; }
 /* 
  *	the wrappers of the arduino io functions, to avoid 
  */	
-/* not needed in ESP32 2.0.2 core any more */
+/* not needed in ESP32 2.0.2 core any more 
 #ifdef ARDUINO_ARCH_ESP32
 void analogWrite(int a, int b){}
 #endif
+*/
 
 void aread(){ push(analogRead(pop())); }
 
