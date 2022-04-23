@@ -67,7 +67,7 @@
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
-#define ARDUINOEFS
+#undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
@@ -75,7 +75,7 @@
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#define ARDUINOMQTT
+#undef ARDUINOMQTT
 #undef ARDUINOSENSORS
 #undef STANDALONE
 
@@ -153,7 +153,7 @@
 /*
  * Sensor library code - experimental
  */
-#define ARDUINOSENSORS
+#undef  ARDUINOSENSORS
 #define ARDUINODHT
 #define DHTTYPE DHT22
 #define DHTPIN 1
