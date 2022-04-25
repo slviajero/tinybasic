@@ -40,8 +40,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef   BASICFULL
-#define   BASICINTEGER
+#define   BASICFULL
+#undef   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -1116,7 +1116,7 @@ void clrgosubstack() {
 /* 
  *	Input and output functions.
  * 
- * ioinit(): called at setup to initialize what ever io is needed
+ * ioinit(): called at s to initialize what ever io is needed
  * outch(): prints one ascii character 
  * inch(): gets one character (and waits for it)
  * checkch(): checks for one character (non blocking)
@@ -1153,8 +1153,9 @@ void ioinit() {
 	mqttbegin();
 #endif
 
-/* the displays */
+/* the keyboards */
 	kbdbegin();
+/* the displays */
 #ifdef DISPLAYDRIVER
 	dspbegin();
 #endif
@@ -4306,8 +4307,8 @@ void xset(){
 			sendcr=(char)args;
 			break;
 		case 7: // set the blockmode behaviour
-      		blockmode=args;
-      		break;
+      blockmode=args;
+      break;
 #endif
 #ifdef ARDUINORF24
       	case 8: // set the power amplifier level of the module
@@ -5525,13 +5526,13 @@ void setup() {
 
 /* init all io functions */
 	ioinit();
-
+  
 /* get the BASIC memory */
   himem=memsize=ballocmem();
   
 /* be ready for a new program */
  	xnew();	
-
+   
 /* check if there is something to autorun and prepare 
 		the interpreter to got into autorun once loop is reached */
  	if (!autorun()) {
@@ -5540,7 +5541,6 @@ void setup() {
 			outnumber(memsize+1); outspc();
 			outnumber(elength()); outcr();
  	}
- 
 }
 
 

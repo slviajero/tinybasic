@@ -63,6 +63,7 @@
 #undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
+#define ARDUINOILI9488
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
@@ -70,8 +71,8 @@
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
-#undef RP2040LITTLEFS
-#undef ARDUINORTC
+#define RP2040LITTLEFS
+#define ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
@@ -275,8 +276,8 @@
 #define ARDUINOEFS
 #define ARDUINORTC
 #define ARDUINOWIRE
-#define EEPROMI2CADDR 0x057 /* use clock EEPROM, set to 0x050 for external EEPROM */
-//#define STANDALONE
+#define EEPROMI2CADDR 0x050 /* use clock EEPROM 0x057, set to 0x050 for external EEPROM */
+#define STANDALONE
 #endif
 
 /* 
@@ -327,8 +328,8 @@
 #define ARDUINOSPI
 #endif
 
-/* the NOKIA display needs SPI */
-#ifdef ARDUINONOKIA51
+/* the NOKIA and ILI9488 display needs SPI */
+#if defined(ARDUINONOKIA51) || defined(ARDUINOILI9488)
 #define ARDUINOSPI
 #endif
 
@@ -342,7 +343,7 @@
  * language setting 
  * this is odd and can be removed later on
  */
-#if !defined(ARDUINOTFT) && !defined(ARDUINOVGA)
+#if !defined(ARDUINOTFT) && !defined(ARDUINOVGA) && !defined(ARDUINOILI9488)
 #undef HASGRAPH
 #endif
 
@@ -406,6 +407,16 @@
 
 #ifdef ARDUINONOKIA51
 #include <U8g2lib.h>
+#endif
+
+/*
+ * This is the (old) ILI9488 library originally created by Jarett Burket
+ * https://github.com/slviajero/ILI9488
+ * It can harware scroll.
+ */
+#ifdef ARDUINOILI9488
+#include <Adafruit_GFX.h>
+#include <ILI9488.h>
 #endif
 
 /*
@@ -542,16 +553,20 @@
  *	Arduino default serial baudrate and serial flags for the 
  * two supported serial interfaces. Serial is always active and 
  * connected to channel &1 with 9600 baud. 
+ * 
+ * channel 4 (ARDUINOPRT) can be either in character or block 
+ * mode. Blockmode is set as default here. This means that all 
+ * available characters are always loaded to a string -> inb()
  */
 const int serial_baudrate = 9600;
 char sendcr = 0;
-short blockmode = 0;
-
 
 #ifdef ARDUINOPRT
 const int serial1_baudrate = 9600;
+short blockmode = 1;
 #else 
 const int serial1_baudrate = 0;
+short blockmode = 0;
 #endif
 
 /*  handling time - part of the Arduino core - only needed on POSIX OSes */
@@ -585,17 +600,17 @@ int freeRam() {
   return ESP.getFreeHeap();
 }
 #else
-int freeRam() {
+long freeRam() {
   return 0; 
 }
 #endif
 
 /*
  * Heuristic Wifi systems reserve 4k by default, small 8 bit AVR try to guess sizes conservatively
- * RP2040 not yet implemented
+ * RP2040 cannot measure, we set to 16 bit full address space
  */
 long freememorysize() {
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD) 
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
   return freeRam() - 4000;
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM)
@@ -607,6 +622,9 @@ long freememorysize() {
   overhead+=256;
 #endif
   return freeRam() - overhead;
+#endif
+#ifdef ARDUINO_NANO_RP2040_CONNECT
+  return 65536;
 #endif
   return 0;
 }
@@ -718,6 +736,40 @@ const int dsp_columns=10;
 void dspbegin() { }
 void dspprintchar(char c, short col, short row) {}
 void dspclear() {}
+#endif
+
+/* 
+ * A ILI9488 with Jarett Burkets version of Adafruit GFX
+ * non scrollable test code
+ */ 
+#ifdef ARDUINOILI9488
+#define DISPLAYDRIVER
+#define ILI_CS  2
+#define ILI_DC  3  
+#define ILI_LED A0  
+#define ILI_RST 4 
+ILI9488 tft = ILI9488(ILI_CS, ILI_DC, ILI_RST);
+const int dsp_rows=30;
+const int dsp_columns=20;
+char dspfontsize = 16;
+uint16_t dspfgcolor = ILI9488_WHITE;
+uint16_t dspbgcolor = ILI9488_BLACK;
+void dspbegin() { tft.begin(); tft.setTextColor(dspfgcolor); tft.setTextSize(2); tft.fillScreen(dspbgcolor); }
+void dspprintchar(char c, short col, short row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
+void dspclear() { tft.fillScreen(dspbgcolor); }
+void rgbcolor(int r, int g, int b) { dspfgcolor=tft.color565(r, g, b);}
+void vgacolor(short c) {  
+  short base=128;
+  if (c==8) { rgbcolor(64, 64, 64); return; }
+  if (c>8) base=255;
+  rgbcolor(base*(c&1), base*((c&2)/2), base*((c&4)/4)); 
+}
+void plot(int x, int y) { tft.drawPixel(x, y, dspfgcolor); }
+void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1, dspfgcolor); }
+void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, x0, x1, y1, dspfgcolor);}
+void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, x0, x1, y1, dspfgcolor); }
+void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r, dspfgcolor); }
+void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
 #endif
 
 /*
@@ -1453,7 +1505,9 @@ Ethernet.begin(mac);
 
 /*
  * network connected method
- * on ESP Wifi try to reconnect, the delay is odd
+ * on ESP Wifi try to reconnect, the delay is odd 
+ * This is a partial reconnect, BASIC needs to handle 
+ * repeated reconnects
  */
 char netconnected() {
 #ifdef ARDUINOETH
@@ -1462,7 +1516,10 @@ char netconnected() {
 	if (WiFi.status() != WL_CONNECTED) {  
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
 	  WiFi.reconnect(); 
-	  delay(10); 
+	  delay(1000); 
+#elif defined(ARDUINO_ARCH_SAMD)
+    WiFi.begin(ssid, password);
+    delay(1000);
 #endif 	
 	};
 	return(WiFi.status() == WL_CONNECTED);
@@ -1505,8 +1562,12 @@ char mqttreconnect() {
 
 /* all good and nothing to be done, we are connected */
 	if (bmqtt.connected()) return true;
+
+/* try to reconnect the network */
+  if (!netconnected()) delay(5000);
+  if (!netconnected()) return false;
 	
-/* create a random name right now */
+/* create a new random name right now */
 	mqttsetname();
 
 /* try to reconnect assuming that the network is connected */
@@ -2260,6 +2321,7 @@ void serialbegin() {
 	(void) PicoSerial.begin(serial_baudrate, picogetchar); 
 #else
 	Serial.begin(serial_baudrate);
+  //while(!Serial) byield();
 #endif
 	delay(1000);
 }
@@ -2269,7 +2331,9 @@ void serialwrite(char c) {
 #ifdef USESPICOSERIAL
 	PicoSerial.print(c);
 #else
-	Serial.write(c);	
+/* write never blocks. discard any bytes we can't get rid of */
+  Serial.write(c);  
+  // if (Serial.availableForWrite()>0) Serial.write(c);	
 #endif
 }
 
