@@ -15,9 +15,10 @@
 */
 
 /*
- *	if the PROGMEM macro is define we compile on the Arduino IDE
+ *	if the PROGMEM macro is defined we compile on the Arduino IDE
  *	we undef all hardware settings otherwise a little odd
  */
+
 #ifdef ARDUINO_ARCH_MBED
 #define PROGMEM
 #endif
@@ -767,6 +768,7 @@ void timeinit();
 void wiringbegin();
 
 /* low level mem and hardware features */
+int freRam();
 long freememorysize();
 void restartsystem();
 void activatesleep();
