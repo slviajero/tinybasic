@@ -28,7 +28,7 @@ See also:
 - https://en.wikipedia.org/wiki/Recursive_descent_parser
 - https://rosettacode.org/wiki/BNF_Grammar
 - https://en.wikipedia.org/wiki/Tiny_BASIC
-- https://github.com/slviajero/tinybasic/wiki/Unforgotten---Dr.-Wang's-BASIC
+- https://github.com/slviajero/tinybasic/wiki/Unforgotten:-Palo-Alto-BASIC
 - https://github.com/slviajero/tinybasic/wiki/The-original-Apple-1-BASIC-manual
 
 ## Language features in a nutshell 
