@@ -60,19 +60,19 @@
 #undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
+#define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
-#undef ARDUINONOKIA51
-#define ARDUINOILI9488
+#define ARDUINONOKIA51
+#undef ARDUINOILI9488
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
-#undef ESPSPIFFS
-#define RP2040LITTLEFS
-#define ARDUINORTC
+#define ESPSPIFFS
+#undef RP2040LITTLEFS
+#undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
@@ -343,7 +343,7 @@
  * language setting 
  * this is odd and can be removed later on
  */
-#if !defined(ARDUINOTFT) && !defined(ARDUINOVGA) && !defined(ARDUINOILI9488)
+#if !defined(ARDUINOTFT) && !defined(ARDUINOVGA) && !defined(ARDUINOILI9488) && !defined(ARDUINONOKIA51)
 #undef HASGRAPH
 #endif
 
@@ -731,11 +731,25 @@ void dspclear() { lcd.clear(); }
  */ 
 #ifdef ARDUINONOKIA51
 #define DISPLAYDRIVER
+#define NOKIA_CS 4
+#define NOKIA_DC 0
+#define NOKIA_RST 5
+U8G2_PCD8544_84X48_F_4W_HW_SPI u8g2(U8G2_R0, NOKIA_CS, NOKIA_DC, NOKIA_RST); 
 const int dsp_rows=6;
 const int dsp_columns=10;
-void dspbegin() { }
-void dspprintchar(char c, short col, short row) {}
-void dspclear() {}
+uint8_t dspfgcolor = 1;
+uint8_t dspbgcolor = 0;
+void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r); }
+void dspprintchar(char c, short col, short row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*8+2, (row+1)*8, b); u8g2.sendBuffer(); }
+void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); }
+void rgbcolor(int r, int g, int b) {}
+void vgacolor(short c) { dspfgcolor=c%3; }
+void plot(int x, int y) { u8g2.setDrawColor(dspfgcolor); u8g2.drawPixel(x, y); u8g2.sendBuffer(); }
+void line(int x0, int y0, int x1, int y1)   { u8g2.drawLine(x0, y0, x1, y1); u8g2.sendBuffer(); }
+void rect(int x0, int y0, int x1, int y1)   { u8g2.drawFrame(x0, y0, x1-x0, y1-y0); u8g2.sendBuffer(); }
+void frect(int x0, int y0, int x1, int y1)  { u8g2.setDrawColor(dspfgcolor); u8g2.drawBox(x0, y0, x1-x0, y1-y0); u8g2.sendBuffer(); }
+void circle(int x0, int y0, int r) { u8g2.drawCircle(x0, y0, r); u8g2.sendBuffer(); }
+void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); u8g2.sendBuffer(); }
 #endif
 
 /* 
