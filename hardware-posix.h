@@ -58,6 +58,11 @@ long freememorysize() {
 #endif  
 }
 
+int freeRam() {
+	return freememorysize();
+}
+
+
 /* 
  * the sleep and restart functions
  */
