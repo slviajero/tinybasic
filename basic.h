@@ -210,19 +210,20 @@ typedef unsigned char uint8_t;
 #define TDEF     -39
 #define TFN 	-38
 #define TON     -37
+#define TELSE 	-36
 /* darkarts (3) */
-#define TMALLOC -36
-#define TFIND   -35
-#define TEVAL   -34
+#define TMALLOC -35
+#define TFIND   -34
+#define TEVAL   -33
 /* iot extensions (6) */
-#define TITER	-33
-#define TAVAIL	-32
-#define TSTR    -31
-#define TINSTR  -30
-#define TVAL 	-29
-#define TNETSTAT -28
-#define TSENSOR  -27
-#define TWIRE 	-26
+#define TITER	-32
+#define TAVAIL	-31
+#define TSTR    -30
+#define TINSTR  -29
+#define TVAL 	-28
+#define TNETSTAT -27
+#define TSENSOR  -26
+#define TWIRE 	-25
 /* constants used for some obscure purposes */
 #define TBUFFER -4
 /* unused right now from earlier code to be removed soon */
@@ -231,7 +232,7 @@ typedef unsigned char uint8_t;
 #define NEWLINE -1
 
 /* the number of keywords, and the base index of the keywords */
-#define NKEYWORDS	3+19+14+12+10+5+2+7+7+6+11
+#define NKEYWORDS	3+19+14+12+10+5+2+7+7+7+11
 #define BASEKEYWORD -121
 
 /*
@@ -386,6 +387,7 @@ const char srestore[]   PROGMEM  = "RESTORE";
 const char sdef[] 	PROGMEM  = "DEF";
 const char sfn[]   	PROGMEM  = "FN";
 const char son[]   	PROGMEM  = "ON";
+const char selse[]	PROGMEM  = "ELSE";
 #endif
 /* The Darkarts commands unthinkable in Dartmouth */
 #ifdef HASDARKARTS
@@ -449,6 +451,7 @@ const char* const keyword[] PROGMEM = {
 #endif
 #ifdef HASDARTMOUTH
 	sdata, sread, srestore, sdef, sfn, son,
+	selse,
 #endif
 #ifdef HASDARKARTS
 	smalloc, sfind, seval, 
@@ -501,7 +504,7 @@ const signed char tokens[] PROGMEM = {
 	TFCIRCLE, TFRECT,
 #endif
 #ifdef HASDARTMOUTH
-	TDATA, TREAD, TRESTORE, TDEF, TFN, TON,
+	TDATA, TREAD, TRESTORE, TDEF, TFN, TON, TELSE,
 #endif
 #ifdef HASDARKARTS
 	TMALLOC, TFIND, TEVAL, 
@@ -767,6 +770,7 @@ void timeinit();
 void wiringbegin();
 
 /* low level mem and hardware features */
+int freeRam();
 long freememorysize();
 void restartsystem();
 void activatesleep();

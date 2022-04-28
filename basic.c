@@ -142,7 +142,7 @@
 #endif
 
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
-#define MEMSIZE 0
+#define MEMSIZE 128
 
 // debug mode switches 
 #define DEBUG 0
@@ -2302,9 +2302,9 @@ void storeline() {
  * implementing a C style logical expression model
  */
 
-/* the terminal symbol */
+/* the terminal symbol, ELSE is a termsymbol */
 char termsymbol() {
-	return ( token == LINENUMBER ||  token == ':' || token == EOL);
+	return ( token == LINENUMBER ||  token == ':' || token == EOL || token == TELSE);
 }
 
 /* a little helpers - one token expect */ 
@@ -3463,6 +3463,7 @@ void xreturn(){
 
 /* 
  *	IF statement together with THEN 
+ * 		ELSE not implemented properly
  */
 void xif() {
 	
@@ -3470,10 +3471,25 @@ void xif() {
 	x=pop();
 	if (DEBUG) { outnumber(x); outcr(); } 
 
-/* on condition false skip the entire line */
-	if (!x) while(token != LINENUMBER && token != EOL) nexttoken();
-	
-/* a then token is interpreted as simple one statement goto	*/
+/* on condition false skip the entire line until ELSE and swallow the termsymbol*/
+	if (!x)  {
+		while(token != LINENUMBER && token != EOL && token != TELSE) nexttoken();
+
+/* if the have ELSE at this point we want to execute this part of the line as the condition 
+		was false, isolated ELSE is GOTO */
+#ifdef HASDARTMOUTH
+		if (token == TELSE) {
+			nexttoken();
+			if (token == NUMBER) {
+				findline(x);
+				if (er != 0) return;		
+			} else 
+				nexttoken();
+		} 	
+#endif		
+	}	
+
+/* a THEN is interpreted as simple one statement goto	if it is followed by a line number*/
 	if (token == TTHEN) {
 		nexttoken();
 		if (token == NUMBER) {
@@ -3482,6 +3498,15 @@ void xif() {
 		}
 	} 
 }
+
+/* if else is encountered in the statement line, the rest of the code is skipped 
+ 		as else code execution is triggered in the xif function */
+#ifdef HASDARTMOUTH
+void xelse() {
+	nexttoken();
+	while(!termsymbol()) nexttoken();
+}
+#endif
 
 /* 
  *	FOR, NEXT and the apocryphal BREAK
@@ -3673,6 +3698,7 @@ void outputtoken() {
 		default:
 			if (token < -3 && token > -122) {
 				if ((token == TTHEN || 
+						token == TELSE ||
 						token == TTO || 
 						token == TSTEP || 
 						token == TGOTO || 
@@ -4306,15 +4332,15 @@ void xset(){
 			sendcr=(char)args;
 			break;
 		case 7: // set the blockmode behaviour
-      		blockmode=args;
-      		break;
+			blockmode=args;
+			break;
 #endif
 #ifdef ARDUINORF24
-      	case 8: // set the power amplifier level of the module
-      		if ((args<0) && (args>3)) {error(EORANGE); return; } 
-      		rf24_pa=(rf24_pa_dbm_e) args;
-      		radio.setPALevel(rf24_pa);
-      		break;
+		case 8: // set the power amplifier level of the module
+     	if ((args<0) && (args>3)) {error(EORANGE); return; } 
+      rf24_pa=(rf24_pa_dbm_e) args;
+      radio.setPALevel(rf24_pa);
+      break;
 #endif			
 	}
 }
@@ -5479,6 +5505,9 @@ void statement(){
 				break;
 			case TON:
 				xon();
+				break;
+			case TELSE:
+				xelse();
 				break;
 #endif
 #ifdef HASDARKARTS
