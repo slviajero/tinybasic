@@ -142,7 +142,7 @@
 #endif
 
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
-#define MEMSIZE 128
+#define MEMSIZE 0
 
 // debug mode switches 
 #define DEBUG 0
