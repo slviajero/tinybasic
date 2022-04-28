@@ -62,17 +62,17 @@
 #undef ARDUINOPRT
 #define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
-#define ARDUINONOKIA51
-#undef ARDUINOILI9488
+#undef ARDUINONOKIA51
+#define ARDUINOILI9488
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
-#define ESPSPIFFS
-#undef RP2040LITTLEFS
-#undef ARDUINORTC
+#undef ESPSPIFFS
+#define RP2040LITTLEFS
+#define ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
@@ -405,6 +405,11 @@
 #include <LiquidCrystal_I2C.h>
 #endif
 
+/*
+ * This is the monochrome library of Oli Kraus
+ * https://github.com/olikraus/u8g2/wiki/u8g2reference
+ * It can harware scroll.
+ */
 #ifdef ARDUINONOKIA51
 #include <U8g2lib.h>
 #endif
@@ -727,7 +732,8 @@ void dspclear() { lcd.clear(); }
 
 
 /* 
- * A Nokia 5110 with ug8lib2 - stub, unimplemented
+ * A Nokia 5110 with ug8lib2 - can scroll quite well
+ * https://github.com/olikraus/u8g2/wiki/u8g2reference
  */ 
 #ifdef ARDUINONOKIA51
 #define DISPLAYDRIVER
@@ -743,18 +749,20 @@ void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r);
 void dspprintchar(char c, short col, short row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*8+2, (row+1)*8, b); u8g2.sendBuffer(); }
 void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); }
 void rgbcolor(int r, int g, int b) {}
-void vgacolor(short c) { dspfgcolor=c%3; }
+void vgacolor(short c) { dspfgcolor=c%3; u8g2.setDrawColor(dspfgcolor); }
 void plot(int x, int y) { u8g2.setDrawColor(dspfgcolor); u8g2.drawPixel(x, y); u8g2.sendBuffer(); }
 void line(int x0, int y0, int x1, int y1)   { u8g2.drawLine(x0, y0, x1, y1); u8g2.sendBuffer(); }
 void rect(int x0, int y0, int x1, int y1)   { u8g2.drawFrame(x0, y0, x1-x0, y1-y0); u8g2.sendBuffer(); }
-void frect(int x0, int y0, int x1, int y1)  { u8g2.setDrawColor(dspfgcolor); u8g2.drawBox(x0, y0, x1-x0, y1-y0); u8g2.sendBuffer(); }
+void frect(int x0, int y0, int x1, int y1)  { u8g2.drawBox(x0, y0, x1-x0, y1-y0); u8g2.sendBuffer(); }
 void circle(int x0, int y0, int r) { u8g2.drawCircle(x0, y0, r); u8g2.sendBuffer(); }
 void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); u8g2.sendBuffer(); }
 #endif
 
 /* 
  * A ILI9488 with Jarett Burkets version of Adafruit GFX
- * non scrollable test code
+ * currently only slow software scrolling implemented in BASIC
+ * although the library can do more
+ * https://github.com/jaretburkett/ILI9488
  */ 
 #ifdef ARDUINOILI9488
 #define DISPLAYDRIVER
