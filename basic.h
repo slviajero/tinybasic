@@ -203,13 +203,14 @@ typedef unsigned char uint8_t;
 #define TRECT   -45
 #define TFCIRCLE -44
 #define TFRECT   -43
-/* the dark arts and Dartmouth extensions (6) */
+/* the Dartmouth extensions (6) */
 #define TDATA	-42
 #define TREAD   -41
 #define TRESTORE -40
 #define TDEF     -39
 #define TFN 	-38
 #define TON     -37
+/* the latecomer ELSE */
 #define TELSE 	-36
 /* darkarts (3) */
 #define TMALLOC -35
@@ -387,6 +388,9 @@ const char srestore[]   PROGMEM  = "RESTORE";
 const char sdef[] 	PROGMEM  = "DEF";
 const char sfn[]   	PROGMEM  = "FN";
 const char son[]   	PROGMEM  = "ON";
+#endif
+/* a latecomer the ELSE command */
+#ifdef HASSTEFANSEXT
 const char selse[]	PROGMEM  = "ELSE";
 #endif
 /* The Darkarts commands unthinkable in Dartmouth */
@@ -451,6 +455,8 @@ const char* const keyword[] PROGMEM = {
 #endif
 #ifdef HASDARTMOUTH
 	sdata, sread, srestore, sdef, sfn, son,
+#endif
+#ifdef HASSTEFANSEXT
 	selse,
 #endif
 #ifdef HASDARKARTS
@@ -504,7 +510,10 @@ const signed char tokens[] PROGMEM = {
 	TFCIRCLE, TFRECT,
 #endif
 #ifdef HASDARTMOUTH
-	TDATA, TREAD, TRESTORE, TDEF, TFN, TON, TELSE,
+	TDATA, TREAD, TRESTORE, TDEF, TFN, TON, 
+#endif
+#ifdef HASSTEFANSEXT
+	TELSE,
 #endif
 #ifdef HASDARKARTS
 	TMALLOC, TFIND, TEVAL, 

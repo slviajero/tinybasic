@@ -40,7 +40,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define  BASICFULL
+#define   BASICFULL
 #undef   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
@@ -70,7 +70,7 @@
 #undef HASFILEIO
 #undef HASTONE
 #undef HASPULSE
-#undef HASSTEFANSEXT
+#define HASSTEFANSEXT
 #undef HASERRORMSG
 #undef HASVT52
 #undef HASFLOAT
@@ -2305,6 +2305,7 @@ void storeline() {
 /* the terminal symbol, ELSE is a termsymbol */
 char termsymbol() {
 	return ( token == LINENUMBER ||  token == ':' || token == EOL || token == TELSE);
+  // return ( token == LINENUMBER ||  token == ':' || token == EOL);
 }
 
 /* a little helpers - one token expect */ 
@@ -3102,7 +3103,7 @@ processsymbol:
 
 	if (termsymbol()) {
 		if (! semicolon) outcr();
-		nexttoken();
+		//nexttoken();
 		od=oldod;
 		form=0;
 		return;
@@ -3477,34 +3478,36 @@ void xif() {
 
 /* if the have ELSE at this point we want to execute this part of the line as the condition 
 		was false, isolated ELSE is GOTO */
-#ifdef HASDARTMOUTH
+#ifdef HASSTEFANSEXT
 		if (token == TELSE) {
 			nexttoken();
 			if (token == NUMBER) {
 				findline(x);
-				if (er != 0) return;		
-			} else 
-				nexttoken();
+				return;	
+			} 
 		} 	
 #endif		
 	}	
 
 /* a THEN is interpreted as simple one statement goto	if it is followed by a line number*/
+#ifdef HASAPPLE1
 	if (token == TTHEN) {
 		nexttoken();
 		if (token == NUMBER) {
 			findline(x);
-			if (er != 0) return;		
 		}
 	} 
+#endif
 }
 
 /* if else is encountered in the statement line, the rest of the code is skipped 
  		as else code execution is triggered in the xif function */
-#ifdef HASDARTMOUTH
+#ifdef HASSTEFANSEXT
 void xelse() {
-	nexttoken();
-	while(!termsymbol()) nexttoken();
+	do {
+		nexttoken();
+	}
+	while(!termsymbol());
 }
 #endif
 
@@ -5506,6 +5509,8 @@ void statement(){
 			case TON:
 				xon();
 				break;
+#endif
+#ifdef HASSTEFANSEXT
 			case TELSE:
 				xelse();
 				break;
