@@ -34,7 +34,7 @@
     ARDUARDUINO_SAM_DUE: hardware heuristics
     ARDUINO_ARCH_AVR: nothing
     ARDUINO_AVR_LARDU_328E: odd EEPROM code, seems to work, somehow
-    ARDUINO_ARCH_EXP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
+    ARDUINO_ARCH_ESP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
 
   The code still contains hardware heuristics from my own projects, 
   will be removed in the future
@@ -60,9 +60,10 @@
 #undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
+#define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
+#define ARDUINOILI9488
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
@@ -70,8 +71,8 @@
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
-#undef RP2040LITTLEFS
-#undef ARDUINORTC
+#define RP2040LITTLEFS
+#define ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
@@ -275,8 +276,8 @@
 #define ARDUINOEFS
 #define ARDUINORTC
 #define ARDUINOWIRE
-#define EEPROMI2CADDR 0x057 /* use clock EEPROM, set to 0x050 for external EEPROM */
-//#define STANDALONE
+#define EEPROMI2CADDR 0x050 /* use clock EEPROM 0x057, set to 0x050 for external EEPROM */
+#define STANDALONE
 #endif
 
 /* 
@@ -327,8 +328,8 @@
 #define ARDUINOSPI
 #endif
 
-/* the NOKIA display needs SPI */
-#ifdef ARDUINONOKIA51
+/* the NOKIA and ILI9488 display needs SPI */
+#if defined(ARDUINONOKIA51) || defined(ARDUINOILI9488)
 #define ARDUINOSPI
 #endif
 
@@ -342,7 +343,7 @@
  * language setting 
  * this is odd and can be removed later on
  */
-#if !defined(ARDUINOTFT) && !defined(ARDUINOVGA)
+#if !defined(ARDUINOTFT) && !defined(ARDUINOVGA) && !defined(ARDUINOILI9488) && !defined(ARDUINONOKIA51)
 #undef HASGRAPH
 #endif
 
@@ -404,8 +405,23 @@
 #include <LiquidCrystal_I2C.h>
 #endif
 
+/*
+ * This is the monochrome library of Oli Kraus
+ * https://github.com/olikraus/u8g2/wiki/u8g2reference
+ * It can harware scroll.
+ */
 #ifdef ARDUINONOKIA51
 #include <U8g2lib.h>
+#endif
+
+/*
+ * This is the (old) ILI9488 library originally created by Jarett Burket
+ * https://github.com/slviajero/ILI9488
+ * It can harware scroll.
+ */
+#ifdef ARDUINOILI9488
+#include <Adafruit_GFX.h>
+#include <ILI9488.h>
 #endif
 
 /*
@@ -542,16 +558,20 @@
  *	Arduino default serial baudrate and serial flags for the 
  * two supported serial interfaces. Serial is always active and 
  * connected to channel &1 with 9600 baud. 
+ * 
+ * channel 4 (ARDUINOPRT) can be either in character or block 
+ * mode. Blockmode is set as default here. This means that all 
+ * available characters are always loaded to a string -> inb()
  */
 const int serial_baudrate = 9600;
 char sendcr = 0;
-short blockmode = 0;
-
 
 #ifdef ARDUINOPRT
 const int serial1_baudrate = 9600;
+short blockmode = 1;
 #else 
 const int serial1_baudrate = 0;
+short blockmode = 0;
 #endif
 
 /*  handling time - part of the Arduino core - only needed on POSIX OSes */
@@ -592,10 +612,10 @@ int freeRam() {
 
 /*
  * Heuristic Wifi systems reserve 4k by default, small 8 bit AVR try to guess sizes conservatively
- * RP2040 not yet implemented
+ * RP2040 cannot measure, we set to 16 bit full address space
  */
 long freememorysize() {
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD) 
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
   return freeRam() - 4000;
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM)
@@ -607,6 +627,9 @@ long freememorysize() {
   overhead+=256;
 #endif
   return freeRam() - overhead;
+#endif
+#ifdef ARDUINO_NANO_RP2040_CONNECT
+  return 65536;
 #endif
   return 0;
 }
@@ -709,15 +732,66 @@ void dspclear() { lcd.clear(); }
 
 
 /* 
- * A Nokia 5110 with ug8lib2 - stub, unimplemented
+ * A Nokia 5110 with ug8lib2 - can scroll quite well
+ * https://github.com/olikraus/u8g2/wiki/u8g2reference
  */ 
 #ifdef ARDUINONOKIA51
 #define DISPLAYDRIVER
+#define NOKIA_CS 4
+#define NOKIA_DC 0
+#define NOKIA_RST 5
+U8G2_PCD8544_84X48_F_4W_HW_SPI u8g2(U8G2_R0, NOKIA_CS, NOKIA_DC, NOKIA_RST); 
 const int dsp_rows=6;
 const int dsp_columns=10;
-void dspbegin() { }
-void dspprintchar(char c, short col, short row) {}
-void dspclear() {}
+uint8_t dspfgcolor = 1;
+uint8_t dspbgcolor = 0;
+void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r); }
+void dspprintchar(char c, short col, short row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*8+2, (row+1)*8, b); u8g2.sendBuffer(); }
+void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); }
+void rgbcolor(int r, int g, int b) {}
+void vgacolor(short c) { dspfgcolor=c%3; u8g2.setDrawColor(dspfgcolor); }
+void plot(int x, int y) { u8g2.setDrawColor(dspfgcolor); u8g2.drawPixel(x, y); u8g2.sendBuffer(); }
+void line(int x0, int y0, int x1, int y1)   { u8g2.drawLine(x0, y0, x1, y1); u8g2.sendBuffer(); }
+void rect(int x0, int y0, int x1, int y1)   { u8g2.drawFrame(x0, y0, x1-x0, y1-y0); u8g2.sendBuffer(); }
+void frect(int x0, int y0, int x1, int y1)  { u8g2.drawBox(x0, y0, x1-x0, y1-y0); u8g2.sendBuffer(); }
+void circle(int x0, int y0, int r) { u8g2.drawCircle(x0, y0, r); u8g2.sendBuffer(); }
+void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); u8g2.sendBuffer(); }
+#endif
+
+/* 
+ * A ILI9488 with Jarett Burkets version of Adafruit GFX
+ * currently only slow software scrolling implemented in BASIC
+ * although the library can do more
+ * https://github.com/jaretburkett/ILI9488
+ */ 
+#ifdef ARDUINOILI9488
+#define DISPLAYDRIVER
+#define ILI_CS  2
+#define ILI_DC  3  
+#define ILI_LED A0  
+#define ILI_RST 4 
+ILI9488 tft = ILI9488(ILI_CS, ILI_DC, ILI_RST);
+const int dsp_rows=30;
+const int dsp_columns=20;
+char dspfontsize = 16;
+uint16_t dspfgcolor = ILI9488_WHITE;
+uint16_t dspbgcolor = ILI9488_BLACK;
+void dspbegin() { tft.begin(); tft.setTextColor(dspfgcolor); tft.setTextSize(2); tft.fillScreen(dspbgcolor); }
+void dspprintchar(char c, short col, short row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
+void dspclear() { tft.fillScreen(dspbgcolor); }
+void rgbcolor(int r, int g, int b) { dspfgcolor=tft.color565(r, g, b);}
+void vgacolor(short c) {  
+  short base=128;
+  if (c==8) { rgbcolor(64, 64, 64); return; }
+  if (c>8) base=255;
+  rgbcolor(base*(c&1), base*((c&2)/2), base*((c&4)/4)); 
+}
+void plot(int x, int y) { tft.drawPixel(x, y, dspfgcolor); }
+void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1, dspfgcolor); }
+void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, x0, x1, y1, dspfgcolor);}
+void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, x0, x1, y1, dspfgcolor); }
+void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r, dspfgcolor); }
+void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
 #endif
 
 /*
@@ -1453,7 +1527,9 @@ Ethernet.begin(mac);
 
 /*
  * network connected method
- * on ESP Wifi try to reconnect, the delay is odd
+ * on ESP Wifi try to reconnect, the delay is odd 
+ * This is a partial reconnect, BASIC needs to handle 
+ * repeated reconnects
  */
 char netconnected() {
 #ifdef ARDUINOETH
@@ -1462,7 +1538,10 @@ char netconnected() {
 	if (WiFi.status() != WL_CONNECTED) {  
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
 	  WiFi.reconnect(); 
-	  delay(10); 
+	  delay(1000); 
+#elif defined(ARDUINO_ARCH_SAMD)
+    WiFi.begin(ssid, password);
+    delay(1000);
 #endif 	
 	};
 	return(WiFi.status() == WL_CONNECTED);
@@ -1505,8 +1584,12 @@ char mqttreconnect() {
 
 /* all good and nothing to be done, we are connected */
 	if (bmqtt.connected()) return true;
+
+/* try to reconnect the network */
+  if (!netconnected()) delay(5000);
+  if (!netconnected()) return false;
 	
-/* create a random name right now */
+/* create a new random name right now */
 	mqttsetname();
 
 /* try to reconnect assuming that the network is connected */
@@ -2260,6 +2343,7 @@ void serialbegin() {
 	(void) PicoSerial.begin(serial_baudrate, picogetchar); 
 #else
 	Serial.begin(serial_baudrate);
+  //while(!Serial) byield();
 #endif
 	delay(1000);
 }
@@ -2269,7 +2353,9 @@ void serialwrite(char c) {
 #ifdef USESPICOSERIAL
 	PicoSerial.print(c);
 #else
-	Serial.write(c);	
+/* write never blocks. discard any bytes we can't get rid of */
+  Serial.write(c);  
+  // if (Serial.availableForWrite()>0) Serial.write(c);	
 #endif
 }
 

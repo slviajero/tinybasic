@@ -70,7 +70,7 @@
 #undef HASFILEIO
 #undef HASTONE
 #undef HASPULSE
-#define HASSTEFANSEXT
+#undef HASSTEFANSEXT
 #undef HASERRORMSG
 #undef HASVT52
 #undef HASFLOAT
@@ -93,7 +93,7 @@
 #undef  HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
-#undef HASDARKARTS
+#undef 	HASDARKARTS
 #define HASIOT
 #endif
 
@@ -114,7 +114,7 @@
 #define HASIOT
 #endif
 
-/* a Tinybasic with float support */
+/* a Tinybasic plus extensions with float support */
 #ifdef BASICTINYWITHFLOAT
 #undef HASAPPLE1
 #define HASARDUINOIO
@@ -184,6 +184,7 @@
 address_t ballocmem() { 
 	signed char i = 0;
 
+/* this mechanism soon deprecated */ 
 	const unsigned short memmodel[] = {
 		60000,  // DUE systems, RP2040 and ESP32, all POSIX systems - set to fit in one 16 bit page
     48000,  // DUE with a bit of additional stuff,
@@ -2038,7 +2039,7 @@ void gettoken() {
 				}
 				ir=ibuffer;
 			} else {
-				ir=(char *)&mem[here];
+				ir=(char*)&mem[here];
 			}
 			here+=x;	
 		}
@@ -2091,7 +2092,7 @@ address_t myline(address_t h) {
 			l1=l;
 			l=x;
 		}
-		if (here >= h) { break; }
+		if (here >= h) break;
 		gettoken();
 	}
 	here=here2;
@@ -2348,7 +2349,7 @@ void parsearguments() {
 /* expect exactly n arguments */
 void parsenarguments(char n) {
 	parsearguments();
-	if (args != n ) error(EARGS);
+	if (args != n) error(EARGS);
 }
 
 /* counts and parses the number of arguments given in brakets */
@@ -2638,7 +2639,7 @@ void streval(){
 	if (er != 0) return;
 
 	if (x != xl) goto neq;
-	for (x=0; x < xl; x++) if ( irl[x] != ir2[x] ) goto neq;
+	for (x=0; x < xl; x++) if (irl[x] != ir2[x]) goto neq;
 
 	if (t == '=') push(1); else push(0);
 	return;
@@ -2767,9 +2768,9 @@ void factor(){
 			break;
 		case TVAL:
 			nexttoken();
-			if ( token != '(') { error(EARGS); return; }
+			if (token != '(') { error(EARGS); return; }
 			nexttoken();
-			if (! stringvalue()) { error(EUNKNOWN); return; }
+			if (!stringvalue()) { error(EUNKNOWN); return; }
 			if (er != 0) return;
 /* not super clean - handling of terminal symbol dirty
 		stringtobuffer needed !! */
@@ -2790,13 +2791,13 @@ void factor(){
 			break;
 		case TINSTR:
 			nexttoken();
-			if ( token != '(') { error(EARGS); return; }
+			if (token != '(') { error(EARGS); return; }
 			nexttoken();
 			expression();
 			if (er != 0) return;
-			if ( token != ',') { error(EARGS); return; }
+			if (token != ',') { error(EARGS); return; }
 			nexttoken();
-			if (! stringvalue()) { error(EUNKNOWN); return; }
+			if (!stringvalue()) { error(EUNKNOWN); return; }
 			y=pop();
 			xc=pop();
 			for (z.a=1; z.a<=y; z.a++) {if ( ir2[z.a-1] == xc ) break; }
@@ -3135,7 +3136,7 @@ processsymbol:
 		goto processsymbol;
 	}
 
-	if (token != ',' && token != ';' ) {
+	if (token != ',' && token != ';') {
 		expression();
 		if (er != 0) return;
 		outnumber(pop());
@@ -3146,7 +3147,7 @@ separators:
 		if (! modifier ) outspc(); 
 		nexttoken();	
 	}
-	if (token == ';'){
+	if (token == ';') {
 		semicolon=TRUE;
 		nexttoken();
 	}
@@ -3266,19 +3267,19 @@ void assignment() {
 		case VARIABLE:
 		case ARRAYVAR: // the lefthandside is a scalar, evaluate the righthandside as a number
 			expression();
-			if (er != 0 ) return;
+			if (er != 0) return;
 			assignnumber(t, xcl, ycl, i, ps);
 			break;
 #ifdef HASAPPLE1
 		case STRINGVAR: // the lefthandside is a string 
 			// we try to evaluate the righthandside as a stringvalue
 			s=stringvalue();
-			if (er != 0 ) return;
+			if (er != 0) return;
 
 			// and then as an expression
 			if (!s) {
 				expression();
-				if (er != 0 ) return;
+				if (er != 0) return;
 				assignnumber(t, xcl, ycl, i, ps);
 				break;
 			}
@@ -3523,10 +3524,18 @@ void findnextcmd(){
 	    else fnc--;
 		}
 	  if (token == TFOR) fnc++;
-	  if (here >= top) {
-	    error(TFOR);
-	    return;
-	   }
+/* no NEXT found - different for interactive and program mode */
+	  if (st == SRUN || st == SERUN) {
+	  	if (here >= top) {
+	    	error(TFOR);
+	    	return;
+	   	}
+	  } else {
+	  	if (bi-ibuffer > BUFSIZE) {
+	  		error(TFOR);
+	    	return;
+	  	}
+	  }
 		nexttoken(); 
 	}
 }
@@ -3814,7 +3823,6 @@ void xnew(){
 	clrforstack();
 	clrdata();
 
-
 /* program memory back to zero and variable heap cleared */
 	himem=memsize;
 	top=0;
@@ -3916,7 +3924,7 @@ void xpoke(){
 	if (x >= 0 && x<amax) 
 		mem[(unsigned int) x]=y;
 	else if (x < 0 && x >= -elength())
-			eupdate(-x-1, y);
+		eupdate(-x-1, y);
 	else {
 		error(EORANGE);
 	}
@@ -4101,10 +4109,9 @@ void xsave() {
 
 /* clean up */
 		ofileclose();
-
 	}
 
-	// and continue
+/* and continue */
 	nexttoken();
 	return;
 }
@@ -4112,7 +4119,7 @@ void xsave() {
 /*
  * LOAD a file 
  */
-void xload(const char * f) {
+void xload(const char* f) {
 	char filename[SBUFSIZE];
 	char ch;
 	address_t here2;
@@ -4135,7 +4142,7 @@ void xload(const char * f) {
  *	load the program as new but perserve the variables
  *	gosub and for stacks are cleared 
  */
-		if ( st == SRUN ) { 
+		if (st == SRUN) { 
 			chain=TRUE; 
 			st=SINT; 
 			top=0;
@@ -4143,7 +4150,7 @@ void xload(const char * f) {
 			clrforstack();
 		}
 
-		if (! f)
+		if (!f)
 			if (!ifileopen(filename)) {
 				error(EFILE);
 				nexttoken();
@@ -4235,7 +4242,6 @@ void xget(){
 	assignnumber(t, xcl, ycl, i, ps);
 
 	nexttoken();
-
 	id=oid;
 }
 
@@ -4728,7 +4734,7 @@ void xopen() {
 	char mode;
 	char nlen;
 
-	// which stream do we open? default is FILE
+/* which stream do we open? default is FILE */
 	nexttoken();
 	if (token == '&') {
 		if (!expectexpr()) return;
@@ -4737,12 +4743,12 @@ void xopen() {
 		nexttoken();
 	}
 	
-	// the filename and its length
+/* the filename and its length */
 	getfilename(filename, 0);
 	if (er != 0) return; 
 	nlen=x;
 
-	// and the arguments
+/* and the arguments */
 	args=0;
 	nexttoken();
 	if (token == ',') { 
@@ -5071,7 +5077,7 @@ void xread(){
 	t0=token;
 
 	nextdatarecord();
-	if (er!=0) return;
+	if (er != 0) return;
 
 /* assign the value to the lhs - redundant code to assignment */
 	switch (token) {
@@ -5174,7 +5180,7 @@ void xdef(){
 	}
 
 /* find the function */
-	if ( (a=bfind(TFN, xcl1, ycl1)) == 0 ) a=bmalloc(TFN, xcl1, ycl1, 0);
+	if ((a=bfind(TFN, xcl1, ycl1))==0) a=bmalloc(TFN, xcl1, ycl1, 0);
 	if (DEBUG) {outsc("** found function structure at "); outnumber(a); outcr(); }
 
 /* store the payload - the here address - and the name of the variable */
@@ -5213,7 +5219,7 @@ void xfn() {
 	if (token != ')') {error(EUNKNOWN); return; }
 
 /* find the function structure and retrieve the payload */
-	if ( (a=bfind(TFN, fxc, fyc)) == 0 ) {error(EUNKNOWN); return; }
+	if ((a=bfind(TFN, fxc, fyc))==0) {error(EUNKNOWN); return; }
 	getnumber(a, addrsize);
 	h1=z.a;
 	vxc=mem[a+addrsize];
@@ -5257,7 +5263,7 @@ void xon(){
 	if (DEBUG) { outsc("** in on condition found "); outnumber(cr); outcr(); } 
 
 /* is there a goto or gosub */
-	if ( token != TGOSUB && token != TGOTO)  {
+	if (token != TGOSUB && token != TGOTO)  {
 		error(EUNKNOWN);
 		return;
 	}

@@ -57,13 +57,13 @@
 
 	leave this unset if you use the definitions below
 */
-#undef USESPICOSERIAL 
+#define USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
-#define DISPLAYCANSCROLL
+#undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
-#define ARDUINOILI9488
+#undef ARDUINOILI9488
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
@@ -71,8 +71,8 @@
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
-#define RP2040LITTLEFS
-#define ARDUINORTC
+#undef RP2040LITTLEFS
+#undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
