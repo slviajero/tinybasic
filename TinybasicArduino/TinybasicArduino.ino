@@ -41,8 +41,8 @@
  * BASICMINIMAL: minimal language
  */
 #undef   BASICFULL
-#undef   BASICINTEGER
-#define   BASICMINIMAL
+#define   BASICINTEGER
+#undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
 /*
