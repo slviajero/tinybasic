@@ -57,7 +57,7 @@
 
 	leave this unset if you use the definitions below
 */
-#define USESPICOSERIAL 
+#undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
 #undef DISPLAYCANSCROLL
@@ -155,9 +155,15 @@
  * Sensor library code - experimental
  */
 #ifdef ARDUINOSENSORS
-#define ARDUINODHT
+#undef ARDUINODHT
 #define DHTTYPE DHT22
 #define DHTPIN 1
+#define ARDUINOSHT
+#ifdef ARDUINOSHT
+#define ARDUINOWIRE
+#endif
+#define ARDUINOMQ2
+#define MQ2PIN A0
 #undef ARDUINOLMS6
 #endif
 
@@ -2609,6 +2615,14 @@ void oradioopen(char *filename) {
 #include "DHT.h"
 DHT dht(DHTPIN, DHTTYPE);
 #endif
+#ifdef ARDUINOSHT
+#include <SHT3x.h>
+SHT3x SHT;
+#endif
+#ifdef ARDUINOMQ2
+#include <MQ2.h>
+MQ2 mq2(MQ2PIN);
+#endif
 #ifdef ARDUINOLMS6
 #include <Arduino_LSM6DSOX.h>
 /* https://www.arduino.cc/en/Reference/Arduino_LSM6DSOX */
@@ -2618,10 +2632,18 @@ void sensorbegin(){
 #ifdef ARDUINODHT
   dht.begin();
 #endif
+#ifdef ARDUINOSHT
+  SHT.Begin();
+#endif
+#ifdef ARDUINOMQ2
+  mq2.begin();
+#endif
 }
 
 number_t sensorread(short s, short v) {
   switch (s) {
+    case 0:
+      return analogRead(A0+v);
     case 1:
 #ifdef ARDUINODHT
 			switch (v) {
@@ -2632,6 +2654,37 @@ number_t sensorread(short s, short v) {
 				case 2:
 					return dht.readTemperature();
 			}     	
+#endif
+      return 0;
+    case 2:
+#ifdef ARDUINOSHT
+      switch (v) {
+        case 0:
+          return 1;
+        case 1:
+          SHT.UpdateData();
+          return SHT.GetRelHumidity();
+        case 2:
+          SHT.UpdateData();
+          return SHT.GetTemperature();
+      }       
+#endif
+      return 0;
+    case 3:
+#ifdef ARDUINOMQ2
+      switch (v) {
+        case 0:
+          return 1;
+        case 1:
+          (void) mq2.read(false);
+          return mq2.readLPG();;
+        case 2:
+          (void) mq2.read(false);
+          return mq2.readCO();
+        case 3:
+          (void) mq2.read(false);
+          return mq2.readSmoke();
+      }       
 #endif
       return 0;
     default:

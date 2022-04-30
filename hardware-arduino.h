@@ -34,7 +34,7 @@
     ARDUARDUINO_SAM_DUE: hardware heuristics
     ARDUINO_ARCH_AVR: nothing
     ARDUINO_AVR_LARDU_328E: odd EEPROM code, seems to work, somehow
-    ARDUINO_ARCH_ESP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
+    ARDUINO_ARCH_EXP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
 
   The code still contains hardware heuristics from my own projects, 
   will be removed in the future
@@ -60,10 +60,10 @@
 #undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
-#define DISPLAYCANSCROLL
+#undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
-#define ARDUINOILI9488
+#undef ARDUINOILI9488
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
@@ -71,13 +71,13 @@
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
-#define RP2040LITTLEFS
-#define ARDUINORTC
+#undef RP2040LITTLEFS
+#undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
 #undef ARDUINOMQTT
-#undef ARDUINOSENSORS
+#undef  ARDUINOSENSORS
 #undef STANDALONE
 
 /* 
@@ -155,9 +155,15 @@
  * Sensor library code - experimental
  */
 #ifdef ARDUINOSENSORS
-#define ARDUINODHT
+#undef ARDUINODHT
 #define DHTTYPE DHT22
 #define DHTPIN 1
+#undef ARDUINOSHT
+#ifdef ARDUINOSHT
+#define ARDUINOWIRE
+#endif
+#undef ARDUINOMQ2
+#define MQ2PIN A0
 #undef ARDUINOLMS6
 #endif
 
@@ -605,7 +611,7 @@ int freeRam() {
   return ESP.getFreeHeap();
 }
 #else
-int freeRam() {
+long freeRam() {
   return 0; 
 }
 #endif
@@ -2609,6 +2615,14 @@ void oradioopen(char *filename) {
 #include "DHT.h"
 DHT dht(DHTPIN, DHTTYPE);
 #endif
+#ifdef ARDUINOSHT
+#include <SHT3x.h>
+SHT3x SHT;
+#endif
+#ifdef ARDUINOMQ2
+#include <MQ2.h>
+MQ2 mq2(MQ2PIN);
+#endif
 #ifdef ARDUINOLMS6
 #include <Arduino_LSM6DSOX.h>
 /* https://www.arduino.cc/en/Reference/Arduino_LSM6DSOX */
@@ -2618,10 +2632,18 @@ void sensorbegin(){
 #ifdef ARDUINODHT
   dht.begin();
 #endif
+#ifdef ARDUINOSHT
+  SHT.Begin();
+#endif
+#ifdef ARDUINOMQ2
+  mq2.begin();
+#endif
 }
 
 number_t sensorread(short s, short v) {
   switch (s) {
+    case 0:
+      return analogRead(A0+v);
     case 1:
 #ifdef ARDUINODHT
 			switch (v) {
@@ -2632,6 +2654,37 @@ number_t sensorread(short s, short v) {
 				case 2:
 					return dht.readTemperature();
 			}     	
+#endif
+      return 0;
+    case 2:
+#ifdef ARDUINOSHT
+      switch (v) {
+        case 0:
+          return 1;
+        case 1:
+          SHT.UpdateData();
+          return SHT.GetRelHumidity();
+        case 2:
+          SHT.UpdateData();
+          return SHT.GetTemperature();
+      }       
+#endif
+      return 0;
+    case 3:
+#ifdef ARDUINOMQ2
+      switch (v) {
+        case 0:
+          return 1;
+        case 1:
+          (void) mq2.read(false);
+          return mq2.readLPG();;
+        case 2:
+          (void) mq2.read(false);
+          return mq2.readCO();
+        case 3:
+          (void) mq2.read(false);
+          return mq2.readSmoke();
+      }       
 #endif
       return 0;
     default:
