@@ -70,14 +70,14 @@
 #undef ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
-#undef ESPSPIFFS
+#define ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINORF24
 #undef ARDUINOETH
 #undef ARDUINOMQTT
-#undef  ARDUINOSENSORS
+#undef ARDUINOSENSORS
 #undef STANDALONE
 
 /* 
@@ -155,14 +155,14 @@
  * Sensor library code - experimental
  */
 #ifdef ARDUINOSENSORS
-#undef ARDUINODHT
+#define ARDUINODHT
 #define DHTTYPE DHT22
-#define DHTPIN 1
-#undef ARDUINOSHT
+#define DHTPIN 2
+#define ARDUINOSHT
 #ifdef ARDUINOSHT
 #define ARDUINOWIRE
 #endif
-#undef ARDUINOMQ2
+#undef  ARDUINOMQ2
 #define MQ2PIN A0
 #undef ARDUINOLMS6
 #endif
@@ -656,7 +656,11 @@ void restartsystem() {
 #endif
 }
 
-void activatesleep() {}
+void activatesleep(long t) {
+#if defined(ARDUINO_ARCH_ESP8266)
+  ESP.deepSleep(t*1000);
+#endif
+}
 
 /* 
  * start the SPI bus - this is a little mean as some libraries also 

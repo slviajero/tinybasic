@@ -67,7 +67,7 @@ int freeRam() {
  * the sleep and restart functions
  */
 void restartsystem() {exit(0);}
-void activatesleep() {}
+void activatesleep(long t) {}
 
 
 /* 

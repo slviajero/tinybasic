@@ -15,7 +15,7 @@
 	- MSDOS for MSDOS file access.
 	- MAC doesn't need more settings here
 	- RASPPI activates wiring code
-	- Review hardware.h for settings specific Arduino hardware settings
+	- Review hardware-*.h for settings specific Arduino hardware settings
 	- HAS* activates or deactives features of the interpreter
 	- the extension flags control features and code size
 
@@ -40,8 +40,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef   BASICFULL
-#define   BASICINTEGER
+#define   BASICFULL
+#undef   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -4281,6 +4281,7 @@ void xput(){
  */
 void xset(){
 	address_t fn;
+  address_t args;
 
 	nexttoken();
 	parsenarguments(2);
@@ -4349,7 +4350,16 @@ void xset(){
       rf24_pa=(rf24_pa_dbm_e) args;
       radio.setPALevel(rf24_pa);
       break;
-#endif			
+#endif		
+/* ESP8266 deep sleep mode - flush the eeprom and files and then doze 	
+ *  Experimental code, will go to an own command 
+ */
+    case 9:
+      ifileclose();
+      ofileclose();
+      eflush();
+      activatesleep(args);
+      break;
 	}
 }
 

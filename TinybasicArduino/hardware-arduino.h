@@ -155,14 +155,14 @@
  * Sensor library code - experimental
  */
 #ifdef ARDUINOSENSORS
-#undef ARDUINODHT
+#define ARDUINODHT
 #define DHTTYPE DHT22
-#define DHTPIN 1
+#define DHTPIN 2
 #define ARDUINOSHT
 #ifdef ARDUINOSHT
 #define ARDUINOWIRE
 #endif
-#define ARDUINOMQ2
+#undef  ARDUINOMQ2
 #define MQ2PIN A0
 #undef ARDUINOLMS6
 #endif
@@ -656,7 +656,11 @@ void restartsystem() {
 #endif
 }
 
-void activatesleep() {}
+void activatesleep(long t) {
+#if defined(ARDUINO_ARCH_ESP8266)
+  ESP.deepSleep(t*1000);
+#endif
+}
 
 /* 
  * start the SPI bus - this is a little mean as some libraries also 

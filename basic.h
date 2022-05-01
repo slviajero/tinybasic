@@ -782,7 +782,7 @@ void wiringbegin();
 int freeRam();
 long freememorysize();
 void restartsystem();
-void activatesleep();
+void activatesleep(long t);
 
 /* start the spi bus */
 void spibegin();
