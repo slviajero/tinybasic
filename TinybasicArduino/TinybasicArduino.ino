@@ -4670,6 +4670,18 @@ void xfsensor() {
 	s=pop();
 	push(sensorread(s, a));
 }
+
+/*
+ * Going to sleep for battery saving - implemented for ESP8266 and ESP32 
+ * in hardware-*.h
+ */
+
+void xsleep() {
+	nexttoken();
+	parsenarguments(1);
+	if (er != 0) return; 
+	activatesleep(pop());
+}
 #endif
 
 
@@ -5536,8 +5548,8 @@ void statement(){
 				break;
 #endif
 #ifdef HASIOT
-			case TITER:
-				xiter();
+			case TSLEEP:
+				xsleep();
 				break;	
 #endif
 /* and all the rest */

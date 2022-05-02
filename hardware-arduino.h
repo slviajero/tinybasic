@@ -70,7 +70,7 @@
 #undef ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
-#define ESPSPIFFS
+#undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ARDUINORTC
 #undef ARDUINOWIRE
@@ -656,9 +656,21 @@ void restartsystem() {
 #endif
 }
 
+/*
+ * Used these two articles 
+ * https://randomnerdtutorials.com/esp8266-deep-sleep-with-arduino-ide/
+ * https://randomnerdtutorials.com/esp32-deep-sleep-arduino-ide-wake-up-sources/
+ * for this very simple implementation - needs to be improved (pass data from sleep
+ * state to sleep state via EEPROM)
+ */
+
 void activatesleep(long t) {
 #if defined(ARDUINO_ARCH_ESP8266)
   ESP.deepSleep(t*1000);
+#endif
+#if defined(ARDUINO_ARCH_ESP32)
+   esp_sleep_enable_timer_wakeup(t*1000);
+   esp_deep_sleep_start();
 #endif
 }
 

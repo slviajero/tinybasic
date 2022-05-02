@@ -225,15 +225,17 @@ typedef unsigned char uint8_t;
 #define TNETSTAT -27
 #define TSENSOR  -26
 #define TWIRE 	-25
+#define TSLEEP  -24
 /* constants used for some obscure purposes */
-#define TBUFFER -4
-/* unused right now from earlier code to be removed soon */
-#define TERROR  -3
-#define UNKNOWN -2
-#define NEWLINE -1
+#define TBUFFER -2
+/* UNKNOWN is not used in the current code, the 
+ * lexer tokenizes everything blindly. There is a UNKNOWN hook 
+ * in statement for a grammar aware lexer */
+#define UNKNOWN -1
+
 
 /* the number of keywords, and the base index of the keywords */
-#define NKEYWORDS	3+19+14+12+10+5+2+7+7+7+11
+#define NKEYWORDS	3+19+14+12+10+5+2+7+7+7+12
 #define BASEKEYWORD -121
 
 /*
@@ -409,6 +411,7 @@ const char sval[]		PROGMEM  = "VAL";
 const char snetstat[]	PROGMEM  = "NETSTAT";
 const char ssensor[]	PROGMEM  = "SENSOR";
 const char swire[]		PROGMEM  = "WIRE";
+const char ssleep[]		PROGMEM  = "SLEEP";
 #endif
 
 /* zero terminated keyword storage */
@@ -464,7 +467,7 @@ const char* const keyword[] PROGMEM = {
 #endif
 #ifdef HASIOT
 	siter, savail, sstr, sinstr, sval, 
-	snetstat, ssensor, swire,
+	snetstat, ssensor, swire, ssleep, 
 #endif
 	0
 };
@@ -520,7 +523,7 @@ const signed char tokens[] PROGMEM = {
 #endif
 #ifdef HASIOT
 	TITER, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
-	TSENSOR, TWIRE,
+	TSENSOR, TWIRE, TSLEEP,
 #endif
 	0
 };
