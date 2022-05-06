@@ -40,8 +40,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define   BASICFULL
-#undef   BASICINTEGER
+#undef   BASICFULL
+#define   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -4351,14 +4351,9 @@ void xset(){
       radio.setPALevel(rf24_pa);
       break;
 #endif		
-/* ESP8266 deep sleep mode - flush the eeprom and files and then doze 	
- *  Experimental code, will go to an own command 
- */
+/* display update control for paged displays */
     case 9:
-      ifileclose();
-      ofileclose();
-      eflush();
-      activatesleep(args);
+      dspsetupdatemode(args);
       break;
 	}
 }
