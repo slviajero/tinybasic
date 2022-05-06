@@ -95,6 +95,7 @@ void spibegin() {}
  */
 const int dsp_rows=0;
 const int dsp_columns=0;
+void dspsetupdatemode(char c) {}
 void dspwrite(char c){};
 void dspbegin() {};
 char dspwaitonscroll() { return 0; };
