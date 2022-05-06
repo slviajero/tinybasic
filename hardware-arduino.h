@@ -64,6 +64,7 @@
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
+#undef ARDUINOSSD1306
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
@@ -310,7 +311,7 @@
 #endif
 
 /* a display needs wire */
-#ifdef ARDUINOLCDI2C
+#if defined(ARDUINOLCDI2C) || defined(ARDUINOSSD1306) 
 #define ARDUINOWIRE
 #endif
 
@@ -349,7 +350,7 @@
  * language setting 
  * this is odd and can be removed later on
  */
-#if !defined(ARDUINOTFT) && !defined(ARDUINOVGA) && !defined(ARDUINOILI9488) && !defined(ARDUINONOKIA51)
+#if !defined(ARDUINOTFT) && !defined(ARDUINOVGA) && !defined(ARDUINOILI9488) && !defined(ARDUINONOKIA51) && !defined(ARDUINOSSD1306)
 #undef HASGRAPH
 #endif
 
@@ -416,7 +417,7 @@
  * https://github.com/olikraus/u8g2/wiki/u8g2reference
  * It can harware scroll.
  */
-#ifdef ARDUINONOKIA51
+#if defined(ARDUINONOKIA51) || defined(ARDUINOSSD1306)
 #include <U8g2lib.h>
 #endif
 
@@ -695,7 +696,7 @@ void spibegin() {
  * of functions and definitions needed for the display driver. These are 
  *
  * dsp_rows, dsp_columns: size of the display
- * dspbegin(), dspprintchar(c, col, row), dspclear()
+ * dspbegin(), dspprintchar(c, col, row), dspclear(), dspupdate()
  * 
  * All displays which have this functions can be used with the 
  * generic display driver below.
@@ -724,6 +725,7 @@ LiquidCrystal lcd( 8,  9,  4,  5,  6,  7);
 void dspbegin() { 	lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
 void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
+void dspupdate() {}
 #define HASKEYPAD
 /* elementary keypad reader left=1, right=2, up=3, down=4, select=<lf> */
 short keypadread(){
@@ -750,12 +752,16 @@ LiquidCrystal_I2C lcd(0x27, dsp_columns, dsp_rows);
 void dspbegin() {   lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
 void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
+void dspupdate() {}
 #endif
 
 
 /* 
  * A Nokia 5110 with ug8lib2 - can scroll quite well
  * https://github.com/olikraus/u8g2/wiki/u8g2reference
+ * This is a buffered display it has a dspupdate() function 
+ * it also needs to call dspgraphupdate() after each graphic 
+ * operation
  */ 
 #ifdef ARDUINONOKIA51
 #define DISPLAYDRIVER
@@ -767,17 +773,63 @@ const int dsp_rows=6;
 const int dsp_columns=10;
 uint8_t dspfgcolor = 1;
 uint8_t dspbgcolor = 0;
+char dspfontsize = 8;
 void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r); }
-void dspprintchar(char c, short col, short row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*8+2, (row+1)*8, b); u8g2.sendBuffer(); }
+void dspprintchar(char c, short col, short row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
 void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); }
+void dspupdate() { u8g2.sendBuffer(); }
 void rgbcolor(int r, int g, int b) {}
 void vgacolor(short c) { dspfgcolor=c%3; u8g2.setDrawColor(dspfgcolor); }
-void plot(int x, int y) { u8g2.setDrawColor(dspfgcolor); u8g2.drawPixel(x, y); u8g2.sendBuffer(); }
-void line(int x0, int y0, int x1, int y1)   { u8g2.drawLine(x0, y0, x1, y1); u8g2.sendBuffer(); }
-void rect(int x0, int y0, int x1, int y1)   { u8g2.drawFrame(x0, y0, x1-x0, y1-y0); u8g2.sendBuffer(); }
-void frect(int x0, int y0, int x1, int y1)  { u8g2.drawBox(x0, y0, x1-x0, y1-y0); u8g2.sendBuffer(); }
-void circle(int x0, int y0, int r) { u8g2.drawCircle(x0, y0, r); u8g2.sendBuffer(); }
-void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); u8g2.sendBuffer(); }
+void plot(int x, int y) { u8g2.setDrawColor(dspfgcolor); u8g2.drawPixel(x, y); dspgraphupdate(); }
+void line(int x0, int y0, int x1, int y1)   { u8g2.drawLine(x0, y0, x1, y1);  dspgraphupdate(); }
+void rect(int x0, int y0, int x1, int y1)   { u8g2.drawFrame(x0, y0, x1-x0, y1-y0);  dspgraphupdate(); }
+void frect(int x0, int y0, int x1, int y1)  { u8g2.drawBox(x0, y0, x1-x0, y1-y0);  dspgraphupdate(); }
+void circle(int x0, int y0, int r) { u8g2.drawCircle(x0, y0, r); dspgraphupdate(); }
+void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate(); }
+#endif
+
+/* 
+ * Small SSD1306 OLED displays with I2C interface
+ * This is a buffered display it has a dspupdate() function 
+ * it also needs to call dspgraphupdate() after each graphic 
+ * operation
+ */ 
+#ifdef ARDUINOSSD1306
+#define DISPLAYDRIVER
+#define SSD1306WIDTH 64
+#define SSD1306HEIGHT 128
+/* constructors may look like this, last argument is the reset pin
+ * //U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
+ * //U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0,  SCL, SDA, U8X8_PIN_NONE);  
+ */
+#if SSD1306WIDTH == 32
+U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, SCL, SDA, U8X8_PIN_NONE);
+#endif
+#if SSD1306WIDTH == 64
+/* the Heltec board has an internal software I2C on pins 4=SDA and 15=SCL */
+#ifdef ARDUINO_heltec_wifi_lora_32_V2
+U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, 15, 4, 16); 
+#else 
+U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, SCL, SDA, U8X8_PIN_NONE); 
+#endif
+#endif
+const char dspfontsize = 8;
+const int dsp_rows=SSD1306WIDTH/dspfontsize;
+const int dsp_columns=SSD1306HEIGHT/dspfontsize;
+uint16_t dspfgcolor = 1;
+uint16_t dspbgcolor = 0;
+void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r); }
+void dspprintchar(char c, short col, short row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
+void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); }
+void dspupdate() { u8g2.sendBuffer(); }
+void rgbcolor(int r, int g, int b) {}
+void vgacolor(short c) { dspfgcolor=c%3; u8g2.setDrawColor(dspfgcolor); }
+void plot(int x, int y) { u8g2.setDrawColor(dspfgcolor); u8g2.drawPixel(x, y); dspgraphupdate(); }
+void line(int x0, int y0, int x1, int y1)   { u8g2.drawLine(x0, y0, x1, y1); dspgraphupdate(); }
+void rect(int x0, int y0, int x1, int y1)   { u8g2.drawFrame(x0, y0, x1-x0, y1-y0);  dspgraphupdate(); }
+void frect(int x0, int y0, int x1, int y1)  { u8g2.drawBox(x0, y0, x1-x0, y1-y0);  dspgraphupdate(); }
+void circle(int x0, int y0, int r) { u8g2.drawCircle(x0, y0, r); dspgraphupdate(); }
+void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate(); }
 #endif
 
 /* 
@@ -801,6 +853,7 @@ uint16_t dspbgcolor = ILI9488_BLACK;
 void dspbegin() { tft.begin(); tft.setTextColor(dspfgcolor); tft.setTextSize(2); tft.fillScreen(dspbgcolor); }
 void dspprintchar(char c, short col, short row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
 void dspclear() { tft.fillScreen(dspbgcolor); }
+void dspupdate() {}
 void rgbcolor(int r, int g, int b) { dspfgcolor=tft.color565(r, g, b);}
 void vgacolor(short c) {  
   short base=128;
@@ -841,6 +894,7 @@ char dspfontsize = 16;
 void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrollmode(1, 4); }
 void dspprintchar(char c, short col, short row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
 void dspclear() { tft.clrScr(); }
+void dspupdate() {}
 /*
  * Graphics code - not part of the display driver library
  */
@@ -1069,6 +1123,12 @@ char kbdcheckch() {
  * The display driver exists as a buffered version that can scroll
  * or an unbuffered version that cannot scroll. Interfaces to hardware
  * scrolling are not yet implemented.
+ * 
+ * dspupdatemode controls the page update behaviour 
+ *    0: character mode, display each character separately
+ *    1: line mode, update the display after each line
+ *    2: page mode, update the display after a ETX
+ * ignored if the display has no update function
  *
  */
 
@@ -1076,6 +1136,7 @@ char kbdcheckch() {
 short dspmycol = 0;
 short dspmyrow = 0;
 char esc = 0;
+char dspupdatemode = 0;
 
 void dspsetcursor(short c, short r) {
 	dspmyrow=r;
@@ -1083,7 +1144,25 @@ void dspsetcursor(short c, short r) {
 }
 
 char dspactive() {
-	return od & ODSP;
+	return od == ODSP;
+}
+
+/*
+ * control the update modes for page update displays
+ * like Epaper, Nokia 5110 and SSD1306
+ * dspgraphupdate is the helper for the graphics functions
+ */
+
+void dspsetupdatemode(char c) {
+  dspupdatemode=c;
+}
+
+char dspgetupdatemode() {
+  return dspupdatemode;
+}
+
+void dspgraphupdate() {
+  if (dspupdatemode == 0) dspupdate();
 }
 
 /* 
@@ -1268,6 +1347,7 @@ void dspwrite(char c){
     	dspmyrow=(dspmyrow + 1);
     	if (dspmyrow >= dsp_rows) dspscroll(); 
     	dspmycol=0;
+      if (dspupdatemode == 1) dspupdate();
     	return;
     case 12: // form feed is clear screen 
     	dspbufferclear();
@@ -1286,6 +1366,9 @@ void dspwrite(char c){
       	dspprintchar(' ', dspmycol, dspmyrow);
       	return;
     	}
+    case 3: // ETX = Update display for buffered display like Epaper
+      dspupdate();
+      return;
   }
 
 /* all other non printables ignored */ 
@@ -1298,15 +1381,17 @@ void dspwrite(char c){
 		dspmyrow=(dspmyrow + 1);
     if (dspmyrow >= dsp_rows) dspscroll(); 
 	}
+  if (dspupdatemode == 0) dspupdate();
 }
 
+/* again a break in API, using inch here */
 char dspwaitonscroll() {
   char c;
 
 	if ( dspscrollmode == 1 ) {
 		if (dspmyrow == dsp_rows-1) {
       c=inch();
-      if (c == ' ') outch(12);
+      if (c == ' ') dspwrite(12);
 		  return c;
 		}
 	}
@@ -1334,6 +1419,7 @@ void dspwrite(char c){
   	case 10: // this is LF Unix style doing also a CR
     	dspmyrow=(dspmyrow + 1)%dsp_rows;
     	dspmycol=0;
+      if (dspupdatemode == 1) dspupdate();
     	return;
     case 11: // one char down 
     	dspmyrow=(dspmyrow+1) % dsp_rows;
@@ -1350,6 +1436,9 @@ void dspwrite(char c){
       	dspprintchar(' ', dspmycol, dspmyrow);
     	}
     	return;
+    case 3: // ETX = Update display for buffered display like Epaper
+      dspupdate();
+      return;
   }
 
 /* all other non printables ignored */ 
@@ -1357,6 +1446,7 @@ void dspwrite(char c){
 
 	dspprintchar(c, dspmycol++, dspmyrow);
 	dspmycol=dspmycol%dsp_columns;
+  if (dspupdatemode == 0) dspupdate();
 }
 
 void dspsetscrollmode(char c, short l) {}
@@ -1364,6 +1454,7 @@ void dspsetscrollmode(char c, short l) {}
 #else
 const int dsp_rows=0;
 const int dsp_columns=0;
+void dspsetupdatemode(char c) {}
 void dspwrite(char c){};
 void dspbegin() {};
 char dspwaitonscroll() { return 0; };
