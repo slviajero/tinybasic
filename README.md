@@ -2,9 +2,9 @@
 
 ## The idea
 
-My attempt to create a small basic interpreter from scratch using frugal programming techniques and minimal memory. The project was inspired by Steve Wozniak's statement that the Apple 1 basic interpreter was the biggest challenge in his professional life. Bill Gates also had started his career and his fortune by writing a basic interpreter for the Altair microcomputer around the some time.
+My attempt to create a small basic interpreter from scratch. The project was inspired by Steve Wozniak's statement that the Apple 1 basic interpreter was the biggest challenge in his professional life. Bill Gates also had started his career and his fortune by writing a basic interpreter for the Altair microcomputer around the some time.
 
-The program was originally written in C with minimal library support. All code was done by hand. The C stack is not used for arithmetic to keep it minimal. The interpreter uses a set of global variables, an own stack and a static memory and variable array to emulate the low memory environment of the early microcomputers. 
+The program was originally written in C with minimal library support. The C stack is not used for arithmetic to keep it minimal. The interpreter uses a set of global variables, an own stack and a static memory and variable array to emulate the low memory environment of the early microcomputers. 
 
 The project has outgrown its beginnings by now. It became a full featured BASIC interpreter with IoT and microcontroller specific features. There is an underlying hardware abstraction layer making the interpreter
 useable on a number of architectures like Arduino AVR, ESP8266, ESP32, SAMD, RP2040 and ARM. 
@@ -16,11 +16,13 @@ Memory access by default is 8bit. Addresses are 16 bit by default. Depending on 
 Filesystems like Arduino SD, ESPSPIFFS and LittleFS are supported on microcontrollers. EEPROMS can be used
 as BASIC filesystem using the EepromFS library.
 
-Small LCD displays, TFT and VGA monitors are supported. The later two with graphics features. 
+Small LCD displays, OLEDs, Nokia5110m TFT and VGA monitors are supported. Graphics is supported on all graphic capable displays.
+
+PS2 keyboard support and keypads are added for standalone computer projects.
 
 There are many microcontroller specific features. I added EEPROM access, EEPROM program storage and autorun, control of digital and analog I/O as well as the delay function, Wire library support, RF2401 support and very simple MQTT / Wifi support on ESP.
 
-The interpreted can be compliled with standard gcc on almost any architecture or in the Arduino IDE without changes. 
+The interpreter can be compliled with standard gcc on almost any architecture or in the Arduino IDE without changes. 
 
 Look at the WIKI https://github.com/slviajero/tinybasic/wiki for more information.
 
