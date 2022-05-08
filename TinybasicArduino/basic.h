@@ -342,7 +342,7 @@ const char sazero[]	PROGMEM = "AZERO";
 const char sled[]	PROGMEM = "LED";
 #endif
 #ifdef HASTONE
-const char stone[]    PROGMEM = "PLAYTONE";
+const char stone[]    PROGMEM = "PLAY";
 #endif
 #ifdef HASPULSE
 const char splusein[] PROGMEM = "PULSEIN";
