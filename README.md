@@ -51,11 +51,15 @@ For further information, please look at: https://github.com/slviajero/tinybasic/
 
 ## Files in this archive 
 
-basic.c is the program source. basic.h the header file. It can be compiled directly with gcc for most OSes. No makefile is needed.
+basic.c is the program source. basic.h the header file. TinybasicArduino/TinybasicArduino.ino is an exact copy of basic.c. 
 
-TinybasicArduino/TinybasicArduino.ino is an exact copy of basic.c. In addition to this file and basic.h you need hardware.h in your Arduino sketch directory. These are the platform specific definitions and a thin OS like layer for hardware abstraction. This code is under construction and will change soon. All platforms from tiny AVR168 up to the powerful ESP32 are covered by this one file. 
+In addition to this file and basic.h you need a hardware definition file.
 
-For simple Arduino boards I prepared file versions in Arduino cloud as well as in GITHUB
+For the Arduino IDE place hardware-arduino.h in your Arduino sketch directory. These are the platform specific definitions and a thin OS like layer for hardware abstraction. All platforms from tiny AVR168 up to the powerful ESP32 and RP2040 are covered by this one file. 
+
+For POSIX OSes you need hardware-posix.h in your working directory. GCC compiles BASIC for Linux, Mac (primary dev platform), Windows (with MINGW), and MSDOS (Turbo C 2).
+
+For simple Arduino boards I prepared file versions in Arduino cloud 
 
 Use one of these two links.
 
@@ -63,14 +67,13 @@ A bare minimum Arduino system is prepared here
 
 https://create.arduino.cc/editor/sl001/ade3b2af-6781-4dfc-b9dd-4eec95405723/preview
 
-https://github.com/slviajero/tinybasic/tree/main/TinybasicUNOPLAIN
 
 A quite complete ESP8266 system without network support can be found here
 
 https://create.arduino.cc/editor/sl001/27a26f15-c23b-408d-8d39-e6948aead495/preview
 
 
-The single file versions contain the full code but are not maintained regularly. They always will a a bit behind the newest code.
+The single file versions contain the full code but are not maintained regularly. They always will be behind the newest code. Please use them only as quick and dirty demos. 
 
 utility/monitor.py is a little serial monitor to interact with the running BASIC interpreter on the Arduino. It allows very simple loading of files into the Arduino and saving of output to a file on a computer. utility/arduinoterm is a wrapper of monitor.py.
 
