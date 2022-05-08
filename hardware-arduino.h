@@ -1298,7 +1298,7 @@ void dspbufferclear() {
 	short r,c;
 	for (r=0; r<dsp_rows; r++)
 		for (c=0; c<dsp_columns; c++)
-      		dspbuffer[r][c]=0;
+      dspbuffer[r][c]=0;
   dspmyrow=0;
   dspmycol=0;
 }
@@ -1623,9 +1623,9 @@ void mqttsetname() {
 void netbegin() {
 #ifdef ARDUINOETH
 #ifdef ETHPIN
-Ethernet.init(ETHPIN);
+  Ethernet.init(ETHPIN);
 #endif
-Ethernet.begin(mac);
+  Ethernet.begin(mac);
 #else  
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
 	WiFi.mode(WIFI_STA);
@@ -1958,7 +1958,7 @@ void yieldfunction() {
 /* everything that needs to be done not so often - 1 second */
 void longyieldfunction() {
 #ifdef ARDUINOETH
-  	Ethernet.maintain();
+  Ethernet.maintain();
 #endif 
 }
 
@@ -2662,21 +2662,21 @@ void radioins(char *b, short nb) {
     if (radio.available()) {
     	radio.read(b+1, nb);
     	if (!blockmode) {
-        	for (z.a=0; z.a<nb; z.a++) if (b[z.a+1]==0) break;		
+        for (z.a=0; z.a<nb; z.a++) if (b[z.a+1]==0) break;		
     	} else {
     		z.a=radio.getPayloadSize();
-      		if (z.a > nb) z.a=nb;
+      	if (z.a > nb) z.a=nb;
     	}
-      	b[0]=z.a;
+      b[0]=z.a;
 	} else {
-      	b[0]=0; 
-      	b[1]=0;
-      	z.a=0;
+    b[0]=0; 
+    b[1]=0;
+    z.a=0;
 	}
 #else 
-      b[0]=0; 
-      b[1]=0;
-      z.a=0;
+  b[0]=0; 
+  b[1]=0;
+  z.a=0;
 #endif
 }
 

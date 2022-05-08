@@ -40,8 +40,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define   BASICFULL
-#undef   BASICINTEGER
+#undef   BASICFULL
+#define   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -2809,9 +2809,6 @@ void factor(){
 			}
 			break;
 #endif
-		case TLOMEM:
-			push(0);
-			break;
 		case THIMEM:
 			push(himem);
 			break;
@@ -2859,6 +2856,13 @@ void factor(){
 #else 
 			push(0);
 #endif			
+			break;
+		case TLED:
+#ifdef LED_BUILTIN
+			push(LED_BUILTIN);
+#else
+			push(0);
+#endif
 			break;
 #endif
 /* mathematical functions in case we have float */
@@ -4158,21 +4162,21 @@ void xload(const char* f) {
 
     bi=ibuffer+1;
 		while (fileavailable()) {
-      		ch=fileread();
-      		if (ch == '\n' || ch == '\r') {
-        		*bi=0;
-        		bi=ibuffer+1;
-        		nexttoken();
-        		if (token == NUMBER) storeline();
-        		if (er != 0 ) break;
-        		bi=ibuffer+1;
-      		} else {
-        		*bi++=ch;
-      		}
-      		if ( (bi-ibuffer) > BUFSIZE ) {
-        		error(EOUTOFMEMORY);
-        		break;
-      		}
+      ch=fileread();
+      if (ch == '\n' || ch == '\r') {
+        *bi=0;
+        bi=ibuffer+1;
+        nexttoken();
+        if (token == NUMBER) storeline();
+        if (er != 0 ) break;
+        bi=ibuffer+1;
+      } else {
+        *bi++=ch;
+      }
+      if ( (bi-ibuffer) > BUFSIZE ) {
+        error(EOUTOFMEMORY);
+        break;
+      }
 		}   	
 		ifileclose();
 
