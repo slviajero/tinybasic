@@ -148,36 +148,36 @@ typedef unsigned char uint8_t;
 #define TPEEK	-94
 #define TDIM	-93
 #define TCLR	-92
-#define TLOMEM  -91
-#define THIMEM  -90 
-#define TTAB 	-89
-#define TTHEN   -88
-#define TEND    -87
-#define TPOKE	-86
+#define THIMEM  -91
+#define TTAB 	-90
+#define TTHEN   -89
+#define TEND    -88
+#define TPOKE	-87
 /* Stefan's tinybasic additions (12) */
-#define TCONT   -85
-#define TSQR	-84
-#define TPOW	-83
-#define TFRE	-82
-#define TDUMP 	-81
-#define TBREAK  -80
-#define TSAVE   -79
-#define TLOAD   -78
-#define TGET    -77
-#define TPUT    -76
-#define TSET    -75
-#define TCLS    -74
+#define TCONT   -86
+#define TSQR	-85
+#define TPOW	-84
+#define TFRE	-83
+#define TDUMP 	-82
+#define TBREAK  -81
+#define TSAVE   -80
+#define TLOAD   -79
+#define TGET    -78
+#define TPUT    -77
+#define TSET    -76
+#define TCLS    -75
 /* Arduino functions (10) */
-#define TPINM	-73
-#define TDWRITE	-72
-#define TDREAD	-71
-#define TAWRITE	-70
-#define TAREAD	-69
-#define TDELAY	-68
-#define TMILLIS	-67
-#define TTONE	-66
-#define TPULSEIN	-65
-#define TAZERO		-64
+#define TPINM	-74
+#define TDWRITE	-73
+#define TDREAD	-72
+#define TAWRITE	-71
+#define TAREAD	-70
+#define TDELAY	-69
+#define TMILLIS	-68
+#define TTONE	-67
+#define TPULSEIN	-66
+#define TAZERO	-65
+#define TLED	-64
 /* the DOS functions (5) */
 #define TCATALOG	-63
 #define TDELETE	-62
@@ -233,9 +233,8 @@ typedef unsigned char uint8_t;
  * in statement for a grammar aware lexer */
 #define UNKNOWN -1
 
-
 /* the number of keywords, and the base index of the keywords */
-#define NKEYWORDS	3+19+14+12+10+5+2+7+7+7+12
+#define NKEYWORDS	3+19+13+12+11+5+2+7+7+7+12
 #define BASEKEYWORD -121
 
 /*
@@ -306,7 +305,6 @@ const char ssgn[]    PROGMEM = "SGN";
 const char speek[]   PROGMEM = "PEEK";
 const char sdim[]    PROGMEM = "DIM";
 const char sclr[]    PROGMEM = "CLR";
-const char slomem[]  PROGMEM = "LOMEM";
 const char shimem[]  PROGMEM = "HIMEM";
 const char stab[]    PROGMEM = "TAB";
 const char sthen[]   PROGMEM = "THEN";
@@ -339,8 +337,9 @@ const char sdread[]   PROGMEM = "DREAD";
 const char sawrite[]  PROGMEM = "AWRITE";
 const char saread[]   PROGMEM = "AREAD";
 const char sdelay[]   PROGMEM = "DELAY";
-const char smillis[]  PROGMEM = "MILLIS";
-const char sazero[]   PROGMEM = "AZERO";
+const char smillis[]	PROGMEM = "MILLIS";
+const char sazero[]	PROGMEM = "AZERO";
+const char sled[]	PROGMEM = "LED";
 #endif
 #ifdef HASTONE
 const char stone[]    PROGMEM = "PLAYTONE";
@@ -422,7 +421,7 @@ const char* const keyword[] PROGMEM = {
 	sabs, srnd, ssize, srem,
 #ifdef HASAPPLE1
 	snot, sand, sor, slen, ssgn, speek, sdim,
-	sclr, slomem, shimem, stab, sthen, 
+	sclr, shimem, stab, sthen, 
 	sbend, spoke,
 #endif
 #ifdef HASSTEFANSEXT
@@ -434,7 +433,7 @@ const char* const keyword[] PROGMEM = {
 #endif
 #ifdef HASARDUINOIO
     spinm, sdwrite, sdread, sawrite, saread, 
-    sdelay, smillis, sazero,  
+    sdelay, smillis, sazero, sled,
 #endif
 #ifdef HASTONE
 	stone,
@@ -478,7 +477,7 @@ const signed char tokens[] PROGMEM = {
     TINPUT, TGOTO, TGOSUB, TRETURN, TIF, TFOR, TTO, TSTEP,
     TNEXT, TSTOP, TLIST, TNEW, TRUN, TABS, TRND, TSIZE, TREM,
 #ifdef HASAPPLE1
-    TNOT, TAND, TOR, TLEN, TSGN, TPEEK, TDIM, TCLR, TLOMEM,
+    TNOT, TAND, TOR, TLEN, TSGN, TPEEK, TDIM, TCLR,
     THIMEM, TTAB, TTHEN, TEND, TPOKE,
 #endif
 #ifdef HASSTEFANSEXT
@@ -490,7 +489,7 @@ const signed char tokens[] PROGMEM = {
 #endif
 #ifdef HASARDUINOIO
 	TPINM, TDWRITE, TDREAD, TAWRITE, TAREAD, TDELAY, TMILLIS,
-	TAZERO, 
+	TAZERO, TLED,
 #endif
 #ifdef HASTONE
 	TTONE, 
@@ -790,11 +789,15 @@ void activatesleep(long t);
 /* start the spi bus */
 void spibegin();
 
-/* the hardware interface display driver functions, need to be 
-	implemented for the display driver to work */
+/* 
+ * the hardware interface display driver functions, need to be 
+ * 	implemented for the display driver to work 
+ *	dspupdate() only for display like Epapers
+ */
 void dspbegin();
 void dspprintchar(char, short, short);
 void dspclear();
+void dspupdate();
 
 /* keyboard code */
 void kbdbegin();
@@ -822,6 +825,9 @@ void dspwrite(char);
 void dspbegin();
 char dspwaitonscroll();
 char dspactive();
+void dspsetupdatemode(char);
+char dspgetupdatemode();
+void dspgraphupdate();
 void dspsetscrollmode(char, short);
 void dspsetcursor(short, short);
 void dspbufferclear();

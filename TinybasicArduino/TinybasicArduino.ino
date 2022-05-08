@@ -2809,8 +2809,12 @@ void factor(){
 			}
 			break;
 #endif
-		case TLOMEM:
+		case TLED:
+#ifdef LED_BUILTIN
+			push(LED_BUILTIN);
+#else
 			push(0);
+#endif
 			break;
 		case THIMEM:
 			push(himem);
@@ -4158,21 +4162,21 @@ void xload(const char* f) {
 
     bi=ibuffer+1;
 		while (fileavailable()) {
-      		ch=fileread();
-      		if (ch == '\n' || ch == '\r') {
-        		*bi=0;
-        		bi=ibuffer+1;
-        		nexttoken();
-        		if (token == NUMBER) storeline();
-        		if (er != 0 ) break;
-        		bi=ibuffer+1;
-      		} else {
-        		*bi++=ch;
-      		}
-      		if ( (bi-ibuffer) > BUFSIZE ) {
-        		error(EOUTOFMEMORY);
-        		break;
-      		}
+      ch=fileread();
+      if (ch == '\n' || ch == '\r') {
+        *bi=0;
+        bi=ibuffer+1;
+        nexttoken();
+        if (token == NUMBER) storeline();
+        if (er != 0 ) break;
+        bi=ibuffer+1;
+      } else {
+        *bi++=ch;
+      }
+      if ( (bi-ibuffer) > BUFSIZE ) {
+        error(EOUTOFMEMORY);
+        break;
+      }
 		}   	
 		ifileclose();
 

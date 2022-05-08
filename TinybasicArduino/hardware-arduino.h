@@ -68,7 +68,7 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#undef ARDUINOEEPROM
+#define ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -796,7 +796,7 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
  */ 
 #ifdef ARDUINOSSD1306
 #define DISPLAYDRIVER
-#define SSD1306WIDTH 64
+#define SSD1306WIDTH 32
 #define SSD1306HEIGHT 128
 /* constructors may look like this, last argument is the reset pin
  * //U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
