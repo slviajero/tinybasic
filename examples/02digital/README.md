@@ -1,4 +1,4 @@
-# Arduino examples 01.Basic ported to basic
+# Arduino examples 02.Digital ported to basic
 
 ## Programs 
 
@@ -6,6 +6,7 @@
 - Button: button.bas - light the internal LED from a digital button input
 - DigitalInputPullup: digitip.bas - use the internal pullup resistor 
 - StateChangeDetection: statecd.bas - state change of a button
+- Melody: melody.bas and melodys.bas - play a melody, 1k version with all the tones and small version
 
 ## BASIC language features 
 
@@ -16,6 +17,10 @@ MILLIS() has an argument in BASIC. It is the divisor of the time in milliseconds
 IF THEN ELSE is used in button.bas. ELSE is not part of the Palo Alto or Apple1 BASIC original language.
 
 PINM in BASIC can have the argument 0 for INPUT, 1 for OUTPUT and 2 for INPUT_PULLUP
+
+PLAY is the Arduino tone command
+
+Use DATA and READ to store data, use DIM to dimension arrays
 
 ## Original files
 
