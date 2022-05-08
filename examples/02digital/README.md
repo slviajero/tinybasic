@@ -17,4 +17,8 @@ IF THEN ELSE is used in button.bas. ELSE is not part of the Palo Alto or Apple1 
 
 PINM in BASIC can have the argument 0 for INPUT, 1 for OUTPUT and 2 for INPUT_PULLUP
 
+## Original files
+
+See https://docs.arduino.cc/built-in-examples/ for further information
+
 
