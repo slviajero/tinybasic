@@ -2302,7 +2302,7 @@ void storeline() {
  * implementing a C style logical expression model
  */
 
-/* the terminal symbol, ELSE is a termsymbol */
+/* the terminal symbol */
 char termsymbol() {
 	return ( token == LINENUMBER ||  token == ':' || token == EOL || token == TELSE);
   // return ( token == LINENUMBER ||  token == ':' || token == EOL);
@@ -3323,7 +3323,7 @@ void assignment() {
 #endif
 	}
 
-	nexttoken();
+	//nexttoken(); - the expression code does this already
 }
 
 /*
@@ -3476,11 +3476,11 @@ void xif() {
 	x=pop();
 	if (DEBUG) { outnumber(x); outcr(); } 
 
-/* on condition false skip the entire line until ELSE and swallow the termsymbol*/
+/* on condition false skip the entire line and all : until a potential ELSE */
 	if (!x)  {
 		while(token != LINENUMBER && token != EOL && token != TELSE) nexttoken();
 
-/* if the have ELSE at this point we want to execute this part of the line as the condition 
+/* if we have ELSE at this point we want to execute this part of the line as the condition 
 		was false, isolated ELSE is GOTO */
 #ifdef HASSTEFANSEXT
 		if (token == TELSE) {
@@ -3492,6 +3492,7 @@ void xif() {
 		} 	
 #endif		
 	}	
+
 
 /* a THEN is interpreted as simple one statement goto	if it is followed by a line number*/
 #ifdef HASAPPLE1
@@ -5366,7 +5367,7 @@ void statement(){
 				}
 			case STRINGVAR:
 			case ARRAYVAR:
-			case VARIABLE:		
+			case VARIABLE:	
 				assignment();
 				break;
 			case TINPUT:
