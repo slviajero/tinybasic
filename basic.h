@@ -157,7 +157,7 @@ typedef unsigned char uint8_t;
 #define TCONT   -86
 #define TSQR	-85
 #define TPOW	-84
-#define TFRE	-83
+#define TMAP	-83
 #define TDUMP 	-82
 #define TBREAK  -81
 #define TSAVE   -80
@@ -311,12 +311,12 @@ const char sthen[]   PROGMEM = "THEN";
 const char sbend[]    PROGMEM = "END";
 const char spoke[]   PROGMEM = "POKE";
 #endif
-/* Stefan's tinybasic additions */
+/* Stefan's basic additions */
 #ifdef HASSTEFANSEXT
 const char scont[]   PROGMEM = "CONT";
 const char ssqr[]    PROGMEM = "SQR";
 const char spow[]    PROGMEM = "POW";
-const char sfre[]    PROGMEM = "FRM";
+const char smap[]    PROGMEM = "MAP";
 const char sdump[]   PROGMEM = "DUMP";
 const char sbreak[]  PROGMEM = "BREAK";
 #endif
@@ -379,7 +379,7 @@ const char sline[]   PROGMEM  = "LINE";
 const char scircle[] PROGMEM  = "CIRCLE";
 const char srect[]   PROGMEM  = "RECT";
 const char sfcircle[] PROGMEM  = "FCIRCLE";
-const char sfrect[]   PROGMEM  = "FRCT";
+const char sfrect[]   PROGMEM  = "FRECT";
 #endif
 /* Dartmouth BASIC extensions */
 #ifdef HASDARTMOUTH
@@ -425,7 +425,7 @@ const char* const keyword[] PROGMEM = {
 	sbend, spoke,
 #endif
 #ifdef HASSTEFANSEXT
-	scont, ssqr, spow, sfre, sdump, sbreak, 
+	scont, ssqr, spow, smap, sdump, sbreak, 
 #endif
 	ssave, sload, 
 #ifdef HASSTEFANSEXT
@@ -481,7 +481,7 @@ const signed char tokens[] PROGMEM = {
     THIMEM, TTAB, TTHEN, TEND, TPOKE,
 #endif
 #ifdef HASSTEFANSEXT
-	TCONT, TSQR, TPOW, TFRE, TDUMP, TBREAK, 
+	TCONT, TSQR, TPOW, TMAP, TDUMP, TBREAK, 
 #endif
 	TSAVE, TLOAD, 
 #ifdef HASSTEFANSEXT	

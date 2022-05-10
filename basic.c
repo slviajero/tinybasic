@@ -40,8 +40,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef   BASICFULL
-#define   BASICINTEGER
+#define   BASICFULL
+#undef   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -2461,13 +2461,16 @@ void xpeek(){
 }
 
 /*
- * FRE reports free memory
+ * MAP Arduino map function
  */ 
-void xfre() {
-	if (pop() >=0 )
-		push(himem-top);
-	else 
-		push(elength());
+void xmap() {
+	long v, in_min, in_max, out_min, out_max;
+	out_max=pop();
+	out_min=pop();
+	in_max=pop();
+	in_min=pop();
+	v=pop();
+  push((v - in_min) * (out_max - out_min) / (in_max - in_min) + out_min);
 }
 
 /*
@@ -2824,8 +2827,8 @@ void factor(){
 		case TSQR: 
 			parsefunction(sqr, 1);
 			break;
-		case TFRE: 
-			parsefunction(xfre, 1);
+		case TMAP: 
+			parsefunction(xmap, 5);
 			break;
 		case TUSR:
 			parsefunction(xusr, 2);
