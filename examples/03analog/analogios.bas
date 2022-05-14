@@ -1,8 +1,9 @@
 10 REM "AnalogInOutSerial from Arduino examples"
-20 A=AZERO
-30 L=9
-40 S=0
-50 O=0
+20 REM "A is the analog pin, L the LED pin"
+30 A=AZERO
+40 L=9
+50 S=0
+60 O=0
 100 REM "setup() put your setup code here, to run once:"
 200 REM "loop() put your main code here, to run repeatedly:"
 210 FOR I
