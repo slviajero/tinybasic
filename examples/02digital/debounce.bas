@@ -10,7 +10,7 @@
 130 DWRITE L, L0
 200 REM "loop() put your main code here, to run repeatedly:"
 210 FOR I
-220 R=DWRITE(P)
+220 R=DREAD(P)
 230 IF R<>B0 THEN L0=MILLIS(D)
 240 IF MILLIS(D)-L0=0 GOTO 270
 250 IF R<>B0 THEN B0=P
