@@ -4,9 +4,11 @@
 
 - BlinkWithoutDelay: blinkwod.bas - blink using the millis function
 - Button: button.bas - light the internal LED from a digital button input
+- Debounce: debounce.bas - debounce a button 
 - DigitalInputPullup: digitip.bas - use the internal pullup resistor 
 - StateChangeDetection: statecd.bas - state change of a button
 - Melody: melody.bas and melodys.bas - play a melody, 1k version with all the tones and small version
+- TonePitchFollower: tonepf.bas - follow an analog input with a sound pitch
 
 ## BASIC language features 
 
@@ -18,7 +20,7 @@ IF THEN ELSE is used in button.bas. ELSE is not part of the Palo Alto or Apple1 
 
 PINM in BASIC can have the argument 0 for INPUT, 1 for OUTPUT and 2 for INPUT_PULLUP
 
-PLAY is the Arduino tone command
+PLAY is the Arduino tone() command, PLAY with a zero argument as frequency is noTone()
 
 Use DATA and READ to store data, use DIM to dimension arrays
 
