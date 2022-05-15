@@ -1,4 +1,4 @@
-10 REM "IfStatementControl from Arduino examples"
+10 REM "IfStatementConditional from Arduino examples"
 20 REM "A analog pin, led pin, threshold"
 30 A=AZERO
 40 L=13
