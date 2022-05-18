@@ -8,6 +8,9 @@
 70 A=A*A:R=R+RND (1)
 80 NEXT I
 90 S=S+A:NEXT N
-100 PRINT ABS (1010-S/5)
-110 PRINT ABS (1000-R)
-120 PRINT MILLIS (1)-T
+100 PRINT "Accuracy:", ABS (1010-S/5)
+110 PRINT "Random:", ABS (1000-R)
+120 T=MILLIS (1)-T
+130 PRINT "Expired time:",T, "ms"
+140 PRINT "An Apple 2 needed 120000 ms for this"
+
