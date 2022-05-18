@@ -5,8 +5,8 @@
 40 DEF FNC(X)=(X>31 AND X<127)
 45 DEF FNX(X)=(X<32)
 50 DEF FNW(C)=(X=32 OR X=9)
-55 DEF FNU(X)=((X>="A")AND(X<="X"))
-60 DEF FNL(X)=((X>="a")AND(X<="x"))
+55 DEF FNU(X)=((X>="A")AND(X<="Z"))
+60 DEF FNL(X)=((X>="a")AND(X<="z"))
 200 REM "loop() put your main code here, to run repeatedly:"
 210 FOR I
 220 IF NOT AVAIL(1) GOTO 400 
