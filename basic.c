@@ -308,7 +308,7 @@ void eload() {
 /* autorun something from EEPROM or a filesystem */
 char autorun() {
 #if defined(ARDUINOEEPROM) || ! defined(ARDUINO) 
-  if (eread(0) == 1){ // autorun from the EEPROM
+  if (eread(0) == 1){ /* autorun from the EEPROM */
   	egetnumber(1, addrsize);
   	top=z.a;
   	st=SERUN;
@@ -650,7 +650,7 @@ void array(char m, char c, char d, address_t i, number_t* v) {
         i--;
         a=i%dsp_columns;
         h=i/dsp_columns;
-        // this should be encapsulated later into the display object
+/* this should be encapsulated later into the display object */
         if (m == 's') {
           if (*v == 0) e=' '; else e=*v;
           dspprintchar(e, a, h);
@@ -1370,7 +1370,7 @@ void ins(char *b, short nb) {
 #endif
   		default:
 #ifdef ARDUINOPRT
-  			/* blockmode only implemented for ISERIAL1 right now */
+/* blockmode only implemented for ISERIAL1 right now */
   			if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
 #endif
   			consins(b, nb);
@@ -2031,10 +2031,10 @@ void gettoken() {
 			yc=memread(here++);
 			break;
 		case STRING:
-			x=(unsigned char)memread(here++);		// if we run interactive or from mem, pass back the mem location
-			if (st == SERUN) { 									// we run from EEPROM and cannot simply pass a pointer
+			x=(unsigned char)memread(here++);		/* if we run interactive or from mem, pass back the mem location */
+			if (st == SERUN) { 									/* we run from EEPROM and cannot simply pass a pointer */
 				for(int i=0; i<x; i++) {
-					ibuffer[i]=memread(here+i);			// we (ab)use the input buffer which is not needed here
+					ibuffer[i]=memread(here+i);			/* we (ab)use the input buffer which is not needed here */
 				}
 				ir=ibuffer;
 			} else {
@@ -2067,12 +2067,57 @@ void nextline() {
 	}
 }
 
-/* find a line, search from the beginning */
+/* 
+ * the experimental line cache mechanism, useful for large codes 
+ * not fully tested, super primitive so far
+ * addlinecache does not test if the line already exist because it 
+ * assumes that findline calls it only if a new line is to be stored
+ */
+#if defined(LINECACHESIZE) && LINECACHESIZE>0
+const unsigned char linecachedepth = LINECACHESIZE;
+typedef struct {address_t l; address_t h;} linecacheentry;
+linecacheentry linecache[linecachedepth];
+unsigned char linecachehere = 0;
+
+void clrlinecache() {
+	unsigned char i;
+	for(i=0; i<linecachedepth; i++) linecache[i].l=linecache[i].h=0;
+	linecachehere=0;
+}
+
+void addlinecache(address_t l, address_t h) {
+	linecache[linecachehere].l=l; 
+	linecache[linecachehere].h=h;
+	linecachehere=(linecachehere+1)%linecachedepth;
+}
+
+address_t findinlinecache(address_t l){
+	unsigned char i;
+	for(i=0; i<linecachedepth; i++) if (linecache[i].l == l) return linecache[i].h;
+	return 0;
+}
+#else
+void clrlinecache() {}
+void addlinecache(address_t l, address_t h) {}
+address_t findinlinecache(address_t l){ return 0; }
+#endif
+
+
+/* find a line, look in cache then search from the beginning */
 void findline(address_t l) {
+	address_t a;
+/* we know it already */
+	if ((a=findinlinecache(l))) { here=a; return; }
+
+/* we need to search */
 	here=0;
 	while (here < top) {
 		gettoken();
-		if (token == LINENUMBER && x == l ) return;
+		if (token == LINENUMBER && x == l ) {
+/* now that we now we cache */
+			addlinecache(l, here);
+			return;
+		}
 	}
 	error(ELINE);
 }
@@ -2182,6 +2227,9 @@ void storeline() {
 /* the data pointer becomes invalid once the code has been changed */
 	clrdata();
 
+/* line cache is invalid on line storage */
+	clrlinecache();
+
 /*
  *	stage 1: append the line at the end of the memory,
  *	remember the line number on the stack and the old top in here
@@ -2200,8 +2248,8 @@ void storeline() {
 		nexttoken();
 	} while (token != EOL);
 
-	x=t1;									// recall the line number
-	linelength=top-here;	// calculate the number of stored bytes
+	x=t1;									/* recall the line number */
+	linelength=top-here;	/* calculate the number of stored bytes */
 
 /* 
  *	stage 2: check if only a linenumber stored - then delete this line
@@ -2232,10 +2280,10 @@ void storeline() {
 		here2=here;
 		here=lnlength;
 		nextline();
-		if (x == 0) { // there is no nextline after the first line, we are done
-			return;
-		}
-		here=0;       // go back to the beginning
+/* there is no nextline after the first line, we are done */		
+		if (x == 0) return;
+/* go back to the beginning */
+		here=0; 
 		here2=0;
 		while (here < top) {
 			here3=here2;
@@ -2266,26 +2314,26 @@ void storeline() {
 		here=here2-lnlength;
 		t2=here;
 		gettoken();
-		if (x == y) {		// the line already exists and has to be replaced
-			here2=t2;  		// this is the line we are dealing with
-			here=t1;   		// this is the next line
-			y=here-here2; // the length of the line as it is 
-			if (linelength == y) {     // no change in line length
+		if (x == y) {		/* the line already exists and has to be replaced */
+			here2=t2;  		/* this is the line we are dealing with */
+			here=t1;   		/* this is the next line */
+			y=here-here2; /* the length of the line as it is  */
+			if (linelength == y) {     /* no change in line length */
 				moveblock(top-linelength, linelength, here2);
 				top=top-linelength;
-			} else if (linelength > y) { // the new line is longer than the old one
+			} else if (linelength > y) { /* the new line is longer than the old one */
 				moveblock(here, top-here, here+linelength-y);
 				here=here+linelength-y;
 				top=top+linelength-y;
 				moveblock(top-linelength, linelength, here2);
 				top=top-linelength;
-			} else {					// the new line is short than the old one
+			} else {					/* the new line is short than the old one */
 				moveblock(top-linelength, linelength, here2);
 				top=top-linelength;
 				moveblock(here, top-here, here2+linelength);
 				top=top-y+linelength;
 			}
-		} else {         // the line has to be inserted in between
+		} else {         /* the line has to be inserted in between */
 			here=t1;
 			moveblock(here, top-here, here+linelength);
 			moveblock(top, linelength, here);
@@ -2302,10 +2350,10 @@ void storeline() {
  * implementing a C style logical expression model
  */
 
-/* the terminal symbol */
+/* the terminal symbol - ELSE is one too */
 char termsymbol() {
 	return ( token == LINENUMBER ||  token == ':' || token == EOL || token == TELSE);
-  // return ( token == LINENUMBER ||  token == ':' || token == EOL);
+  /* return ( token == LINENUMBER ||  token == ':' || token == EOL); */
 }
 
 /* a little helpers - one token expect */ 
@@ -2325,13 +2373,13 @@ char expectexpr() {
 void parsearguments() {
 	short argsl;
 
-	// begin counting
+/* begin counting */
 	argsl=0; 
 
-	// having 0 args at the end of a command is legal
+/* having 0 args at the end of a command is legal */
 	if (termsymbol()) {args=argsl; return; }
 
-	// list of expressions separated by commas
+/* list of expressions separated by commas */
 	do {
 		expression();
 		if (er != 0) break;
@@ -2340,7 +2388,7 @@ void parsearguments() {
 		nexttoken();
 	} while (TRUE);
 
-	// because of the recursion ...
+/* because of the recursion ... */
 	args=argsl;
 }
 
@@ -2354,7 +2402,7 @@ void parsenarguments(char n) {
 /* counts and parses the number of arguments given in brakets */
 void parsesubscripts() {
 	args=0;
-	if (token != '(') return; // zero arguments is legal here
+	if (token != '(') return; /* zero arguments is legal here */
 	nexttoken();
 	parsearguments();
 	if (er != 0) return; 
@@ -2384,7 +2432,7 @@ void parseoperator(void (*f)()) {
 /* substring evaluation, mind the rewinding here - a bit of a hack */
 void parsesubstring() {
 	char xc1, yc1; 
-	address_t h1; // remember the here
+	address_t h1; /* remember the here */
 	char* bi1;
 
 /* remember the string name */
@@ -3110,7 +3158,7 @@ processsymbol:
 
 	if (termsymbol()) {
 		if (! semicolon) outcr();
-		//nexttoken();
+		/* nexttoken(); */
 		od=oldod;
 		form=0;
 		return;
@@ -3124,7 +3172,7 @@ processsymbol:
 		goto separators;
 	}
 
-	// modifiers of the print statement
+/* modifiers of the print statement */
 	if (token == '#' || token == '&') {
 		modifier=token;
 		nexttoken();
@@ -3252,7 +3300,7 @@ void assignment() {
 	char s;
 	int j;
 
-	// this code evaluates the left hand side
+/* this code evaluates the left hand side */
 	ycl=yc;
 	xcl=xc;
 	t=token;
@@ -3260,29 +3308,29 @@ void assignment() {
 	lefthandside(&i, &ps);
 	if (er != 0) return;
 
-	// the assignment part
+/* the assignment part */
 	if (token != '=') {
 		error(EUNKNOWN);
 		return;
 	}
 	nexttoken();
 
-	// here comes the code for the right hand side
-	// rewritten 
+/* here comes the code for the right hand side */
 	switch (t) {
+/* the lefthandside is a scalar, evaluate the righthandside as a number */
 		case VARIABLE:
-		case ARRAYVAR: // the lefthandside is a scalar, evaluate the righthandside as a number
+		case ARRAYVAR: 
 			expression();
 			if (er != 0) return;
 			assignnumber(t, xcl, ycl, i, ps);
 			break;
 #ifdef HASAPPLE1
-		case STRINGVAR: // the lefthandside is a string 
-			// we try to evaluate the righthandside as a stringvalue
+/* the lefthandside is a string, try evaluate the righthandside as a stringvalue */
+		case STRINGVAR: 
 			s=stringvalue();
 			if (er != 0) return;
 
-			// and then as an expression
+/* and then as an expression */
 			if (!s) {
 				expression();
 				if (er != 0) return;
@@ -3290,14 +3338,14 @@ void assignment() {
 				break;
 			}
 
-			// this is the string righthandside code - how long is the rightandside
+/* this is the string righthandside code - how long is the rightandside */
 			lensource=pop();
 
-			// the destination address of the lefthandside
+/* the destination address of the lefthandside */
 			ir=getstring(xcl, ycl, i);
 			if (er != 0) return;
 
-			// the length of the original string
+/* the length of the original string */
 			lendest=lenstring(xcl, ycl);
 
 			if (DEBUG) {
@@ -3308,17 +3356,17 @@ void assignment() {
 				outsc("** assignment dest string dimension "); outnumber(stringdim(xcl, ycl)); outcr();
 			};
 
-			// does the source string fit into the destination
+/* does the source string fit into the destination */
 			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(EORANGE); return; }
 
-			// this code is needed to make sure we can copy one string to the same string 
-			// without overwriting stuff, we go either left to right or backwards
+/* this code is needed to make sure we can copy one string to the same string 
+	without overwriting stuff, we go either left to right or backwards */
 			if (x > i) 
 				for (j=0; j<lensource; j++) ir[j]=ir2[j];
 			else
 				for (j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
 
-			// classical Apple 1 behaviour is string truncation in substring logic
+/* classical Apple 1 behaviour is string truncation in substring logic */
 			newlength = i+lensource-1;	
 		
 			setstringlength(xcl, ycl, newlength);
@@ -3326,7 +3374,7 @@ void assignment() {
 #endif
 	}
 
-	//nexttoken(); - the expression code does this already
+/* nexttoken(); - the expression code does this already - bug as here for a long time */
 }
 
 /*
@@ -3512,10 +3560,7 @@ void xif() {
  		as else code execution is triggered in the xif function */
 #ifdef HASSTEFANSEXT
 void xelse() {
-	do {
-		nexttoken();
-	}
-	while(!termsymbol());
+	do nexttoken(); while(!termsymbol());
 }
 #endif
 
@@ -3666,17 +3711,17 @@ void xnext(){
 		} 
 	}
 
-	/* y=0 an infinite loop with step 0 */
+/* y=0 an infinite loop with step 0 */
 	t=getvar(xc, yc)+y;
 	setvar(xc, yc, t);
 
-	/* do we need another iteration, STEP 0 always triggers an infinite loop */
+/* do we need another iteration, STEP 0 always triggers an infinite loop */
 	if ( (y==0) || (y > 0 && t <= x) || (y < 0 && t >= x) ) {
-	/* push the loop with the new values back to the for stack */
+/* push the loop with the new values back to the for stack */
 		pushforstack();
 		if (st == SINT) bi=ibuffer+here;
 	} else {
-	/* last iteration completed we stay here after the next */
+/* last iteration completed we stay here after the next */
 		here=h;
 	}
 	nexttoken();
@@ -3782,7 +3827,7 @@ void xlist(){
 		if (token == LINENUMBER && oflag) {
 			outcr();
 /* wait after every line on small displays
-   rempved if ( dspactive() && (dsp_rows < 10) ){ if ( inch() == 27 ) break;} */
+   removed if ( dspactive() && (dsp_rows < 10) ){ if ( inch() == 27 ) break;} */
 			if (dspactive()) 
 				if ( dspwaitonscroll() == 27 ) break;
 		}
@@ -3835,6 +3880,7 @@ void xnew(){
 	top=0;
 	zeroblock(top,himem);
 	clrvars();
+	clrlinecache();
 
 /* error status reset */
 	reseterror();
@@ -3944,6 +3990,7 @@ void xtab(){
 	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
+
 	x=pop();
 	while (x-- > 0) outspc();	
 }
@@ -5604,9 +5651,7 @@ void setup() {
 			outnumber(memsize+1); outspc();
 			outnumber(elength()); outcr();
  	}
- 
 }
-
 
 /* 
  *	the loop routine for interactive input 

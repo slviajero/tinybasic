@@ -75,12 +75,14 @@ typedef unsigned char uint8_t;
 #define STACKSIZE		15
 #define GOSUBDEPTH		4
 #define FORDEPTH		4
+#define LINECACHESIZE	4
 #else 
 /* the for larger microcontrollers and real computers */
 #define BUFSIZE 		128
 #define STACKSIZE		64
 #define GOSUBDEPTH		8
 #define FORDEPTH		8
+#define LINECACHESIZE	16
 #endif
 /* more duffers and vars */
 #define SBUFSIZE		32
@@ -142,8 +144,8 @@ typedef unsigned char uint8_t;
 /* this is the Apple 1 language set in addition to Palo Alto (14) */
 #define TNOT    -99
 #define TAND	-98
-#define TOR  	-97
-#define TLEN    -96
+#define TOR 	-97
+#define TLEN	-96
 #define TSGN	-95	
 #define TPEEK	-94
 #define TDIM	-93
@@ -207,7 +209,7 @@ typedef unsigned char uint8_t;
 #define TDATA	-42
 #define TREAD   -41
 #define TRESTORE -40
-#define TDEF     -39
+#define TDEF	-39
 #define TFN 	-38
 #define TON     -37
 /* the latecomer ELSE */
@@ -219,13 +221,13 @@ typedef unsigned char uint8_t;
 /* iot extensions (6) */
 #define TITER	-32
 #define TAVAIL	-31
-#define TSTR    -30
-#define TINSTR  -29
-#define TVAL 	-28
-#define TNETSTAT -27
-#define TSENSOR  -26
-#define TWIRE 	-25
-#define TSLEEP  -24
+#define TSTR	-30
+#define TINSTR	-29
+#define TVAL	-28
+#define TNETSTAT	-27
+#define TSENSOR	-26
+#define TWIRE	-25
+#define TSLEEP	-24
 /* constants used for some obscure purposes */
 #define TBUFFER -2
 /* UNKNOWN is not used in the current code, the 
@@ -1039,6 +1041,10 @@ char memread(address_t);
 void gettoken();
 void firstline();
 void nextline();
+
+void clrlinecache();
+void addlinecache(address_t, address_t);
+address_t findinlinecache(address_t);
 void findline(address_t);
 address_t myline(address_t);
 void moveblock(address_t, address_t, address_t);
@@ -1061,7 +1067,7 @@ void parsesubstring();
 void xabs();
 void xsgn();
 void xpeek();
-void fre();
+void xmap();
 void rnd();
 void sqr();
 void xpow();
@@ -1159,6 +1165,7 @@ void xinext();
 void xiter();
 void xavail();
 void xfsensor();
+void xsleep();
 
 /* File I/O functions */
 char streq(const char*, char*);
