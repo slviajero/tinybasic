@@ -8,7 +8,7 @@ Test6	3103	49648
 Test7	4171	66736
 Test8	118	1888
 
-Arduino UNO (int): 
+Arduino UNO (int) (no linecache): 
 Test1	61	976	
 Test2	343	5488	
 Test3	604	9664	
@@ -16,3 +16,36 @@ Test4	593	9488
 Test5	1175	18800
 Test6	1792	28672	
 Test7	2621	31936	
+
+Arduino UNO (int) (with linecache): 
+Test1	61	976		
+Test2	242	3872	
+Test3	504	8064	
+Test4	493	7888	
+Test5	577	9232
+Test6	1009	16149	
+Test7	1777	28432
+
+ESP8266 (float):
+Test1	40
+Test2	159
+Test3	254
+Test4	249
+Test5	479
+Test6	813	
+Test7	1151
+Test8	80
+
+ESP32 (float):
+Test1	23
+Test2	81
+Test3	115
+Test4	115
+Test5	193
+Test6	361
+Test7	518
+Test8	18
+
+
+
+
