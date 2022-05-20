@@ -18,16 +18,13 @@ PS2 keyboard support and keypads are added for standalone computer projects.
 
 Microcontroller specific features are EEPROM access, EEPROM program storage and autorun, control of digital and analog I/O as well as the delay function, Wire library support, RF2401 support and very simple MQTT / Wifi support on ESP.
 
+Most of the builtin Arduino demos are ported to BASIC and published here https://github.com/slviajero/tinybasic/tree/main/examples. These programs are the BASIC versions of the C++ programs in https://docs.arduino.cc/built-in-examples/. Please look at this original Arduino website for wiring and project information.
+
+
 The interpreter can be compliled with standard gcc on almost any architecture or in the Arduino IDE without changes. 
 
 Look at the WIKI https://github.com/slviajero/tinybasic/wiki for more information.
 
-See also:
-- https://en.wikipedia.org/wiki/Recursive_descent_parser
-- https://rosettacode.org/wiki/BNF_Grammar
-- https://en.wikipedia.org/wiki/Tiny_BASIC
-- https://github.com/slviajero/tinybasic/wiki/Unforgotten:-Palo-Alto-BASIC
-- https://github.com/slviajero/tinybasic/wiki/The-original-Apple-1-BASIC-manual
 
 ## Language features in a nutshell 
 
