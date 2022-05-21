@@ -1,23 +1,14 @@
 Arduino MEGA (float): 
-Test1	117	1872
-Test2	571	9136
-Test3	965	15440
-Test4	977	15632
-Test5	1996	31936
-Test6	3103	49648
-Test7	4171	66736
-Test8	118	1888
+Test1	97	1552
+Test2	345	5520
+Test3	718	11488
+Test4	729	11664
+Test5	848	13568
+Test6	3103	24320
+Test7	2530	40480
+Test8	159	2544
 
-Arduino UNO (int) (no linecache): 
-Test1	61	976	
-Test2	343	5488	
-Test3	604	9664	
-Test4	593	9488	
-Test5	1175	18800
-Test6	1792	28672	
-Test7	2621	31936	
-
-Arduino UNO (int) (with linecache): 
+Arduino UNO (int):
 Test1	61	976		
 Test2	242	3872	
 Test3	504	8064	
@@ -27,14 +18,14 @@ Test6	1009	16149
 Test7	1777	28432
 
 ESP8266 (float):
-Test1	40
-Test2	159
-Test3	254
-Test4	249
-Test5	479
-Test6	813	
-Test7	1151
-Test8	80
+Test1	38
+Test2	165
+Test3	286
+Test4	285
+Test5	347
+Test6	622	
+Test7	1255
+Test8	75
 
 ESP32 (float):
 Test1	23
