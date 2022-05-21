@@ -12,7 +12,7 @@
 140 PLAY 8, T, D
 150 DELAY D*13/10
 160 NEXT
-170 PLAY 8, 0, 1
+170 PLAY 8, 0
 180 END
 200 REM "loop() put your main code here, to run repeatedly:"
 1000 REM "Pitches of 89 notes"
