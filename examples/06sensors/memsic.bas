@@ -1,5 +1,5 @@
 10 REM "Memsic2125 from Arduino examples"
-20 REM ""
+20 REM "Two axis accelerometer read"
 30 X=2
 40 Y=3
 50 DEF FNA(Z)=(Z/10-500)*8
