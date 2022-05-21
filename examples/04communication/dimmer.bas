@@ -5,6 +5,5 @@
 110 PINM L, 1
 200 REM "loop() put your main code here, to run repeatedly:"
 210 FOR I
-220 GET B
-230 AWRITE L, B
-250 NEXT
+220 IF AVAIL(1) THEN GET B : AWRITE L, B
+230 NEXT
