@@ -25,4 +25,7 @@ See
 
 - https://en.wikipedia.org/wiki/Rugg/Feldman_benchmarks
 
+- https://archive.org/details/kilobaudmagazine-1977-06/page/n67/mode/2up
+
+
 for further information
