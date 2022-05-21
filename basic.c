@@ -144,7 +144,7 @@
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
 #define MEMSIZE 0
 
-// debug mode switches 
+/* debug mode switch */
 #define DEBUG 0
 
 /*
@@ -362,7 +362,7 @@ address_t bmalloc(signed char t, char c, char d, address_t l) {
  	}
 	
 /* enough memory ? */ 
-	if ( (himem - top) < vsize) { error(EOUTOFMEMORY); return 0;}
+	if ((himem-top) < vsize) { error(EOUTOFMEMORY); return 0;}
 
 /* here we could create a hash, currently simplified
 	 the hash is the first digit of the variable plus the token */
@@ -443,7 +443,7 @@ number_t getvar(char c, char d){
 	if (DEBUG) { outsc("* getvar "); outch(c); outch(d); outspc(); outcr(); }
 
 /* the static variable array */
-	if (c >= 65 && c<=91 && d == 0) return vars[c-65];
+	if (c >= 65 && c <= 91 && d == 0) return vars[c-65];
 
 /* the special variables */
 	if ( c == '@' )
@@ -492,7 +492,7 @@ void setvar(char c, char d, number_t v){
 	if (DEBUG) { outsc("* setvar "); outch(c); outch(d); outspc(); outnumber(v); outcr(); }
 
 /* the static variable array */
-	if (c >= 65 && c<=91 && d == 0) {
+	if (c >= 65 && c <= 91 && d == 0) {
 		vars[c-65]=v;
 		return;
 	}
@@ -527,7 +527,7 @@ void setvar(char c, char d, number_t v){
 
 #ifdef HASAPPLE1
 /* dynamically allocated vars */
-	if ( !(a=bfind(VARIABLE, c, d))) a=bmalloc(VARIABLE, c, d, 0);
+	if (!(a=bfind(VARIABLE, c, d))) a=bmalloc(VARIABLE, c, d, 0);
 	if (er != 0) return;
 
 /* set the valus */
@@ -746,7 +746,7 @@ char* getstring(char c, char d, address_t b) {
 
 	if (er != 0) return 0;
 
-	if ( (b < 1) || (b > z.a-strindexsize ) ) {
+	if ((b < 1) || (b > z.a-strindexsize )) {
 		error(EORANGE); return 0;
 	}
 
@@ -793,7 +793,7 @@ number_t lenstring(char c, char d){
 	if (c == '@' && d == 0) return ibuffer[0];
 
 #if !defined(ARDUINO) || defined(ARDUINORTC) 
-	if (c == '@' && d == 'T' ) {
+	if (c == '@' && d == 'T') {
 		rtcmkstr();
 		return rtcstring[0];
 	}
@@ -838,7 +838,7 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 
 	if (DEBUG) { outsc("* set var string "); outch(c); outch(d); outspc(); outnumber(w); outcr(); }
 
-	if ( c == '@') {
+	if (c == '@') {
 		b=ibuffer;
 	} else {
 		if ( !(a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, STRSIZEDEF);
@@ -846,7 +846,7 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 		b=(char *)&mem[a+strindexsize];
 	}
 
-	if ( (w+n-1) <= stringdim(c, d) ) {
+	if ((w+n-1) <= stringdim(c, d)) {
 		for (i=0; i<n; i++) { b[i+w]=s[i]; } 
 		z.a=w+n-1;
 		setnumber(a, strindexsize);	
@@ -2093,7 +2093,9 @@ void addlinecache(address_t l, address_t h) {
 
 address_t findinlinecache(address_t l){
 	unsigned char i;
-	for(i=0; i<linecachedepth; i++) if (linecache[i].l == l) return linecache[i].h;
+	for(i=0; i<linecachedepth && linecache[i].l != 0; i++) {
+		if (linecache[i].l == l) return linecache[i].h;
+	}
 	return 0;
 }
 #else
@@ -2224,7 +2226,7 @@ void storeline() {
 		return;
 	}
 
-/* the data pointer becomes invalid once the code has been changed */
+/* the data pointers becomes invalid once the code has been changed */
 	clrdata();
 
 /* line cache is invalid on line storage */
@@ -2639,7 +2641,7 @@ char stringvalue() {
  * (numerical) evaluation of a string expression, used for 
  * comparison and for string rightvalues as numbers
  * the token rewind here is needed as streval is called in 
- * factor - no factor function can nexttoken
+ * factor - no factor function should nexttoken
  */
 void streval(){
 	char *irl;
@@ -2649,7 +2651,7 @@ void streval(){
 	address_t h1;
 	char* b1;
 
-	if ( ! stringvalue()) {
+	if (!stringvalue()) {
 		error(EUNKNOWN);
 		return;
 	} 
@@ -2677,11 +2679,12 @@ void streval(){
 		return; 
 	}
 
+/* questionable !! */
 	t=token;
 	nexttoken(); 
 	//debugtoken();
 
-	if (!stringvalue() ){
+	if (!stringvalue()){
 		error(EUNKNOWN);
 		return;
 	} 
@@ -3909,6 +3912,7 @@ void xclr() {
 	clrgosubstack();
 	clrforstack();
 	clrdata();
+	clrlinecache();
 	nexttoken();
 }
 
@@ -4493,7 +4497,7 @@ void xdelay(){
 #endif
 }
 
-/* tone if the platform has it */
+/* tone if the platform has it -> BASIC command PLAY */
 #ifdef HASTONE
 void xtone(){
 	nexttoken();
