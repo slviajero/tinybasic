@@ -19,23 +19,36 @@ Test7	1777	28432
 
 ESP8266 (float):
 Test1	38
-Test2	165
-Test3	286
-Test4	285
-Test5	347
-Test6	622	
-Test7	1255
+Test2	161
+Test3	276
+Test4	282
+Test5	348
+Test6	620	
+Test7	1230
 Test8	75
+Creative 557
 
-ESP32 (float):
-Test1	23
-Test2	81
-Test3	115
-Test4	115
-Test5	193
-Test6	361
-Test7	518
-Test8	18
+ESP32 (float, with network):
+Test1	28
+Test2	119
+Test3	178
+Test4	180
+Test5	229
+Test6	420
+Test7	720
+Test8	30
+Creative	314
+
+ESP32 (float, without network):
+Test1	20
+Test2	84
+Test3	133
+Test4	133
+Test5	174
+Test6	317
+Test7	542
+Test8	23
+Creative	240
 
 
 
