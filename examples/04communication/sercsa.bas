@@ -12,11 +12,11 @@
 150 GOTO 120
 200 REM "loop() put your main code here, to run repeatedly:"
 210 FOR I
-220 IF AVAIL(1)<=0 GOTO 280 
+220 IF AVAIL(1)<=0 GOTO 290 
 230 GET B
 240 F=AREAD(AZERO)/4
 250 DELAY 10
 260 S=AREAD(AZERO)/4
-260 T=MAP(DREAD(2), 0, 1, 0, 255)
-270 PRINT F, "," S ,",", T
-280 NEXT
+270 T=MAP(DREAD(2), 0, 1, 0, 255)
+280 PRINT F, "," S ,",", T
+290 NEXT
