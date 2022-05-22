@@ -10,6 +10,7 @@ This is the minimal BASIC language set also found in many Tinybasic adaptions. T
 - Table: table.bas - print a formatted table of values.
 - Random: random.bas - create random number and show the distribution of them.
 - Sort: sort.bas - sort a list of random numbers
+- TicTacToe: tictac.bas - play tictactoe against the computer who moves first.
 
 ### Apple 1 Integer BASIC language set
 
@@ -24,6 +25,8 @@ table.bas: inputting data with INPUT, FOR NEXT loops, formatted printing using #
 random.bas: use of the memory array @(), conditional expressions IF, random numbers RND
 
 sort.bas: use of the memory array @(), conditional expression IF GOTO 
+
+tictac.bas: GOSUB RETURN subroutines
 
 
 
