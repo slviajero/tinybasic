@@ -26,7 +26,7 @@ random.bas: use of the memory array @(), conditional expressions IF, random numb
 
 sort.bas: use of the memory array @(), conditional expression IF GOTO 
 
-tictac.bas: GOSUB RETURN subroutines
+tictac.bas: GOSUB RETURN subroutines, % as a modulo operator
 
 
 
