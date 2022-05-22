@@ -9,14 +9,11 @@ This is the minimal BASIC language set also found in many Tinybasic adaptions. T
 - Hello World: hello.bas - say hello.
 - Table: table.bas - print a formatted table of values.
 - Random: random.bas - create random number and show the distribution of them.
-
+- Sort: sort.bas - sort a list of random numbers
 
 ### Apple 1 Integer BASIC language set
 
 The Apple 1 language set has arrays, strings and a number of additional commands. It is compatible to Apple Integer BASIC. 
-
-
-
 
 ## BASIC language features 
 
@@ -24,7 +21,11 @@ hello.bas: printing with PRINT, string constants in ""
 
 table.bas: inputting data with INPUT, FOR NEXT loops, formatted printing using #8
 
-random.bas: use of the memory array @(), conditional expressions IF THEN, random numbers RND
+random.bas: use of the memory array @(), conditional expressions IF, random numbers RND
+
+sort.bas: use of the memory array @(), conditional expression IF GOTO 
+
+
 
 
 
