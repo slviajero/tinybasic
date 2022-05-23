@@ -4,7 +4,7 @@
 
 ### Palo Alto BASIC language set
 
-This is the minimal BASIC language set also found in many Tinybasic adaptions. The orginal language was described in a Dr. Dobbs Article. It has the commands PRINT, LET, INPUT, GOTO, GOSUB, RETURN, IF, FOR, TO, STEP, NEXT, STOP, LIST, NEW, RUN, ABS, INT, RND, SIZE, REM. Note that there is no THEN in Palo Alto BASIC. This is what you get when compiling with #define BASICMINIMAL. INT was not present in Palo Alto BASIC but added here nevertheless.
+This is the minimal BASIC language set also found in many Tinybasic adaptions. The orginal language was described in a Dr. Dobbs Article. It has the commands PRINT, LET, INPUT, GOTO, GOSUB, RETURN, IF, FOR, TO, STEP, NEXT, STOP, LIST, NEW, RUN, ABS, INT, RND, SIZE, REM. Note that there is no THEN in Palo Alto BASIC. This is what you get when compiling with #define BASICMINIMAL. INT, LOAD, and SAVE were not present in Palo Alto BASIC but added here nevertheless.
 
 - Hello World: hello.bas - say hello.
 - Table: table.bas - print a formatted table of values.
@@ -14,9 +14,35 @@ This is the minimal BASIC language set also found in many Tinybasic adaptions. T
 
 ### Apple 1 Integer BASIC language set
 
-The Apple 1 language set has arrays, strings and a number of additional commands. It is compatible to Apple Integer BASIC. 
+The Apple 1 language set has arrays, strings and a number of additional commands. It is compatible to Apple Integer BASIC. Additional commands are NOT, AND, OR, LEN, SGN, PEEK, POKE, DIM, THEN, TAB, END, CLR, HIMEM. 
 
-## BASIC language features 
+### Stefan's extension
+
+These are a set of useful commands and features missing in Apple Integer BASIC. Some of then I took from other BASIC interpreters, some I missed in the past and added with different features. Commands in this language set are CONT, SQR, POW, MAP, DUMP, BREAK, GET, PUT, SET, CLS, USR, CALL, ELSE.
+
+### Dartmouth extension
+
+For compatibility with the Dartmouth style BASIC interpreters, the following commands have been added const char DATA, READ, RESTORE, DEF, FN, ON.
+
+### File I/O functions
+
+File I/O is supported with the command set CATALOG, OPEN, CLOSE, FDISK, DELETE. 
+
+### Floating point functions 
+
+The classical BASIC floating point functions SIN, COS, TAN, ATAN, LOG, EXP are part of the floating point laguage set.
+
+### The Dark Arts
+
+This language set has a few functions for low level access to the interpreter mechanism. Currently MALLOC, FIND and EVAL are implemented.
+
+In addition to these language sets there are the Arduino IO functions. These features are explained in 01basics-10starter.
+
+Graphics functions are ommited here, they will be explained in a special section of the examples code as well.
+
+IoT and networking functions are also explained in a special section.
+
+## BASIC language features by program 
 
 hello.bas: printing with PRINT, string constants in ""
 
