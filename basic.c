@@ -40,7 +40,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define   BASICFULL
+#define  BASICFULL
 #undef   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
@@ -3089,10 +3089,10 @@ void notexpression() {
 	if (DEBUG) bdebug("notexp\n");
 	if (token == TNOT) {
 		nexttoken();
-		compexpression();
+		//compexpression();
+		expression();
 		if (er != 0) return;
-		x=pop();
-		push(!x);
+		push(!pop());
 	} else 
 		compexpression();
 }
