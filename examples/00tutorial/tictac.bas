@@ -54,7 +54,6 @@
 630 GOTO 200
 640 PRINT "and wins!  ********"
 650 GOTO 200
-660 END
 800 REM "Subroutine to ask user for the move"
 810 GOSUB 900
 820 INPUT "Your move? ", M
@@ -62,4 +61,3 @@
 900 REM "Subroutine to display move"
 910 PRINT "Computer moves:",M
 920 RETURN
-930 REM
