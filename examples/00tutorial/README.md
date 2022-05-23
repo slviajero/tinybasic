@@ -18,6 +18,7 @@ This is the minimal BASIC language set also found in many Tinybasic adaptions. T
 The Apple 1 language set has arrays, strings and a number of additional commands. It is compatible to Apple Integer BASIC. Additional commands are NOT, AND, OR, LEN, SGN, PEEK, POKE, DIM, THEN, TAB, END, CLR, HIMEM. 
 
 - Memory: memory.bas - access BASIC memory with PEEK and POKE, find memory layout
+- Array: array.bas - array code test program, including @() and @E()
 
 ### Stefan's extension
 
@@ -60,6 +61,10 @@ tictac.bas: GOSUB RETURN subroutines, % as a modulo operator
 eeprom.bas: use of the EEPROM array @E() and the size of the EEPROM @E
 
 memory.bas: use of SIZE and HIMEM, PEEK and POKE, memory as signed char bytes
+
+array.bas: use of DIM to dimension arrays, EEPROM @E() and end of RAM array @()
+
+
 
 
 
