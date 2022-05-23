@@ -11,10 +11,13 @@ This is the minimal BASIC language set also found in many Tinybasic adaptions. T
 - Random: random.bas - create random number and show the distribution of them.
 - Sort: sort.bas - sort a list of random numbers
 - TicTacToe: tictac.bas - play tictactoe against the computer who moves first.
+- EEPROM: eeprom.bas - store data to the EEPROM array and access it later
 
 ### Apple 1 Integer BASIC language set
 
 The Apple 1 language set has arrays, strings and a number of additional commands. It is compatible to Apple Integer BASIC. Additional commands are NOT, AND, OR, LEN, SGN, PEEK, POKE, DIM, THEN, TAB, END, CLR, HIMEM. 
+
+- Memory: memory.bas - access BASIC memory with PEEK and POKE, find memory layout
 
 ### Stefan's extension
 
@@ -53,6 +56,12 @@ random.bas: use of the memory array @(), conditional expressions IF, random numb
 sort.bas: use of the memory array @(), conditional expression IF GOTO 
 
 tictac.bas: GOSUB RETURN subroutines, % as a modulo operator
+
+eeprom.bas: use of the EEPROM array @E() and the size of the EEPROM @E
+
+memory.bas: use of SIZE and HIMEM, PEEK and POKE, memory as signed char bytes
+
+
 
 
 
