@@ -21,6 +21,7 @@ The Apple 1 language set has arrays, strings and a number of additional commands
 - Array: array.bas - array code test program, including @() and @E()
 - String1: string1.bas - string constants and variables
 - String2: string2.bas - substrings, splitting and concatenating
+- String3: string3.bas - characters and strings
 
 ### Stefan's extension
 
@@ -65,6 +66,16 @@ eeprom.bas: use of the EEPROM array @E() and the size of the EEPROM @E
 memory.bas: use of SIZE and HIMEM, PEEK and POKE, memory as signed char bytes
 
 array.bas: use of DIM to dimension arrays, EEPROM @E() and end of RAM array @()
+
+string1.bas: string constants, variables, dimensioning with DIM and autodimensioning, LEN
+
+string2.bas: using substring to split and concatenate strings
+
+string3.bas: converting chars, integers and strings, not fully Apple Integer compatible, rather an extension
+
+
+
+
 
 
 
