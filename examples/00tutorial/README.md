@@ -19,6 +19,8 @@ The Apple 1 language set has arrays, strings and a number of additional commands
 
 - Memory: memory.bas - access BASIC memory with PEEK and POKE, find memory layout
 - Array: array.bas - array code test program, including @() and @E()
+- String1: string1.bas - string constants and variables
+- String2: string2.bas - substrings, splitting and concatenating
 
 ### Stefan's extension
 
