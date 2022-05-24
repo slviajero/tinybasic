@@ -22,6 +22,8 @@ The Apple 1 language set has arrays, strings and a number of additional commands
 - String1: string1.bas - string constants and variables
 - String2: string2.bas - substrings, splitting and concatenating
 - String3: string3.bas - characters and strings
+- Logic: logic.bas - boolean expressions
+- Parable: parable.bas - draws a parable using TAB to format output
 
 ### Stefan's extension
 
@@ -72,6 +74,12 @@ string1.bas: string constants, variables, dimensioning with DIM and autodimensio
 string2.bas: using substring to split and concatenate strings
 
 string3.bas: converting chars, integers and strings, not fully Apple Integer compatible, rather an extension
+
+logic.bas: NOT, AND, OR
+
+parable.bas: TAB command to format output 
+
+
 
 
 
