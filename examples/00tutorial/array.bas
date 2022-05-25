@@ -3,7 +3,7 @@
 30 REM "Arrays are dimensioned with DIM like A(), B()"
 40 REM "Arrays autodimension to size 10 like C()"
 50 REM "@E() is the EEPROM array"
-60 REM "@() is the end of memory array, no safety net!"
+60 REM "@() is the end of memory array"
 100 DIM B(28)
 110 DIM A(18)
 200 PRINT "Testing indexing A(I), B() is zero"
@@ -30,15 +30,17 @@
 510 FOR I=1 TO 10 
 520 B(I)=I*6: @(I)=I*6
 530 NEXT 
-540 FOR J =1 TO 10 
-550 PRINT #3,J,B(J),@(J);" = ";6*J
-560 NEXT 
+540 PRINT "Size of memory array=", @
+550 FOR J=1 TO 4 
+560 PRINT #3,J,B(J),@(J);" = ";6*J
+570 NEXT 
 600 PRINT "Testing EEPROM"
-610 IF @E=0 THEN PRINT "No EEPROM" : END
-620 FOR I =1 TO 10 
-630 @E(I)=I*I 
-640 NEXT 
-650 FOR J=1 TO 10 
-660 PRINT #3,J,@E(J);" = ";J*J
-670 NEXT 
+610 PRINT "Size of EEPROM array=", @E
+620 IF @E=0 THEN PRINT "No EEPROM" : END
+630 FOR I=1 TO 10 
+640 @E(I)=I*I 
+650 NEXT 
+660 FOR J=1 TO 10 
+670 PRINT #3,J,@E(J);" = ";J*J
+680 NEXT 
 700 END
