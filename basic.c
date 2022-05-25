@@ -459,7 +459,9 @@ number_t getvar(char c, char d){
 			case 'C':
 				if (availch()) return inch(); else return 0;
 			case 'E':
-				return elength();
+				return elength()/numsize;
+			case 0:
+				return (himem-top)/numsize;
 			case 'R':
 				return rd;
 #ifdef DISPLAYDRIVER
@@ -2502,7 +2504,7 @@ void xpeek(){
 
 	if (x >= 0 && x<amax) 
 		push(mem[(unsigned int) x]);
-	else if (x < 0 && -x < elength())
+	else if (x < 0 && -x <= elength())
 		push(eread(-x-1));
 	else {
 		error(EORANGE);
@@ -3089,7 +3091,6 @@ void notexpression() {
 	if (DEBUG) bdebug("notexp\n");
 	if (token == TNOT) {
 		nexttoken();
-		//compexpression();
 		expression();
 		if (er != 0) return;
 		push(!pop());
@@ -3663,19 +3664,26 @@ void xfor(){
 		findnextcmd();
 		nexttoken();
 		if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
-		return;
 	}
 }
 
 /*
  *	BREAK - an apocryphal feature here is the BREAK command ending a loop
- *	doesn't work well for nested loops - to be tested carefully
  */
 void xbreak(){
 	dropforstack();
 	if (er != 0) return;
 	findnextcmd();
-	nexttoken();
+	nexttoken();	
+	if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
+}
+
+/*
+ * CONT as a loop control statement, as apocryphal as BREAK, simply 
+ * advance to next and the continue to process
+ */
+void xcont() {
+	findnextcmd();
 }
 
 /* 
@@ -3866,6 +3874,9 @@ void xrun(){
 		is exhausted. Then we return to interactive mode. */
   statement();
 	st=SINT;
+
+/* flush the EEPROM when changing to interactive mode */
+	eflush();
 }
 
 /*
@@ -4375,7 +4386,7 @@ void xset(){
 					break;
 			}		
 			break;
-		case 4: // change the input device (deprectated use @i instead)
+		case 4: // change the input device
 			switch (args) {
 				case 0:
 					id=ISERIAL;
@@ -5455,10 +5466,14 @@ void statement(){
 			case TLIST:
 				xlist();
 				break;
-			case TNEW: 		// return here because new input is needed
+			case TNEW: 		/* return here because new input is needed */
 				xnew();
 				return;
-			case TCONT:
+			case TCONT:		/* cont behaves differently in interactive and in run mode */
+				if (st==SRUN || st==SERUN) {
+					xcont();
+					break;
+				}						/* no break here, because interactively CONT=RUN minus CLR */
 			case TRUN:
 				xrun();
 				return;	

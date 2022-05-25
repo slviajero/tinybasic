@@ -216,11 +216,11 @@ char mqttinch() {return 0;};
  *	loading and saving to EEPROM with the "!" mechanism
  *	a filesystem based dummy
  */ 
-uint8_t eeprom[EEPROMSIZE];
+signed char eeprom[EEPROMSIZE];
 void ebegin(){ 
 	int i;
 	FILE* efile;
-	for (i=0; i<EEPROMSIZE; i++) eeprom[i]=255;
+	for (i=0; i<EEPROMSIZE; i++) eeprom[i]=-1;
 	efile=fopen("eeprom.dat", "r");
 	if (efile) fread(eeprom, EEPROMSIZE, 1, efile);
 }
@@ -229,11 +229,12 @@ void eflush(){
 	FILE* efile;
 	efile=fopen("eeprom.dat", "w");
 	if (efile) fwrite(eeprom, EEPROMSIZE, 1, efile);
+	fclose(efile);
 }
 
 address_t elength() { return EEPROMSIZE; }
 void eupdate(address_t a, short c) { if (a>=0 && a<EEPROMSIZE) eeprom[a]=c; }
-short eread(address_t a) { if (a>=0 && a<EEPROMSIZE) return eeprom[a]; else return 255;  }
+short eread(address_t a) { if (a>=0 && a<EEPROMSIZE) return eeprom[a]; else return -1;  }
 
 /* 
  *	the wrappers of the arduino io functions, to avoid 
