@@ -12,4 +12,5 @@
 250 FOR I=1 TO 10
 260 PRINT I, @E(I)
 270 NEXT
-300 PRINT "Restart BASIC now and check @E(10)"
+300 PRINT "Restart BASIC later and check @E(10)"
+
