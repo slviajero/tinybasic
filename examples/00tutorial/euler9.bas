@@ -1,6 +1,6 @@
 10 REM "Solves the Euler 9 problem "
 20 REM "See https://projecteuler.net/problem=9 for details"
-20 REM "with a number theoretical approach"
+30 REM "with a number theoretical approach"
 100 PRINT "Enter the circumference K of a triangle"
 110 PRINT "The program finds a pythagorean triangle"
 120 PRINT "a^2 + b^2 = c^2"
