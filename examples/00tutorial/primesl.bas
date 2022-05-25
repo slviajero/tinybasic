@@ -3,6 +3,7 @@
 30 REM "This version uses @ and BREAK"
 200 INPUT "How many primes (0=stop)? ", N 
 210 IF N=0 THEN END
+220 IF N>@ THEN PRINT "Maximum is ", @ : GOTO 200
 230 @(1)=2: @(2)=3 
 240 FOR I=3 TO N
 250 K=@(I-1)+2
