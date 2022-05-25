@@ -310,7 +310,7 @@ const char sclr[]    PROGMEM = "CLR";
 const char shimem[]  PROGMEM = "HIMEM";
 const char stab[]    PROGMEM = "TAB";
 const char sthen[]   PROGMEM = "THEN";
-const char sbend[]    PROGMEM = "END";
+const char sbend[]   PROGMEM = "END";
 const char spoke[]   PROGMEM = "POKE";
 #endif
 /* Stefan's basic additions */
@@ -1114,6 +1114,7 @@ void xif();
 void findnextcmd();
 void xfor();
 void xbreak();
+void xcont();
 void xnext();
 
 /* control commands and misc */
