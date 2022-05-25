@@ -1,4 +1,4 @@
-# Arduino examples 01.Basic ported to basic
+# BASIC tutorial, the commands and the language sets
 
 ## Programs 
 
