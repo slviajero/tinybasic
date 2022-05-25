@@ -32,6 +32,8 @@ These are a set of useful commands and features missing in Apple Integer BASIC. 
 - StopCont: stopcont.bas - stop and continue a running program
 - Euler9: euler9.bas - solve the Euler 9 number theory problem
 - Loops: loop.bas - demo for loops in BASIC including while, until constructs
+- Conditions: cond.bas - demo for conditions 
+- Mathematics: math.bas - demo for square root, powers, and mapping
 
 ### Dartmouth extension
 
@@ -89,18 +91,8 @@ euler9.bas: SQR for integer or float values, CONT to control loops (apocryphal)
 
 loop.bas: FOR NEXT STEP, ending loops with BREAK, iterating with CONT, while, until
 
+cond.bas: IF THEN ELSE, ELSE and THEN with line numbers or statements
 
-
-
-
-
-
-
-
-
-
-
-
-
+math.bas: simple mathematical functions (integer or float) SQR, POW and MAP
 
 
