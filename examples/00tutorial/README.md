@@ -29,6 +29,9 @@ The Apple 1 language set has arrays, strings and a number of additional commands
 
 These are a set of useful commands and features missing in Apple Integer BASIC. Some of then I took from other BASIC interpreters, some I missed in the past and added with different features. Commands in this language set are CONT, SQR, POW, MAP, DUMP, BREAK, GET, PUT, SET, CLS, USR, CALL, ELSE.
 
+- StopCont: stopcont.bas - stop and continue a running program
+- Euler9: euler9.bas - solve the Euler 9 number theory problem
+
 ### Dartmouth extension
 
 For compatibility with the Dartmouth style BASIC interpreters, the following commands have been added const char DATA, READ, RESTORE, DEF, FN, ON.
@@ -63,7 +66,7 @@ sort.bas: use of the memory array @(), conditional expression IF GOTO
 
 tictac.bas: GOSUB RETURN subroutines, % as a modulo operator
 
-eeprom.bas: use of the EEPROM array @E() and the size of the EEPROM @E
+eeprom.bas: use of the EEPROM array @E() and the size of the EEPROM @E, STOP command
 
 memory.bas: use of SIZE and HIMEM, PEEK and POKE, memory as signed char bytes
 
@@ -78,6 +81,10 @@ string3.bas: converting chars, integers and strings, not fully Apple Integer com
 logic.bas: NOT, AND, OR
 
 parable.bas: TAB command to format output 
+
+stopcont.bas: STOP and CONT command
+
+euler9.bas: SQR for integer or float values, CONT to control loops (apocryphal)
 
 
 
