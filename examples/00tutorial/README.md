@@ -34,6 +34,8 @@ These are a set of useful commands and features missing in Apple Integer BASIC. 
 - Loops: loop.bas - demo for loops in BASIC including while, until constructs
 - Conditions: cond.bas - demo for conditions 
 - Mathematics: math.bas - demo for square root, powers, and mapping
+- Primes: primes.bas - caclulate N prime numbers 
+- Primes Loop: primesl.bas - caclulate N prime numbers using special features of BASIC
 
 ### Dartmouth extension
 
@@ -93,6 +95,10 @@ loop.bas: FOR NEXT STEP, ending loops with BREAK, iterating with CONT, while, un
 
 cond.bas: IF THEN ELSE, ELSE and THEN with line numbers or statements
 
-math.bas: simple mathematical functions (integer or float) SQR, POW and MAP
+math.bas: simple mathematical functions (integer or float) SQR, POW and 
+
+primes.bas: SQR, arrays 
+
+primesl.bas: special array @(), variable @, BREAK 
 
 

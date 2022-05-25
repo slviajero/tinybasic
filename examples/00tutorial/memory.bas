@@ -20,5 +20,9 @@
 350 POKE A+11, 255
 360 PRINT PEEK(A+11), "is 255"
 370 PRINT "BASIC memory bytes are signed char"
-
-
+400 PRINT "Size of EEPROM array", @E
+410 IF @E=0 THEN PRINT "No EEPROM" : END
+420 PRINT "First 10 bytes of the EEPROM"
+430 FOR I=-1 TO -10 STEP -1
+440 PRINT #4, ABS(I), PEEK(I)
+450 NEXT I
