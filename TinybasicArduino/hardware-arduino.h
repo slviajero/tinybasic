@@ -57,7 +57,7 @@
 
 	leave this unset if you use the definitions below
 */
-#undef USESPICOSERIAL 
+#define USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
 #undef DISPLAYCANSCROLL
@@ -156,7 +156,7 @@
  * Sensor library code - experimental
  */
 #ifdef ARDUINOSENSORS
-#define ARDUINODHT
+#undef ARDUINODHT
 #define DHTTYPE DHT22
 #define DHTPIN 2
 #define ARDUINOSHT
@@ -796,7 +796,7 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
  */ 
 #ifdef ARDUINOSSD1306
 #define DISPLAYDRIVER
-#define SSD1306WIDTH 32
+#define SSD1306WIDTH 64
 #define SSD1306HEIGHT 128
 /* constructors may look like this, last argument is the reset pin
  * //U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
@@ -1298,7 +1298,7 @@ void dspbufferclear() {
 	short r,c;
 	for (r=0; r<dsp_rows; r++)
 		for (c=0; c<dsp_columns; c++)
-      		dspbuffer[r][c]=0;
+      dspbuffer[r][c]=0;
   dspmyrow=0;
   dspmycol=0;
 }
@@ -1623,9 +1623,9 @@ void mqttsetname() {
 void netbegin() {
 #ifdef ARDUINOETH
 #ifdef ETHPIN
-Ethernet.init(ETHPIN);
+  Ethernet.init(ETHPIN);
 #endif
-Ethernet.begin(mac);
+  Ethernet.begin(mac);
 #else  
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
 	WiFi.mode(WIFI_STA);
@@ -1900,16 +1900,19 @@ void bpulsein() {
 }
 
 void btone(short a) {
+  number_t d = 0;
+  if (a == 3) d=pop();
 	x=pop();
 	y=pop();
 #if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_ESP32)
-	if (a == 3) pop();
 	return;
 #else 
-	if (a == 2) {
-		tone(y,x);
+  if (x == 0) {
+    noTone(y);
+  } else if (a == 2) {
+		tone(y, x);
 	} else {
-		tone(pop(), y, x);
+		tone(y, x, d);
 	}
 #endif	
 }
@@ -1958,7 +1961,7 @@ void yieldfunction() {
 /* everything that needs to be done not so often - 1 second */
 void longyieldfunction() {
 #ifdef ARDUINOETH
-  	Ethernet.maintain();
+  Ethernet.maintain();
 #endif 
 }
 
@@ -2662,21 +2665,21 @@ void radioins(char *b, short nb) {
     if (radio.available()) {
     	radio.read(b+1, nb);
     	if (!blockmode) {
-        	for (z.a=0; z.a<nb; z.a++) if (b[z.a+1]==0) break;		
+        for (z.a=0; z.a<nb; z.a++) if (b[z.a+1]==0) break;		
     	} else {
     		z.a=radio.getPayloadSize();
-      		if (z.a > nb) z.a=nb;
+      	if (z.a > nb) z.a=nb;
     	}
-      	b[0]=z.a;
+      b[0]=z.a;
 	} else {
-      	b[0]=0; 
-      	b[1]=0;
-      	z.a=0;
+    b[0]=0; 
+    b[1]=0;
+    z.a=0;
 	}
 #else 
-      b[0]=0; 
-      b[1]=0;
-      z.a=0;
+  b[0]=0; 
+  b[1]=0;
+  z.a=0;
 #endif
 }
 

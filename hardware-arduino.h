@@ -1900,16 +1900,19 @@ void bpulsein() {
 }
 
 void btone(short a) {
+  number_t d = 0;
+  if (a == 3) d=pop();
 	x=pop();
 	y=pop();
 #if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_ESP32)
-	if (a == 3) pop();
 	return;
 #else 
-	if (a == 2) {
-		tone(y,x);
+  if (x == 0) {
+    noTone(y);
+  } else if (a == 2) {
+		tone(y, x);
 	} else {
-		tone(pop(), y, x);
+		tone(y, x, d);
 	}
 #endif	
 }
