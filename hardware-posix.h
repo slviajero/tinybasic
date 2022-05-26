@@ -447,6 +447,7 @@ void consins(char *b, short nb) {
 
 /* handling the second serial interface */
 void prtbegin() {}
+void prtset(int s) {}
 void prtwrite(char c) {}
 char prtread() {return 0;}
 short prtcheckch(){ return FALSE; }
@@ -464,6 +465,7 @@ void wireouts(char *b, uint8_t l) {}
  *	Read from the radio interface, radio is always block 
  *	oriented. 
  */
+void radioset(int s) {}
 void radioins(char *b, short nb) { b[0]=0; b[1]=0; z.a=0; }
 void radioouts(char *b, short l) {}
 void iradioopen(char *filename) {}
