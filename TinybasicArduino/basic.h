@@ -636,6 +636,18 @@ const int eheadersize=sizeof(address_t)+1;
 const int strindexsize=2; // 
 const address_t maxaddr=(address_t)(~0); 
 
+
+/* 
+ * system type identifiers
+ */
+
+#define SYSTYPE_UNKNOWN	0
+#define SYSTYPE_AVR 	1
+#define SYSTYPE_ESP8288 2
+#define SYSTYPE_ESP32	3
+#define SYSTYPE_POSIX	32
+#define SYSTYPE_MSDOS	33
+
 /*
 	The basic interpreter is implemented as a stack machine
 	with global variable for the interpreter state, the memory

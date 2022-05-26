@@ -287,6 +287,21 @@
 #define STANDALONE
 #endif
 
+
+/*
+ * defining the systype variable which informs BASIC about the platform at runtime
+ */
+
+#if defined(ARDUINO_ARCH_AVR)
+const char bsystype = SYSTYPE_AVR;
+#elif defined(ARDUINO_ARCH_ESP8266)
+const char bsystype = SYSTYPE_ESP8266;
+#elif defined(ARDUINO_ARCH_ESP32)
+const char bsystype = SYSTYPE_ESP32;
+#else
+const char bsystype = SYSTYPE_UNKNOWN;
+#endif 
+
 /* 
  * the non AVR arcitectures - this is somehow raw
  * the ARDUINO 100 definition is probably not needed anymore
@@ -559,7 +574,6 @@
 #if ! defined(ARDUINO_AVR_UNO) && ! defined(ARDUINO_AVR_DUEMILANOVE) 
 #undef USESPICOSERIAL
 #endif
-
 
 /* 
  *	Arduino default serial baudrate and serial flags for the 

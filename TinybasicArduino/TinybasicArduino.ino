@@ -40,8 +40,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef   BASICFULL
-#define  BASICINTEGER
+#undef  BASICFULL
+#define   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -662,7 +662,7 @@ void array(char m, char c, char d, address_t i, number_t* v) {
         }
 #endif
 				return;
-#if ! defined(ARDUINO) || defined(ARDUINORTC)
+#if !defined(ARDUINO) || defined(ARDUINORTC)
 			case 'T':
 				if (m == 'g') *v=rtcget(i); 
 				else if (m == 's') rtcset(i, *v);
@@ -4990,52 +4990,81 @@ void xusr() {
 	arg=pop();
 	fn=pop();
 	switch(fn) {
-		case 0: // USR(0,y) delivers all the internal constants
+/* USR(0,y) delivers all the internal constants and variables or the interpreter */		
+		case 0: 
 			switch(arg) {
-				case 0: push(numsize); break;
-				case 1: push(maxnum); break;
-				case 2: push(addrsize); break;
-				case 3: push(maxaddr); break;
-				case 4: push(strindexsize); break;
-				case 5: push(memsize+1); break;
-				case 6: push(elength()); break;
-				case 7: push(GOSUBDEPTH); break;
-				case 8: push(FORDEPTH); break;
-				case 9: push(STACKSIZE); break;
-				case 10: push(BUFSIZE); break;
-				case 11: push(SBUFSIZE); break;
-				case 12: push(serial_baudrate); break;
-				case 13: push(serial1_baudrate); break;
-				case 14: push(dsp_rows); break;
-				case 15: push(dsp_columns); break;
+				case 0: push(bsystype); break;
+				case 1: push(0); /* reserved for system capability identifier */
+				case 2: push(0); /* reserved for system speed identifier */
+				 
+#ifdef HASFLOAT
+				case 3:	push(1); break;
+#else 
+				case 3: push(0); break;
+#endif
+				case 4: push(numsize); break;
+				case 5: push(maxnum); break;
+				case 6: push(addrsize); break;
+				case 7: push(maxaddr); break;
+				case 8: push(strindexsize); break;
+				case 9: push(memsize+1); break;
+				case 10: push(elength()); break;
+				case 11: push(GOSUBDEPTH); break;
+				case 12: push(FORDEPTH); break;
+				case 13: push(STACKSIZE); break;
+				case 14: push(BUFSIZE); break;
+				case 15: push(SBUFSIZE); break;
+				case 16: push(ARRAYSIZEDEF); break;
+				case 17: push(STRSIZEDEF); break;
+/* - 24 reserved */
+				case 24: push(top); break;
+				case 25: push(here); break;
+				case 26: push(himem); break;
+				case 27: push(nvars); break;
+				case 28: push(freeRam()); break;
+				case 29: push(gosubsp); break;
+				case 30: push(forsp); break;
+				case 31: push(fnc); break;
+				case 32: push(sp); break;
+				case 33: push(data); break;
+/* - 48 reserved */
+				case 48: push(id); break;
+				case 49: push(idd); break;
+				case 50: push(od); break;
+				case 51: push(odd); break;
 				default: push(0);
 			}
 			break;	
-		case 1: // access to the variables of the interpreter
+/* access to properties of stream 1 - serial	*/
+		case 1:
 			switch(arg) {
-				case 0: push(top); break;
-				case 1: push(here); break;
-				case 2: push(himem); break;
-				case 3: push(nvars); break;
-				case 4: push(freeRam()); break;
-				case 5: push(0); break;
-				case 6: push(0); break;
-				case 7: push(gosubsp); break;
-				case 8: push(fnc); break;
-				case 9: push(sp); break;
+				case 0: push(1); break;
+				case 1: push(serial_baudrate); break;
 				default: push(0);
 			}
 			break;
-		case 2: // io definitions, somewhat redundant to @ 
+/* access to properties of stream 2 - display and keyboard */			
+		case 2: 
 			switch(arg) {
-				case 0: push(id); break;
-				case 1: push(idd); break;
-				case 2: push(od); break;
-				case 3: push(odd); break;
-				case 4: push(0); break;
+				case 0: push(0); break;
+				case 1: push(dsp_rows); break;
+				case 2: push(dsp_columns); break;
 				default: push(0);
 			}
 			break;
+/* access to properties of stream 4 - printer */
+		case 4: 
+			switch(arg) {
+#ifdef ARDUINOPRT
+				case 0: push(1); break;
+				case 1: push(serial1_baudrate); break;
+#endif
+				default: push(0);				
+			}
+			break;
+
+
+			
 		default:
 			push(0);
 	}
