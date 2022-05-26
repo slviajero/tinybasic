@@ -4360,13 +4360,16 @@ void xset(){
 	args=pop();
 	fn=pop();
 	switch (fn) {	
+/* runtime debug level */
 		case 0:
 			debuglevel=args;
 			break;	
-		case 1: // autorun/run flag of the EEPROM 255 for clear, 0 for prog, 1 for autorun
+/* autorun/run flag of the EEPROM 255 for clear, 0 for prog, 1 for autorun */
+		case 1: 
 			eupdate(0, args);
 			break;
-		case 2: // change the output device 
+/* change the output device */			
+		case 2: 
 			switch (args) {
 				case 0:
 					od=OSERIAL;
@@ -4376,7 +4379,8 @@ void xset(){
 					break;
 			}		
 			break;
-		case 3: // change the default output device
+/* change the default output device */			
+		case 3: 
 			switch (args) {
 				case 0:
 					od=(odd=OSERIAL);
@@ -4386,7 +4390,8 @@ void xset(){
 					break;
 			}		
 			break;
-		case 4: // change the input device
+ /* change the input device */			
+		case 4:
 			switch (args) {
 				case 0:
 					id=ISERIAL;
@@ -4395,8 +4400,9 @@ void xset(){
 					id=IKEYBOARD;
 					break;
 			}		
-			break;		
-		case 5: // change the default input device 
+			break;
+ /* change the default input device */					
+		case 5:
 			switch (args) {
 				case 0:
 					idd=(id=ISERIAL);
@@ -4407,22 +4413,27 @@ void xset(){
 			}		
 			break;	
 #ifdef ARDUINOPRT
-		case 6: // set the cr behaviour
+/* set the cr behaviour */
+		case 6: 
 			sendcr=(char)args;
 			break;
-		case 7: // set the blockmode behaviour
+/* set the blockmode behaviour */
+		case 7: 
 			blockmode=args;
 			break;
+/* set the second serial ports baudrate */
+		case 8:
+			prtset(args);
+			break;
 #endif
+/* set the power amplifier level of the radio module */
 #ifdef ARDUINORF24
-		case 8: // set the power amplifier level of the module
-     	if ((args<0) && (args>3)) {error(EORANGE); return; } 
-      rf24_pa=(rf24_pa_dbm_e) args;
-      radio.setPALevel(rf24_pa);
+		case 9: 
+			radioset(args);
       break;
 #endif		
 /* display update control for paged displays */
-    case 9:
+    case 10:
       dspsetupdatemode(args);
       break;
 	}
@@ -5462,6 +5473,7 @@ void statement(){
 				*ibuffer=0; // clear ibuffer - this is a hack
 				st=SINT;		// switch to interactive mode
 				eflush(); 	// if there is an EEPROM dummy, flush it here (protects flash storage!)
+				ofileclose();
 				return;
 			case TLIST:
 				xlist();

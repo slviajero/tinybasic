@@ -903,6 +903,7 @@ short serialcheckch();
 short serialavailable();
 void consins(char*, short);
 void prtbegin();
+void prtset(int);
 char prtread();
 void prtwrite(char);
 short prtcheckch();
@@ -915,6 +916,8 @@ void wireins(char*, uint8_t);
 void wireouts(char*, uint8_t);
 
 /* RF24 radio input */
+void radioset(int);
+uint64_t pipeaddr(char*);
 void iradioopen(char*);
 void oradioopen(char*);
 void radioins(char*, short);

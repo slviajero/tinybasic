@@ -574,7 +574,7 @@ const int serial_baudrate = 9600;
 char sendcr = 0;
 
 #ifdef ARDUINOPRT
-const int serial1_baudrate = 9600;
+int serial1_baudrate = 9600;
 short blockmode = 1;
 #else 
 const int serial1_baudrate = 0;
@@ -2567,6 +2567,11 @@ short prtcheckch() {
 short prtavailable() {
 	return Serial1.available();
 }
+
+void prtset(int s) {
+  serial1_baudrate=s;
+  prtbegin();
+}
 #endif
 
 
@@ -2712,6 +2717,16 @@ void oradioopen(char *filename) {
 	radio.openWritingPipe(pipeaddr(filename));
 #endif
 }
+
+void radioset(int s) {
+#ifdef ARDUINORF24
+  if ((s<0) && (s>3)) {error(EORANGE); return; } 
+  rf24_pa=(rf24_pa_dbm_e) s;
+  radio.setPALevel(rf24_pa);
+#endif
+}
+
+
 
 /* 
  *	Arduino Sensor library code 
