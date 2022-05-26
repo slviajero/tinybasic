@@ -27,6 +27,16 @@
 #define __HARDWAREH__ 
 
 /* 
+ * the system type and system capabilities
+ */
+
+#ifndef MSDOS
+const char bsystype = SYSTYPE_POSIX;
+#else
+const char bsystype = SYSTYPE_MSDOS;
+#endif
+
+/* 
  * Arduino default serial baudrate and serial flags for the 
  * two supported serial interfaces. Set to 0 on POSIX OSes 
  */
