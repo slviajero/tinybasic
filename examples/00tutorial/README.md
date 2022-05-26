@@ -73,7 +73,7 @@ tictac.bas: GOSUB RETURN subroutines, % as a modulo operator
 
 eeprom.bas: use of the EEPROM array @E() and the size of the EEPROM @E, STOP command
 
-memory.bas: use of SIZE and HIMEM, PEEK and POKE, memory as signed char bytes
+memory.bas: use of SIZE and HIMEM, PEEK and POKE, memory as signed char bytes, ABS
 
 array.bas: use of DIM to dimension arrays, EEPROM @E() and end of RAM array @()
 
