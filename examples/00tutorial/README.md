@@ -37,6 +37,7 @@ These are a set of useful commands and features missing in Apple Integer BASIC. 
 - Primes: primes.bas - caclulate N prime numbers 
 - Primes Loop: primesl.bas - caclulate N prime numbers using special features of BASIC
 - Hardware Information: hinv.bas - display the internals of BASIC
+- Small Hinv: display the essentials of a system
 
 ### Dartmouth extension
 
@@ -103,5 +104,8 @@ primes.bas: SQR, arrays
 primesl.bas: special array @(), variable @, BREAK 
 
 hinv.bas: USR command for access to system internals
+
+shinv.bas: USR command and essential system information
+
 
 
