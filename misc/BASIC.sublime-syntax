@@ -1,0 +1,60 @@
+%YAML 1.2
+---
+# http://www.sublimetext.com/docs/3/syntax.html
+name: IoT BASIC
+file_extensions:
+  - bas
+scope: source.iot-basic
+contexts:
+  main:
+    - match: ^\d+
+      scope: entity.name.function.line-number
+    - match: \b(?i:rem)
+      push:
+        - meta_scope: comment.line
+        - match: '\n'
+          pop: true
+
+    - match: '"'
+      scope: punctuation.definition.string.begin
+      push:
+        - meta_scope: string.quoted.double
+        - match: '"'
+          scope: punctuation.definition.string.end
+          pop: true
+
+    - match: '\b(?i:goto|if|then|for|to|step|next|gosub|return|pop|stop|cont|end|break|on|else|def|fn)(?![$])\b'
+      scope: keyword.control
+    - match: '\b(?i:list|dump|run)(?![$])\b'
+      scope: keyword.control.immediate
+    - match: '\b(?i:poke|call|usr|set|new|clr)(?![$])\b'
+      scope: keyword.utility
+    - match: '\b(?i:himem|size|azero):'
+      scope: keyword.utility.colon
+    - match: \b(?i:peek)(?=\()
+      scope: support.function.utility
+    - match: '\b(?i:gr|color|plot|draw|rect|frect|circle|fcircle|cls)(?![$])\b'
+      scope: keyword.graphics
+    - match: \b(?i:scrn)(?=\()
+      scope: support.function.graphics
+    - match: '\b(?i:tab|print|input|open|close|read|data|restore|delete|fdisk|netstat|load|save|put|get|pinm|awrite|dwrite|play)(?![$])\b'
+      scope: keyword.io
+    - match: '\b(?i:in|pr)#'
+      scope: keyword.io.hash
+    - match: \b(?i:aread|dread|pulsein)(?=\()
+      scope: support.function.io
+    - match: '\b(?i:and|or|not)(?![$])\b'
+      scope: keyword.operator.logical
+    - match: '\b(?i:mod)(?![$])\b'
+      scope: keyword.operator.arithmetic
+    - match: '\b(?i:dim|let)(?![$])\b'
+      scope: keyword.variable
+    - match: \b(?i:abs|sgn|rnd|pow|sqr|atan|sin|cos|tan|log|exp|map)(?=\()
+      scope: support.function.arithmetic
+    - match: \b(?i:len|asc|val|str|instr)(?=\()
+      scope: support.function.string
+    - match: '\b[A-Za-z][A-Za-z0-9]*[$]?'
+      comment: uses non-greedy *? so keywords get a first shot
+      scope: variable
+    - match: '\d+|\d*\.\d*([eE][+-]?\d+)?'
+      scope: constant.numeric
