@@ -27,7 +27,7 @@ contexts:
       scope: keyword.control
     - match: '\b(?i:list|dump|run)(?![$])\b'
       scope: keyword.control.immediate
-    - match: '\b(?i:poke|call|usr|set|new|clr)(?![$])\b'
+    - match: '\b(?i:poke|call|usr|set|new|clr|delay)(?![$])\b'
       scope: keyword.utility
     - match: '\b(?i:himem|size|azero):'
       scope: keyword.utility.colon
@@ -41,7 +41,7 @@ contexts:
       scope: keyword.io
     - match: '\b(?i:in|pr)#'
       scope: keyword.io.hash
-    - match: \b(?i:aread|dread|pulsein)(?=\()
+    - match: \b(?i:aread|dread|pulsein|millis)(?=\()
       scope: support.function.io
     - match: '\b(?i:and|or|not)(?![$])\b'
       scope: keyword.operator.logical
