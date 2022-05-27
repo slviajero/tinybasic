@@ -108,7 +108,8 @@ const int dsp_columns=0;
 void dspsetupdatemode(char c) {}
 void dspwrite(char c){};
 void dspbegin() {};
-char dspwaitonscroll() { return 0; };
+int dspstat(char c) {return 0; }
+char dspwaitonscroll() { return 0; }
 char dspactive() {return FALSE; }
 void dspsetscrollmode(char c, short l) {}
 void dspsetcursor(short c, short r) {}
@@ -132,6 +133,7 @@ void vgawrite(char c){}
  * the later is for interrupting running BASIC code
  */
 void kbdbegin() {}
+int kbdstat(char c) {return 0; }
 char kbdavailable(){ return 0;}
 char kbdread() { return 0;}
 char kbdcheckch() { return 0;}
@@ -214,6 +216,7 @@ void rtcset(char i, short v) {}
 void netbegin() {}
 char netconnected() { return 0; }
 void mqttbegin() {}
+int mqttstat(char c) {return 0; }
 int  mqttstate() {return -1;}
 void mqttsubscribe(char *t) {}
 void mqttsettopic(char *t) {}
@@ -323,6 +326,9 @@ void* root;
 void* file;
 #endif 
 
+/* POSIX OSes always have filesystems */
+int fsstat(char c) {return 1; }
+
 /*
  *	File I/O function on an Arduino
  * 
@@ -426,6 +432,11 @@ void formatdisk(short i) {
  *	Primary serial code uses putchar / getchar
  */
 void serialbegin(){}
+int serialstat(char c) {
+	if (c == 0) return 1;
+  if (c == 1) return serial_baudrate;
+  return 0;
+}
 void serialwrite(char c) { putchar(c); }
 char serialread() { return getchar(); }
 short serialcheckch(){ return TRUE; }
@@ -457,6 +468,7 @@ void consins(char *b, short nb) {
 
 /* handling the second serial interface */
 void prtbegin() {}
+int prtstat(char c) {return 0; }
 void prtset(int s) {}
 void prtwrite(char c) {}
 char prtread() {return 0;}
@@ -467,6 +479,7 @@ short prtavailable(){ return 0; }
  * The wire code 
  */ 
 void wirebegin() {}
+int wirestat(char c) {return 0; }
 void wireopen(char* s) {}
 void wireins(char *b, uint8_t l) { b[0]=0; z.a=0; }
 void wireouts(char *b, uint8_t l) {}
@@ -475,6 +488,7 @@ void wireouts(char *b, uint8_t l) {}
  *	Read from the radio interface, radio is always block 
  *	oriented. 
  */
+int radiostat(char c) {return 0; }
 void radioset(int s) {}
 void radioins(char *b, short nb) { b[0]=0; b[1]=0; z.a=0; }
 void radioouts(char *b, short l) {}

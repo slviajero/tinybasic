@@ -946,6 +946,7 @@ Color vga_graph_pen = Color::BrightWhite;
 Color vga_graph_brush = Color::Black;
 Color vga_txt_pen = Color::BrightGreen;
 Color vga_txt_background = Color::Black;
+
 /* this starts the vga controller and the terminal right now */
 void vgabegin() {
 	VGAController.begin(GPIO_NUM_22, GPIO_NUM_21, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_23, GPIO_NUM_15);
@@ -958,15 +959,20 @@ void vgabegin() {
   Terminal.enableCursor(true); 
   Terminal.setTerminalType(TermType::VT52);
 }
+
+int vgastat(char c) {return 0; }
+
 void vgascale(int* x, int* y) {
 	*y=*y*10/24;
 }
+
 void rgbcolor(int r, int g, int b) {
 	short vga;
 	if (r>191 || g>191 || b>191) vga=8; else vga=0;
 	vga=vga+r/128+g/128*2+b/128*4;
 	vga_graph_pen=fabgl::Color(vga);
 }
+
 void vgacolor(short c) { vga_graph_pen = fabgl::Color(c%16); }
 void plot(int x, int y) { 
 	vgascale(&x, &y);
@@ -1030,6 +1036,7 @@ void vgawrite(char c){
 }
 #else 
 void vgabegin(){}
+int vgastat(char c) {return 0; }
 void vgawrite(char c){}
 #endif
 
@@ -1068,6 +1075,8 @@ void kbdbegin() {
 #endif
 #endif
 }
+
+int kbdstat(char c) {return 0; }
 
 char kbdavailable(){
 #ifdef PS2KEYBOARD
@@ -1151,6 +1160,8 @@ short dspmycol = 0;
 short dspmyrow = 0;
 char esc = 0;
 char dspupdatemode = 0;
+
+int dspstat(char c) {return 0; }
 
 void dspsetcursor(short c, short r) {
 	dspmyrow=r;
@@ -1298,7 +1309,7 @@ void dspvt52(char* c){
 /* scrollable displays need a character buffer */
 #ifdef DISPLAYCANSCROLL
 char dspbuffer[dsp_rows][dsp_columns];
-char  dspscrollmode = 0;
+char dspscrollmode = 0;
 short dsp_scroll_rows = 1; 
 
 /* 0 normal scroll, 1 enable waitonscroll function */
@@ -1471,6 +1482,7 @@ const int dsp_columns=0;
 void dspsetupdatemode(char c) {}
 void dspwrite(char c){};
 void dspbegin() {};
+int dspstat(char c) {return 0; }
 char dspwaitonscroll() { return 0; };
 char dspactive() {return FALSE; }
 void dspsetscrollmode(char c, short l) {}
@@ -1698,6 +1710,15 @@ void mqttbegin() {
 	*mqtt_itopic=0;
 	*mqtt_otopic=0;
 	mqtt_charsforsend=0;
+}
+
+/* the interface to the usr function */
+int mqttstat(char c) {
+#if defined(ARDUINOMQTT)
+  if (c == 0) return 1;
+  if (c == 1) return mqttstate();
+#endif
+  return 0; 
 }
 
 /*
@@ -2099,6 +2120,13 @@ void fsbegin(char v) {
 #endif
 }
 
+int fsstat(char c) { 
+#if defined(FILESYSTEMDRIVER)
+  if (c == 0) return 1;
+#endif
+  return 0;
+}
+
 /*
  *	File I/O function on an Arduino
  * 
@@ -2478,6 +2506,13 @@ void serialbegin() {
 	delay(1000);
 }
 
+/* state information on the serial port */
+int serialstat(char c) {
+  if (c == 0) return 1;
+  if (c == 1) return serial_baudrate;
+  return 0;
+}
+
 /* write to a serial stream */
 void serialwrite(char c) {
 #ifdef USESPICOSERIAL
@@ -2560,9 +2595,15 @@ const int software_serial_tx = SOFTSERIALTX;
 SoftwareSerial Serial1(software_serial_rx, software_serial_tx);
 #endif
 
-// second serial port
+/* second serial port */
 void prtbegin() {
 	Serial1.begin(serial1_baudrate);
+}
+
+int prtstat(char c) {
+  if (c == 0) return 1;
+  if (c == 1) return serial1_baudrate;
+  return 0;
 }
 
 void prtwrite(char c) {
@@ -2602,6 +2643,14 @@ void wirebegin() {
 #ifdef ARDUINOWIRE
 	Wire.begin();
 #endif
+}
+
+/* wire status */
+int wirestat(char c) {
+#if defined(ARDUINOWIRE)
+  if (c == 0) return 1;
+#endif
+  return 0; 
 }
 
 /*
@@ -2668,6 +2717,14 @@ const char rf24_csn = RF24CSNPIN;
 #include <RF24.h>
 rf24_pa_dbm_e rf24_pa = RF24_PA_MAX;
 RF24 radio(rf24_ce, rf24_csn);
+
+/* radio status */
+int radiostat(char c) {
+#if defined(ARDUINORF24)
+  if (c == 0) return 1;
+#endif
+  return 0; 
+}
 
 /* generate a uint64_t pipe address from the filename string for RF64 */
 uint64_t pipeaddr(char * f){
