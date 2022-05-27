@@ -37,13 +37,17 @@ These are a set of useful commands and features missing in Apple Integer BASIC. 
 - Primes: primes.bas - caclulate N prime numbers 
 - Primes Loop: primesl.bas - caclulate N prime numbers using special features of BASIC
 - Hardware Information: hinv.bas - display the internals of BASIC
-- Small Hinv: display the essentials of a system
-- PutGet: output single characters
-- Dump: show the BASIC memory
+- Small Hinv: shinv.bas - display the essentials of a system
+- PutGet: putget.bas - output single characters
+- Dump: dump.bas - show the BASIC memory
+- Debug: debug.bas - switch a program to debug mode
+- EndMe: endme.bas - ending / resetting the interpreter
 
 ### Dartmouth extension
 
 For compatibility with the Dartmouth style BASIC interpreters, the following commands have been added const char DATA, READ, RESTORE, DEF, FN, ON.
+
+- ReadData: readdata.bas - reading data 
 
 ### File I/O functions
 
@@ -56,6 +60,10 @@ The classical BASIC floating point functions SIN, COS, TAN, ATAN, LOG, EXP are p
 ### The Dark Arts
 
 This language set has a few functions for low level access to the interpreter mechanism. Currently MALLOC, FIND and EVAL are implemented.
+
+- Malloc: malloc.bas - allocate memory and find it by identifier
+
+### More BASIC features
 
 In addition to these language sets there are the Arduino IO functions. These features are explained in 01basics-10starter.
 
@@ -112,6 +120,14 @@ shinv.bas: USR command and essential system information
 putget.bas: GET and PUT for single character I/O
 
 dump.bas: the DUMP program to examine the memory
+
+debug.bas: SET command, runtime debug
+
+endme.bas: CALL command to end a program
+
+readdata.bas: READ, DATA and @S 
+
+malloc.bas: FIND and MALLOC to allocate memory segments
 
 
 
