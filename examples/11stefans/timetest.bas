@@ -3,7 +3,7 @@
 120 REM "Write result to serial line"
 130 a$="milliseconds"
 140 b$="microseconds"
-200 n=1000
+200 if usr(0,0)=32 then n=1000 else n=10
 210 m=1000
 220 print "Running ";n;"*";m;" operations:"
 300 s=millis(1)
@@ -56,8 +56,4 @@
 1020 print "Constant assignment time", (c-l)/n, b$
 1030 print "Division time", (d-l)/n, b$
 1040 print "Array access time", (e-l)/n, b$
-
-
-
-
 
