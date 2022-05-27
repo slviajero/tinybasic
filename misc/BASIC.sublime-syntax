@@ -41,7 +41,7 @@ contexts:
       scope: keyword.io
     - match: '\b(?i:in|pr)#'
       scope: keyword.io.hash
-    - match: \b(?i:aread|dread|pulsein|millis|malloc|find)(?=\()
+    - match: \b(?i:aread|dread|pulsein|millis|malloc|find|sensor)(?=\()
       scope: support.function.io
     - match: '\b(?i:and|or|not)(?![$])\b'
       scope: keyword.operator.logical
