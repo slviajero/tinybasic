@@ -5,8 +5,9 @@
 - creative.bas: Creative computing benchmark
 - rfbench[1-8].bas: Rugg/Feldmann benchmarks 
 - rfbench.txt: Results for Arduino UNO (integer), Arduino Mega, ESP8266, and ESP32 (float)
+- timetest.bas: calibration benchmark to show peformance of low level features
 
-## BASIC language features 
+## BASIC benchmarks 
 
 The benchmarks show that BASIC is about as fast as the Apple Integer BASIC, scaled by the clock frequency of the CPU. This means that an 16 MHz Arduino UNO with integer arithmentic is 16 times faster than an 6502 machine with 1 MHz running Apple Integer BASIC. This is not surpising. As the BASIC interpreter is a reimplementation and extension of Apple 1 Integer BASIC concepts it is about as fast as its legendary predecessor.
 
