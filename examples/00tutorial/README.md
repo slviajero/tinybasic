@@ -38,6 +38,8 @@ These are a set of useful commands and features missing in Apple Integer BASIC. 
 - Primes Loop: primesl.bas - caclulate N prime numbers using special features of BASIC
 - Hardware Information: hinv.bas - display the internals of BASIC
 - Small Hinv: display the essentials of a system
+- PutGet: output single characters
+- Dump: show the BASIC memory
 
 ### Dartmouth extension
 
@@ -106,6 +108,12 @@ primesl.bas: special array @(), variable @, BREAK
 hinv.bas: USR command for access to system internals
 
 shinv.bas: USR command and essential system information
+
+putget.bas: GET and PUT for single character I/O
+
+dump.bas: the DUMP program to examine the memory
+
+
 
 
 
