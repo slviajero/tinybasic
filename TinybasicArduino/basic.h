@@ -643,7 +643,7 @@ const address_t maxaddr=(address_t)(~0);
 
 #define SYSTYPE_UNKNOWN	0
 #define SYSTYPE_AVR 	1
-#define SYSTYPE_ESP8288 2
+#define SYSTYPE_ESP8266 2
 #define SYSTYPE_ESP32	3
 #define SYSTYPE_POSIX	32
 #define SYSTYPE_MSDOS	33
@@ -815,6 +815,7 @@ void dspupdate();
 
 /* keyboard code */
 void kbdbegin();
+int kbdstat(char);
 char kbdavailable();
 char kbdread();
 char kbdcheckch();
@@ -832,11 +833,13 @@ void fcircle(int, int, int);
 
 /* text output to a VGA display */
 void vgabegin();
+int vgastat(char);
 void vgawrite(char);
 
 /* generic display code */
 void dspwrite(char);
 void dspbegin();
+int dspstat(char);
 char dspwaitonscroll();
 char dspactive();
 void dspsetupdatemode(char);
@@ -857,6 +860,7 @@ void netbegin();
 char netconnected();
 void mqttsetname();
 void mqttbegin();
+int mqttstat(char);
 int  mqttstate();
 void mqttsubscribe(char*);
 void mqttsettopic(char*);
@@ -890,6 +894,7 @@ void longyieldfunction();
 char* mkfilename(const char*);
 const char* rmrootfsprefix(const char*);
 void fsbegin(char);
+int fsstat(char);
 void filewrite(char);
 char fileread();
 char ifileopen(const char*);
@@ -908,6 +913,7 @@ void formatdisk(short i);
 
 /* low level serial code */
 void serialbegin();
+int serialstat(char);
 void picogetchar(int);
 char serialread();
 void serialwrite(char);
@@ -915,6 +921,7 @@ short serialcheckch();
 short serialavailable();
 void consins(char*, short);
 void prtbegin();
+int prtstat(char);
 void prtset(int);
 char prtread();
 void prtwrite(char);
@@ -923,11 +930,13 @@ short prtavailable();
 
 /* generic wire access */
 void wirebegin();
+int wirestat(char);
 void wireopen(char*);
 void wireins(char*, uint8_t);
 void wireouts(char*, uint8_t);
 
 /* RF24 radio input */
+int radiostat(char);
 void radioset(int);
 uint64_t pipeaddr(char*);
 void iradioopen(char*);

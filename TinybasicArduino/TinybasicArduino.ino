@@ -40,7 +40,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef  BASICFULL
+#undef BASICFULL
 #define   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
@@ -4979,13 +4979,15 @@ void xfdisk() {
  *	USR low level function access of the interpreter
  *	for each group of functions there is a call vector
  *	and and argument.
+ *
+ * USR arguments from 0 to 31 are reserved for the 
+ * interpreter status and the input output stream 
+ * mechanisms. All other values are free and can be used
+ * for individual functions - see case 32 for an example.
  */
 void xusr() {
-	address_t a;
-	number_t n;
 	address_t fn;
 	int arg;
-	char* instr=ibuffer;
 
 	arg=pop();
 	fn=pop();
@@ -5037,34 +5039,57 @@ void xusr() {
 			break;	
 /* access to properties of stream 1 - serial	*/
 		case 1:
-			switch(arg) {
-				case 0: push(1); break;
-				case 1: push(serial_baudrate); break;
-				default: push(0);
-			}
+			push(serialstat(arg));
 			break;
 /* access to properties of stream 2 - display and keyboard */			
 		case 2: 
-			switch(arg) {
-				case 0: push(0); break;
-				case 1: push(dsp_rows); break;
-				case 2: push(dsp_columns); break;
-				default: push(0);
-			}
+#if defined(DISPLAYDRIVER)
+			push(dspstat(arg));
+#elif defined(ARDUINOVGA)
+			push(vgastat(arg));
+#else 
+			push(0);
+#endif
 			break;
 /* access to properties of stream 4 - printer */
+#ifdef ARDUINOPRT		
 		case 4: 
-			switch(arg) {
-#ifdef ARDUINOPRT
-				case 0: push(1); break;
-				case 1: push(serial1_baudrate); break;
+			push(prtstat(arg));	
+			break;			
+#endif	
+/* access to properties of stream 7 - wire */
+#ifdef ARDUINOWIRE		
+		case 7: 
+			push(wirestat(arg));	
+			break;			
 #endif
-				default: push(0);				
-			}
+/* access to properties of stream 8 - radio */
+#ifdef ARDUINORF24	
+		case 8: 
+			push(radiostat(arg));	
+			break;			
+#endif
+/* access to properties of stream 9 - mqtt */
+#ifdef ARDUINOMQTT	
+		case 9: 
+			push(mqttstat(arg));	
+			break;			
+#endif
+/* access to properties of stream 16 - mqtt */
+#ifdef FILESYSTEMDRIVER	
+		case 16: 
+			push(fsstat(arg));	
+			break;			
+#endif
+/* user function 32 and beyond can be used freely */
+		case 32:
+/* put your code here, always push a result to the stack 
+ * example for a function calulating 2*x
+ *		push(arg*2);
+ */
+			push(0);
 			break;
-
-
-			
+/* all USR values not assigned return 0 */
 		default:
 			push(0);
 	}
