@@ -42,7 +42,8 @@ These are a set of useful commands and features missing in Apple Integer BASIC. 
 - Dump: dump.bas - show the BASIC memory
 - Debug: debug.bas - switch a program to debug mode
 - EndMe: endme.bas - ending / resetting the interpreter
-- Fibonacci: fibo.bas - print the Golden ration on an Integer BASIC 
+- Fibonacci: fibo.bas - print the Golden ration on an Integer BASIC
+- Clock: clock.bas - shows time and date and on Arduinos also the temperature
 
 ### Dartmouth extension
 
@@ -78,6 +79,10 @@ This language set is work in progress. There are a few string helper functions a
 
 - Convert: convert.bas - convert strings to numbers and vice versa
 - Splitstring: splitstr.bas - split a string into substrings
+
+### More programs to play with
+
+- Calculator: calc.bas - RPN pocket calculator in BASIC
 
 ### More BASIC features
 
@@ -143,6 +148,8 @@ endme.bas: CALL command to end a program
 
 fibo.bas: BREAK command, arrays, GOSUB, modulo operator %
 
+clock.bas: time array @T()
+
 readdata.bas: READ, DATA and @S 
 
 ongo.bas: ON GOTO statements
@@ -162,6 +169,10 @@ eval.bas: EVAL command to modify a program
 convert.bas: VAL and STR functions to convert numbers and strings
 
 splitstr.bas: INSTR function 
+
+calc.bas: GOSUB with an expression, @S with READ and DATA, VAL
+
+
 
 
 
