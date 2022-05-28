@@ -40,7 +40,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef BASICFULL
+#undef  BASICFULL
 #define   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
@@ -3924,6 +3924,7 @@ void xclr() {
 	clrforstack();
 	clrdata();
 	clrlinecache();
+	ert=0;
 	nexttoken();
 }
 
@@ -4635,7 +4636,7 @@ void xfcircle() {
 
 #ifdef HASDARKARTS
 /*
- * MALLOC allocates a chunk of memory, currently limited to 8 bits
+ * MALLOC allocates a chunk of memory 
  */
 void xmalloc() {
 	address_t h; 
@@ -4643,7 +4644,7 @@ void xmalloc() {
 	s=pop();
 	if (s<1) {error(EORANGE); return; };
 	h=pop();
-	push(bmalloc(TBUFFER, h%256, 0, s));
+	push(bmalloc(TBUFFER, h%256, h/256, s));
 }
 
 /*
@@ -4652,7 +4653,7 @@ void xmalloc() {
 void xfind() {
 	address_t h;
 	h=pop();
-	push(bfind(TBUFFER, h%256, 0));
+	push(bfind(TBUFFER, h%256, h/256));
 }
 
 /*
@@ -5107,10 +5108,16 @@ void xcall() {
 	r=pop();
 	switch(r) {
 		case 0:
-/* flush the EEPROM dummy and then exit */
+/* flush the EEPROM dummy and the output file and then exit */
 			eflush();  
+			ofileclose();
 			restartsystem();
 			break;
+/* call values to 31 reserved, add your own programs here */
+		case 32:
+/* your custom code here, always call nexttoken() ! */
+			nexttoken();
+			return;
 		default:
 			error(EORANGE);
 			return;			
