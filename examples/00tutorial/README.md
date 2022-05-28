@@ -42,6 +42,7 @@ These are a set of useful commands and features missing in Apple Integer BASIC. 
 - Dump: dump.bas - show the BASIC memory
 - Debug: debug.bas - switch a program to debug mode
 - EndMe: endme.bas - ending / resetting the interpreter
+- Fibonacci: fibo.bas - print the Golden ration on an Integer BASIC 
 
 ### Dartmouth extension
 
@@ -54,6 +55,8 @@ For compatibility with the Dartmouth style BASIC interpreters, the following com
 ### File I/O functions
 
 File I/O is supported with the command set CATALOG, OPEN, CLOSE, FDISK, DELETE. 
+
+-FileIO: fileio.bas - write and read a data file 
 
 ### Floating point functions 
 
@@ -127,11 +130,15 @@ debug.bas: SET command, runtime debug
 
 endme.bas: CALL command to end a program
 
+fibo.bas: BREAK command, arrays, GOSUB, modulo operator %
+
 readdata.bas: READ, DATA and @S 
 
 ongo.bas: ON GOTO statements
 
 func.bas: function definitions
+
+fileio.bas: OPEN for read and write, CLOSE, PRINT, INPUT and GET for files
 
 malloc.bas: FIND and MALLOC to allocate memory segments
 
