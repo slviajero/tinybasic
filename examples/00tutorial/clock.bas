@@ -5,3 +5,6 @@
 200 PRINT @T(2);":";@T(1);":";@T(0)
 210 PRINT @T(3);"/";@T(4);"/";@T(5)
 230 PRINT "Temp:",@T(7)/100
+240 PRINT "Clock string value"
+250 PRINT @T$
+
