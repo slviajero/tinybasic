@@ -56,7 +56,7 @@ For compatibility with the Dartmouth style BASIC interpreters, the following com
 
 File I/O is supported with the command set CATALOG, OPEN, CLOSE, FDISK, DELETE. 
 
--FileIO: fileio.bas - write and read a data file 
+- FileIO: fileio.bas - write and read a data file 
 
 ### Floating point functions 
 
@@ -67,6 +67,7 @@ The classical BASIC floating point functions SIN, COS, TAN, ATAN, LOG, EXP are p
 This language set has a few functions for low level access to the interpreter mechanism. Currently MALLOC, FIND and EVAL are implemented.
 
 - Malloc: malloc.bas - allocate memory and find it by identifier
+- Eval: eval.bas - plot a function
 
 ### More BASIC features
 
@@ -141,6 +142,8 @@ func.bas: function definitions
 fileio.bas: OPEN for read and write, CLOSE, PRINT, INPUT and GET for files
 
 malloc.bas: FIND and MALLOC to allocate memory segments
+
+eval.bas: EVAL command to modify a program
 
 
 
