@@ -1,11 +1,14 @@
 10 REM "Pocket calculator in BASIC"
 20 REM ""
-100 REM "Definitions"
+100 REM "Definitions - keywords and tokens"
 110 DATA "+", 2, "-", 3, "*", 4, "/", 5, "p", 6, "d", 7, "q", 8
-111 DATA "sqr", 9, "dup", 10, "swap", 11
-120 S=0 : E=0
-130 N=16
-140 DIM S(N)
+111 DATA "sqr", 9, "dup", 10, "swap", 11, "", 12, "", 13, "", 14, "", 15, "", 16
+120 REM "The stack"
+130 S=0
+140 N=16
+150 DIM S(N)
+160 REM "Errors"
+170 E=0
 200 REM "Input loop"
 210 PRINT "<";S;">:"; :INPUT A$
 220 @S=0
@@ -22,6 +25,7 @@
 390 NEXT 
 400 IF T=-1 THEN E=1
 500 REM "The token switch, with an evil expression GOSUB"
+505 REM "Line numbers 1000, 1100, ... are targeted"
 510 IF T>0 GOSUB 900+100*T
 600 IF E<>0 THEN PRINT "Error" : E=0 : GOTO 200
 610 IF S>0 THEN PRINT S(S)
@@ -67,5 +71,15 @@
 2000 REM "Swap"
 2010 IF S=N OR S<2 THEN E=1 ELSE A=S(S) : S(S)=S(S-1) : S(S-1)=A
 2020 RETURN
+2100 REM ""
+2120 RETURN
+2200 REM ""
+2220 RETURN
+2300 REM ""
+2320 RETURN
+2400 REM ""
+2420 RETURN
+2500 REM ""
+2520 RETURN
 
 
