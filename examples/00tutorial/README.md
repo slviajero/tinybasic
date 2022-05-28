@@ -48,6 +48,8 @@ These are a set of useful commands and features missing in Apple Integer BASIC. 
 For compatibility with the Dartmouth style BASIC interpreters, the following commands have been added const char DATA, READ, RESTORE, DEF, FN, ON.
 
 - ReadData: readdata.bas - reading data 
+- OnGo: ongo.bas - demo for ON GOTO type conditions
+- Functions: func.bas - demo for DEF FN statements
 
 ### File I/O functions
 
@@ -126,6 +128,10 @@ debug.bas: SET command, runtime debug
 endme.bas: CALL command to end a program
 
 readdata.bas: READ, DATA and @S 
+
+ongo.bas: ON GOTO statements
+
+func.bas: function definitions
 
 malloc.bas: FIND and MALLOC to allocate memory segments
 
