@@ -62,6 +62,9 @@ File I/O is supported with the command set CATALOG, OPEN, CLOSE, FDISK, DELETE.
 
 The classical BASIC floating point functions SIN, COS, TAN, ATAN, LOG, EXP are part of the floating point laguage set.
 
+- Trigonometry: trig.bas - calculate a table of trigonometric functions
+- Stirling: stir.bas - caculate factorials and compare to Stirlings function
+
 ### The Dark Arts
 
 This language set has a few functions for low level access to the interpreter mechanism. Currently MALLOC, FIND and EVAL are implemented.
@@ -147,6 +150,10 @@ ongo.bas: ON GOTO statements
 func.bas: function definitions
 
 fileio.bas: OPEN for read and write, CLOSE, PRINT, INPUT and GET for files
+
+trig.bas: SIN, COS, TAN. Calculate PI from ATAN.
+
+stir.bas: EXP, LOG, SQR. Calculate PI from ATAN.
 
 malloc.bas: FIND and MALLOC to allocate memory segments
 
