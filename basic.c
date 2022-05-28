@@ -2832,9 +2832,9 @@ void factor(){
 			while(*ir2==' ' || *ir2=='\t') ir2++;
 			if(*ir2=='-') { y=-1; ir2++;} else y=1;
 #ifdef HASFLOAT
-			(void) parsenumber2(ir2, &x);	
+			if (parsenumber2(ir2, &x) == 0) ert=1;	
 #else 
-			(void) parsenumber(ir2, &x);
+			if (parsenumber(ir2, &x) == 0) ert=1;
 #endif			
 			(void) pop();
 			push(x*y);
@@ -3098,7 +3098,7 @@ void notexpression() {
 		compexpression();
 }
 
-/* boolean AND */
+/* boolean AND and at the same time bitwise */
 void andexpression() {
 	if (DEBUG) bdebug("andexp\n");
 	notexpression();
@@ -3106,11 +3106,12 @@ void andexpression() {
 	if (token == TAND) {
 		parseoperator(expression);
 		if (er != 0) return;
-		push(x && y);
+		/* push(x && y); */
+		push((int)x & (int)y);
 	} 
 }
 
-/* expression function and boolean OR */
+/* expression function and boolean OR at the same time bitwise !*/
 void expression(){
 	if (DEBUG) bdebug("exp\n"); 
 	andexpression();
@@ -3118,7 +3119,8 @@ void expression(){
 	if (token == TOR) {
 		parseoperator(expression);
 		if (er != 0) return;
-		push(x || y);
+		/* push(x || y); */
+		push((int)x | (int)y);
 	}  
 }
 #else 
@@ -3131,7 +3133,8 @@ void expression(){
 	if (token == TOR) {
 		parseoperator(expression);
 		if (er != 0) return;
-		push(x || y);
+		/* push(x || y); */
+		push((int)x | (int)y);
 	}  
 }
 #endif
