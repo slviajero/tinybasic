@@ -69,6 +69,13 @@ This language set has a few functions for low level access to the interpreter me
 - Malloc: malloc.bas - allocate memory and find it by identifier
 - Eval: eval.bas - plot a function
 
+### IoT Extensions 
+
+This language set is work in progress. There are a few string helper functions already finished which will be explained here. The networking and serial protocol features will be explained in another section of the examples tree.
+
+- Convert: convert.bas - convert strings to numbers and vice versa
+- Splitstring: splitstr.bas - split a string into substrings
+
 ### More BASIC features
 
 In addition to these language sets there are the Arduino IO functions. These features are explained in 01basics-10starter.
@@ -144,6 +151,12 @@ fileio.bas: OPEN for read and write, CLOSE, PRINT, INPUT and GET for files
 malloc.bas: FIND and MALLOC to allocate memory segments
 
 eval.bas: EVAL command to modify a program
+
+convert.bas: VAL and STR functions to convert numbers and strings
+
+splitstr.bas: INSTR function 
+
+
 
 
 
