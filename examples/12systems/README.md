@@ -14,6 +14,7 @@ This runs on all board with a buildin LED. An Arduino UNO would be fine. Compile
 - Blink: blink.bas - blinking with the buildin LED
 - Minmax: minmax.bas - reading data, calculating minimum and maximum
 - EEPROM: eeprom.bas - storing data in the EEPROM
+- Pulse: pulse.bas - measure distances and write the result to serial
 
 ### The LCD shield
 
@@ -21,6 +22,7 @@ This runs on all board with a buildin LED. An Arduino UNO would be fine. Compile
 - Dispbuf: dispbuf.bas - move and object around on the display
 - StopWatch: stopw.bas - a very simple stopwatch
 - LightSensor: lcdlight.bas - show the light intensity on the display
+- LCDPulse: measure distances and show the result on the LCD
 
 ## BASIC language features 
 
@@ -39,3 +41,7 @@ dispbuf.bas - the @D() display buffer array, ASCII values of the keys
 stopw.bas - MILLIS() millisecond timer, cursor vars @X, @Y
 
 lcdlight.bas - analog sensor read AREAD(), change the outpur device with @O
+
+pulse.bas - PULSEIN and MAP function in BASIC
+
+lcdpulse.bas - PULSEIN, MAP, display output and keypad input
