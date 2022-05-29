@@ -13,7 +13,7 @@ This runs on all board with a buildin LED. An Arduino UNO would be fine. Compile
 - HelloWorld: hello.bas - the inevitable hello world program
 - Blink: blink.bas - blinking with the buildin LED
 - Minmax: minmax.bas - reading data, calculating minimum and maximum
-- StoreEEPROM: steeprom.bas - storing data in the EEPROM
+- EEPROM: eeprom.bas - storing data in the EEPROM
 
 ### The LCD shield
 
@@ -23,4 +23,9 @@ This runs on all board with a buildin LED. An Arduino UNO would be fine. Compile
 
 hello.bas: the PRINT statement
 
-blink.bas: PINM, DELAY, LED and DWRITE
+blink.bas: Arduinio I/O basics PINM, DELAY, LED and DWRITE
+
+minmax.bas: Reading an analog input with AREAD, the AZERO constant
+
+eeprom.bas - the @E() array to store data
+
