@@ -20,6 +20,7 @@ This runs on all board with a buildin LED. An Arduino UNO would be fine. Compile
 - Shield: shield.bas - keypad and display functions of the LCD shield
 - Dispbuf: dispbuf.bas - move and object around on the display
 - StopWatch: stopw.bas - a very simple stopwatch
+- LightSensor: lcdlight.bas - show the light intensity on the display
 
 ## BASIC language features 
 
@@ -37,4 +38,4 @@ dispbuf.bas - the @D() display buffer array, ASCII values of the keys
 
 stopw.bas - MILLIS() millisecond timer, cursor vars @X, @Y
 
-
+lcdlight.bas - analog sensor read AREAD(), change the outpur device with @O
