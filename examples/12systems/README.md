@@ -19,8 +19,7 @@ This runs on all board with a buildin LED. An Arduino UNO would be fine. Compile
 
 - Shield: shield.bas - keypad and display functions of the LCD shield
 - Dispbuf: dispbuf.bas - move and object around on the display
-
-
+- StopWatch: stopw.bas - a very simple stopwatch
 
 ## BASIC language features 
 
@@ -35,3 +34,7 @@ eeprom.bas - the @E() array to store data
 shield.bas - cursor vars @X, @Y, I/O stream &2, GET, PUT
 
 dispbuf.bas - the @D() display buffer array, ASCII values of the keys
+
+stopw.bas - MILLIS() millisecond timer, cursor vars @X, @Y
+
+
