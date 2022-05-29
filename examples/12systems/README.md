@@ -22,7 +22,8 @@ This runs on all board with a buildin LED. An Arduino UNO would be fine. Compile
 - Dispbuf: dispbuf.bas - move and object around on the display
 - StopWatch: stopw.bas - a very simple stopwatch
 - LightSensor: lcdlight.bas - show the light intensity on the display
-- LCDPulse: measure distances and show the result on the LCD
+- LCDPulse: lcdpuls.bas - measure distances and show the result on the LCD
+- PIRCount: pircount.bas - measure and display the number of events of a PIR
 
 ## BASIC language features 
 
@@ -45,3 +46,5 @@ lcdlight.bas - analog sensor read AREAD(), change the outpur device with @O
 pulse.bas - PULSEIN and MAP function in BASIC
 
 lcdpulse.bas - PULSEIN, MAP, display output and keypad input
+
+pircount.bas - DREAD, the EEPROM @E() array, display control with @X, @Y
