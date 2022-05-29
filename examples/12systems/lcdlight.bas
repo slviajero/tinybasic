@@ -1,4 +1,4 @@
-10 REM "BareMinimum from Arduino examples"
+10 REM "LCDLight - display light intensity"
 100 REM "setup() put your setup code here, to run once:"
 110 REM "Minimum and maximum intensity and the PIN"
 120 B=0 : C=100
