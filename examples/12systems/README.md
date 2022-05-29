@@ -15,6 +15,7 @@ This runs on all board with a buildin LED. An Arduino UNO would be fine. Compile
 - Minmax: minmax.bas - reading data, calculating minimum and maximum
 - EEPROM: eeprom.bas - storing data in the EEPROM
 - Pulse: pulse.bas - measure distances and write the result to serial
+- Flame: flame.bas - flame sensor and (active) buzzer for a fire alert
 
 ### The LCD shield
 
@@ -35,6 +36,10 @@ minmax.bas: Reading an analog input with AREAD, the AZERO constant
 
 eeprom.bas - the @E() array to store data
 
+pulse.bas - PULSEIN and MAP function in BASIC
+
+flame.bas - the CONT statement in FOR loops, AZERO, AREAD and DWRITE
+
 shield.bas - cursor vars @X, @Y, I/O stream &2, GET, PUT
 
 dispbuf.bas - the @D() display buffer array, ASCII values of the keys
@@ -42,8 +47,6 @@ dispbuf.bas - the @D() display buffer array, ASCII values of the keys
 stopw.bas - MILLIS() millisecond timer, cursor vars @X, @Y
 
 lcdlight.bas - analog sensor read AREAD(), change the outpur device with @O
-
-pulse.bas - PULSEIN and MAP function in BASIC
 
 lcdpulse.bas - PULSEIN, MAP, display output and keypad input
 
