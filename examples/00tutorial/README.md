@@ -44,6 +44,7 @@ These are a set of useful commands and features missing in Apple Integer BASIC. 
 - EndMe: endme.bas - ending / resetting the interpreter
 - Fibonacci: fibo.bas - print the Golden ration on an Integer BASIC
 - Clock: clock.bas - shows time and date and on Arduinos also the temperature
+- Serial1: serial1.bas - read from and write to the second serial port
 
 ### Dartmouth extension
 
@@ -149,6 +150,8 @@ endme.bas: CALL command to end a program
 fibo.bas: BREAK command, arrays, GOSUB, modulo operator %
 
 clock.bas: time array @T()
+
+serial1.bas: use of the stream &4 for the second serial port
 
 readdata.bas: READ, DATA and @S 
 
