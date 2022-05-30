@@ -1,6 +1,6 @@
 /*
 
-	$Id: basic.c,v 1.135 2022/04/10 06:25:05 stefan Exp stefan $
+	$Id: basic.c,v 1.136 2022/05/30 04:43:52 stefan Exp stefan $
 
 	Stefan's IoT BASIC interpreter 
 
@@ -4120,18 +4120,25 @@ void getfilename(char *buffer, char d) {
 		if (DEBUG) {outsc("** in getfilename2 copying string of length "); outnumber(x); outcr(); }
 		stringtobuffer(buffer);
 		if (DEBUG) {outsc("** in getfilename2 stringvalue string "); outsc(buffer); outcr(); }
+		nexttoken();
 	} else if (termsymbol()) {
 		if (d) {
 			sbuffer=getmessage(MFILE);
 			s=0;
-			while ( (sbuffer[s] != 0) && (s<SBUFSIZE-1)) { buffer[s]=sbuffer[s]; s++; }
+			while ((sbuffer[s] != 0) && (s < SBUFSIZE-1)) { buffer[s]=sbuffer[s]; s++; }
 			buffer[s]=0;
 			x=s;
-		} else 
+		} else {
 			buffer[0]=0;
 			x=0;
+		}
+		nexttoken();
 	} else {
-		error(EUNKNOWN);
+/* error(EUNKNOWN); */
+		expression();
+		if (er != 0) return;
+		buffer[0]=pop();
+		buffer[1]=0;
 	}
 }
 
@@ -4154,7 +4161,7 @@ void xsave() {
 	 	
 		if (!ofileopen(filename, "w")) {
 			error(EFILE);
-			nexttoken();
+			//nexttoken();
 			return;
 		} 
 
@@ -4185,7 +4192,7 @@ void xsave() {
 	}
 
 /* and continue */
-	nexttoken();
+	//nexttoken();
 	return;
 }
 
@@ -4204,11 +4211,12 @@ void xload(const char* f) {
 		if (er != 0) return;
 	} else {
 		for(ch=0; ch<SBUFSIZE && f[ch]!=0; ch++) filename[ch]=f[ch];
+		//nexttoken(); //
 	}
 
 	if (filename[0] == '!') {
 		eload();
-		nexttoken();
+		// nexttoken();
 	} else {
 
 /*	if load is called during runtime it chains
@@ -4221,12 +4229,13 @@ void xload(const char* f) {
 			top=0;
 			clrgosubstack();
 			clrforstack();
+			clrdata();
 		}
 
 		if (!f)
 			if (!ifileopen(filename)) {
 				error(EFILE);
-				nexttoken();
+				//nexttoken();
 				return;
 			} 
 
@@ -4254,8 +4263,9 @@ void xload(const char* f) {
 		if (chain) {
 			st=SRUN;
 			here=0;
+			nexttoken();
 		}
-		nexttoken();
+		// nexttoken();
 	}
 }
 #else 
@@ -4806,7 +4816,7 @@ void xcatalog() {
 	}
 	rootclose();
 #endif
-	nexttoken();
+	// nexttoken();
 }
 
 /*
@@ -4822,7 +4832,7 @@ void xdelete() {
 
 	removefile(filename);
 #endif
-	nexttoken();
+	//nexttoken();
 }
 
 /*
@@ -4851,7 +4861,7 @@ void xopen() {
 
 /* and the arguments */
 	args=0;
-	nexttoken();
+	//nexttoken();
 	if (token == ',') { 
 		nexttoken(); 
 		parsearguments();
@@ -5577,7 +5587,8 @@ void statement(){
 				break;
 			case TLOAD: 
 				xload(0);
-				return; // load doesn't like break as the ibuffer is messed up;
+				if (st == SINT) return; // interactive load doesn't like break as the ibuffer is messed up; */
+				else break;
 #ifdef HASSTEFANSEXT
 			case TDUMP:
 				xdump();
