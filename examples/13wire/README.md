@@ -7,9 +7,11 @@ Wire in BASIC can be accessed through the I/O stream 7. The standard file I/O co
 ## Programs 
 
 - Scan: scan.bas - scan the I2C bus for devices
+- Ident: ident.bas - identify some well known device types
 
 
 ## BASIC language features
 
 scan.bas: opening a wire device with OPEN &7, error handling with @S
+ident.bas: Device types in &7
 
