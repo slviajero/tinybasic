@@ -480,9 +480,10 @@ short prtavailable(){ return 0; }
  */ 
 void wirebegin() {}
 int wirestat(char c) {return 0; }
-void wireopen(char* s) {}
+void wireopen(char s, char m) {}
 void wireins(char *b, uint8_t l) { b[0]=0; z.a=0; }
 void wireouts(char *b, uint8_t l) {}
+short wireavailable() { return 1; }
 
 /* 
  *	Read from the radio interface, radio is always block 
@@ -494,6 +495,7 @@ void radioins(char *b, short nb) { b[0]=0; b[1]=0; z.a=0; }
 void radioouts(char *b, short l) {}
 void iradioopen(char *filename) {}
 void oradioopen(char *filename) {}
+short radioavailable() { return 0; }
 
 /* Arduino sensors */
 void sensorbegin() {}
