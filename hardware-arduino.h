@@ -68,13 +68,14 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#undef ARDUINOEEPROM
+#define ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ARDUINORTC
-#undef ARDUINOWIRE
+#define ARDUINOWIRE
+#define ARDUINOWIRESLAVE
 #undef ARDUINORF24
 #undef ARDUINOETH
 #undef ARDUINOMQTT
@@ -2632,68 +2633,127 @@ void prtset(int s) {
 
 /* 
  * The wire code, direct access to wire communication
+ * in master mode wire_slaveid is the I2C address bound 
+ * to channel &7 and wire_myid is 0
+ * in slave mode wire_myid is the devices slave address
+ * and wire_slaveid is 0
+ * ARDUINOWIREBUFFER is the maximum length of meesages the 
+ * underlying library can process. This is 32 for the Wire
+ * library
  */ 
+
 #ifdef ARDUINOWIRE
 uint8_t wire_slaveid = 0;
 uint8_t wire_myid = 0;
+#define ARDUINOWIREBUFFER 32
+#ifdef ARDUINOWIRESLAVE
+char wirereceivebuffer[ARDUINOWIREBUFFER];
+short wirereceivechars = 0;
+char wirerequestbuffer[ARDUINOWIREBUFFER];
+short wirerequestchars = 0;
 #endif
 
 /* default begin is as a master, no PIN definitions yet */
 void wirebegin() {
-#ifdef ARDUINOWIRE
 	Wire.begin();
+}
+
+void wireslavebegin(char s) {
+  Wire.begin(s);
+}
+
+/* wire status - just checks if wire is compiled */
+int wirestat(char c) {
+  if (c == 0) return 1; 
+}
+
+/* available characters - test code ecapsulation prep for slave*/
+short wireavailable() {
+/* as a master we return 1, as a slave the received chars*/
+  if (wire_myid == 0) return 1;
+#ifdef ARDUINOWIRESLAVE
+  else return wirereceivechars; 
 #endif
 }
 
-/* wire status */
-int wirestat(char c) {
-#if defined(ARDUINOWIRE)
-  if (c == 0) return 1;
-#endif
-  return 0; 
+#ifdef ARDUINOWIRESLAVE
+/* event handler for receive */
+void wireonreceive(int h) {
+  wirereceivechars=h;
+  if (h>ARDUINOWIREBUFFER) h=ARDUINOWIREBUFFER;
+  for (int i=0; i<h; i++) wirereceivebuffer[i]=Wire.read();
 }
+
+/* event handler for request, deliver the message and forget the buffer */ 
+void wireonrequest() {
+  Wire.write(wirerequestbuffer, wirerequestchars);
+  wirerequestchars=0;
+}
+#endif
 
 /*
  *	as a master open sets the slave id for the communication
  *	no extra begin while we stay master
  */
-void wireopen(char* s) {
-#ifdef ARDUINOWIRE
-	if (s[0] == 'm') {
-		wire_slaveid=s[1];
-		wire_myid=0;
-	} else if ( s[0] == 's' ) { 
-		wire_myid=s[1];
+void wireopen(char s, char m) {
+	if (m == 0) {
+		wire_slaveid=s;
+/* we have been a slave and become master, restart wire*/
+    if (wire_myid != 0) {
+      wirebegin();
+      wire_myid=0;    
+    }
+	} else if ( m == 1 ) { 
+		wire_myid=s;
 		wire_slaveid=0;
-		Wire.begin(wire_myid);
-		// here the slave code if this Arduino is a slave
-		// to be done
+#ifdef ARDUINOWIRESLAVE
+		wireslavebegin(wire_myid);
+    Wire.onReceive(&wireonreceive);
+    Wire.onRequest(&wireonrequest);
+#endif
 	} else 
 		error(EORANGE);
-#endif
 }
 
 /* input an entire string */
 void wireins(char *b, uint8_t l) {
-#ifdef ARDUINOWIRE
-	z.a=0;
-	Wire.requestFrom(wire_slaveid, l);
-	while (Wire.available() && z.a<l) b[++z.a]=Wire.read();
-	b[0]=z.a;
-#else 
-	b[0]=0;
-	z.a=0;
+  if (wire_myid == 0) {
+    z.a=0;
+    if (l>ARDUINOWIREBUFFER) l=ARDUINOWIREBUFFER;
+    short l1=Wire.requestFrom(wire_slaveid, l);
+    while (Wire.available() && z.a<l1) b[++z.a]=Wire.read();
+  } else {
+#ifdef ARDUINOWIRESLAVE
+    for (z.a=0; z.a<wirereceivechars && z.a<l; z.a++) b[z.a+1]=wirereceivebuffer[z.a];
+    wirereceivechars=0; /* clear the entire buffer on read, bytewise read not really supported */
 #endif
+  }
+  b[0]=z.a;
 }
 
-/* send an entire string */
+/* send an entire string - truncate radically */
 void wireouts(char *b, uint8_t l) {
-#ifdef ARDUINOWIRE
-	  Wire.beginTransmission(wire_slaveid); 
-	  for(z.a=0; z.a<l; z.a++) Wire.write(b[z.a]);     
-	  ert=Wire.endTransmission(); 
+  if (l>ARDUINOWIREBUFFER) l=ARDUINOWIREBUFFER; 
+  if (wire_myid == 0) {
+    Wire.beginTransmission(wire_slaveid); 
+    /* for(z.a=0; z.a<l; z.a++) Wire.write(b[z.a]);  */ 
+    Wire.write(b, l);  
+    ert=Wire.endTransmission(); 
+  } else {
+#ifdef ARDUINOWIRESLAVE
+    for (int i=0; i<l; i++) wirerequestbuffer[i]=b[i];
+    wirerequestchars=l;
 #endif
+  }
 }
+#else
+void wirebegin() {}
+int wirestat(char c) {return 0; }
+void wireopen(char s, char m) {}
+void wireins(char *b, uint8_t l) { b[0]=0; z.a=0; }
+void wireouts(char *b, uint8_t l) {}
+short wireavailable() { return 0; }
+#endif
 
 /* 
  *	Read from the radio interface, radio is always block 
@@ -2765,6 +2825,13 @@ void radioouts(char *b, short l) {
 	radio.stopListening();
 	if (radio.write(b, l)) ert=0; else ert=1;
 	radio.startListening();
+#endif
+}
+
+/* radio available */
+short radioavailable() {
+#ifdef ARDUINORF24
+  return radio.available();
 #endif
 }
 

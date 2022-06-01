@@ -1273,7 +1273,7 @@ short availch(){
 #endif
 #ifdef ARDUINORF24
     case IRADIO:
-    	return radio.available();
+    	return radioavailable();
 #endif    		
 #ifdef ARDUINOMQTT
     case IMQTT:
@@ -1281,7 +1281,7 @@ short availch(){
 #endif    		
 #ifdef ARDUINOWIRE
     case IWIRE:
-    	return 1;
+    	return wireavailable();
 #endif
 #ifdef ARDUINOPRT
     case ISERIAL1:
@@ -3465,7 +3465,7 @@ nextvariable:
 
 #ifdef HASAPPLE1
 /* strings are not passed through the input buffer but inputed directly 
-	  in the string memory location */
+	  in the string memory location, ir after getstring points to the first data byte */
 	if (token == STRINGVAR) {
 		ir=getstring(xc, yc, 1); 
 		if (prompt) showprompt();
@@ -4843,7 +4843,6 @@ void xopen() {
 	char stream = IFILE; // default is file operation
 	char filename[SBUFSIZE];
 	char mode;
-	char nlen;
 
 /* which stream do we open? default is FILE */
 	nexttoken();
@@ -4857,7 +4856,6 @@ void xopen() {
 /* the filename and its length */
 	getfilename(filename, 0);
 	if (er != 0) return; 
-	nlen=x;
 
 /* and the arguments */
 	args=0;
@@ -4906,7 +4904,7 @@ void xopen() {
 #endif
 #ifdef ARDUINOWIRE
 		case IWIRE:
-			wireopen(filename);
+			wireopen(filename[0], mode);
 			break;
 #endif
 #ifdef ARDUINOMQTT

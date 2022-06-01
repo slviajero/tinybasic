@@ -931,9 +931,10 @@ short prtavailable();
 /* generic wire access */
 void wirebegin();
 int wirestat(char);
-void wireopen(char*);
+void wireopen(char, char);
 void wireins(char*, uint8_t);
 void wireouts(char*, uint8_t);
+short wireavailable();
 
 /* RF24 radio input */
 int radiostat(char);
@@ -943,6 +944,7 @@ void iradioopen(char*);
 void oradioopen(char*);
 void radioins(char*, short);
 void radioouts(char* , short);
+short radioavailable();
 
 /* sensor control */
 void sensorbegin();
