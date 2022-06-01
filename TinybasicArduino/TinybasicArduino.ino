@@ -3465,7 +3465,7 @@ nextvariable:
 
 #ifdef HASAPPLE1
 /* strings are not passed through the input buffer but inputed directly 
-	  in the string memory location */
+	  in the string memory location, ir after getstring points to the first data byte */
 	if (token == STRINGVAR) {
 		ir=getstring(xc, yc, 1); 
 		if (prompt) showprompt();
@@ -3551,7 +3551,6 @@ void xif() {
 #endif		
 	}	
 
-
 /* a THEN is interpreted as simple one statement goto	if it is followed by a line number*/
 #ifdef HASAPPLE1
 	if (token == TTHEN) {
@@ -3567,7 +3566,7 @@ void xif() {
  		as else code execution is triggered in the xif function */
 #ifdef HASSTEFANSEXT
 void xelse() {
-	do nexttoken(); while(!termsymbol());
+	while(token != LINENUMBER && token != EOL) nexttoken();
 }
 #endif
 
