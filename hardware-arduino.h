@@ -642,6 +642,9 @@ long freememorysize() {
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM)
   int overhead=192;
+#ifdef ARDUINOWIRE
+  overhead+=128;
+#endif
 #ifdef ARDUINOSD
   overhead+=512;
 #endif
@@ -2720,8 +2723,8 @@ void wireins(char *b, uint8_t l) {
   if (wire_myid == 0) {
     z.a=0;
     if (l>ARDUINOWIREBUFFER) l=ARDUINOWIREBUFFER;
-    short l1=Wire.requestFrom(wire_slaveid, l);
-    while (Wire.available() && z.a<l1) b[++z.a]=Wire.read();
+    Wire.requestFrom(wire_slaveid, l);
+    while (Wire.available() && z.a<l) b[++z.a]=Wire.read();
   } else {
 #ifdef ARDUINOWIRESLAVE
     for (z.a=0; z.a<wirereceivechars && z.a<l; z.a++) b[z.a+1]=wirereceivebuffer[z.a];
