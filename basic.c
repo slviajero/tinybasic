@@ -2118,7 +2118,7 @@ void findline(address_t l) {
 	while (here < top) {
 		gettoken();
 		if (token == LINENUMBER && x == l ) {
-/* now that we now we cache */
+/* now that we know we cache */
 			addlinecache(l, here);
 			return;
 		}
@@ -2381,16 +2381,17 @@ void parsearguments() {
 	argsl=0; 
 
 /* having 0 args at the end of a command is legal */
-	if (termsymbol()) {args=argsl; return; }
+	if (!termsymbol()) {
 
 /* list of expressions separated by commas */
-	do {
-		expression();
-		if (er != 0) break;
-		argsl++;
-		if (token != ',') break;
-		nexttoken();
-	} while (TRUE);
+		do {
+			expression();
+			if (er != 0) break;
+			argsl++;
+			if (token != ',') break;
+			nexttoken();
+		} while (TRUE);
+	}
 
 /* because of the recursion ... */
 	args=argsl;
@@ -2793,11 +2794,12 @@ void factor(){
 				return;
 			}
 			nexttoken();
-			if (! stringvalue()) {
+			if (!stringvalue()) {
 #ifdef HASDARKARTS
 				expression();
 				if (er != 0) return;
-				push(blength(TBUFFER, ((address_t) pop())%256, 0));
+				z.a=pop();
+				push(blength(TBUFFER, z.a%256, z.a/256));
 				return;
 #else 
 				error(EUNKNOWN);
@@ -2956,7 +2958,10 @@ void factor(){
 			parsefunction(xmalloc, 2);
 			break;	
 		case TFIND:
-			parsefunction(xfind, 1);
+/* this is a version of FIND operating in the BUFFER space 
+			parsefunction(xfind, 1); */
+/* FIND even more apocryphal - operating in the variable space */
+			xfind2();
 			break;
 #endif
 #ifdef HASIOT
@@ -3486,7 +3491,6 @@ nextvariable:
 	}
 
 	if (oldid != 0) id=oldid;
-
 }
 
 /*
@@ -4148,10 +4152,12 @@ void getfilename(char *buffer, char d) {
 void xsave() {
 	char filename[SBUFSIZE];
 	address_t here2;
+	char t;
 
 	nexttoken();
 	getfilename(filename, 1);
 	if (er != 0) return;
+	t=token;
 
 	if (filename[0] == '!') {
 		esave();
@@ -4190,9 +4196,9 @@ void xsave() {
 		ofileclose();
 	}
 
-/* and continue */
+/* and continue remembering, where we were */
+	token=t;
 	//nexttoken();
-	return;
 }
 
 /*
@@ -4651,21 +4657,59 @@ void xfcircle() {
  * MALLOC allocates a chunk of memory 
  */
 void xmalloc() {
-	address_t h; 
 	address_t s;
 	s=pop();
 	if (s<1) {error(EORANGE); return; };
-	h=pop();
-	push(bmalloc(TBUFFER, h%256, h/256, s));
+	z.a=pop();
+	push(bmalloc(TBUFFER, z.a%256, z.a/256, s));
 }
 
 /*
  * FIND an object on the heap
+ * xfind is the buffer space very simple function
+ * xfind2 can find things in the variable name space
  */
 void xfind() {
-	address_t h;
-	h=pop();
-	push(bfind(TBUFFER, h%256, h/256));
+	z.a=pop();
+	push(bfind(TBUFFER, z.a%256, z.a/256));
+}
+
+void xfind2() {
+	address_t a;
+
+	nexttoken();
+	if (token != '(') {
+		error(EUNKNOWN);
+		return;
+	}
+	nexttoken();
+	a=bfind(token, xc, yc);
+	switch (token) {
+		case VARIABLE:
+		case STRINGVAR:
+			break;
+		case ARRAYVAR:
+			nexttoken();
+			if (token != '(') {
+				error(EUNKNOWN);
+				return;
+			}
+			nexttoken();
+			if (token != ')') {
+				error(EUNKNOWN);
+				return;
+			}		
+			break;
+		default:
+			error(EUNKNOWN);
+			return;
+	}
+	nexttoken();
+	if (token != ')') {
+		error(EUNKNOWN);
+		return;
+	}
+	push(a);
 }
 
 /*
@@ -5791,8 +5835,9 @@ void loop() {
     if (token == NUMBER) {
          storeline();		
     } else {
-      	st=SINT;
+      	//st=SINT;
       	statement();   
+      	st=SINT;
     }
 
 /* here, at last, all errors need to be catched and back to interactive input*/

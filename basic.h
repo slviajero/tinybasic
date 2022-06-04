@@ -1185,6 +1185,7 @@ void xfcircle();
 /* the darkarts */
 void xmalloc();
 void xfind();
+void xfind2();
 void xeval();
 
 /* IoT commands */
