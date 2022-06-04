@@ -4687,6 +4687,7 @@ void xfind2() {
 	switch (token) {
 		case VARIABLE:
 		case STRINGVAR:
+			nexttoken();
 			break;
 		case ARRAYVAR:
 			nexttoken();
@@ -4699,12 +4700,14 @@ void xfind2() {
 				error(EUNKNOWN);
 				return;
 			}		
+			nexttoken();
 			break;
 		default:
-			error(EUNKNOWN);
-			return;
+			expression();
+			if (er != 0) return;
+			z.a=pop();
+			a=bfind(TBUFFER, z.a%256, z.a/256);
 	}
-	nexttoken();
 	if (token != ')') {
 		error(EUNKNOWN);
 		return;
