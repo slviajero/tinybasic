@@ -11,8 +11,4 @@
 310 FOR I=0 TO 15
 320 PRINT I, PEEK(M+I)
 330 NEXT I 
-400 PRINT "Finding a memory segment"
-410 N=FIND(1)
-420 PRINT "Address found", N
-430 PRINT "Original address was", M
-500 END
+400 END
