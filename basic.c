@@ -1352,8 +1352,6 @@ void inb(char *b, short nb) {
  *	input until a terminal character is reached
  */
 void ins(char *b, short nb) {
-  	char c;
-  	short i = 1;
   	switch(id) {
 #ifdef ARDUINOWIRE
   		case IWIRE:
@@ -1468,7 +1466,8 @@ void outsc(const char *c){
 	while (*c != 0) outch(*c++);
 }
 
-/* output a zero terminated string in a formated box */
+/* output a zero terminated string in a formated box padding spaces 
+		needed for catalog output */
 void outscf(const char *c, short f){
   short i = 0;
 
@@ -3210,7 +3209,7 @@ processsymbol:
 
 separators:
 	if (token == ',')  {
-		if (! modifier ) outspc(); 
+		if (!modifier) outspc(); 
 		nexttoken();	
 	}
 	if (token == ';') {
@@ -3397,26 +3396,37 @@ void showprompt() {
 }
 
 void xinput(){
-	char oldid = 0;
+	char oldid = id;
 	char prompt = TRUE;
-	
+	char l;
+
 	nexttoken();
 
-/* modifiers of the input statement */
+/* modifiers of the input statement (stream) */
 	if (token == '&') {
-
 		if(!expectexpr()) return;
-
 		oldid=id;
 		id=pop();
 		if (id != ISERIAL || id !=IKEYBOARD) prompt=FALSE;
-		if ( token != ',') {
+		if (token != ',') {
 			error(EUNKNOWN);
 			return;
 		} else 
 			nexttoken();
 	}
-
+/* unlink print, form can appear only once in input after the
+		stream, it controls character count in wire */
+#ifdef ARDUINOWIRE
+	if (token == '#') {
+		if(!expectexpr()) return;
+		form=pop();
+		if (token != ',') {
+			error(EUNKNOWN);
+			return;
+		} else 
+			nexttoken();
+	}
+#endif
 
 nextstring:
 	if (token == STRING && id != IFILE) {
@@ -3434,12 +3444,9 @@ nextvariable:
 	if (token == VARIABLE) {   
 		if (prompt) showprompt();
 		if (innumber(&x) == BREAKCHAR) {
-			setvar(xc, yc, 0);
 			st=SINT;
-			nexttoken();
-			id=oldid;
-			ert=1;
-			return;
+			token=EOL;
+			goto resetinput;
 		} else {
 			setvar(xc, yc, x);
 		}
@@ -3456,13 +3463,9 @@ nextvariable:
 
 		if (prompt) showprompt();
 		if (innumber(&x) == BREAKCHAR) {
-			x=0;
-			array('s', xc, yc, pop(), &x);
 			st=SINT;
 			nexttoken();
-			id=oldid;
-			ert=1;
-			return;
+			goto resetinput;
 		} else {
 			array('s', xc, yc, pop(), &x);
 		}
@@ -3474,7 +3477,9 @@ nextvariable:
 	if (token == STRINGVAR) {
 		ir=getstring(xc, yc, 1); 
 		if (prompt) showprompt();
-		ins(ir-1, stringdim(xc, yc));
+		l=stringdim(xc, yc);
+		if (id == IWIRE && form != 0 && form < l) l=form; 
+		ins(ir-1, l);
 /* this is the length information correction for large strings, ins
 		stored the string length in z.a as a side effect */
 		if (xc != '@' && strindexsize == 2) { 
@@ -3490,7 +3495,13 @@ nextvariable:
 		goto nextstring;
 	}
 
-	if (oldid != 0) id=oldid;
+	if (!termsymbol()) {
+		error(EUNKNOWN);
+	}
+
+resetinput:
+	id=oldid;
+	form=0;
 }
 
 /*
