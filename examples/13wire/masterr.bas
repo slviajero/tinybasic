@@ -6,8 +6,8 @@
 200 REM "the loop()"
 210 REM "request 6 byte from the slave"
 220 FOR I
-230 INPUT &7, #6, A$
-240 PRINT A$
-250 DELAY 500 
-260 NEXT
-
+230 @S=0
+240 INPUT &7, #6, A$
+250 IF @S THEN PRINT "Data error" ELSE PRINT A$
+260 DELAY 500 
+270 NEXT

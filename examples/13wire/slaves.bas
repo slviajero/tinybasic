@@ -8,5 +8,5 @@
 220 FOR I
 230 PRINT &7, "hello "
 240 DELAY 100
-250 NEXT
-
+250 IF USR(7, 1)=0 THEN PRINT "Master requested data"
+260 NEXT

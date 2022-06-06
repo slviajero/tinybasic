@@ -7,7 +7,8 @@
 200 REM "the loop()"
 220 FOR I
 230 A$(6)=I
-240 PRINT &7, A$
-250 DELAY 500 
-260 NEXT
-
+240 @S=0
+250 PRINT &7, A$
+260 IF @S THEN PRINT "Transmission error"
+270 DELAY 500 
+280 NEXT
