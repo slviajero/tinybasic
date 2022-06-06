@@ -4,7 +4,7 @@
 
 Wire in BASIC can be accessed through the I/O stream 7. The standard file I/O command work with this stream. 
 
-Wire data can be sent and received using the standard BASIC command like PRINT, INPUT, PUT, and GET. Standard sensors and wire devices with a simple protocol can be read out and programmed directly. Because of the simplicity of BASIC Wire programs are really short and elegant in this languafe.
+Wire data can be sent and received using the standard BASIC command like PRINT, INPUT, PUT, and GET. Standard sensors and wire devices with a simple protocol can be read out and programmed directly. Because of the simplicity of BASIC Wire programs are really short and elegant in this language.
 
 The BASIC interface to the Arduino wire library does not try to fix the pecularities of this code. Please see the end of this text for some information.
 
@@ -97,9 +97,3 @@ will write an entire string to a buffer. Maximum length is 32 bytes. If the mast
 USR(7, 0) indicates if the Wire code is compiled into BASIC. A program can check if it runs on a Wire capable machine by doing something like this
 
 IF NOT USR(7, 0) THEN PRINT "No wire": END
-
-
-
-
-
-
