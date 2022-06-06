@@ -1642,11 +1642,12 @@ char innumber(number_t *r) {
 
 again:
 	*r=0;
+	sbuffer[1]=0;
 	ins(sbuffer, SBUFSIZE);
 	while (i < SBUFSIZE) {
 		if (sbuffer[i] == ' ' || sbuffer[i] == '\t') i++;
 		if (sbuffer[i] == BREAKCHAR) return BREAKCHAR;
-		if (sbuffer[i] == 0) return 1;
+		if (sbuffer[i] == 0) { ert=1; return 1; }
 		if (sbuffer[i] == '-') {
 			s=-1;
 			i++;
@@ -3399,6 +3400,7 @@ void xinput(){
 	char oldid = id;
 	char prompt = TRUE;
 	char l;
+	number_t x;
 
 	nexttoken();
 
@@ -3464,7 +3466,7 @@ nextvariable:
 		if (prompt) showprompt();
 		if (innumber(&x) == BREAKCHAR) {
 			st=SINT;
-			nexttoken();
+			token=EOL;
 			goto resetinput;
 		} else {
 			array('s', xc, yc, pop(), &x);
@@ -5097,7 +5099,11 @@ void xusr() {
 				case 30: push(forsp); break;
 				case 31: push(fnc); break;
 				case 32: push(sp); break;
+#ifdef HASDARTMOUTH
 				case 33: push(data); break;
+#else
+				case 33: push(data); break;
+#endif
 /* - 48 reserved */
 				case 48: push(id); break;
 				case 49: push(idd); break;

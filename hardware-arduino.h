@@ -2667,7 +2667,16 @@ void wireslavebegin(char s) {
 
 /* wire status - just checks if wire is compiled */
 int wirestat(char c) {
-  if (c == 0) return 1; 
+  switch (c) {
+    case 0: 
+      return 1;
+#ifdef ARDUINOWIRESLAVE
+    case 1:
+      return wirerequestchars;
+#endif    
+    default:
+      return 0;
+  }
 }
 
 /* available characters - test code ecapsulation prep for slave*/
@@ -2723,7 +2732,7 @@ void wireins(char *b, uint8_t l) {
   if (wire_myid == 0) {
     z.a=0;
     if (l>ARDUINOWIREBUFFER) l=ARDUINOWIREBUFFER;
-    Wire.requestFrom(wire_slaveid, l);
+    if (!Wire.requestFrom(wire_slaveid, l)) ert=1;
     while (Wire.available() && z.a<l) b[++z.a]=Wire.read();
   } else {
 #ifdef ARDUINOWIRESLAVE

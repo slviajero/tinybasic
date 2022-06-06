@@ -1352,8 +1352,6 @@ void inb(char *b, short nb) {
  *	input until a terminal character is reached
  */
 void ins(char *b, short nb) {
-  	char c;
-  	short i = 1;
   	switch(id) {
 #ifdef ARDUINOWIRE
   		case IWIRE:
@@ -1468,7 +1466,8 @@ void outsc(const char *c){
 	while (*c != 0) outch(*c++);
 }
 
-/* output a zero terminated string in a formated box */
+/* output a zero terminated string in a formated box padding spaces 
+		needed for catalog output */
 void outscf(const char *c, short f){
   short i = 0;
 
@@ -1643,11 +1642,12 @@ char innumber(number_t *r) {
 
 again:
 	*r=0;
+	sbuffer[1]=0;
 	ins(sbuffer, SBUFSIZE);
 	while (i < SBUFSIZE) {
 		if (sbuffer[i] == ' ' || sbuffer[i] == '\t') i++;
 		if (sbuffer[i] == BREAKCHAR) return BREAKCHAR;
-		if (sbuffer[i] == 0) return 1;
+		if (sbuffer[i] == 0) { ert=1; return 1; }
 		if (sbuffer[i] == '-') {
 			s=-1;
 			i++;
@@ -2118,7 +2118,7 @@ void findline(address_t l) {
 	while (here < top) {
 		gettoken();
 		if (token == LINENUMBER && x == l ) {
-/* now that we now we cache */
+/* now that we know we cache */
 			addlinecache(l, here);
 			return;
 		}
@@ -2381,16 +2381,17 @@ void parsearguments() {
 	argsl=0; 
 
 /* having 0 args at the end of a command is legal */
-	if (termsymbol()) {args=argsl; return; }
+	if (!termsymbol()) {
 
 /* list of expressions separated by commas */
-	do {
-		expression();
-		if (er != 0) break;
-		argsl++;
-		if (token != ',') break;
-		nexttoken();
-	} while (TRUE);
+		do {
+			expression();
+			if (er != 0) break;
+			argsl++;
+			if (token != ',') break;
+			nexttoken();
+		} while (TRUE);
+	}
 
 /* because of the recursion ... */
 	args=argsl;
@@ -2793,11 +2794,12 @@ void factor(){
 				return;
 			}
 			nexttoken();
-			if (! stringvalue()) {
+			if (!stringvalue()) {
 #ifdef HASDARKARTS
 				expression();
 				if (er != 0) return;
-				push(blength(TBUFFER, ((address_t) pop())%256, 0));
+				z.a=pop();
+				push(blength(TBUFFER, z.a%256, z.a/256));
 				return;
 #else 
 				error(EUNKNOWN);
@@ -2956,7 +2958,10 @@ void factor(){
 			parsefunction(xmalloc, 2);
 			break;	
 		case TFIND:
-			parsefunction(xfind, 1);
+/* this is a version of FIND operating in the BUFFER space 
+			parsefunction(xfind, 1); */
+/* FIND even more apocryphal - operating in the variable space */
+			xfind2();
 			break;
 #endif
 #ifdef HASIOT
@@ -3205,7 +3210,7 @@ processsymbol:
 
 separators:
 	if (token == ',')  {
-		if (! modifier ) outspc(); 
+		if (!modifier) outspc(); 
 		nexttoken();	
 	}
 	if (token == ';') {
@@ -3392,26 +3397,38 @@ void showprompt() {
 }
 
 void xinput(){
-	char oldid = 0;
+	char oldid = id;
 	char prompt = TRUE;
-	
+	char l;
+	number_t x;
+
 	nexttoken();
 
-/* modifiers of the input statement */
+/* modifiers of the input statement (stream) */
 	if (token == '&') {
-
 		if(!expectexpr()) return;
-
 		oldid=id;
 		id=pop();
 		if (id != ISERIAL || id !=IKEYBOARD) prompt=FALSE;
-		if ( token != ',') {
+		if (token != ',') {
 			error(EUNKNOWN);
 			return;
 		} else 
 			nexttoken();
 	}
-
+/* unlink print, form can appear only once in input after the
+		stream, it controls character count in wire */
+#ifdef ARDUINOWIRE
+	if (token == '#') {
+		if(!expectexpr()) return;
+		form=pop();
+		if (token != ',') {
+			error(EUNKNOWN);
+			return;
+		} else 
+			nexttoken();
+	}
+#endif
 
 nextstring:
 	if (token == STRING && id != IFILE) {
@@ -3429,12 +3446,9 @@ nextvariable:
 	if (token == VARIABLE) {   
 		if (prompt) showprompt();
 		if (innumber(&x) == BREAKCHAR) {
-			setvar(xc, yc, 0);
 			st=SINT;
-			nexttoken();
-			id=oldid;
-			ert=1;
-			return;
+			token=EOL;
+			goto resetinput;
 		} else {
 			setvar(xc, yc, x);
 		}
@@ -3451,13 +3465,9 @@ nextvariable:
 
 		if (prompt) showprompt();
 		if (innumber(&x) == BREAKCHAR) {
-			x=0;
-			array('s', xc, yc, pop(), &x);
 			st=SINT;
-			nexttoken();
-			id=oldid;
-			ert=1;
-			return;
+			token=EOL;
+			goto resetinput;
 		} else {
 			array('s', xc, yc, pop(), &x);
 		}
@@ -3469,7 +3479,9 @@ nextvariable:
 	if (token == STRINGVAR) {
 		ir=getstring(xc, yc, 1); 
 		if (prompt) showprompt();
-		ins(ir-1, stringdim(xc, yc));
+		l=stringdim(xc, yc);
+		if (id == IWIRE && form != 0 && form < l) l=form; 
+		ins(ir-1, l);
 /* this is the length information correction for large strings, ins
 		stored the string length in z.a as a side effect */
 		if (xc != '@' && strindexsize == 2) { 
@@ -3485,8 +3497,13 @@ nextvariable:
 		goto nextstring;
 	}
 
-	if (oldid != 0) id=oldid;
+	if (!termsymbol()) {
+		error(EUNKNOWN);
+	}
 
+resetinput:
+	id=oldid;
+	form=0;
 }
 
 /*
@@ -4148,10 +4165,12 @@ void getfilename(char *buffer, char d) {
 void xsave() {
 	char filename[SBUFSIZE];
 	address_t here2;
+	char t;
 
 	nexttoken();
 	getfilename(filename, 1);
 	if (er != 0) return;
+	t=token;
 
 	if (filename[0] == '!') {
 		esave();
@@ -4190,9 +4209,9 @@ void xsave() {
 		ofileclose();
 	}
 
-/* and continue */
+/* and continue remembering, where we were */
+	token=t;
 	//nexttoken();
-	return;
 }
 
 /*
@@ -4651,21 +4670,62 @@ void xfcircle() {
  * MALLOC allocates a chunk of memory 
  */
 void xmalloc() {
-	address_t h; 
 	address_t s;
 	s=pop();
 	if (s<1) {error(EORANGE); return; };
-	h=pop();
-	push(bmalloc(TBUFFER, h%256, h/256, s));
+	z.a=pop();
+	push(bmalloc(TBUFFER, z.a%256, z.a/256, s));
 }
 
 /*
  * FIND an object on the heap
+ * xfind is the buffer space very simple function
+ * xfind2 can find things in the variable name space
  */
 void xfind() {
-	address_t h;
-	h=pop();
-	push(bfind(TBUFFER, h%256, h/256));
+	z.a=pop();
+	push(bfind(TBUFFER, z.a%256, z.a/256));
+}
+
+void xfind2() {
+	address_t a;
+
+	nexttoken();
+	if (token != '(') {
+		error(EUNKNOWN);
+		return;
+	}
+	nexttoken();
+	a=bfind(token, xc, yc);
+	switch (token) {
+		case VARIABLE:
+		case STRINGVAR:
+			nexttoken();
+			break;
+		case ARRAYVAR:
+			nexttoken();
+			if (token != '(') {
+				error(EUNKNOWN);
+				return;
+			}
+			nexttoken();
+			if (token != ')') {
+				error(EUNKNOWN);
+				return;
+			}		
+			nexttoken();
+			break;
+		default:
+			expression();
+			if (er != 0) return;
+			z.a=pop();
+			a=bfind(TBUFFER, z.a%256, z.a/256);
+	}
+	if (token != ')') {
+		error(EUNKNOWN);
+		return;
+	}
+	push(a);
 }
 
 /*
@@ -5039,7 +5099,11 @@ void xusr() {
 				case 30: push(forsp); break;
 				case 31: push(fnc); break;
 				case 32: push(sp); break;
+#ifdef HASDARTMOUTH
 				case 33: push(data); break;
+#else
+				case 33: push(data); break;
+#endif
 /* - 48 reserved */
 				case 48: push(id); break;
 				case 49: push(idd); break;
@@ -5791,8 +5855,9 @@ void loop() {
     if (token == NUMBER) {
          storeline();		
     } else {
-      	st=SINT;
+      	//st=SINT;
       	statement();   
+      	st=SINT;
     }
 
 /* here, at last, all errors need to be catched and back to interactive input*/
