@@ -17,6 +17,10 @@ The BASIC interface to the Arduino wire library does not try to fix the peculari
 - MasterReader: masterr.bas - standard Arduino example, read a small string from a slave
 - SlaveSender: slaves.bas - standard Arduino example, write the small string for MasterReader 
 - RegisterEngine: register.bas - a generic slave program, handling max 32 byte registers with read and write function plus optional payload code
+- AnalogReader: analogr.bas - read an analog input as slave and transfer the data as ASCII 
+- AnalogMaster: analogm.bas - master code for AnalogReader
+- AnalogReader2: analogr2.bas - read an analog input as slave and transfer the data as binary
+- AnalogMaster2: analogm2.bas - master code for AnalogReader2
 
 ## BASIC language features
 
@@ -38,7 +42,60 @@ slaves.bas: opening a channel for slave function, using USR(7, 1) to check if a 
 
 register.bas: bidirectional slave communication with a master
 
+analogr.bas: printing ASCII data to I2C
+
+analogm.bas: reading ASCII data from I2C
+
+analogr2.bas: transfering integer binary data to I2C
+
+analogm2.bas: reading binary integer data from I2C
+
 ## Pecularities of the Wire library
+
+The Arduino Wire master functions cannot handle variable message sizes. If the master requests 32 bytes and the slave transfers only 10, 22 bytes are padded with -1 characters i.e. EOF. The mechanisms of Wire.available() and the return values of Wire.requestFrom() are not working as one would assume. This feature also shows in BASIC. 
+
+Opening an Wire connection as a master for slave with address A is done with 
+
+OPEN &7, A
+
+Data is requested by 
+
+INPUT &7, A$
+
+This is translated to a Wire data request of the master on the length of the string but with a maximum of 32 bytes. A successful read with leave the state variable @S with value 0 and yield a string with 32 bytes (or smaller if the string is smaller). 
+
+The command
+
+INPUT &7, #8, A$
+
+requests 8 bytes from the slave. The length of the return string will be 8.
+
+The string return length is independent of the number of bytes the slave send. BASIC does not try to correct the behaviour.
+
+ASCII number data from the slave can be captures with a plain 
+
+INPUT &7, X
+
+@S returns the status of the number conversions and the read fairly reliably. 
+
+Salve code is activated by opening 
+
+OPEN &7, A, 1
+
+Two callback functions handle data transfer from two buffers. Once a slave has opened wire the function AVAIL(7) returns a non zero value if the master has send data. The data has to be captured with one read operation
+
+INPUT &7, A$
+
+into a string and can be processed then. Partial read is not possible. GET &7, A will return the first byte of the payload and discard the rest. Wire is not a stream but buffer / block oriented.
+
+PRINT &7, A$ 
+
+will write an entire string to a buffer. Maximum length is 32 bytes. If the master requests data, the entire buffer transfered and the buffer count cleared. USR(7, 1) returns the number of bytes the buffer has chached. If USR(7, 1) is larger 0 then the master has not yet read. If it changes to 0 the read has occured. 
+
+USR(7, 0) indicates if the Wire code is compiled into BASIC. A program can check if it runs on a Wire capable machine by doing something like this
+
+IF NOT USR(7, 0) THEN PRINT "No wire": END
+
 
 
 
