@@ -4,7 +4,9 @@
 
 Wire in BASIC can be accessed through the I/O stream 7. The standard file I/O command work with this stream. 
 
-The BASIC interface to the Arduino wire library does not try to fix the pecularities of this code. Specifically the counting of characters a slave returns to the master does not work consistently. This is hidden in the original Arduino wire examples. 
+Wire data can be sent and received using the standard BASIC command like PRINT, INPUT, PUT, and GET. Standard sensors and wire devices with a simple protocol can be read out and programmed directly. Because of the simplicity of BASIC Wire programs are really short and elegant in this languafe.
+
+The BASIC interface to the Arduino wire library does not try to fix the pecularities of this code. Please see the end of this text for some information.
 
 ## Programs 
 
