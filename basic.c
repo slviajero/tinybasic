@@ -3400,7 +3400,7 @@ void xinput(){
 	char oldid = id;
 	char prompt = TRUE;
 	char l;
-	number_t x;
+	number_t xv;
 
 	nexttoken();
 
@@ -3445,12 +3445,12 @@ nextstring:
 nextvariable:
 	if (token == VARIABLE) {   
 		if (prompt) showprompt();
-		if (innumber(&x) == BREAKCHAR) {
+		if (innumber(&xv) == BREAKCHAR) {
 			st=SINT;
 			token=EOL;
 			goto resetinput;
 		} else {
-			setvar(xc, yc, x);
+			setvar(xc, yc, xv);
 		}
 	} 
 
@@ -3464,12 +3464,12 @@ nextvariable:
 		}
 
 		if (prompt) showprompt();
-		if (innumber(&x) == BREAKCHAR) {
+		if (innumber(&xv) == BREAKCHAR) {
 			st=SINT;
 			token=EOL;
 			goto resetinput;
 		} else {
-			array('s', xc, yc, pop(), &x);
+			array('s', xc, yc, pop(), &xv);
 		}
 	}
 
