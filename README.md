@@ -40,7 +40,7 @@ The interpreter is not meant to be compatible to any BASIC dialect. I ported mos
 
 Programs are always fully tokenized at input. This includes keywords, numbers, strings and variables names. No lexical analysis is done or needed at runtime. The stored BASIC program resembles more a byte code language than a stored interpreter code. This is the concept Steve Wozniak used on the Apple 1. 
 
-The core interpreter loop runs at approximately one token every 7 microseconds on an Arduino UNO. On an ESP it runs at 1.4 microseconds per token. 
+The core interpreter loop runs at approximately one token every 40 microseconds on an Arduino. ESP are a bit faster but not much as the memory bandwidth limits the performance in the loop. ESPs are much faster in calulations, though.
 
 For further information, please look at: https://github.com/slviajero/tinybasic/wiki
 
