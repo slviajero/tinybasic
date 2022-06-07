@@ -9,7 +9,7 @@ useable on a number of architectures like Arduino AVR, ESP8266, ESP32, SAMD, RP2
 
 Arithmetic is 16 bit, 32bit or float depending on the compiler settings and the platform. The full set of Dartmouth language features like ON GOSUB and DEF FN is implemented. Strings are Apple 1 style. They are essentially integer arrays like in C. Conditions are also C style meaning part of the arithmetic.
 
-Filesystems like Arduino SD, ESPSPIFFS and LittleFS are supported on microcontrollers. EEPROMS can be used
+Filesystems like Arduino SD, SPIFFS and LittleFS are supported on microcontrollers. EEPROMS can be used
 as BASIC filesystem using the EepromFS library.
 
 Small LCD displays, OLEDs, Nokia5110m TFT and VGA monitors are supported. Graphics is supported on all graphic capable displays.
@@ -28,11 +28,11 @@ Look at the WIKI https://github.com/slviajero/tinybasic/wiki for more informatio
 
 ## Language features in a nutshell 
 
-The interpreter includes most of the Dartmouth language set. Differences are mainly the string handling which was taken from Apple 1 integer BASIC. Autodimensioning of arrays and strings was taken from ECMA BASIC.
+The interpreter includes most of the Dartmouth language set. Differences are mainly the string handling which was taken from Apple Integer BASIC. Autodimensioning of arrays and strings was taken from ECMA BASIC.
 
 The intepreter is compatible with two of the 1976 early basic dialects. It implements the full language set of Dr. Wang's Palo Alto Tinybasic from the December 1976 edition of Dr. Dobbs (https://github.com/slviajero/tinybasic/wiki/Unforgotten:-Palo-Alto-BASIC). This is a remarkably complete little language with many useful features. 
 
-The interpreter also implements the specification of Apple Integer BASIC sold for the Apple 1 computer (https://github.com/slviajero/tinybasic/wiki/The-original-Apple-1-BASIC-manual). It should be fully Apple 1 compatible.
+The interpreter also implements the specification of Apple Integer BASIC sold for the Apple 1 and 2 computers (https://github.com/slviajero/tinybasic/wiki/The-original-Apple-1-BASIC-manual).
 
 I/O handling and some of the microcontroller BASIC features are new and are not compatible to the BASIC dialects above.
 
@@ -40,13 +40,15 @@ The interpreter is not meant to be compatible to any BASIC dialect. I ported mos
 
 Programs are always fully tokenized at input. This includes keywords, numbers, strings and variables names. No lexical analysis is done or needed at runtime. The stored BASIC program resembles more a byte code language than a stored interpreter code. This is the concept Steve Wozniak used on the Apple 1. 
 
-The core interpreter loop runs at approximately one token every 7 micro seconds on an Arduino UNO. On an ESP it runs at 1.4 micro seconds per token. 
+The core interpreter loop runs at approximately one token every 7 microseconds on an Arduino UNO. On an ESP it runs at 1.4 microseconds per token. 
 
 For further information, please look at: https://github.com/slviajero/tinybasic/wiki
 
+There is a set of BASIC programs in the examples section https://github.com/slviajero/tinybasic/tree/main/examples of the repo. They showcase language features and use cases.
+
 ## Files in this archive 
 
-basic.c is the program source. basic.h the header file. TinybasicArduino/TinybasicArduino.ino is an exact copy of basic.c. 
+basic.c is the program source. basic.h is the header file. TinybasicArduino/TinybasicArduino.ino is a copy of basic.c. The Arduino and POSIX source code is the same.
 
 In addition to this file and basic.h you need a hardware definition file.
 
@@ -68,13 +70,13 @@ A quite complete ESP8266 system without network support can be found here
 https://create.arduino.cc/editor/sl001/27a26f15-c23b-408d-8d39-e6948aead495/preview
 
 
-The single file versions contain the full code but are not maintained regularly. They always will be behind the newest code. Please use them only as quick and dirty demos. 
+The single file versions contain the full code but are not maintained regularly. They always will be behind the newest code. Please use them only as quick and dirty demos. They are not updated often.
 
 utility/monitor.py is a little serial monitor to interact with the running BASIC interpreter on the Arduino. It allows very simple loading of files into the Arduino and saving of output to a file on a computer. utility/arduinoterm is a wrapper of monitor.py.
 
 utility/dosify converts the code to tcc 2.01 ready format to be compiled in DOSBOX.
 
-The various programs with the extension .bas are test files for the interpreter (arduinotests, testprograms) and some 1976 BASIC games (basicgames).
+examples contains a lot of demo programs and games ported to BASIC.
 
 ## What's next
 
