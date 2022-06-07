@@ -5067,9 +5067,32 @@ void xusr() {
 		case 0: 
 			switch(arg) {
 				case 0: push(bsystype); break;
-				case 1: push(0); /* reserved for system capability identifier */
-				case 2: push(0); /* reserved for system speed identifier */
-				 
+				case 1: /* language set identifier, odd because USR is part of STEFANSEXT*/
+					z.a=0;
+#ifdef HASAPPLE1
+					z.a|=1;	
+#endif
+#ifdef HASARDUINOIO
+					z.a|=2;
+#endif
+#ifdef HASFILEIO
+					z.a|=4;
+#endif 
+#ifdef HASDARTMOUTH
+					z.a|=8;
+#endif
+#ifdef HASGRAPH
+					z.a|=16;
+#endif
+#ifdef HASDARKARTS
+					z.a|=32;
+#endif
+#ifdef HASIOT
+					z.a|=64;
+#endif
+					push(z.a);
+					break;
+				case 2: push(0); /* reserved for system speed identifier */			 
 #ifdef HASFLOAT
 				case 3:	push(1); break;
 #else 
