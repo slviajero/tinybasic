@@ -11,6 +11,7 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Rocket: rocket.bas - the classical lunar lander simulation
 - HighLow: hi-lo.bas - guessing a number between 1 and 100
 - 23Matches: 23match.bas - remove 1, 2, or 3 matches from a pile of 23
+- Number: number guessing game, super simple almost Tinybasic compatible
 
 ## BASIC language features
 
@@ -24,3 +25,4 @@ hi-lo.bas: the random number generator, use of @R and MILLIS
 
 23match.bas: the random number generator, use of @R and MILLIS
 
+number.bas: the random number generator, use of @R and MILLIS, except RND and MILLIS really only Tinybasic 
