@@ -15,6 +15,7 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - BuzzWork: create a buzzword bingo winning phrases, from the 70s but still up to date
 - Guess: a simple number guessing showing many BASIC language features
 - Love: draws a square the the message love
+- Dice: simulate the throwing of two dice
 
 ## BASIC language features
 
@@ -35,6 +36,8 @@ buzzword.bas: READ DATA RESTORE mechanism of Dartmouth BASIC, open loops, BREAK
 guess.bas: FOR loops with BREAK and CONT features
 
 love.bas: READ DATA RESTORE mechanism of Dartmouth BASIC, strings and arrays, single character output with PUT
+
+dice.bas: formatted printing, arrays, 
 
 
 
