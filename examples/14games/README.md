@@ -11,18 +11,22 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Rocket: rocket.bas - the classical lunar lander simulation
 - HighLow: hi-lo.bas - guessing a number between 1 and 100
 - 23Matches: 23match.bas - remove 1, 2, or 3 matches from a pile of 23
-- Number: number guessing game, super simple almost Tinybasic compatible
-- BuzzWork: create a buzzword bingo winning phrases, from the 70s but still up to date
-- Guess: a simple number guessing showing many BASIC language features
-- Love: draws a square the the message love
-- Dice: simulate the throwing of two dice
-- Mathdice: add two dice values and see how fast you are
-- Hurkle: find the hurkle in a grid
-- RockScissorsPaper: classical games of rock, scissors, and paper
-- Craps: Casino game with two dice, real old code, presubably from the 60s
-- Lunar: kinematically realistic lunar lander program, needs float
-- Nicomach: guessing a number from the modulo 3, 5, 7
-- Chief: small math puzzle 
+- Number: number.bas - number guessing game, super simple almost Tinybasic compatible
+- BuzzWork: buzzword.bas - create a buzzword bingo winning phrases, from the 70s but still up to date
+- Guess: guess.bas - a simple number guessing showing many BASIC language features
+- Love: love.bas - draws a square the the message love
+- Dice: dice.bas - simulate the throwing of two dice
+- Mathdice: mathdice.bas - add two dice values and see how fast you are
+- Hurkle: hurkle.bas - find the hurkle in a grid
+- RockScissorsPaper: rockscis.bas - classical games of rock, scissors, and paper
+- Craps: craps.bas - casino game with two dice, real old code, presubably from the 60s
+- Lunar: lunar.bas - kinematically realistic lunar lander program, needs float
+- Nicomach: nicomach.bas - guessing a number from the modulo 3, 5, 7
+- Chief: chief.bas - small math puzzle 
+- Chemist: chemist.bas - calculate ratios against the stopwatch
+- Letter: letter.bas - guess a letter 
+- Name: name.bas - spell your name backward and sorted
+- Change: change.bas - calculates the change of an amount
 
 ## BASIC language features
 
@@ -59,6 +63,18 @@ lunar.bas: find if interpreter has float with USR(0,3), POW function, formating 
 nicomach.bas: DELAY function, strings, modulo operator
 
 chief.bas: using TAB to format text output, USR(0,3) to detect float capability
+
+chemist.bas: timing with MILLIS()
+
+letter.bas: conversion of strings to numbers with (A$)
+
+name.bas: convert strings to arrays and back
+
+change.bas: conditions IF THEN 
+
+
+
+
 
 
 
