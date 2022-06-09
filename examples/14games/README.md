@@ -21,6 +21,8 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - RockScissorsPaper: classical games of rock, scissors, and paper
 - Craps: Casino game with two dice, real old code, presubably from the 60s
 - Lunar: kinematically realistic lunar lander program, needs float
+- Nicomach: guessing a number from the modulo 3, 5, 7
+- Chief: small math puzzle 
 
 ## BASIC language features
 
@@ -53,6 +55,14 @@ rockscic.bas: FOR NEXT loops with CONT
 craps.bas: a GOTO nightmare to show how complex conditions were done back in the 60s
 
 lunar.bas: find if interpreter has float with USR(0,3), POW function, formating output with PRINT #
+
+nicomach.bas: DELAY function, strings, modulo operator
+
+chief.bas: using TAB to format text output, USR(0,3) to detect float capability
+
+
+
+
 
 
 
