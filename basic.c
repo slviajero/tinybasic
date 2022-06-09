@@ -186,32 +186,32 @@ address_t ballocmem() {
 
 	const unsigned short memmodel[] = {
 		60000,  // DUE systems, RP2040 and ESP32, all POSIX systems - set to fit in one 16 bit page
-    48000,  // DUE with a bit of additional stuff,
+		48000,  // DUE with a bit of additional stuff,
 		40000, 	// simple ESP8266 systems, MSDOS small model 
 		32000, 	// complex ESP8266 with network and a lot of additional suff
 		24000,  // Arduino MK boards, SAMD, Seeduino
-    16000,  // ESP systems with a lot of subsystems (1)
-    12000,  // ESP systems with a lot of subsystems (2)
-    8000,   // ESP systems with a lot of subsystems (3)
+		16000,  // ESP systems with a lot of subsystems (1)
+		12000,  // ESP systems with a lot of subsystems (2)
+		8000,   // ESP systems with a lot of subsystems (3)
 		6000,   // Arduino AVR MEGA boards without SD
 		4096, 	// Arduino Nano Every, MEGA with a lot of stuff 
 		2048,   // AVR with a lot of additional stuff on them
 		1024, 	// UNO
 		512, 		// AVR168 (theoretically - but better set MEMSIZE static)
 		128,		// fallback, something has gone wrong
-    0      
+		0      
 	}; 
 
-	// if the number type is only 2 bytes max memory is 32000
-	// if (sizeof(number_t) <= 2) i=2;
+/*  if the number type is only 2 bytes max memory is 32000
+	if (sizeof(number_t) <= 2) i=2; */
 
 /* on some platforms we know the free memory for BASIC */
-  long m=freememorysize();
-  if (m>maxaddr) m=maxaddr;
-  if (m>0) {
-    mem=(signed char*)malloc(m);
-    if (mem != NULL) return m-1;
-  }
+	long m=freememorysize();
+	if (m>maxaddr) m=maxaddr;
+	if (m>0) {
+		mem=(signed char*)malloc(m);
+		if (mem != NULL) return m-1;
+	}
 
 /*
  * if there is no valid freememorysize() result we need 
@@ -222,7 +222,7 @@ address_t ballocmem() {
  * don't use the 60k 
  */
 #ifdef MSDOS
-  i=1;
+	i=1;
 #endif
 #ifdef MEMMODEL
 	i=MEMMODEL;
@@ -308,22 +308,22 @@ void eload() {
 /* autorun something from EEPROM or a filesystem */
 char autorun() {
 #if defined(ARDUINOEEPROM) || ! defined(ARDUINO) 
-  if (eread(0) == 1){ /* autorun from the EEPROM */
+	if (eread(0) == 1){ /* autorun from the EEPROM */
   	egetnumber(1, addrsize);
   	top=z.a;
   	st=SERUN;
   	return TRUE; /* EEPROM autorun overrules filesystem autorun */
- 	} 
+	} 
 #endif
 #if defined(FILESYSTEMDRIVER) || ! defined(ARDUINO)
-  if (ifileopen("autoexec.bas")) {
+	if (ifileopen("autoexec.bas")) {
   	xload("autoexec.bas");
   	st=SRUN;
 		ifileclose();
 		return TRUE;
-  }
+	}
 #endif
-  return FALSE;
+	return FALSE;
 }
 
 #ifdef HASAPPLE1
@@ -351,15 +351,15 @@ address_t bmalloc(signed char t, char c, char d, address_t l) {
   	case VARIABLE:
     	vsize=numsize+3;
     	break;
-    case ARRAYVAR:
-    	vsize=numsize*l+addrsize+3;
-    	break;
-    case TFN:
-    	vsize=addrsize+2+3;
-    	break;
-    default:
-    	vsize=l+addrsize+3;
- 	}
+		case ARRAYVAR:
+			vsize=numsize*l+addrsize+3;
+			break;
+		case TFN:
+			vsize=addrsize+2+3;
+			break;
+		default:
+			vsize=l+addrsize+3;
+	}
 	
 /* enough memory ? */ 
 	if ((himem-top) < vsize) { error(EOUTOFMEMORY); return 0;}
@@ -647,19 +647,19 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 				break;
 			case 'D': 
 #if defined(DISPLAYDRIVER) && defined(DISPLAYCANSCROLL)
-        if (dsp_rows == 0 || dsp_columns == 0) { return; }
-        if (i<1 || i>dsp_columns*dsp_columns ) { return; }
-        i--;
-        a=i%dsp_columns;
-        h=i/dsp_columns;
+				if (dsp_rows == 0 || dsp_columns == 0) { return; }
+				if (i<1 || i>dsp_columns*dsp_columns ) { return; }
+				i--;
+				a=i%dsp_columns;
+				h=i/dsp_columns;
 /* this should be encapsulated later into the display object */
-        if (m == 's') {
-          if (*v == 0) e=' '; else e=*v;
-          dspprintchar(e, a, h);
-          if (*v == 32) dspbuffer[h][a]=0; else dspbuffer[h][a]=*v;
-        } else {
-          *v=(number_t)dspbuffer[h][a];          			
-        }
+				if (m == 's') {
+					if (*v == 0) e=' '; else e=*v;
+					dspprintchar(e, a, h);
+					if (*v == 32) dspbuffer[h][a]=0; else dspbuffer[h][a]=*v;
+				} else {
+					*v=(number_t)dspbuffer[h][a];          			
+				}
 #endif
 				return;
 #if !defined(ARDUINO) || defined(ARDUINORTC)
@@ -670,8 +670,8 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 #endif
 #if defined(ARDUINO) && defined(ARDUINOSENSORS)
 			case 'S':
-        if (m == 'g') *v=sensorread(i, 0); 
-        return;
+				if (m == 'g') *v=sensorread(i, 0); 
+				return;
 #endif
 			case 0: 
 			default:
@@ -781,10 +781,8 @@ number_t arraydim(char c, char d) {
 #ifdef HASAPPLE1
 /* dimension of a string as in DIM a$(100) */ 
 number_t stringdim(char c, char d) {
-	if (c == '@')
-		return BUFSIZE-1;
-
-	return blength(STRINGVAR, c, d)-strindexsize;
+	if (c == '@') return BUFSIZE-1;
+	else return blength(STRINGVAR, c, d)-strindexsize;
 }
 
 /* the length of a string as in LEN(A$) */
@@ -1139,13 +1137,13 @@ void ioinit() {
 /* all serial protocolls, ttl channels, SPI and Wire */
 	serialbegin();
 #ifdef ARDUINOPRT
-  prtbegin();
+	prtbegin();
 #endif
 #ifdef ARDUINOSPI
-  spibegin();
+	spibegin();
 #endif
 #ifdef ARDUINOWIRE
-  wirebegin();
+	wirebegin();
 #endif
 
 /* filesystems and networks */
@@ -1203,14 +1201,16 @@ char inch() {
 #ifdef ARDUINOWIRE
 		case IWIRE:
 			ins(sbuffer, 1);
-			if (sbuffer[0]>0) return sbuffer[1]; else return 0;
+			if (sbuffer[0]>0) return sbuffer[1]; 
+			else return 0;
 #endif
 #ifdef ARDUINORF24
 /* radio is not character oriented, this is only added to make GET work
 		or single byte payloads, radio, like file is treated nonblocking here */
 		case IRADIO:
 			radioins(sbuffer, SBUFSIZE-1);
-			if (sbuffer[0]>0) return sbuffer[1]; else return 0;
+			if (sbuffer[0]>0) return sbuffer[1]; 
+			else return 0;
 #endif
 #ifdef ARDUINOMQTT
     case IMQTT:
@@ -1220,7 +1220,7 @@ char inch() {
 		case ISERIAL1:
 			return prtread();
 #endif				
-#if defined(HASKEYBOARD)	|| defined(HASKEYPAD)				
+#if defined(HASKEYBOARD) || defined(HASKEYPAD)				
 		case IKEYBOARD:
 			return kbdread();
 #endif
@@ -1238,20 +1238,20 @@ char checkch(){
 			return fileavailable();
 #endif
 #ifdef ARDUINORF24
-    	case IRADIO:
-    		return radio.available();
+		case IRADIO:
+			return radio.available();
 #endif
 #ifdef ARDUINOMQTT
-    	case IMQTT:
-    		if (mqtt_messagelength>0) return mqtt_buffer[0];
+			case IMQTT:
+				if (mqtt_messagelength>0) return mqtt_buffer[0];
 #endif   
 #ifdef ARDUINOWIRE
-    	case IWIRE:
-    		return 0;
+			case IWIRE:
+				return 0;
 #endif
 #ifdef ARDUINOPRT
-		case ISERIAL1:
-			return prtcheckch(); 
+			case ISERIAL1:
+				return prtcheckch(); 
 #endif
 		case IKEYBOARD:
 #if defined(HASKEYBOARD)	|| defined(HASKEYPAD)
@@ -1312,13 +1312,13 @@ void inb(char *b, short nb) {
 	long m;
 	short i = 0;
 	if (blockmode == 1 ) {
-	    i=availch();
-    	if (i>nb-1) i=nb-1;
-    	b[0]=(unsigned char)i;
-    	z.a=i;
-    	b[i+1]=0;
-    	b++;
-    	while (i--) {*b++=inch();} 	
+		i=availch();
+		if (i>nb-1) i=nb-1;
+		b[0]=(unsigned char)i;
+		z.a=i;
+		b[i+1]=0;
+		b++;
+		while (i--) {*b++=inch();} 	
 	} else if (blockmode > 1) {
 		m=millis();
 		while (i < nb-1) {
@@ -1360,8 +1360,8 @@ void ins(char *b, short nb) {
 #endif
 #ifdef ARDUINOMQTT
 			case IMQTT:
-		    mqttins(b, nb);	
-		    break;	
+				mqttins(b, nb);	
+				break;	
 #endif
 #ifdef ARDUINORF24
   		case IRADIO:
@@ -1469,13 +1469,13 @@ void outsc(const char *c){
 /* output a zero terminated string in a formated box padding spaces 
 		needed for catalog output */
 void outscf(const char *c, short f){
-  short i = 0;
-
-  while (*c != 0) { outch(*c++); i++; }
-  if (f > i) {
-    f=f-i;
-    while (f--) outspc();
-  }
+	short i = 0;
+  
+	while (*c != 0) { outch(*c++); i++; }
+	if (f > i) {
+		f=f-i;
+		while (f--) outspc();
+	}
 }
 
 /* 
@@ -1587,9 +1587,9 @@ short writenumber(char *c, number_t vi){
  */
 short writenumber2(char *c, number_t vi) {
 	short i;
-  number_t f;
-  short exponent = 0; 
-  char eflag=0;
+	number_t f;
+	short exponent = 0; 
+	char eflag=0;
 
 /* pseudo integers are displayed as integer
 		zero trapped here */
@@ -1604,29 +1604,29 @@ short writenumber2(char *c, number_t vi) {
 #else
 	f=vi;
 	while (fabs(f)<1.0)   { f=f*10; exponent--; }
-  while (fabs(f)>=10.0-0.00001) { f=f/10; exponent++; }
+ 	while (fabs(f)>=10.0-0.00001) { f=f/10; exponent++; }
 
 /* small numbers */
-  if (exponent > -2 && exponent < 7) { 
-    dtostrf(vi, 0, 5, c);
-  } else {
-    dtostrf(f, 0, 5, c);
-    eflag=TRUE;
-  }
+	if (exponent > -2 && exponent < 7) { 
+		dtostrf(vi, 0, 5, c);
+	} else {
+		dtostrf(f, 0, 5, c);
+		eflag=TRUE;
+	}
 	
 /* remove trailing zeros */
-  for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
-  i--;
+	for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
+	i--;
 	while (c[i] == '0' && i>1) {i--;}
 	i++;
 
 /* add the exponent */
-  if (eflag) {
-    c[i++]='E';
-    i+=writenumber(c+i, exponent);
-  }
+	if (eflag) {
+		c[i++]='E';
+		i+=writenumber(c+i, exponent);
+	}
 
-  c[i]=0;
+	c[i]=0;
 	return i;
 
 #endif
@@ -2445,10 +2445,8 @@ void parsesubstring() {
 	yc1=yc;
 
 /* this is a hack - we rewind a token ! */
-  if (st == SINT) 
-		bi1=bi; 
-	else 
-		h1=here; 
+  if (st == SINT) bi1=bi; 
+	else h1=here; 
 
 	nexttoken();
 	parsesubscripts();
@@ -2462,10 +2460,8 @@ void parsesubstring() {
 			break;
 		case 0: 
 /* this is a hack - we rewind a token !	*/
-			if (st == SINT) 
-				bi=bi1;
-			else 
-				here=h1; 
+			if (st == SINT) bi=bi1;
+			else here=h1; 
 			push(1);
 			push(lenstring(xc1, yc1));	
 			break;
@@ -2523,7 +2519,7 @@ void xmap() {
 	in_max=pop();
 	in_min=pop();
 	v=pop();
-  push((v - in_min) * (out_max - out_min) / (in_max - in_min) + out_min);
+	push((v - in_min) * (out_max - out_min) / (in_max - in_min) + out_min);
 }
 
 /*
