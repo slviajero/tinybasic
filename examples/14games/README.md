@@ -17,6 +17,10 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Love: draws a square the the message love
 - Dice: simulate the throwing of two dice
 - Mathdice: add two dice values and see how fast you are
+- Hurkle: find the hurkle in a grid
+- RockScissorsPaper: classical games of rock, scissors, and paper
+- Craps: Casino game with two dice, real old code, presubably from the 60s
+- Lunar: kinematically realistic lunar lander program, needs float
 
 ## BASIC language features
 
@@ -40,7 +44,19 @@ love.bas: READ DATA RESTORE mechanism of Dartmouth BASIC, strings and arrays, si
 
 dice.bas: formatted printing, arrays
 
-mathdice.bas: timing with MILLIS(100), random numbers.
+mathdice.bas: timing with MILLIS(100), random numbers
+
+hurkle.bas: save number input using VAL, @S, list parsing with INSTR
+
+rockscic.bas: FOR NEXT loops with CONT
+
+craps.bas: a GOTO nightmare to show how complex conditions were done back in the 60s
+
+lunar.bas: find if interpreter has float with USR(0,3), POW function, formating output with PRINT #
+
+
+
+
 
 
 
