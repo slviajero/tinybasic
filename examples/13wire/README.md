@@ -54,7 +54,7 @@ analogm2.bas: reading binary integer data from I2C
 
 ## Pecularities of the Wire library
 
-The Arduino Wire master functions cannot handle variable message sizes. If the master requests 32 bytes and the slave transfers only 10, 22 bytes are padded with -1 characters i.e. EOF. The mechanisms of Wire.available() and the return values of Wire.requestFrom() are not working as one would assume. This feature also shows in BASIC. 
+The Arduino Wire master functions cannot handle variable message sizes. If the master requests 32 bytes and the slave transfers only 10, 22 bytes are padded with -1 characters i.e. EOF. The mechanisms of Wire.available() and the return values of Wire.requestFrom() are not working as one would assume. This feature also shows in BASIC. The reason for this is that Arduino uses the stream class to build its Wire interface. The wire protocol and the underlying TWI library, however, are not really a stream. They are more a datagram type transfer mechanism with a more complex state engine. Still, BASIC can do a lot of fun things with I2C.
 
 Opening an Wire connection as a master for slave with address A is done with 
 
