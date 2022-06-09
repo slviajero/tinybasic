@@ -16,6 +16,7 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Guess: a simple number guessing showing many BASIC language features
 - Love: draws a square the the message love
 - Dice: simulate the throwing of two dice
+- Mathdice: add two dice values and see how fast you are
 
 ## BASIC language features
 
@@ -37,7 +38,9 @@ guess.bas: FOR loops with BREAK and CONT features
 
 love.bas: READ DATA RESTORE mechanism of Dartmouth BASIC, strings and arrays, single character output with PUT
 
-dice.bas: formatted printing, arrays, 
+dice.bas: formatted printing, arrays
+
+mathdice.bas: timing with MILLIS(100), random numbers.
 
 
 
