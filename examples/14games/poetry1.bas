@@ -46,5 +46,5 @@
 260 GOTO 215
 270 PRINT : U=0 : K=0 
 280 INPUT "Once more? ",A$
-290 IF A$="YES" or A$="yes" THEN 110
+290 IF A$="YES" OR A$="yes" THEN 110
 999 END
