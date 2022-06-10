@@ -27,6 +27,15 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Letter: letter.bas - guess a letter 
 - Name: name.bas - spell your name backward and sorted
 - Change: change.bas - calculates the change of an amount
+- Trap: trap.bas - trapping a number between an upper and lower bound
+- Train: train.bas - trainer to estimate speed distance solutions
+- Stars: stars.bas - find a number from a bargraph indicator
+- Sinewave: sinewave.bas - plot a sine wave
+- RussianRoulette: russian.bas - play russian roulette with spin after each click
+- Reverse: reverse.bas - sort numbers by reversing
+- Poetry: poetry1.bas and poetry2.bas - generate odd poetry 
+- Litquiz: litquiz.bas - literary quiz 
+- Kinema: kinema.bas - calculate kinematics 
 
 ## BASIC language features
 
@@ -71,6 +80,31 @@ letter.bas: conversion of strings to numbers with (A$)
 name.bas: convert strings to arrays and back
 
 change.bas: conditions IF THEN 
+
+trap.bas: FOR LOOPS with CONT
+
+train.bas: elementary BASIC features
+
+stars.bas: random numbers, elementary BASIC syntax
+
+sinewave.bas: IF THEN ELSE, USR(0,3) floating capability detection
+
+russian.bas: IF THEN ELSE, FOR LOOPS with CONT and BREAK
+
+reverse.bas: Arrays and subroutines with GOSUB
+
+poetry1.bas and poetry2.bas: conditional expressions with GOTO numerical_expression or ON GOTO respectively
+
+litquiz.bas: ON GOSUB, IF THEN ELSE as 2 line statement
+
+kinema.bas: IF THEN ELSE, GOSUB, floating point arithmetic
+
+
+
+
+
+
+
 
 
 
