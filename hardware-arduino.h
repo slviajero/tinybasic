@@ -668,10 +668,10 @@ void(* callzero)() = 0;
 
 void restartsystem() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
-	ESP.restart();
+  ESP.restart();
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) 
-	callzero();
+  callzero();
 #endif
 }
 
@@ -688,8 +688,8 @@ void activatesleep(long t) {
   ESP.deepSleep(t*1000);
 #endif
 #if defined(ARDUINO_ARCH_ESP32)
-   esp_sleep_enable_timer_wakeup(t*1000);
-   esp_deep_sleep_start();
+  esp_sleep_enable_timer_wakeup(t*1000);
+  esp_deep_sleep_start();
 #endif
 }
 
@@ -702,9 +702,9 @@ void spibegin() {
 #ifdef ARDUINOSPI
 #ifdef ARDUINO_TTGO_T7_V14_Mini32
 /* this fixes the wrong board definition in the ESP32 core for this board */
- 	SPI.begin(14, 2, 12, 13);
+  SPI.begin(14, 2, 12, 13);
 #else 
- 	SPI.begin();
+  SPI.begin();
 #endif
 #endif
 }
@@ -1028,13 +1028,13 @@ void fcircle(int x0, int y0, int r) {
 }
 void vgawrite(char c){
 	switch(c) {
-  		case 12: // form feed is clear screen
-  			Terminal.write(27); Terminal.write('H');
-  			Terminal.write(27); Terminal.write('J');
-    		return;
-  		case 10: // this is LF Unix style doing also a CR
-  			Terminal.write(10); Terminal.write(13);
-    		return;
+    case 12: // form feed is clear screen
+  		Terminal.write(27); Terminal.write('H');
+    	Terminal.write(27); Terminal.write('J');
+      return;
+    case 10: // this is LF Unix style doing also a CR
+      Terminal.write(10); Terminal.write(13);
+    	return;
   	}
   	Terminal.write(c);
 }
@@ -1129,7 +1129,7 @@ char kbdcheckch() {
 #endif
 #endif
 #ifdef HASKEYPAD
-		return keypadread();
+	return keypadread();
 #endif	
 	return 0;
 }
@@ -1383,8 +1383,8 @@ void dspwrite(char c){
     	dspclear();
     	return;
     case 13: // classical carriage return 
-    	dspmycol=0;
-    	return;
+      dspmycol=0;
+      return;
   	case 27: // escape - initiate vtxxx mode
 			esc=1;
 			return;

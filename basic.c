@@ -2033,10 +2033,10 @@ void gettoken() {
 			yc=memread(here++);
 			break;
 		case STRING:
-			x=(unsigned char)memread(here++);		/* if we run interactive or from mem, pass back the mem location */
-			if (st == SERUN) { 									/* we run from EEPROM and cannot simply pass a pointer */
+			x=(unsigned char)memread(here++);	/* if we run interactive or from mem, pass back the mem location */
+			if (st == SERUN) { 					/* we run from EEPROM and cannot simply pass a pointer */
 				for(int i=0; i<x; i++) {
-					ibuffer[i]=memread(here+i);			/* we (ab)use the input buffer which is not needed here */
+					ibuffer[i]=memread(here+i);	/* we (ab)use the input buffer which is not needed here */
 				}
 				ir=ibuffer;
 			} else {
@@ -2321,7 +2321,7 @@ void storeline() {
 		if (x == y) {		/* the line already exists and has to be replaced */
 			here2=t2;  		/* this is the line we are dealing with */
 			here=t1;   		/* this is the next line */
-			y=here-here2; /* the length of the line as it is  */
+			y=here-here2;	/* the length of the line as it is  */
 			if (linelength == y) {     /* no change in line length */
 				moveblock(top-linelength, linelength, here2);
 				top=top-linelength;
@@ -5642,7 +5642,7 @@ void statement(){
 				if (st==SRUN || st==SERUN) {
 					xcont();
 					break;
-				}						/* no break here, because interactively CONT=RUN minus CLR */
+				}			/* no break here, because interactively CONT=RUN minus CLR */
 			case TRUN:
 				xrun();
 				return;	
@@ -5828,7 +5828,7 @@ void setup() {
 	ioinit();
 
 /* get the BASIC memory */
-  himem=memsize=ballocmem();
+	himem=memsize=ballocmem();
   
 /* be ready for a new program */
  	xnew();	
@@ -5853,10 +5853,10 @@ void loop() {
  *	autorun BASIC programs return to interactive after completion
  *	autorun code always must loop in itself
  */
-	if (st == SERUN ) {
+	if (st == SERUN) {
 		xrun();
-    top=0;
-    st=SINT;
+		top=0;
+		st=SINT;
 	} else if (st == SRUN) {
 		here=0;
 		xrun();
@@ -5868,23 +5868,23 @@ void loop() {
 
 /* the prompt and the input request */
 	printmessage(MPROMPT);
-  ins(ibuffer, BUFSIZE-2);
+	ins(ibuffer, BUFSIZE-2);
         
 /* tokenize first token from the input buffer */
 	bi=ibuffer;
 	nexttoken();
 
 /* a number triggers the line storage, anything else is executed */
-    if (token == NUMBER) {
-         storeline();		
-    } else {
-      	//st=SINT;
-      	statement();   
-      	st=SINT;
-    }
+	if (token == NUMBER) {
+		storeline();		
+	} else {
+ 		//st=SINT;
+		statement();   
+		st=SINT;
+	}
 
 /* here, at last, all errors need to be catched and back to interactive input*/
-    if (er) reseterror();
+	if (er) reseterror();
 }
 
 /* if we are not on an Arduino */
