@@ -3554,6 +3554,9 @@ void xif() {
 /* if we have ELSE at this point we want to execute this part of the line as the condition 
 		was false, isolated ELSE is GOTO */
 #ifdef HASSTEFANSEXT
+/* look if ELSE is at the next line */
+		if (token == LINENUMBER) nexttoken();
+/* now process ELSE */
 		if (token == TELSE) {
 			nexttoken();
 			if (token == NUMBER) {
@@ -5795,7 +5798,8 @@ void statement(){
 			case ':':
 				nexttoken();
 				break;
-			default: // very tolerant - tokens are just skipped 
+			default:
+/*  very tolerant - tokens are just skipped, this is anarchy */
 				if (DEBUG) { outsc("** hoppla - unexpected token, skipped "); debugtoken(); }
 				nexttoken();
 		}
