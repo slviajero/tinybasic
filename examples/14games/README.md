@@ -38,9 +38,13 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Kinema: kinema.bas - calculate kinematics 
 - FlipFlop: flipflop.bas - flipping onjects puzzle, really hard
 - Mugwump: mugwump.bas - find 4 mugwumps in a field
-- Gunner: gunner.bas artillery shooting duell
-- Hamurabi: govern ancient Sumer
-- Gomoko: place 5 chips in a row - Go style
+- Gunner: gunner.bas - artillery shooting duell
+- Hamurabi: hamurabi.bas - govern ancient Sumer
+- Gomoko: gomoko.bas - place 5 chips in a row - Go style
+- Aceyducey: aceyduc.bas - place a bet on a card being in the middle of two other cards
+- Bagels: bagels.bas - guess a 3 digit number
+- Depthcharge: depthcha.bas - hunt a submarine 
+- Diamond: diamond.bas - print a diamond pattern
 
 ## BASIC language features
 
@@ -112,7 +116,15 @@ gunner.bas: I left this one as it was, wonderful GOTO mess example of the early 
 
 hamurabi.bas: standard BASIC syntax, USR(0, 3) to find floating point capability
 
-gomoko: arrays, standard BASIC, simple FOR NEXT and conditions
+gomoko.bas: arrays, standard BASIC, simple FOR NEXT and conditions
+
+aceyduc.bas: random numbers with RND, standard BASIC syntax
+
+bagels.bas: random numbers with RND, arrays, standard BASIC syntax
+
+depthcha.bas: random numbers with RND, floating point capaility with USR(0, 3), standard BASIC syntax
+
+diamond.bas: standard BASIC syntax, test for nested FOR LOOPS with CONT
 
 ## Sources
 
