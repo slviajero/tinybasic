@@ -38,7 +38,9 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Kinema: kinema.bas - calculate kinematics 
 - FlipFlop: flipflop.bas - flipping onjects puzzle, really hard
 - Mugwump: mugwump.bas - find 4 mugwumps in a field
-- Gunner: artillery shooting duell
+- Gunner: gunner.bas artillery shooting duell
+- Hamurabi: govern ancient Sumer
+- Gomoko: place 5 chips in a row - Go style
 
 ## BASIC language features
 
@@ -107,6 +109,10 @@ flipflop.bas: characters in arrays, character output with PUT
 mugwump.bas: arrays, IF THEN ELSE 2 line statements, GOSUB, CONT and BREAK in FOR loops
 
 gunner.bas: I left this one as it was, wonderful GOTO mess example of the early BASIC days
+
+hamurabi.bas: standard BASIC syntax, USR(0, 3) to find floating point capability
+
+gomoko: arrays, standard BASIC, simple FOR NEXT and conditions
 
 ## Sources
 
