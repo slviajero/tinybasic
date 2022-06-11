@@ -25,6 +25,7 @@ This runs on all board with a buildin LED. An Arduino UNO would be fine. Compile
 - LightSensor: lcdlight.bas - show the light intensity on the display
 - LCDPulse: lcdpuls.bas - measure distances and show the result on the LCD
 - PIRCount: pircount.bas - measure and display the number of events of a PIR
+- 23Matches: 23matchl.bas - play the game of 23 matches on the LCD16x2
 
 ## BASIC language features 
 
@@ -51,3 +52,6 @@ lcdlight.bas - analog sensor read AREAD(), change the outpur device with @O
 lcdpulse.bas - PULSEIN, MAP, display output and keypad input
 
 pircount.bas - DREAD, the EEPROM @E() array, display control with @X, @Y
+
+23match.bas - keypad function (1=left, 2=right, 4=up, 3=down, return=select)
+
