@@ -37,6 +37,8 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Litquiz: litquiz.bas - literary quiz 
 - Kinema: kinema.bas - calculate kinematics 
 - FlipFlop: flipflop.bas - flipping onjects puzzle, really hard
+- Mugwump: mugwump.bas - find 4 mugwumps in a field
+- Gunner: artillery shooting duell
 
 ## BASIC language features
 
@@ -102,6 +104,9 @@ kinema.bas: IF THEN ELSE, GOSUB, floating point arithmetic
 
 flipflop.bas: characters in arrays, character output with PUT
 
+mugwump.bas: arrays, IF THEN ELSE 2 line statements, GOSUB, CONT and BREAK in FOR loops
+
+gunner.bas: I left this one as it was, wonderful GOTO mess example of the early BASIC days
 
 ## Sources
 
