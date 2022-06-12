@@ -1,0 +1,14 @@
+10 REM "Graphics code elementary demo"
+20 REM "Written only for large TFT screens"
+100 CLS 
+200 FOR I
+210 X=RND(800)
+220 Y=RND(480)
+230 R0=RND(40)
+240 R=RND(255): G=RND(255): B=RND(255)
+250 COLOR R,G,B
+260 FCIRCLE X,Y,R0
+270 @X=1:@Y=1:PRINT #5;I;
+280 DELAY 100
+290 NEXT
+300 END
