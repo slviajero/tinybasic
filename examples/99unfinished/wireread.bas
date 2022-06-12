@@ -1,7 +1,0 @@
-10 C$="m":C$(2)=8
-20 OPEN &7,C$
-30 INPUT &7,A$
-35 print @S
-40 PRINT A$
-50 DELAY 2000
-60  GOTO 30
