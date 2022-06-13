@@ -309,16 +309,16 @@ void eload() {
 char autorun() {
 #if defined(ARDUINOEEPROM) || ! defined(ARDUINO) 
 	if (eread(0) == 1){ /* autorun from the EEPROM */
-  	egetnumber(1, addrsize);
-  	top=z.a;
-  	st=SERUN;
-  	return TRUE; /* EEPROM autorun overrules filesystem autorun */
+  		egetnumber(1, addrsize);
+  		top=z.a;
+  		st=SERUN;
+  		return TRUE; /* EEPROM autorun overrules filesystem autorun */
 	} 
 #endif
 #if defined(FILESYSTEMDRIVER) || ! defined(ARDUINO)
 	if (ifileopen("autoexec.bas")) {
-  	xload("autoexec.bas");
-  	st=SRUN;
+  		xload("autoexec.bas");
+  		st=SRUN;
 		ifileclose();
 		return TRUE;
 	}
@@ -348,9 +348,9 @@ address_t bmalloc(signed char t, char c, char d, address_t l) {
  *		one byte for every string character
  */
 	switch(t) {
-  	case VARIABLE:
-    	vsize=numsize+3;
-    	break;
+  		case VARIABLE:
+    		vsize=numsize+3;
+    		break;
 		case ARRAYVAR:
 			vsize=numsize*l+addrsize+3;
 			break;
