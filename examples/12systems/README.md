@@ -27,6 +27,11 @@ This runs on all board with a buildin LED. An Arduino UNO would be fine. Compile
 - PIRCount: pircount.bas - measure and display the number of events of a PIR
 - 23Matches: 23matchl.bas - play the game of 23 matches on the LCD16x2
 
+## The full TFT system
+
+- Plot: plot.bas - use text graphics on a TFT screen
+- Graphics: graph.bas - draw coloured circles to the sreen randomly
+
 ## BASIC language features 
 
 hello.bas: the PRINT statement
@@ -54,4 +59,10 @@ lcdpulse.bas - PULSEIN, MAP, display output and keypad input
 pircount.bas - DREAD, the EEPROM @E() array, display control with @X, @Y
 
 23match.bas - keypad function (1=left, 2=right, 4=up, 3=down, return=select)
+
+plot.bas - use of the cursor functions @X, @X
+
+graph.bas - using graphics functions FCIRCLE, COLOR and the cursor control vars @X, @Y
+
+
 
