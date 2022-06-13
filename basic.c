@@ -62,6 +62,7 @@
 #define HASDARTMOUTH
 #define HASDARKARTS
 #define HASIOT
+#define HASMULTIDIM
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -351,9 +352,16 @@ address_t bmalloc(signed char t, char c, char d, address_t l) {
   		case VARIABLE:
     		vsize=numsize+3;
     		break;
+#ifndef HASMULTIDIM
 		case ARRAYVAR:
 			vsize=numsize*l+addrsize+3;
 			break;
+#else
+/* test multidim implementation for n=2 */
+		case ARRAYVAR:
+			vsize=numsize*l+addrsize*2+3;
+			break;
+#endif
 		case TFN:
 			vsize=addrsize+2+3;
 			break;
@@ -379,6 +387,9 @@ address_t bmalloc(signed char t, char c, char d, address_t l) {
 		setnumber(b, addrsize);
 		b--;
 	}
+
+/* remark on multidim, the byte length is after the header and the following 
+	address_t bytes are then reserved for the first dimension */
 
 /* reserve space for the payload */
 	himem-=vsize;
@@ -621,23 +632,56 @@ void esetnumber(address_t m, short n){
 }
 
 /* create an array */
-address_t createarray(char c, char d, address_t i) {
+address_t createarray(char c, char d, address_t i, address_t j) {
+#ifdef HASMULTIDIM
+	address_t a, zat;
+#endif
 #ifdef HASAPPLE1
 	if (DEBUG) { outsc("* create array "); outch(c); outch(d); outspc(); outnumber(i); outcr(); }
+#ifndef HASMULTIDIM
 	if (bfind(ARRAYVAR, c, d)) error(EVARIABLE); else return bmalloc(ARRAYVAR, c, d, i);
+#else
+	if (bfind(ARRAYVAR, c, d)) error(EVARIABLE); else {
+		a=bmalloc(ARRAYVAR, c, d, i*j);
+		zat=z.a; /* preserve z.a because it is needed on autocreate later */
+		z.a=j;
+		a=a+i*j*numsize; 
+		mem[a++]=z.b.l; /* test code, assuming 16 bit address_t here */
+		mem[a]=z.b.h;
+		z.a=zat;
+	}
+#endif
 #endif
 	return 0;
 }
 
+/* finds if an array is twodimensional and what the second dimension structure is */
+address_t getarrayseconddim(address_t a, address_t za) {
+#ifdef HASMULTIDIM
+	address_t zat1, zat2;
+	zat1=z.a;
+	z.b.l=mem[a+za-2];
+	z.b.h=mem[a+za-1];
+	zat2=z.a;
+	z.a=zat1;
+	return zat2;
+#else
+	return 1;
+#endif
+}
+
 /* generic array access function */
-void array(char m, char c, char d, address_t i, number_t* v) {
+void array(char m, char c, char d, address_t i, address_t j, number_t* v) {
 	address_t a;
 	address_t h;
 	char e = FALSE;
+#ifdef HASMULTIDIM
+	address_t dim, zat;
+#endif
 
 	if (DEBUG) { outsc("* get/set array "); outch(c); outspc(); outnumber(i); outcr(); }
 
-	/* special arrays EEPROM, Display and Wang */
+/* special arrays EEPROM, Display and Wang, dimension j is ignored here and not handled */
 	if (c == '@') {
 		switch(d) {
 			case 'E': 
@@ -682,18 +726,31 @@ void array(char m, char c, char d, address_t i, number_t* v) {
 	} else {
 #ifdef HASAPPLE1
 /* dynamically allocated arrays autocreated if needed */ 
-		if ( !(a=bfind(ARRAYVAR, c, d)) ) a=createarray(c, d, ARRAYSIZEDEF);
+		if ( !(a=bfind(ARRAYVAR, c, d)) ) a=createarray(c, d, ARRAYSIZEDEF, 1);
 		if (er != 0) return;
 		h=z.a/numsize;
+
+/* redudant code to getarrayseconddim */
+#ifdef HASMULTIDIM
+		dim=getarrayseconddim(a, z.a);
+		a=a+((i-1)*dim+(j-1))*numsize;
+#else 
 		a=a+(i-1)*numsize;
+#endif
 #else
 		error(EVARIABLE); 
 		return;
 #endif
 	}
 
+
 /* is the index in range */
+#ifdef HASMULTIDIM
+	if (DEBUG) { outsc("** in array "); outnumber(i); outspc(); outnumber(j); outspc(); outnumber(dim); outspc(); outnumber(a); outcr(); }
+	if ( (j < 1) || (j > dim) || (i < 1) || (i > h/dim) ) { error(EORANGE); return; }
+#else
 	if ( (i < 1) || (i > h) ) { error(EORANGE); return; }
+#endif
 
 /* set or get the array */
 	if (m == 'g') {
@@ -2752,11 +2809,30 @@ void factor(){
 			nexttoken();
 			parsesubscripts();
 			if (er != 0 ) return;
+#ifndef HASMULTIDIM
 			if (args != 1) { error(EARGS); return; }	
 			x=pop();
 			xc=pop();
 			yc=pop();
-			array('g', xc, yc, x, &y);
+			array('g', xc, yc, x, 1, &y);	
+#else
+			switch(args) {
+				case 1:
+					x=pop();
+					y=1;
+					break;
+				case 2:
+					y=pop();
+					x=pop();
+					break;
+				default:
+					error(EARGS); 
+					return;
+			}
+			xc=pop();
+			yc=pop();
+			array('g', xc, yc, x, y, &y);
+#endif
 			push(y); 
 			break;
 		case '(':
@@ -3228,7 +3304,7 @@ separators:
  *
  *	assignnumber assigns a number to a given lefthandside
  */
-void lefthandside(address_t* i, char* ps) {
+void lefthandside(address_t* i, address_t* j, char* ps) {
 	switch (token) {
 		case VARIABLE:
 			nexttoken();
@@ -3238,11 +3314,19 @@ void lefthandside(address_t* i, char* ps) {
 			parsesubscripts();
 			nexttoken();
 			if (er != 0) return;
-			if (args != 1) {
-				error(EARGS);
-				return;
+			switch(args) {
+				case 1:
+					*i=pop();
+					*j=1;
+					break;
+				case 2:
+					*j=pop();
+					*i=pop();
+					break;
+				default:
+					error(EARGS);
+					return;
 			}
-			*i=pop();
 			break;
 #ifdef HASAPPLE1
 		case STRINGVAR:
@@ -3271,15 +3355,15 @@ void lefthandside(address_t* i, char* ps) {
 	}
 }
 
-void assignnumber(signed char t, char xcl, char ycl, address_t i, char ps) {
+void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, char ps) {
 	switch (t) {
 		case VARIABLE:
 			x=pop();
-			setvar(xcl, ycl , x);
+			setvar(xcl, ycl, x);
 			break;
 		case ARRAYVAR: 
 			x=pop();	
-			array('s', xcl, ycl, i, &x);
+			array('s', xcl, ycl, i, j, &x);
 			break;
 #ifdef HASAPPLE1
 		case STRINGVAR:
@@ -3303,17 +3387,18 @@ void assignment() {
 	signed char t;  // remember the left hand side token until the end of the statement, type of the lhs
 	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
 	char xcl, ycl; // to preserve the left hand side variable names
-	address_t i=1;      // and the beginning of the destination string  
+	address_t i=1; // and the beginning of the destination string  
+	address_t j=1; /* the second dimension of the array */
 	address_t lensource, lendest, newlength;
 	char s;
-	int j;
+	int k;
 
 /* this code evaluates the left hand side */
 	ycl=yc;
 	xcl=xc;
 	t=token;
 
-	lefthandside(&i, &ps);
+	lefthandside(&i, &j, &ps);
 	if (er != 0) return;
 
 /* the assignment part */
@@ -3330,7 +3415,7 @@ void assignment() {
 		case ARRAYVAR: 
 			expression();
 			if (er != 0) return;
-			assignnumber(t, xcl, ycl, i, ps);
+			assignnumber(t, xcl, ycl, i, j, ps);
 			break;
 #ifdef HASAPPLE1
 /* the lefthandside is a string, try evaluate the righthandside as a stringvalue */
@@ -3342,7 +3427,7 @@ void assignment() {
 			if (!s) {
 				expression();
 				if (er != 0) return;
-				assignnumber(t, xcl, ycl, i, ps);
+				assignnumber(t, xcl, ycl, i, j, ps);
 				break;
 			}
 
@@ -3370,9 +3455,9 @@ void assignment() {
 /* this code is needed to make sure we can copy one string to the same string 
 	without overwriting stuff, we go either left to right or backwards */
 			if (x > i) 
-				for (j=0; j<lensource; j++) ir[j]=ir2[j];
+				for (k=0; k<lensource; k++) ir[k]=ir2[k];
 			else
-				for (j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
+				for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
 
 /* classical Apple 1 behaviour is string truncation in substring logic */
 			newlength = i+lensource-1;	
@@ -3450,6 +3535,9 @@ nextvariable:
 		}
 	} 
 
+/* we don't use the lefthandside call here because the input loop token handling
+	is different */
+#ifndef HASMULTIDIM
 	if (token == ARRAYVAR) {
 		nexttoken();
 		parsesubscripts();
@@ -3465,9 +3553,38 @@ nextvariable:
 			token=EOL;
 			goto resetinput;
 		} else {
-			array('s', xc, yc, pop(), &xv);
+			array('s', xc, yc, pop(), 1, &xv);
 		}
 	}
+#else
+	if (token == ARRAYVAR) {
+		nexttoken();
+		parsesubscripts();
+		if (er != 0 ) return;
+		switch(args) {
+			case 1:
+				x=pop();
+				y=1; 
+				break;
+			case 2:
+				y=pop();
+				x=pop();
+				break;
+			default:
+				error(EARGS);
+				return;
+		}
+
+		if (prompt) showprompt();
+		if (innumber(&xv) == BREAKCHAR) {
+			st=SINT;
+			token=EOL;
+			goto resetinput;
+		} else {
+			array('s', xc, yc, x, y, &xv);
+		}
+	}
+#endif
 
 #ifdef HASAPPLE1
 /* strings are not passed through the input buffer but inputed directly 
@@ -3966,6 +4083,7 @@ nextvariable:
 		nexttoken();
 		parsesubscripts();
 		if (er != 0) return;
+#ifndef HASMULTIDIM
 		if (args != 1) {error(EARGS); return; }
 
 		x=pop();
@@ -3974,8 +4092,23 @@ nextvariable:
 			if ( (x>255) && (strindexsize==1) ) {error(EORANGE); return; }
 			(void) createstring(xcl, ycl, x);
 		} else {
-			(void) createarray(xcl, ycl, x);
-		}	
+			(void) createarray(xcl, ycl, x, 1);
+		}
+#else 
+		if (t == STRINGVAR && args != 1 ) {error(EARGS); return; }
+		if (t == ARRAYVAR && (args != 1 && args != 2)) {error(EARGS); return; }
+
+		x=pop();
+		if (args == 2) {y=x; x=pop(); } else { y=1; }
+
+		if (x <= 0 || y<=0) {error(EORANGE); return; }
+		if (t == STRINGVAR) {
+			if ( (x>255) && (strindexsize==1) ) {error(EORANGE); return; }
+			(void) createstring(xcl, ycl, x);
+		} else {
+			(void) createarray(xcl, ycl, x, y);
+		}
+#endif	
 	} else {
 		error(EUNKNOWN);
 		return;
@@ -4310,6 +4443,7 @@ void xget(){
 	char ps=TRUE;		// also remember if the left hand side is a pure string of something with an index 
 	char xcl, ycl;	// to preserve the left hand side variable names
 	address_t i=1;	// and the beginning of the destination string  
+	address_t j=1;	// the second dimension of the array if needed
 	unsigned char oid=id;
 
 	nexttoken();
@@ -4332,14 +4466,14 @@ void xget(){
 	t=token;
 
 /* find the indices */
-	lefthandside(&i, &ps);
+	lefthandside(&i, &j, &ps);
 	if (er != 0) return;
 
 /* get the data */
 	if (availch()) push(inch()); else push(0);
 
 /* store the data element as a number */
-	assignnumber(t, xcl, ycl, i, ps);
+	assignnumber(t, xcl, ycl, i, j, ps);
 
 	nexttoken();
 	id=oid;
@@ -5309,9 +5443,10 @@ void xread(){
 	char ps=TRUE;  			// also remember if the left hand side is a pure string of something with an index 
 	char xcl, ycl; 			// to preserve the left hand side variable names
 	address_t i=1;  		// and the beginning of the destination string 
+	address_t j=1; /* the second dimension of the array if needed */
 	signed char datat;	// the type of the data element
 	address_t lendest, lensource, newlength;
-	int j;
+	int k;
 	
 	nexttoken();
 
@@ -5323,7 +5458,7 @@ void xread(){
 	if (DEBUG) {outsc("assigning to variable "); outch(xcl); outch(ycl); outsc(" type "); outnumber(t); outcr();}
 
 /* find the indices and draw the next token of read */
-	lefthandside(&i, &ps);
+	lefthandside(&i, &j, &ps);
 	if (er != 0) return;
 
 /* if the token after lhs is not a termsymbol, something is wrong */
@@ -5338,7 +5473,7 @@ void xread(){
 		case NUMBER:
 /* a number is stored on the stack */
 			push(x);
-			assignnumber(t, xcl, ycl, i, ps);
+			assignnumber(t, xcl, ycl, i, j, ps);
 			break;
 		case STRING:	
 /* a string is stored in ir2 */
@@ -5349,7 +5484,7 @@ void xread(){
 			ir=getstring(xcl, ycl, i);
 			if (er != 0) return;
 
-/* the length of the lefthandsie string */
+/* the length of the lefthandside string */
 			lendest=lenstring(xcl, ycl);
 
 			if (DEBUG) {
@@ -5365,9 +5500,9 @@ void xread(){
 /* this code is needed to make sure we can copy one string to the same string 
 	without overwriting stuff, we go either left to right or backwards */
 			if (x > i) 
-				for (j=0; j<lensource; j++) { ir[j]=ir2[j];}
+				for (k=0; k<lensource; k++) { ir[k]=ir2[k];}
 			else
-				for (j=lensource-1; j>=0; j--) ir[j]=ir2[j]; 
+				for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
 
 /* classical Apple 1 behaviour is string truncation in substring logic */
 			newlength = i+lensource-1;	
