@@ -40,7 +40,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define  BASICFULL
+#define BASICFULL
 #undef   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
@@ -79,6 +79,7 @@
 #undef HASDARTMOUTH
 #undef HASDARKARTS
 #undef HASIOT
+#undef HASMULTIDIM
 #endif
 
 /* all features minus float */
@@ -96,6 +97,7 @@
 #define HASDARTMOUTH
 #undef HASDARKARTS
 #define HASIOT
+#define HASMULTIDIM
 #endif
 
 /* all features activated */
@@ -113,6 +115,7 @@
 #define HASDARTMOUTH
 #define HASDARKARTS
 #define HASIOT
+#define HASMULTIDIM
 #endif
 
 /* a Tinybasic with float support */
@@ -130,6 +133,7 @@
 #undef HASDARTMOUTH
 #undef HASDARKARTS
 #undef HASIOT
+#undef HASMULTIDIM
 #endif
 
 /* 
@@ -634,7 +638,7 @@ void esetnumber(address_t m, short n){
 /* create an array */
 address_t createarray(char c, char d, address_t i, address_t j) {
 #ifdef HASMULTIDIM
-	address_t a, zat;
+	address_t a, zat, at;
 #endif
 #ifdef HASAPPLE1
 	if (DEBUG) { outsc("* create array "); outch(c); outch(d); outspc(); outnumber(i); outcr(); }
@@ -645,10 +649,11 @@ address_t createarray(char c, char d, address_t i, address_t j) {
 		a=bmalloc(ARRAYVAR, c, d, i*j);
 		zat=z.a; /* preserve z.a because it is needed on autocreate later */
 		z.a=j;
-		a=a+i*j*numsize; 
-		mem[a++]=z.b.l; /* test code, assuming 16 bit address_t here */
-		mem[a]=z.b.h;
+		at=a+i*j*numsize; 
+		mem[at++]=z.b.l; /* test code, assuming 16 bit address_t here */
+		mem[at]=z.b.h;
 		z.a=zat;
+		return a;
 	}
 #endif
 #endif
@@ -3037,9 +3042,6 @@ void factor(){
 			break;
 #endif
 #ifdef HASIOT
-		case TNEXT:
-			parsefunction(xinext, 1);
-			break;
 		case TNETSTAT:
 			x=0;
 			if (netconnected()) x=1;
@@ -4923,14 +4925,6 @@ void xeval(){
  */
 void xinext() {
 	push(pop());
-}
-
-/*
- *	ITER generates iterators
- * 	not yet implemented 
- */
-void xiter(){
-	nexttoken();
 }
 
 /* 
