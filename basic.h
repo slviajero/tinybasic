@@ -981,8 +981,9 @@ void egetnumber(address_t, short);
 void esetnumber(address_t, short);
 
 /* array and string handling */
-address_t createarray(char, char, address_t);
-void array(char, char, char, address_t, number_t*);
+/* the multidim extension is experimental, here only 2 array dimensions implemented as test */
+address_t createarray(char, char, address_t, address_t);
+void array(char, char, char, address_t, address_t, number_t*);
 address_t createstring(char, char, address_t);
 char* getstring(char, char, address_t);
 number_t arraydim(char, char);
@@ -1127,8 +1128,8 @@ void expression();
 
 /* basic commands of the core language set */
 void xprint();
-void lefthandside(address_t*, char*);
-void assignnumber(signed char, char, char, address_t, char);
+void lefthandside(address_t*, address_t*, char*);
+void assignnumber(signed char, char, char, address_t, address_t, char);
 void assignment();
 void showprompt();
 void xinput();
