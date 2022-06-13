@@ -54,6 +54,7 @@ For compatibility with the Dartmouth style BASIC interpreters, the following com
 - ReadData: readdata.bas - reading data 
 - OnGo: ongo.bas - demo for ON GOTO type conditions
 - Functions: func.bas - demo for DEF FN statements
+- Eliza: eliza.bas - the BASIC written psychologist, legendary program from 1979
 
 ### File I/O functions
 
@@ -161,6 +162,8 @@ readdata.bas: READ, DATA and @S
 ongo.bas: ON GOTO statements
 
 func.bas: function definitions
+
+eliza.bas: using BASIC string functions, the original MID$ code is preserved to show the use of Apple Integer BASIC substrings
 
 fileio.bas: OPEN for read and write, CLOSE, PRINT, INPUT and GET for files
 
