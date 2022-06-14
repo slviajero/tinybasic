@@ -218,7 +218,7 @@ typedef unsigned char uint8_t;
 #define TMALLOC -35
 #define TFIND   -34
 #define TEVAL   -33
-/* iot extensions (6) */
+/* iot extensions (9) */
 #define TITER	-32
 #define TAVAIL	-31
 #define TSTR	-30
