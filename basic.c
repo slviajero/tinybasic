@@ -557,9 +557,10 @@ void setvar(char c, char d, number_t v){
 
 /* clr all variables */
 void clrvars() {
-	signed char i;
+	address_t i;
 	for (i=0; i<VARSIZE; i++) vars[i]=0;
 	nvars=0;
+	for (i=himem; i<memsize; i++) mem[i]=0;
 	himem=memsize;
 }
 
@@ -4025,12 +4026,12 @@ void xnew(){
 	clrgosubstack();
 	clrforstack();
 	clrdata();
+	clrvars();
 
 /* program memory back to zero and variable heap cleared */
+	zeroblock(0, top);
 	himem=memsize;
-	top=0;
-	zeroblock(top,himem);
-	clrvars();
+	top=0;;
 	clrlinecache();
 
 /* error status reset */
