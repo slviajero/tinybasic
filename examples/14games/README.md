@@ -45,6 +45,11 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Bagels: bagels.bas - guess a 3 digit number
 - Depthcharge: depthcha.bas - hunt a submarine 
 - Diamond: diamond.bas - print a diamond pattern
+- Word: word.bas - guess a 5 letter word 
+- War: war.bas - drawing cards, higher card wins
+- Target: target.bas - 3D target practice, somewhat hard
+- Calendar: calendar.bas - extended version of the 1979 program, can do arbitrary years
+- TicTacToeFull: tictacf.bas - full version of tictactoe, player or computer can start
 
 ## BASIC language features
 
@@ -126,6 +131,18 @@ depthcha.bas: random numbers with RND, floating point capaility with USR(0, 3), 
 
 diamond.bas: standard BASIC syntax, test for nested FOR LOOPS with CONT
 
+word.bas: strings and arrays
+
+war.bas: simulate a string array using substings and an DEF FN type index function
+
+target.bas: trigonometry and math functions POW(), SQR()
+
+calendar.bas: formatted output, modulo % arithmetic, functions with DEF FN
+
+tictacf.bas: mostly original version, handling arrays
+
+
+
 ## Sources
 
 Original programs of the book "BASIC Computer Games"
@@ -135,28 +152,5 @@ This is an unofficial mirror of the source code provided inside the book **"Basi
 The files were taken from http://vintage-basic.net/games.html and ported to Stefan's Tinybasic to see how the interpreter would work. 
 
 The archive itself was a fork from https://github.com/GReaperEx/bcg.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
