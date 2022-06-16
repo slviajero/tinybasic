@@ -8,6 +8,7 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 
 - TicTacToe: tictac.bas - a "computer plays first" tictactoe game
 - TicTacToe (improved): tictac2.bas - a tictactoe game with board display
+- TicTacToeFull: tictacf.bas - full version of tictactoe, player or computer can start
 - Rocket: rocket.bas - the classical lunar lander simulation
 - HighLow: hi-lo.bas - guessing a number between 1 and 100
 - 23Matches: 23match.bas - remove 1, 2, or 3 matches from a pile of 23
@@ -49,13 +50,16 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - War: war.bas - drawing cards, higher card wins
 - Target: target.bas - 3D target practice, somewhat hard
 - Calendar: calendar.bas - extended version of the 1979 program, can do arbitrary years
-- TicTacToeFull: tictacf.bas - full version of tictactoe, player or computer can start
+- Orbit: orbit.bas - destroy a Romulan ship in orbit
+- Slots: slots.bas - random numbers, elementary BASIC syntax
 
 ## BASIC language features
 
 tictac.bas: modulo operator % 
 
 tictac2.bas: string variables as array of chars  and conversion to integers
+
+tictacf.bas: mostly original version, handling arrays
 
 rocket.bas: formatted printing, TAB, strings 
 
@@ -139,9 +143,9 @@ target.bas: trigonometry and math functions POW(), SQR()
 
 calendar.bas: formatted output, modulo % arithmetic, functions with DEF FN
 
-tictacf.bas: mostly original version, handling arrays
+orbit.bas: trigonometry and math functions
 
-
+slots.bas:
 
 ## Sources
 
