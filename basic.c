@@ -661,7 +661,8 @@ address_t createarray(char c, char d, address_t i, address_t j) {
 	return 0;
 }
 
-/* finds if an array is twodimensional and what the second dimension structure is */
+/* finds if an array is twodimensional and what the second dimension structure is 
+	test code, should be rewritten to properly use getnumber*/
 address_t getarrayseconddim(address_t a, address_t za) {
 #ifdef HASMULTIDIM
 	address_t zat1, zat2;
@@ -682,7 +683,7 @@ void array(char m, char c, char d, address_t i, address_t j, number_t* v) {
 	address_t h;
 	char e = FALSE;
 #ifdef HASMULTIDIM
-	address_t dim, zat;
+	address_t dim=1, zat;
 #endif
 
 	if (DEBUG) { outsc("* get/set array "); outch(c); outspc(); outnumber(i); outcr(); }
@@ -5002,8 +5003,9 @@ void xcatalog() {
 		rootfileclose();
 	}
 	rootclose();
+#else
+	nexttoken();
 #endif
-	// nexttoken();
 }
 
 /*
@@ -5018,8 +5020,9 @@ void xdelete() {
 	if (er != 0) return; 
 
 	removefile(filename);
+#else 
+	nexttoken();
 #endif
-	//nexttoken();
 }
 
 /*
