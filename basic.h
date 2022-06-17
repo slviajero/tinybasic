@@ -219,7 +219,7 @@ typedef unsigned char uint8_t;
 #define TFIND   -34
 #define TEVAL   -33
 /* iot extensions (9) */
-#define TITER	-32
+#define TASSIGN	-32
 #define TAVAIL	-31
 #define TSTR	-30
 #define TINSTR	-29
@@ -404,7 +404,7 @@ const char seval[]		PROGMEM  = "EVAL";
 #endif
 /* iot extensions */
 #ifdef HASIOT
-const char siter[]		PROGMEM  = "ITER";
+const char sassign[]	PROGMEM  = "ASSIGN";
 const char savail[]		PROGMEM  = "AVAIL";
 const char sstr[]		PROGMEM  = "STR";
 const char sinstr[]		PROGMEM  = "INSTR";
@@ -467,7 +467,7 @@ const char* const keyword[] PROGMEM = {
 	smalloc, sfind, seval, 
 #endif
 #ifdef HASIOT
-	siter, savail, sstr, sinstr, sval, 
+	sassign, savail, sstr, sinstr, sval, 
 	snetstat, ssensor, swire, ssleep, 
 #endif
 	0
@@ -523,7 +523,7 @@ const signed char tokens[] PROGMEM = {
 	TMALLOC, TFIND, TEVAL, 
 #endif
 #ifdef HASIOT
-	TITER, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
+	TASSIGN, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
 	TSENSOR, TWIRE, TSLEEP,
 #endif
 	0
@@ -1190,8 +1190,7 @@ void xfind2();
 void xeval();
 
 /* IoT commands */
-void xinext();
-void xiter();
+void xassign();
 void xavail();
 void xfsensor();
 void xsleep();

@@ -1419,13 +1419,13 @@ void ins(char *b, short nb) {
   	switch(id) {
 #ifdef ARDUINOWIRE
   		case IWIRE:
-				wireins(b, nb);
-				break;
+			wireins(b, nb);
+			break;
 #endif
 #ifdef ARDUINOMQTT
-			case IMQTT:
-				mqttins(b, nb);	
-				break;	
+		case IMQTT:
+			mqttins(b, nb);	
+			break;	
 #endif
 #ifdef ARDUINORF24
   		case IRADIO:
@@ -4921,13 +4921,6 @@ void xeval(){
 
 
 #ifdef HASIOT
-/*
- * NEXT can be a function in the context of iterators
- *	not yet implemented
- */
-void xinext() {
-	push(pop());
-}
 
 /* 
  * AVAIL of a stream - are there characters in the stream
@@ -4960,6 +4953,17 @@ void xsleep() {
 	if (er != 0) return; 
 	activatesleep(pop());
 }
+
+/*
+ * Low level assignment function to be done 
+ * converts all kind of stuff
+ */
+
+void xassign() {
+	nexttoken();
+}
+
+
 #endif
 
 
@@ -5920,6 +5924,9 @@ void statement(){
 				break;
 #endif
 #ifdef HASIOT
+			case TASSIGN:
+				xassign();
+				break;
 			case TSLEEP:
 				xsleep();
 				break;	
