@@ -1716,10 +1716,11 @@ again:
 			s=-1;
 			i++;
 		}
-		if (sbuffer[i] >= '0' && sbuffer[i] <= '9') {
 #ifndef HASFLOAT
+		if (sbuffer[i] >= '0' && sbuffer[i] <= '9') {
 			(void) parsenumber(&sbuffer[i], r);
 #else
+		if ((sbuffer[i] >= '0' && sbuffer[i] <= '9') || sbuffer[i] == '.') {
 			(void) parsenumber2(&sbuffer[i], r);
 #endif
 			*r*=s;
@@ -1807,10 +1808,11 @@ void nexttoken() {
 	}
 
 /* unsigned numbers, value returned in x */
-	if (*bi <='9' && *bi >= '0'){
 #ifndef HASFLOAT
+	if (*bi <='9' && *bi >= '0'){		
 		bi+=parsenumber(bi, &x);
 #else
+	if ((*bi <='9' && *bi >= '0') || *bi == '.') {	
 		bi+=parsenumber2(bi, &x);
 #endif
 		token=NUMBER;
