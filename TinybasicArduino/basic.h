@@ -218,8 +218,8 @@ typedef unsigned char uint8_t;
 #define TMALLOC -35
 #define TFIND   -34
 #define TEVAL   -33
-/* iot extensions (6) */
-#define TITER	-32
+/* iot extensions (9) */
+#define TASSIGN	-32
 #define TAVAIL	-31
 #define TSTR	-30
 #define TINSTR	-29
@@ -404,7 +404,7 @@ const char seval[]		PROGMEM  = "EVAL";
 #endif
 /* iot extensions */
 #ifdef HASIOT
-const char siter[]		PROGMEM  = "ITER";
+const char sassign[]	PROGMEM  = "ASSIGN";
 const char savail[]		PROGMEM  = "AVAIL";
 const char sstr[]		PROGMEM  = "STR";
 const char sinstr[]		PROGMEM  = "INSTR";
@@ -467,7 +467,7 @@ const char* const keyword[] PROGMEM = {
 	smalloc, sfind, seval, 
 #endif
 #ifdef HASIOT
-	siter, savail, sstr, sinstr, sval, 
+	sassign, savail, sstr, sinstr, sval, 
 	snetstat, ssensor, swire, ssleep, 
 #endif
 	0
@@ -523,7 +523,7 @@ const signed char tokens[] PROGMEM = {
 	TMALLOC, TFIND, TEVAL, 
 #endif
 #ifdef HASIOT
-	TITER, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
+	TASSIGN, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
 	TSENSOR, TWIRE, TSLEEP,
 #endif
 	0
@@ -981,8 +981,9 @@ void egetnumber(address_t, short);
 void esetnumber(address_t, short);
 
 /* array and string handling */
-address_t createarray(char, char, address_t);
-void array(char, char, char, address_t, number_t*);
+/* the multidim extension is experimental, here only 2 array dimensions implemented as test */
+address_t createarray(char, char, address_t, address_t);
+void array(char, char, char, address_t, address_t, number_t*);
 address_t createstring(char, char, address_t);
 char* getstring(char, char, address_t);
 number_t arraydim(char, char);
@@ -1127,8 +1128,8 @@ void expression();
 
 /* basic commands of the core language set */
 void xprint();
-void lefthandside(address_t*, char*);
-void assignnumber(signed char, char, char, address_t, char);
+void lefthandside(address_t*, address_t*, char*);
+void assignnumber(signed char, char, char, address_t, address_t, char);
 void assignment();
 void showprompt();
 void xinput();
@@ -1189,8 +1190,7 @@ void xfind2();
 void xeval();
 
 /* IoT commands */
-void xinext();
-void xiter();
+void xassign();
 void xavail();
 void xfsensor();
 void xsleep();

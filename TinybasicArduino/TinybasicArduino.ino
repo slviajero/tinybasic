@@ -40,7 +40,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef BASICFULL
+#undef  BASICFULL
 #define   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
@@ -1419,13 +1419,13 @@ void ins(char *b, short nb) {
   	switch(id) {
 #ifdef ARDUINOWIRE
   		case IWIRE:
-				wireins(b, nb);
-				break;
+			wireins(b, nb);
+			break;
 #endif
 #ifdef ARDUINOMQTT
-			case IMQTT:
-				mqttins(b, nb);	
-				break;	
+		case IMQTT:
+			mqttins(b, nb);	
+			break;	
 #endif
 #ifdef ARDUINORF24
   		case IRADIO:
@@ -1716,10 +1716,11 @@ again:
 			s=-1;
 			i++;
 		}
-		if (sbuffer[i] >= '0' && sbuffer[i] <= '9') {
 #ifndef HASFLOAT
+		if (sbuffer[i] >= '0' && sbuffer[i] <= '9') {
 			(void) parsenumber(&sbuffer[i], r);
 #else
+		if ((sbuffer[i] >= '0' && sbuffer[i] <= '9') || sbuffer[i] == '.') {
 			(void) parsenumber2(&sbuffer[i], r);
 #endif
 			*r*=s;
@@ -1807,10 +1808,11 @@ void nexttoken() {
 	}
 
 /* unsigned numbers, value returned in x */
-	if (*bi <='9' && *bi >= '0'){
 #ifndef HASFLOAT
+	if (*bi <='9' && *bi >= '0'){		
 		bi+=parsenumber(bi, &x);
 #else
+	if ((*bi <='9' && *bi >= '0') || *bi == '.') {	
 		bi+=parsenumber2(bi, &x);
 #endif
 		token=NUMBER;
@@ -4921,13 +4923,6 @@ void xeval(){
 
 
 #ifdef HASIOT
-/*
- * NEXT can be a function in the context of iterators
- *	not yet implemented
- */
-void xinext() {
-	push(pop());
-}
 
 /* 
  * AVAIL of a stream - are there characters in the stream
@@ -4960,6 +4955,17 @@ void xsleep() {
 	if (er != 0) return; 
 	activatesleep(pop());
 }
+
+/*
+ * Low level assignment function to be done 
+ * converts all kind of stuff
+ */
+
+void xassign() {
+	nexttoken();
+}
+
+
 #endif
 
 
@@ -5920,6 +5926,9 @@ void statement(){
 				break;
 #endif
 #ifdef HASIOT
+			case TASSIGN:
+				xassign();
+				break;
 			case TSLEEP:
 				xsleep();
 				break;	
