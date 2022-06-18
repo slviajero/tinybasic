@@ -51,7 +51,10 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Target: target.bas - 3D target practice, somewhat hard
 - Calendar: calendar.bas - extended version of the 1979 program, can do arbitrary years
 - Orbit: orbit.bas - destroy a Romulan ship in orbit
-- Slots: slots.bas - random numbers, elementary BASIC syntax
+- Slots: slots.bas - a classical slot machine game
+- Splat: splat.bas - parachuting simulation in various gravity scenarios
+- Battle: battle.bas - maritime battle simulation
+
 
 ## BASIC language features
 
@@ -145,7 +148,11 @@ calendar.bas: formatted output, modulo % arithmetic, functions with DEF FN
 
 orbit.bas: trigonometry and math functions
 
-slots.bas:
+slots.bas: random numbers, elementary BASIC syntax
+
+splat.bas: mathematics, elementary BASIC syntax
+
+battle.bas: arrays, clean BASIC syntax, nice to read, copyright notice from 1971
 
 ## Sources
 
