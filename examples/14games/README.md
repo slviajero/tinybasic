@@ -54,7 +54,10 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Slots: slots.bas - a classical slot machine game
 - Splat: splat.bas - parachuting simulation in various gravity scenarios
 - Battle: battle.bas - maritime battle simulation
-
+- Amazing: amazing.bas - draw a maze of given dimensions
+- Banner: banner.bas - print a nice banner text (for those who still remember the large endless paper printers)
+- EvenWins: evenwins.bas - draw an even number from 27 marbles
+- Nim: nim.bas - take objects from piles, a classic
 
 ## BASIC language features
 
@@ -153,6 +156,15 @@ slots.bas: random numbers, elementary BASIC syntax
 splat.bas: mathematics, elementary BASIC syntax
 
 battle.bas: arrays, clean BASIC syntax, nice to read, copyright notice from 1971
+
+amazing.bas: arrays, ON GOTO, elementary BASIC
+
+banner.bas: using strings as integers in this BASIC, lower case conversion (meditate over line 81)
+
+evenwins.bas: arrays, clean purley integer based BASIC
+
+nim.bas: arrays - also multidimensional, elementary strings, arithmetic
+
 
 ## Sources
 
