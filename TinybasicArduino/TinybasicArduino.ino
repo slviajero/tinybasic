@@ -40,7 +40,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef  BASICFULL
+#undef   BASICFULL
 #define   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
@@ -3488,6 +3488,7 @@ void xinput(){
 	char prompt = TRUE;
 	char l;
 	number_t xv;
+	signed char xcl, ycl;
 
 	nexttoken();
 
@@ -3545,6 +3546,8 @@ nextvariable:
 	is different */
 #ifndef HASMULTIDIM
 	if (token == ARRAYVAR) {
+		xcl=xc; 
+		ycl=yc;
 		nexttoken();
 		parsesubscripts();
 		if (er != 0 ) return;
@@ -3559,11 +3562,13 @@ nextvariable:
 			token=EOL;
 			goto resetinput;
 		} else {
-			array('s', xc, yc, pop(), 1, &xv);
+			array('s', xcl, ycl, pop(), 1, &xv);
 		}
 	}
 #else
 	if (token == ARRAYVAR) {
+		xcl=xc; 
+		ycl=yc;
 		nexttoken();
 		parsesubscripts();
 		if (er != 0 ) return;
@@ -3587,7 +3592,7 @@ nextvariable:
 			token=EOL;
 			goto resetinput;
 		} else {
-			array('s', xc, yc, x, y, &xv);
+			array('s', xcl, ycl, x, y, &xv);
 		}
 	}
 #endif
