@@ -58,6 +58,10 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Banner: banner.bas - print a nice banner text (for those who still remember the large endless paper printers)
 - EvenWins: evenwins.bas - draw an even number from 27 marbles
 - Nim: nim.bas - take objects from piles, a classic
+- Cube: cube.bas - navigate through a mined cube
+- Queen: queen.bas - try to move a queen on a chessboard 
+- King: king.bas - a clone of Hamurabi, you are the king of an island
+- BlackJack: blackjk.bas - play blackjack, up to 7 players
 
 ## BASIC language features
 
@@ -164,6 +168,14 @@ banner.bas: using strings as integers in this BASIC, lower case conversion (medi
 evenwins.bas: arrays, clean purley integer based BASIC
 
 nim.bas: arrays - also multidimensional, elementary strings, arithmetic
+
+cube.bas: elementary BASIC, random numbers
+
+queen.bas: elementary BASIC, arrays, READ and DATA
+
+king.bas: elementary BASIC, random numbers
+
+blackjk.bas: strings and arrays
 
 
 ## Sources
