@@ -651,7 +651,7 @@ address_t createarray(char c, char d, address_t i, address_t j) {
 		zat=z.a; /* preserve z.a because it is needed on autocreate later */
 		z.a=j;
 		at=a+i*j*numsize; 
-		mem[at++]=z.b.l; /* test code, assuming 16 bit address_t here */
+		mem[at++]=z.b.l; /* test code, assuming 16 bit address_t here, should be ported to setnumber */
 		mem[at]=z.b.h;
 		z.a=zat;
 		return a;
@@ -667,7 +667,7 @@ address_t getarrayseconddim(address_t a, address_t za) {
 #ifdef HASMULTIDIM
 	address_t zat1, zat2;
 	zat1=z.a;
-	z.b.l=mem[a+za-2];
+	z.b.l=mem[a+za-2]; /* test code, assuming 16 bit address_t here, should be ported to setnumber */
 	z.b.h=mem[a+za-1];
 	zat2=z.a;
 	z.a=zat1;
@@ -784,7 +784,7 @@ address_t createstring(char c, char d, address_t i) {
 #endif
 }
 
-/* get a string, the -1+stringdexsize is needed because a string index starts with 1 */
+/* get a string at position b, the -1+stringdexsize is needed because a string index starts with 1 */
 char* getstring(char c, char d, address_t b) {	
 	address_t a;
 
@@ -894,7 +894,7 @@ void setstringlength(char c, char d, address_t l) {
 		error(EORANGE);
 }
 
-/* inset data into a string */
+/* inset data into a string, currently unused */
 void setstring(char c, char d, address_t w, char* s, address_t n) {
 	char *b;
 	address_t a;
@@ -1950,12 +1950,12 @@ void nexttoken() {
  *	in addition to this, a number or $ is accepted as 
  *	second character like in Apple 1 BASIC
  */
+/*
 	if ( x == 1 || (x == 2 && *bi == '@') ) {
 		token=VARIABLE;
 		xc=*bi;
 		yc=0;
 		bi++;
-/* removed: whitespaces(); */
 		if (*bi >= '0' && *bi <= '9') { 
 			yc=*bi;
 			bi++;
@@ -1964,7 +1964,17 @@ void nexttoken() {
 			yc=*bi;
 			bi++;
 		}
-/* removed: whitespaces(); */
+*/
+/* general two letter variables test code */
+	if ( x == 1 || x == 2 ) {
+		token=VARIABLE;
+		xc=*bi;
+		yc=0;
+		bi++;
+		if ((*bi >= '0' && *bi <= '9') || (*bi >= 'A' && *bi <= 'Z')) { 
+			yc=*bi;
+			bi++;
+		} 
 		if (*bi == '$') {
 			token=STRINGVAR;
 			bi++;
@@ -1978,7 +1988,7 @@ void nexttoken() {
 	}
 
 
-/* single letters are parsed and stored */
+/* other single characters are parsed and stored */
 	token=*bi;
 	bi++;
 	if (DEBUG) debugtoken();
@@ -2061,7 +2071,12 @@ void storetoken() {
 } 
 
 
-/* wrapper around mem access for eeprom autorun on small Arduinos */
+/* 
+ * wrapper around mem access for eeprom autorun on small Arduinos 
+ * this memread wrapper should only be used for access to memory 
+ * for the token stream. It can be extended to any source of tokens
+ * e.g. embedded programs of the interpreter
+ */
 char memread(address_t i){
 	if (st != SERUN) {
 		return mem[i];
@@ -2106,7 +2121,7 @@ void gettoken() {
 				}
 				ir=ibuffer;
 			} else {
-				ir=(char*)&mem[here];
+				ir=(char*)&mem[here]; /* string access is faster like this but it cannot be extended to serial RAM */
 			}
 			here+=x;	
 		}
@@ -2176,8 +2191,13 @@ address_t findinlinecache(address_t l){ return 0; }
 /* find a line, look in cache then search from the beginning */
 void findline(address_t l) {
 	address_t a;
-/* we know it already */
-	if ((a=findinlinecache(l))) { here=a; return; }
+/* we know it already, here to advance */
+	if ((a=findinlinecache(l))) { 
+		here=a; 
+		token=LINENUMBER;
+		x=l; 
+		return;
+	}
 
 /* we need to search */
 	here=0;
@@ -4018,7 +4038,7 @@ void xrun(){
 
 /* once statement is called it stays into a loop until the token stream 
 		is exhausted. Then we return to interactive mode. */
-  statement();
+	statement();
 	st=SINT;
 
 /* flush the EEPROM when changing to interactive mode */
@@ -4094,6 +4114,7 @@ nextvariable:
 		nexttoken();
 		parsesubscripts();
 		if (er != 0) return;
+
 #ifndef HASMULTIDIM
 		if (args != 1) {error(EARGS); return; }
 
@@ -5939,16 +5960,18 @@ void statement(){
 				break;	
 #endif
 /* and all the rest */
-			case UNKNOWN:
+/*			case UNKNOWN:
 				error(EUNKNOWN);
-				return;
+				return; */
 			case ':':
 				nexttoken();
 				break;
 			default:
 /*  very tolerant - tokens are just skipped, this is anarchy */
-				if (DEBUG) { outsc("** hoppla - unexpected token, skipped "); debugtoken(); }
-				nexttoken();
+				/* if (DEBUG) { outsc("** hoppla - unexpected token, skipped "); debugtoken(); }
+				nexttoken(); */
+				error(EUNKNOWN);
+				return;
 		}
 /* after each statement we check on a break character 
 		on an Arduino entering "#" at runtime stops the program */
