@@ -5970,6 +5970,7 @@ void statement(){
 /*  very tolerant - tokens are just skipped, this is anarchy */
 				/* if (DEBUG) { outsc("** hoppla - unexpected token, skipped "); debugtoken(); }
 				nexttoken(); */
+/*  strict syntax checking */
 				error(EUNKNOWN);
 				return;
 		}
