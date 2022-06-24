@@ -950,6 +950,11 @@ short radioavailable();
 void sensorbegin();
 number_t sensorread(short, short);
 
+/* SPI RAM code */
+address_t spirambegin();
+void spiramrawwrite(address_t, signed char);
+signed char spiramrawread(address_t );
+
 /*
  * Layer 0 functions - I/O and memory management 
  */
@@ -1065,6 +1070,8 @@ void nexttoken();
 char nomemory(number_t);
 void storetoken(); 
 char memread(address_t);
+signed char memread2(address_t);
+void memwrite2(address_t, signed char);
 void gettoken();
 void firstline();
 void nextline();
