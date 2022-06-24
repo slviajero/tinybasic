@@ -185,7 +185,7 @@
  *	just returns the static MEMSIZE.
  *
  */
-#if MEMSIZE == 0
+#if MEMSIZE == 0 && !defined(ARDUINOSPIRAM)
 address_t ballocmem() { 
 	signed char i = 0;
 
@@ -193,16 +193,11 @@ address_t ballocmem() {
 		60000,  // DUE systems, RP2040 and ESP32, all POSIX systems - set to fit in one 16 bit page
 		48000,  // DUE with a bit of additional stuff,
 		40000, 	// simple ESP8266 systems, MSDOS small model 
-		32000, 	// complex ESP8266 with network and a lot of additional suff
 		24000,  // Arduino MK boards, SAMD, Seeduino
-		16000,  // ESP systems with a lot of subsystems (1)
-		12000,  // ESP systems with a lot of subsystems (2)
-		8000,   // ESP systems with a lot of subsystems (3)
-		6000,   // Arduino AVR MEGA boards without SD
+		12000,  // ESP systems with a lot of subsystems and VGA
 		4096, 	// Arduino Nano Every, MEGA with a lot of stuff 
 		2048,   // AVR with a lot of additional stuff on them
 		1024, 	// UNO
-		512, 		// AVR168 (theoretically - but better set MEMSIZE static)
 		128,		// fallback, something has gone wrong
 		0      
 	}; 
@@ -279,7 +274,8 @@ void esave() {
 		a+=addrsize;
 
 		while (a < top+eheadersize){
-			eupdate(a, mem[a-eheadersize]);
+			/* eupdate(a, mem[a-eheadersize]); */
+			eupdate(a, memread2(a-eheadersize));
 			a++;
 		}
 		eupdate(a++,0);
@@ -301,7 +297,8 @@ void eload() {
 		a+=addrsize;
 
 		while (a < top+eheadersize){
-			mem[a-eheadersize]=eread(a);
+			/* mem[a-eheadersize]=eread(a); */
+			memwrite2(a-eheadersize, eread(a));
 			a++;
 		}
 	} else { 
@@ -379,9 +376,15 @@ address_t bmalloc(signed char t, char c, char d, address_t l) {
 /* here we could create a hash, currently simplified
 	 the hash is the first digit of the variable plus the token */
 	b=himem;
+
+/*
 	mem[b--]=c;
 	mem[b--]=d;
 	mem[b--]=t;
+*/
+	memwrite2(b--, c);
+	memwrite2(b--, d);
+	memwrite2(b--, t);
 
 /* for strings, arrays and buffers write the (maximum) length 
 	  directly after the header */
@@ -414,9 +417,15 @@ address_t bfind(signed char t, char c, char d) {
 
 	while (i < nvars) { 
 
+/*
 		c1=mem[b--];
 		d1=mem[b--];
 		t1=mem[b--];
+*/
+
+		c1=memread2(b--);
+		d1=memread2(b--);
+		t1=memread2(b--);
 
 		switch(t1) {
 			case VARIABLE:
@@ -560,7 +569,8 @@ void clrvars() {
 	address_t i;
 	for (i=0; i<VARSIZE; i++) vars[i]=0;
 	nvars=0;
-	for (i=himem; i<memsize; i++) mem[i]=0;
+/*	for (i=himem; i<memsize; i++) mem[i]=0; */
+	for (i=himem; i<memsize; i++) memwrite2(i, 0);
 	himem=memsize;
 }
 
@@ -572,14 +582,20 @@ void getnumber(address_t m, short n){
 
 	switch (n) {
 		case 1:
-			z.i=mem[m];
+/*			z.i=mem[m];  */
+			z.i=memread2(m);
 			break;
 		case 2:
+/*
 			z.b.l=mem[m++];
 			z.b.h=mem[m];
+*/
+			z.b.l=memread2(m++);
+			z.b.h=memread2(m);
 			break;
 		default:
-			for (i=0; i<n; i++) z.c[i]=mem[m++];
+/*			for (i=0; i<n; i++) z.c[i]=mem[m++]; */
+			for (i=0; i<n; i++) z.c[i]=memread2(m++);
 	}
 }
 
@@ -608,14 +624,21 @@ void setnumber(address_t m, short n){
 
 	switch (n) {
 		case 1:
-			mem[m]=z.i;
+		/*	mem[m]=z.i; */
+			memwrite2(m, z.i);
 			break;
 		case 2: 
+/*
 			mem[m++]=z.b.l;
 			mem[m]=z.b.h;
+*/
+			memwrite2(m++, z.b.l);
+			memwrite2(m++, z.b.h);
 			break;
 		default:
- 			for (i=0; i<n; i++) mem[m++]=z.c[i];
+
+ 		/*	for (i=0; i<n; i++) mem[m++]=z.c[i]; */
+ 			for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
 	}
 }
 
@@ -651,8 +674,13 @@ address_t createarray(char c, char d, address_t i, address_t j) {
 		zat=z.a; /* preserve z.a because it is needed on autocreate later */
 		z.a=j;
 		at=a+i*j*numsize; 
-		mem[at++]=z.b.l; /* test code, assuming 16 bit address_t here, should be ported to setnumber */
+/*
+		mem[at++]=z.b.l; // test code, assuming 16 bit address_t here, should be ported to setnumber 
 		mem[at]=z.b.h;
+*/
+		memwrite2(at++, z.b.l);
+		memwrite2(at, z.b.h);
+
 		z.a=zat;
 		return a;
 	}
@@ -667,8 +695,12 @@ address_t getarrayseconddim(address_t a, address_t za) {
 #ifdef HASMULTIDIM
 	address_t zat1, zat2;
 	zat1=z.a;
-	z.b.l=mem[a+za-2]; /* test code, assuming 16 bit address_t here, should be ported to setnumber */
+/*
+	z.b.l=mem[a+za-2]; // test code, assuming 16 bit address_t here, should be ported to setnumber 
 	z.b.h=mem[a+za-1];
+*/
+	z.b.l=memread2(a+za-2); // test code, assuming 16 bit address_t here, should be ported to setnumber 
+	z.b.h=memread2(a+za-1);
 	zat2=z.a;
 	z.a=zat1;
 	return zat2;
@@ -821,6 +853,7 @@ char* getstring(char c, char d, address_t b) {
 	if (DEBUG) { outsc("** payload address address "); outnumber(a); outcr(); }
 
 	return (char *)&mem[a];
+
 #else 
 	return 0;
 #endif
@@ -2033,14 +2066,16 @@ void storetoken() {
 	switch (token) {
 		case LINENUMBER:
 			if ( nomemory(addrsize+1) ) break;
-			mem[top++]=token;	
+/*			mem[top++]=token;	*/
+			memwrite2(top++, token);
 			z.a=x;
 			setnumber(top, addrsize);
 			top+=addrsize;
 			return;	
 		case NUMBER:
 			if ( nomemory(numsize+1) ) break;
-			mem[top++]=token;	
+/*			mem[top++]=token;	*/
+			memwrite2(top++, token);
 			z.i=x;
 			setnumber(top, numsize);
 			top+=numsize;
@@ -2049,22 +2084,38 @@ void storetoken() {
 		case VARIABLE:
 		case STRINGVAR:
 			if ( nomemory(3) ) break;
+/*
 			mem[top++]=token;
 			mem[top++]=xc;
 			mem[top++]=yc;
+*/
+			memwrite2(top++, token);
+			memwrite2(top++, xc);
+			memwrite2(top++, yc);
 			return;
 		case STRING:
 			if ( nomemory(x+2) ) break;
+/*
 			mem[top++]=token;
 			mem[top++]=i;
 			while (i > 0) {
 				mem[top++] = *ir++;
 				i--;
 			}
+*/
+			memwrite2(top++, token);
+			memwrite2(top++, i);
+			while (i > 0) {
+				memwrite2(top++, *ir++);
+				i--;
+			}	
 			return;
 		default:
 			if ( nomemory(1) ) break;
+/*
 			mem[top++]=token;
+*/
+			memwrite2(top++, token);
 			return;
 	}
 	error(EOUTOFMEMORY);
@@ -2072,18 +2123,50 @@ void storetoken() {
 
 
 /* 
- * wrapper around mem access for eeprom autorun on small Arduinos 
- * this memread wrapper should only be used for access to memory 
- * for the token stream. It can be extended to any source of tokens
- * e.g. embedded programs of the interpreter
+ * wrappers around mem access in genereal
+ *
+ * memread is used only in the token stream, it reads from a stream
+ * read only. If run is done from eeprom then bytes are taken from this 
+ * stream, this would also be the place to implement direct run from 
+ * another device like a file system or embedded programs on flash
+ *
+ * memread2 and memwrite2 always go to ram. 
+ *
  */
-char memread(address_t i){
+#ifndef ARDUINOSPIRAM
+char memread(address_t a) {
 	if (st != SERUN) {
-		return mem[i];
+		return mem[a];
 	} else {
-		return eread(i+eheadersize);
+		return eread(a+eheadersize);
 	}
 }
+
+signed char memread2(address_t a) {
+	return mem[a];
+}
+
+void memwrite2(address_t a, signed char c) {
+	mem[a]=c;
+}
+#else 
+char memread(address_t a) {
+	if (st != SERUN) {
+		return spiramrawread(a);
+	} else {
+		return eread(a+eheadersize);
+	}
+}
+
+signed char memread2(address_t a) {
+	return spiramrawread(a);
+}
+
+void memwrite2(address_t a, signed char c) {
+	spiramrawwrite(a, c);
+}
+#endif
+
 
 /* get a token from memory */
 void gettoken() {
@@ -2114,15 +2197,24 @@ void gettoken() {
 			yc=memread(here++);
 			break;
 		case STRING:
-			x=(unsigned char)memread(here++);	/* if we run interactive or from mem, pass back the mem location */
-			if (st == SERUN) { 					/* we run from EEPROM and cannot simply pass a pointer */
-				for(int i=0; i<x; i++) {
-					ibuffer[i]=memread(here+i);	/* we (ab)use the input buffer which is not needed here */
-				}
+			x=(unsigned char)memread(here++);	
+/* if we run interactive or from mem, pass back the mem location 
+ * of the string constant
+ * if we run from EEPROM or SPI ram and cannot simply pass a pointer 
+ * we (ab)use the input buffer which is not needed here, this limits
+ * the string constant length to the length of the input buffer
+ */
+#if defined(ARDUINOSPIRAM)
+			for(int i=0; i<x; i++) spistrbuf1[i]=memread(here+i);	
+			ir=spistrbuf1;
+#else
+			if (st == SERUN) { 					
+				for(int i=0; i<x; i++) ibuffer[i]=memread(here+i);	
 				ir=ibuffer;
 			} else {
-				ir=(char*)&mem[here]; /* string access is faster like this but it cannot be extended to serial RAM */
+				ir=(char*)&mem[here]; 
 			}
+#endif
 			here+=x;	
 		}
 }
@@ -2254,10 +2346,12 @@ void moveblock(address_t b, address_t l, address_t d){
 
 	if (b < d)
 		for (i=l; i>0; i--)
-			mem[d+i-1]=mem[b+i-1]; 
+	/*		mem[d+i-1]=mem[b+i-1]; */
+			memwrite2(d+i-1, memread2(b+i-1));
 	else 
 		for (i=0; i<l; i++) 
-			mem[d+i]=mem[b+i]; 
+	/*		mem[d+i]=mem[b+i]; */
+			memwrite2(d+i, memread2(b+i));
 
 /* removed outsc("** Done moving /n"); */
 }
@@ -2272,7 +2366,8 @@ void zeroblock(address_t b, address_t l){
 	}
 	if (l<1) return;
 
-	for (i=0; i<l+1; i++) mem[b+i]=0;
+	/* for (i=0; i<l+1; i++) mem[b+i]=0; */
+	for (i=0; i<l+1; i++) memwrite2(b+i, 0);
 }
 
 /*
@@ -2586,7 +2681,8 @@ void xpeek(){
 	if ((long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
 
 	if (x >= 0 && x<amax) 
-		push(mem[(unsigned int) x]);
+		/* push(mem[(unsigned int) x]); */
+		push(memread2((address_t) x));
 	else if (x < 0 && -x <= elength())
 		push(eread(-x-1));
 	else {
@@ -3489,6 +3585,7 @@ void assignment() {
 			newlength = i+lensource-1;	
 		
 			setstringlength(xcl, ycl, newlength);
+			nexttoken();
 			break;
 #endif
 	}
@@ -4136,6 +4233,11 @@ nextvariable:
 		if (x <= 0 || y<=0) {error(EORANGE); return; }
 		if (t == STRINGVAR) {
 			if ( (x>255) && (strindexsize==1) ) {error(EORANGE); return; }
+/* running from an SPI RAM means that we need to go through buffers in real memory which 
+	limits string sizes */
+#ifdef SPIRAMSBSIZE
+			if (x>SPIRAMSBSIZE-1) {error(EORANGE); return; }
+#endif			
 			(void) createstring(xcl, ycl, x);
 		} else {
 			(void) createarray(xcl, ycl, x, y);
@@ -4174,7 +4276,8 @@ void xpoke(){
 	x=pop();
 
 	if (x >= 0 && x<amax) 
-		mem[(unsigned int) x]=y;
+		/* mem[(unsigned int) x]=y; */
+		memwrite2((address_t) x, y);
 	else if (x < 0 && x >= -elength())
 		eupdate(-x-1, y);
 	else {
@@ -5288,7 +5391,7 @@ void xusr() {
 #ifdef HASDARTMOUTH
 				case 33: push(data); break;
 #else
-				case 33: push(data); break;
+				case 33: push(0); break;
 #endif
 /* - 48 reserved */
 				case 48: push(id); break;
@@ -5605,8 +5708,12 @@ void xdef(){
 /* store the payload - the here address - and the name of the variable */
 	z.a=here;
 	setnumber(a, addrsize);
+/*
 	mem[a+addrsize]=xcl2;
 	mem[a+addrsize+1]=ycl2;
+*/
+	memwrite2(a+addrsize, xcl2);
+	memwrite2(a+addrsize+1, ycl2);
 
 /* skip whatever comes next */
 	while (!termsymbol()) nexttoken();
@@ -5641,13 +5748,16 @@ void xfn() {
 	if ((a=bfind(TFN, fxc, fyc))==0) {error(EUNKNOWN); return; }
 	getnumber(a, addrsize);
 	h1=z.a;
+/*	
 	vxc=mem[a+addrsize];
 	vyc=mem[a+addrsize+1];
+*/
+	vxc=memread2(a+addrsize);
+	vyc=memread2(a+addrsize+1);
 
 /* remember the original value of the variable and set it */
 	xt=getvar(vxc, vyc);
 	if (DEBUG) {outsc("** saving the original running var "); outch(vxc); outch(vyc); outspc(); outnumber(xt); outcr();}
-
 
 	setvar(vxc, vyc, pop());
 
@@ -5797,7 +5907,7 @@ void statement(){
 				eflush(); 	// if there is an EEPROM dummy, flush it here (protects flash storage!)
 				ofileclose();
 				return;
-			case TLIST:
+			case TLIST:		
 				xlist();
 				break;
 			case TNEW: 		/* return here because new input is needed */
@@ -5973,6 +6083,8 @@ void statement(){
 /*  strict syntax checking */
 				error(EUNKNOWN);
 				return;
+				//debugtoken();
+				//nexttoken();
 		}
 /* after each statement we check on a break character 
 		on an Arduino entering "#" at runtime stops the program */
@@ -5998,9 +6110,14 @@ void setup() {
 /* init all io functions */
 	ioinit();
 
-/* get the BASIC memory */
+/* get the BASIC memory, either as memory array with
+	ballocmem() or as an SPI serical memory */
+#if defined(ARDUINOSPIRAM) && MEMSIZE == 0
+	himem=memsize=spirambegin();
+#else 
 	himem=memsize=ballocmem();
-  
+#endif
+
 /* be ready for a new program */
  	xnew();	
 
