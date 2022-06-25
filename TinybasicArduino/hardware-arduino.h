@@ -74,12 +74,13 @@
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ARDUINORTC
-#define ARDUINOWIRE
-#define ARDUINOWIRESLAVE
+#undef ARDUINOWIRE
+#undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
 #undef ARDUINOETH
 #undef ARDUINOMQTT
 #undef ARDUINOSENSORS
+#define ARDUINOSPIRAM
 #undef STANDALONE
 
 /* 
@@ -141,6 +142,8 @@
 /* near field pin settings for CE and CSN*/
 #define RF24CEPIN 8
 #define RF24CSNPIN 9
+
+
 
 /* 
  *  list of default i2c addresses
@@ -355,6 +358,12 @@ const char bsystype = SYSTYPE_UNKNOWN;
 #if defined(ARDUINONOKIA51) || defined(ARDUINOILI9488)
 #define ARDUINOSPI
 #endif
+
+/* the RAM chips */
+#if defined(ARDUINOSPIRAM)
+#define ARDUINOSPI
+#endif
+
 
 /* Networking needs the background task capability */
 #if defined(ARDUINOMQTT) || defined(ARDUINOETH)
@@ -668,10 +677,10 @@ void(* callzero)() = 0;
 
 void restartsystem() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
-	ESP.restart();
+  ESP.restart();
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) 
-	callzero();
+  callzero();
 #endif
 }
 
@@ -688,8 +697,8 @@ void activatesleep(long t) {
   ESP.deepSleep(t*1000);
 #endif
 #if defined(ARDUINO_ARCH_ESP32)
-   esp_sleep_enable_timer_wakeup(t*1000);
-   esp_deep_sleep_start();
+  esp_sleep_enable_timer_wakeup(t*1000);
+  esp_deep_sleep_start();
 #endif
 }
 
@@ -702,9 +711,9 @@ void spibegin() {
 #ifdef ARDUINOSPI
 #ifdef ARDUINO_TTGO_T7_V14_Mini32
 /* this fixes the wrong board definition in the ESP32 core for this board */
- 	SPI.begin(14, 2, 12, 13);
+  SPI.begin(14, 2, 12, 13);
 #else 
- 	SPI.begin();
+  SPI.begin();
 #endif
 #endif
 }
@@ -1028,13 +1037,13 @@ void fcircle(int x0, int y0, int r) {
 }
 void vgawrite(char c){
 	switch(c) {
-  		case 12: // form feed is clear screen
-  			Terminal.write(27); Terminal.write('H');
-  			Terminal.write(27); Terminal.write('J');
-    		return;
-  		case 10: // this is LF Unix style doing also a CR
-  			Terminal.write(10); Terminal.write(13);
-    		return;
+    case 12: // form feed is clear screen
+  		Terminal.write(27); Terminal.write('H');
+    	Terminal.write(27); Terminal.write('J');
+      return;
+    case 10: // this is LF Unix style doing also a CR
+      Terminal.write(10); Terminal.write(13);
+    	return;
   	}
   	Terminal.write(c);
 }
@@ -1129,7 +1138,7 @@ char kbdcheckch() {
 #endif
 #endif
 #ifdef HASKEYPAD
-		return keypadread();
+	return keypadread();
 #endif	
 	return 0;
 }
@@ -1383,8 +1392,8 @@ void dspwrite(char c){
     	dspclear();
     	return;
     case 13: // classical carriage return 
-    	dspmycol=0;
-    	return;
+      dspmycol=0;
+      return;
   	case 27: // escape - initiate vtxxx mode
 			esc=1;
 			return;
@@ -2970,6 +2979,75 @@ number_t sensorread(short s, short v) {
 #else
 void sensorbegin() {}
 number_t sensorread(short s, short v) {return 0;};
+#endif
+
+
+/*
+ * Experimental code to drive SPI SRAM modules
+ * Currently only the 23LCV512 is implemented, assuming a 
+ * 64kB SRAM
+ * The code below is taken in part from the SRAMsimple library
+ * 
+ * curren
+ */
+
+#ifdef ARDUINOSPIRAM
+#define USEMEMINTERFACE
+
+#ifndef RAMPIN
+#define RAMPIN 10
+#endif
+
+#define SPIRAMWRMR  1 
+#define SPIRAMRDMR  5
+#define SPIRAMREAD  3     
+#define SPIRAMWRITE 2     
+#define SPIRAMRSTIO 0xFF
+#define SPIRAMSEQ   0x40
+#define SPIRAMBYTE  0x00
+
+/* the RAM begin method sets the RAM to byte mode */
+address_t spirambegin() {
+  pinMode(RAMPIN, OUTPUT);
+  digitalWrite(RAMPIN, LOW);
+  SPI.transfer(SPIRAMWRMR);
+  SPI.transfer(SPIRAMBYTE);
+  digitalWrite(RAMPIN, HIGH);
+  /* only 32 kB addressable with 16 bit integers because address_t has to fit into number_t */
+  if (maxnum>32767) return 65534; else return 32766;  
+}
+
+/* the simple unbuffered byte write, with a cast to signed char */
+void spiramrawwrite(address_t a, signed char c) {
+  digitalWrite(RAMPIN, LOW);
+  SPI.transfer(SPIRAMWRITE);
+  SPI.transfer((byte)(a >> 8));
+  SPI.transfer((byte)a);
+  SPI.transfer((byte) c);
+  digitalWrite(RAMPIN, HIGH);
+}
+
+/* the simple unbuffered byte read, with a cast to signed char */
+signed char spiramrawread(address_t a) {
+  signed char c;
+  digitalWrite(RAMPIN, LOW);
+  SPI.transfer(SPIRAMREAD);
+  SPI.transfer((byte)(a >> 8));
+  SPI.transfer((byte)a);
+  c = SPI.transfer(0x00);
+  digitalWrite(RAMPIN, HIGH);
+  return c;
+}
+
+/* to handle strings in SPIRAM situations two more buffers are needed 
+ * they store intermediate results of string operations. The buffersize 
+ * limits the maximum string length indepents of how big strings are set
+ */
+#define SPIRAMSBSIZE 128
+signed char spistrbuf1[SPIRAMSBSIZE];
+signed char spistrbuf2[SPIRAMSBSIZE];
+#else
+#undef USEMEMINTERFACE
 #endif
 
 // defined HARDWARE_H

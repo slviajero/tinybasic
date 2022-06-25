@@ -40,8 +40,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef   BASICFULL
-#define   BASICINTEGER
+#undef  BASICFULL
+#define  BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -95,7 +95,7 @@
 #undef  HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
-#undef HASDARKARTS
+#define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
 #endif
@@ -185,7 +185,7 @@
  *	just returns the static MEMSIZE.
  *
  */
-#if MEMSIZE == 0
+#if MEMSIZE == 0 && !defined(USEMEMINTERFACE)
 address_t ballocmem() { 
 	signed char i = 0;
 
@@ -193,16 +193,11 @@ address_t ballocmem() {
 		60000,  // DUE systems, RP2040 and ESP32, all POSIX systems - set to fit in one 16 bit page
 		48000,  // DUE with a bit of additional stuff,
 		40000, 	// simple ESP8266 systems, MSDOS small model 
-		32000, 	// complex ESP8266 with network and a lot of additional suff
 		24000,  // Arduino MK boards, SAMD, Seeduino
-		16000,  // ESP systems with a lot of subsystems (1)
-		12000,  // ESP systems with a lot of subsystems (2)
-		8000,   // ESP systems with a lot of subsystems (3)
-		6000,   // Arduino AVR MEGA boards without SD
+		12000,  // ESP systems with a lot of subsystems and VGA
 		4096, 	// Arduino Nano Every, MEGA with a lot of stuff 
 		2048,   // AVR with a lot of additional stuff on them
 		1024, 	// UNO
-		512, 		// AVR168 (theoretically - but better set MEMSIZE static)
 		128,		// fallback, something has gone wrong
 		0      
 	}; 
@@ -279,7 +274,8 @@ void esave() {
 		a+=addrsize;
 
 		while (a < top+eheadersize){
-			eupdate(a, mem[a-eheadersize]);
+			/* eupdate(a, mem[a-eheadersize]); */
+			eupdate(a, memread2(a-eheadersize));
 			a++;
 		}
 		eupdate(a++,0);
@@ -301,7 +297,8 @@ void eload() {
 		a+=addrsize;
 
 		while (a < top+eheadersize){
-			mem[a-eheadersize]=eread(a);
+			/* mem[a-eheadersize]=eread(a); */
+			memwrite2(a-eheadersize, eread(a));
 			a++;
 		}
 	} else { 
@@ -379,9 +376,15 @@ address_t bmalloc(signed char t, char c, char d, address_t l) {
 /* here we could create a hash, currently simplified
 	 the hash is the first digit of the variable plus the token */
 	b=himem;
+
+/*
 	mem[b--]=c;
 	mem[b--]=d;
 	mem[b--]=t;
+*/
+	memwrite2(b--, c);
+	memwrite2(b--, d);
+	memwrite2(b--, t);
 
 /* for strings, arrays and buffers write the (maximum) length 
 	  directly after the header */
@@ -414,9 +417,15 @@ address_t bfind(signed char t, char c, char d) {
 
 	while (i < nvars) { 
 
+/*
 		c1=mem[b--];
 		d1=mem[b--];
 		t1=mem[b--];
+*/
+
+		c1=memread2(b--);
+		d1=memread2(b--);
+		t1=memread2(b--);
 
 		switch(t1) {
 			case VARIABLE:
@@ -560,7 +569,8 @@ void clrvars() {
 	address_t i;
 	for (i=0; i<VARSIZE; i++) vars[i]=0;
 	nvars=0;
-	for (i=himem; i<memsize; i++) mem[i]=0;
+/*	for (i=himem; i<memsize; i++) mem[i]=0; */
+	for (i=himem; i<memsize; i++) memwrite2(i, 0);
 	himem=memsize;
 }
 
@@ -572,14 +582,20 @@ void getnumber(address_t m, short n){
 
 	switch (n) {
 		case 1:
-			z.i=mem[m];
+/*			z.i=mem[m];  */
+			z.i=memread2(m);
 			break;
 		case 2:
+/*
 			z.b.l=mem[m++];
 			z.b.h=mem[m];
+*/
+			z.b.l=memread2(m++);
+			z.b.h=memread2(m);
 			break;
 		default:
-			for (i=0; i<n; i++) z.c[i]=mem[m++];
+/*			for (i=0; i<n; i++) z.c[i]=mem[m++]; */
+			for (i=0; i<n; i++) z.c[i]=memread2(m++);
 	}
 }
 
@@ -608,14 +624,21 @@ void setnumber(address_t m, short n){
 
 	switch (n) {
 		case 1:
-			mem[m]=z.i;
+		/*	mem[m]=z.i; */
+			memwrite2(m, z.i);
 			break;
 		case 2: 
+/*
 			mem[m++]=z.b.l;
 			mem[m]=z.b.h;
+*/
+			memwrite2(m++, z.b.l);
+			memwrite2(m++, z.b.h);
 			break;
 		default:
- 			for (i=0; i<n; i++) mem[m++]=z.c[i];
+
+ 		/*	for (i=0; i<n; i++) mem[m++]=z.c[i]; */
+ 			for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
 	}
 }
 
@@ -651,8 +674,13 @@ address_t createarray(char c, char d, address_t i, address_t j) {
 		zat=z.a; /* preserve z.a because it is needed on autocreate later */
 		z.a=j;
 		at=a+i*j*numsize; 
-		mem[at++]=z.b.l; /* test code, assuming 16 bit address_t here */
+/*
+		mem[at++]=z.b.l; // test code, assuming 16 bit address_t here, should be ported to setnumber 
 		mem[at]=z.b.h;
+*/
+		memwrite2(at++, z.b.l);
+		memwrite2(at, z.b.h);
+
 		z.a=zat;
 		return a;
 	}
@@ -667,8 +695,12 @@ address_t getarrayseconddim(address_t a, address_t za) {
 #ifdef HASMULTIDIM
 	address_t zat1, zat2;
 	zat1=z.a;
-	z.b.l=mem[a+za-2];
+/*
+	z.b.l=mem[a+za-2]; // test code, assuming 16 bit address_t here, should be ported to setnumber 
 	z.b.h=mem[a+za-1];
+*/
+	z.b.l=memread2(a+za-2); // test code, assuming 16 bit address_t here, should be ported to setnumber 
+	z.b.h=memread2(a+za-1);
 	zat2=z.a;
 	z.a=zat1;
 	return zat2;
@@ -784,10 +816,14 @@ address_t createstring(char c, char d, address_t i) {
 #endif
 }
 
-/* get a string, the -1+stringdexsize is needed because a string index starts with 1 */
+/* get a string at position b, the -1+stringdexsize is needed because a string index starts with 1 
+	in addition to the memory pointer, return the address in memory*/
 char* getstring(char c, char d, address_t b) {	
-	address_t a;
+#ifdef USEMEMINTERFACE
+	address_t k;
+#endif
 
+	ax=0;
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
 
 /* direct access to the input buffer - deprectated but still there */
@@ -805,9 +841,9 @@ char* getstring(char c, char d, address_t b) {
 #endif
 
 /* dynamically allocated strings */
-	if (! (a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, STRSIZEDEF);
+	if (! (ax=bfind(STRINGVAR, c, d)) ) ax=createstring(c, d, STRSIZEDEF);
 
-	if (DEBUG) { outsc("** heap address "); outnumber(a); outcr(); }
+	if (DEBUG) { outsc("** heap address "); outnumber(ax); outcr(); }
 	if (DEBUG) { outsc("** byte length "); outnumber(z.a); outcr(); }
 
 	if (er != 0) return 0;
@@ -816,11 +852,20 @@ char* getstring(char c, char d, address_t b) {
 		error(EORANGE); return 0;
 	}
 
-	a=a+b-1+strindexsize;
+	ax=ax+b-1+strindexsize;
 
-	if (DEBUG) { outsc("** payload address address "); outnumber(a); outcr(); }
+	if (DEBUG) { outsc("** payload address address "); outnumber(ax); outcr(); }
 
-	return (char *)&mem[a];
+/* return value is 0 if we have no direct memory access, the caller needs to handle the string 
+	through the mem address, we return no pointer but provide a copy of the string in the first 
+	string buffer*/
+#ifdef USEMEMINTERFACE
+	for (k=0; k<z.a && k<SPIRAMSBSIZE; k++) spistrbuf1[k]=memread2(ax+k);
+	return 0;
+#else
+	return (char *)&mem[ax];
+#endif
+
 #else 
 	return 0;
 #endif
@@ -894,7 +939,7 @@ void setstringlength(char c, char d, address_t l) {
 		error(EORANGE);
 }
 
-/* inset data into a string */
+/* inset data into a string, currently unused */
 void setstring(char c, char d, address_t w, char* s, address_t n) {
 	char *b;
 	address_t a;
@@ -1950,12 +1995,12 @@ void nexttoken() {
  *	in addition to this, a number or $ is accepted as 
  *	second character like in Apple 1 BASIC
  */
+/*
 	if ( x == 1 || (x == 2 && *bi == '@') ) {
 		token=VARIABLE;
 		xc=*bi;
 		yc=0;
 		bi++;
-/* removed: whitespaces(); */
 		if (*bi >= '0' && *bi <= '9') { 
 			yc=*bi;
 			bi++;
@@ -1964,7 +2009,17 @@ void nexttoken() {
 			yc=*bi;
 			bi++;
 		}
-/* removed: whitespaces(); */
+*/
+/* general two letter variables test code */
+	if ( x == 1 || x == 2 ) {
+		token=VARIABLE;
+		xc=*bi;
+		yc=0;
+		bi++;
+		if ((*bi >= '0' && *bi <= '9') || (*bi >= 'A' && *bi <= 'Z')) { 
+			yc=*bi;
+			bi++;
+		} 
 		if (*bi == '$') {
 			token=STRINGVAR;
 			bi++;
@@ -1978,7 +2033,7 @@ void nexttoken() {
 	}
 
 
-/* single letters are parsed and stored */
+/* other single characters are parsed and stored */
 	token=*bi;
 	bi++;
 	if (DEBUG) debugtoken();
@@ -2023,14 +2078,16 @@ void storetoken() {
 	switch (token) {
 		case LINENUMBER:
 			if ( nomemory(addrsize+1) ) break;
-			mem[top++]=token;	
+/*			mem[top++]=token;	*/
+			memwrite2(top++, token);
 			z.a=x;
 			setnumber(top, addrsize);
 			top+=addrsize;
 			return;	
 		case NUMBER:
 			if ( nomemory(numsize+1) ) break;
-			mem[top++]=token;	
+/*			mem[top++]=token;	*/
+			memwrite2(top++, token);
 			z.i=x;
 			setnumber(top, numsize);
 			top+=numsize;
@@ -2039,36 +2096,90 @@ void storetoken() {
 		case VARIABLE:
 		case STRINGVAR:
 			if ( nomemory(3) ) break;
+/*
 			mem[top++]=token;
 			mem[top++]=xc;
 			mem[top++]=yc;
+*/
+			memwrite2(top++, token);
+			memwrite2(top++, xc);
+			memwrite2(top++, yc);
 			return;
 		case STRING:
 			if ( nomemory(x+2) ) break;
+/*
 			mem[top++]=token;
 			mem[top++]=i;
 			while (i > 0) {
 				mem[top++] = *ir++;
 				i--;
 			}
+*/
+			memwrite2(top++, token);
+			memwrite2(top++, i);
+			while (i > 0) {
+				memwrite2(top++, *ir++);
+				i--;
+			}	
 			return;
 		default:
 			if ( nomemory(1) ) break;
+/*
 			mem[top++]=token;
+*/
+			memwrite2(top++, token);
 			return;
 	}
 	error(EOUTOFMEMORY);
 } 
 
 
-/* wrapper around mem access for eeprom autorun on small Arduinos */
-char memread(address_t i){
+/* 
+ * wrappers around mem access in genereal
+ *
+ * memread is used only in the token stream, it reads from a stream
+ * read only. If run is done from eeprom then bytes are taken from this 
+ * stream, this would also be the place to implement direct run from 
+ * another device like a file system or embedded programs on flash
+ *
+ * memread2 and memwrite2 always go to ram. 
+ *
+ */
+#ifndef USEMEMINTERFACE
+char memread(address_t a) {
 	if (st != SERUN) {
-		return mem[i];
+		return mem[a];
 	} else {
-		return eread(i+eheadersize);
+		return eread(a+eheadersize);
 	}
 }
+
+signed char memread2(address_t a) {
+	return mem[a];
+}
+
+void memwrite2(address_t a, signed char c) {
+  if (a<0 || a>memsize) { outsc("Mem overflow error\n"); };
+	mem[a]=c;
+}
+#else 
+char memread(address_t a) {
+	if (st != SERUN) {
+		return spiramrawread(a);
+	} else {
+		return eread(a+eheadersize);
+	}
+}
+
+signed char memread2(address_t a) {
+	return spiramrawread(a);
+}
+
+void memwrite2(address_t a, signed char c) {
+	spiramrawwrite(a, c);
+}
+#endif
+
 
 /* get a token from memory */
 void gettoken() {
@@ -2099,15 +2210,24 @@ void gettoken() {
 			yc=memread(here++);
 			break;
 		case STRING:
-			x=(unsigned char)memread(here++);	/* if we run interactive or from mem, pass back the mem location */
-			if (st == SERUN) { 					/* we run from EEPROM and cannot simply pass a pointer */
-				for(int i=0; i<x; i++) {
-					ibuffer[i]=memread(here+i);	/* we (ab)use the input buffer which is not needed here */
-				}
+			x=(unsigned char)memread(here++);	
+/* if we run interactive or from mem, pass back the mem location 
+ * of the string constant
+ * if we run from EEPROM or SPI ram and cannot simply pass a pointer 
+ * we (ab)use the input buffer which is not needed here, this limits
+ * the string constant length to the length of the input buffer
+ */
+#if defined(USEMEMINTERFACE)
+			for(int i=0; i<x; i++) spistrbuf1[i]=memread(here+i);	
+			ir=spistrbuf1;
+#else
+			if (st == SERUN) { 					
+				for(int i=0; i<x; i++) ibuffer[i]=memread(here+i);	
 				ir=ibuffer;
 			} else {
-				ir=(char*)&mem[here];
+				ir=(char*)&mem[here]; 
 			}
+#endif
 			here+=x;	
 		}
 }
@@ -2176,8 +2296,13 @@ address_t findinlinecache(address_t l){ return 0; }
 /* find a line, look in cache then search from the beginning */
 void findline(address_t l) {
 	address_t a;
-/* we know it already */
-	if ((a=findinlinecache(l))) { here=a; return; }
+/* we know it already, here to advance */
+	if ((a=findinlinecache(l))) { 
+		here=a; 
+		token=LINENUMBER;
+		x=l; 
+		return;
+	}
 
 /* we need to search */
 	here=0;
@@ -2234,10 +2359,12 @@ void moveblock(address_t b, address_t l, address_t d){
 
 	if (b < d)
 		for (i=l; i>0; i--)
-			mem[d+i-1]=mem[b+i-1]; 
+	/*		mem[d+i-1]=mem[b+i-1]; */
+			memwrite2(d+i-1, memread2(b+i-1));
 	else 
 		for (i=0; i<l; i++) 
-			mem[d+i]=mem[b+i]; 
+	/*		mem[d+i]=mem[b+i]; */
+			memwrite2(d+i, memread2(b+i));
 
 /* removed outsc("** Done moving /n"); */
 }
@@ -2252,7 +2379,8 @@ void zeroblock(address_t b, address_t l){
 	}
 	if (l<1) return;
 
-	for (i=0; i<l+1; i++) mem[b+i]=0;
+	/* for (i=0; i<l+1; i++) mem[b+i]=0; */
+	for (i=0; i<l+1; i++) memwrite2(b+i, 0);
 }
 
 /*
@@ -2566,7 +2694,8 @@ void xpeek(){
 	if ((long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
 
 	if (x >= 0 && x<amax) 
-		push(mem[(unsigned int) x]);
+		/* push(mem[(unsigned int) x]); */
+		push(memread2((address_t) x));
 	else if (x < 0 && -x <= elength())
 		push(eread(-x-1));
 	else {
@@ -2662,13 +2791,19 @@ void xpow(){
 /* 
  * stringvalue() evaluates a string value, FALSE if there is no string
  * ir2 has the string location, the stack has the length
+ * ax the memory byte address
  */
 char stringvalue() {
 	char xcl;
 	char ycl;
+  short k;
 	if (token == STRING) {
 		ir2=ir;
 		push(x);
+#ifdef USEMEMINTERFACE
+    for(k=0; k<x && x<SPIRAMSBSIZE; k++ ) spistrbuf1[k]=ir[k];
+    ir2=spistrbuf1;
+#endif
 #ifdef HASAPPLE1
 	} else if (token == STRINGVAR) {
 		xcl=xc;
@@ -2678,6 +2813,10 @@ char stringvalue() {
 		y=pop();
 		x=pop();
 		ir2=getstring(xcl, ycl, x);
+/* when the memory interface is active spistrbuf1 has the string */
+#ifdef USEMEMINTERFACE
+		ir2=spistrbuf1;
+#endif
 		push(y-x+1);
 		xc=xcl;
 		yc=ycl;
@@ -2715,6 +2854,7 @@ void streval(){
 	signed char t;
 	address_t h1;
 	char* b1;
+	int k;
 
 	if (!stringvalue()) {
 		error(EUNKNOWN);
@@ -2748,6 +2888,12 @@ void streval(){
 	t=token;
 	nexttoken(); 
 	//debugtoken();
+
+/* with the mem interface -> copy */ 
+#ifdef USEMEMINTERFACE
+	for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=irl[k];
+	irl=spistrbuf2;
+#endif
 
 	if (!stringvalue()){
 		error(EUNKNOWN);
@@ -3375,7 +3521,11 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
 		case STRINGVAR:
 			ir=getstring(xcl, ycl, i);
 			if (er != 0) return;
+#ifndef USEMEMINTERFACE
 			ir[0]=pop();
+#else 
+			if (ir == 0) memwrite2(ax, pop());
+#endif
 			if (ps)
 				setstringlength(xcl, ycl, 1);
 			else 
@@ -3440,7 +3590,14 @@ void assignment() {
 /* this is the string righthandside code - how long is the rightandside */
 			lensource=pop();
 
-/* the destination address of the lefthandside */
+/* the destination address of the lefthandside, on an SPI RAM system, we 
+	 save the source in the second string buffer and let ir2 point to it
+	 this is needed to avoid the overwrite from the second getstring
+	 then reuse much of the old code */
+#ifdef USEMEMINTERFACE
+			for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=ir2[k];
+			ir2=spistrbuf2;
+#endif			
 			ir=getstring(xcl, ycl, i);
 			if (er != 0) return;
 
@@ -3460,15 +3617,28 @@ void assignment() {
 
 /* this code is needed to make sure we can copy one string to the same string 
 	without overwriting stuff, we go either left to right or backwards */
+#ifndef USEMEMINTERFACE			
 			if (x > i) 
 				for (k=0; k<lensource; k++) ir[k]=ir2[k];
 			else
 				for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
+#else
+/* on an SPIRAM system we need to go through the mem interface 
+	for write, if ir is zero i.e. is not a valid memory location */
+			if (ir != 0) {
+				if (x > i) 
+					for (k=0; k<lensource; k++) ir[k]=ir2[k];
+				else
+					for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
+			} else 
+				for (k=0; k<lensource; k++) memwrite2(ax+k, ir2[k]);
+#endif
 
 /* classical Apple 1 behaviour is string truncation in substring logic */
 			newlength = i+lensource-1;	
 		
 			setstringlength(xcl, ycl, newlength);
+			nexttoken();
 			break;
 #endif
 	}
@@ -3489,6 +3659,7 @@ void xinput(){
 	char l;
 	number_t xv;
 	signed char xcl, ycl;
+	short k;
 
 	nexttoken();
 
@@ -3599,20 +3770,38 @@ nextvariable:
 
 #ifdef HASAPPLE1
 /* strings are not passed through the input buffer but inputed directly 
-	  in the string memory location, ir after getstring points to the first data byte */
-	if (token == STRINGVAR) {
-		ir=getstring(xc, yc, 1); 
-		if (prompt) showprompt();
-		l=stringdim(xc, yc);
-		if (id == IWIRE && form != 0 && form < l) l=form; 
-		ins(ir-1, l);
+    in the string memory location, ir after getstring points to the first data byte */
+  if (token == STRINGVAR) {
+    ir=getstring(xc, yc, 1); 
+    if (prompt) showprompt();
+    l=stringdim(xc, yc);
+/* the form parameter in WIRE can be used to set the expected number of bytes */
+    if (id == IWIRE && form != 0 && form < l) l=form; 
+#ifndef USEMEMINTERFACE   
+    ins(ir-1, l);
 /* this is the length information correction for large strings, ins
-		stored the string length in z.a as a side effect */
-		if (xc != '@' && strindexsize == 2) { 
-			*(ir-2)=z.b.l;
-			*(ir-1)=z.b.h;
-		}
- 	}
+    stored the string length in z.a as a side effect */
+    if (xc != '@' && strindexsize == 2) { 
+      *(ir-2)=z.b.l;
+      *(ir-1)=z.b.h;
+    } 
+#else
+    if (ir == 0) {
+      ins(spistrbuf1, l);
+      for(int k=0; k<SPIRAMSBSIZE && k<l; k++) memwrite2(ax+k, spistrbuf1[k+1]);
+      memwrite2(ax-2, z.b.l);
+      memwrite2(ax-1, z.b.h);
+    } else {
+      ins(ir-1, l);
+/* this is the length information correction for large strings, ins
+    stored the string length in z.a as a side effect */
+      if (xc != '@' && strindexsize == 2) { 
+        *(ir-2)=z.b.l;
+        *(ir-1)=z.b.h;
+      } 
+    }
+#endif
+  }
 #endif
 
 	nexttoken();
@@ -4018,7 +4207,7 @@ void xrun(){
 
 /* once statement is called it stays into a loop until the token stream 
 		is exhausted. Then we return to interactive mode. */
-  statement();
+	statement();
 	st=SINT;
 
 /* flush the EEPROM when changing to interactive mode */
@@ -4037,9 +4226,9 @@ void xnew(){
 	clrvars();
 
 /* program memory back to zero and variable heap cleared */
-	zeroblock(0, top);
-	himem=memsize;
-	top=0;;
+  himem=memsize;
+	zeroblock(0, memsize);
+	top=0;
 	clrlinecache();
 
 /* error status reset */
@@ -4094,6 +4283,7 @@ nextvariable:
 		nexttoken();
 		parsesubscripts();
 		if (er != 0) return;
+
 #ifndef HASMULTIDIM
 		if (args != 1) {error(EARGS); return; }
 
@@ -4115,6 +4305,11 @@ nextvariable:
 		if (x <= 0 || y<=0) {error(EORANGE); return; }
 		if (t == STRINGVAR) {
 			if ( (x>255) && (strindexsize==1) ) {error(EORANGE); return; }
+/* running from an SPI RAM means that we need to go through buffers in real memory which 
+	limits string sizes */
+#ifdef SPIRAMSBSIZE
+			if (x>SPIRAMSBSIZE-1) {error(EORANGE); return; }
+#endif			
 			(void) createstring(xcl, ycl, x);
 		} else {
 			(void) createarray(xcl, ycl, x, y);
@@ -4153,7 +4348,8 @@ void xpoke(){
 	x=pop();
 
 	if (x >= 0 && x<amax) 
-		mem[(unsigned int) x]=y;
+		/* mem[(unsigned int) x]=y; */
+		memwrite2((address_t) x, y);
 	else if (x < 0 && x >= -elength())
 		eupdate(-x-1, y);
 	else {
@@ -5267,7 +5463,7 @@ void xusr() {
 #ifdef HASDARTMOUTH
 				case 33: push(data); break;
 #else
-				case 33: push(data); break;
+				case 33: push(0); break;
 #endif
 /* - 48 reserved */
 				case 48: push(id); break;
@@ -5489,6 +5685,12 @@ void xread(){
 			ir2=ir;
 			lensource=x;
 
+/* if we use te memory interface we have to save the source */ 
+#ifdef USEMEMINTERFACE
+			for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=ir2[k];
+			ir2=spistrbuf2;
+#endif	
+
 /* the destination address of the lefthandside, on the fly create included */
 			ir=getstring(xcl, ycl, i);
 			if (er != 0) return;
@@ -5508,10 +5710,22 @@ void xread(){
 
 /* this code is needed to make sure we can copy one string to the same string 
 	without overwriting stuff, we go either left to right or backwards */
+#ifndef USEMEMINTERFACE
 			if (x > i) 
 				for (k=0; k<lensource; k++) { ir[k]=ir2[k];}
 			else
 				for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
+#else 
+/* on an SPIRAM system we need to go through the mem interface 
+	for write */
+			if (ir != 0) {
+				if (x > i) 
+					for (k=0; k<lensource; k++) ir[k]=ir2[k];
+				else
+					for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
+			} else 
+				for (k=0; k<lensource; k++) memwrite2(ax+k, ir2[k]);
+#endif
 
 /* classical Apple 1 behaviour is string truncation in substring logic */
 			newlength = i+lensource-1;	
@@ -5584,8 +5798,12 @@ void xdef(){
 /* store the payload - the here address - and the name of the variable */
 	z.a=here;
 	setnumber(a, addrsize);
+/*
 	mem[a+addrsize]=xcl2;
 	mem[a+addrsize+1]=ycl2;
+*/
+	memwrite2(a+addrsize, xcl2);
+	memwrite2(a+addrsize+1, ycl2);
 
 /* skip whatever comes next */
 	while (!termsymbol()) nexttoken();
@@ -5620,13 +5838,16 @@ void xfn() {
 	if ((a=bfind(TFN, fxc, fyc))==0) {error(EUNKNOWN); return; }
 	getnumber(a, addrsize);
 	h1=z.a;
+/*	
 	vxc=mem[a+addrsize];
 	vyc=mem[a+addrsize+1];
+*/
+	vxc=memread2(a+addrsize);
+	vyc=memread2(a+addrsize+1);
 
 /* remember the original value of the variable and set it */
 	xt=getvar(vxc, vyc);
 	if (DEBUG) {outsc("** saving the original running var "); outch(vxc); outch(vyc); outspc(); outnumber(xt); outcr();}
-
 
 	setvar(vxc, vyc, pop());
 
@@ -5776,7 +5997,7 @@ void statement(){
 				eflush(); 	// if there is an EEPROM dummy, flush it here (protects flash storage!)
 				ofileclose();
 				return;
-			case TLIST:
+			case TLIST:		
 				xlist();
 				break;
 			case TNEW: 		/* return here because new input is needed */
@@ -5939,16 +6160,21 @@ void statement(){
 				break;	
 #endif
 /* and all the rest */
-			case UNKNOWN:
+/*			case UNKNOWN:
 				error(EUNKNOWN);
-				return;
+				return; */
 			case ':':
 				nexttoken();
 				break;
 			default:
 /*  very tolerant - tokens are just skipped, this is anarchy */
-				if (DEBUG) { outsc("** hoppla - unexpected token, skipped "); debugtoken(); }
-				nexttoken();
+				/* if (DEBUG) { outsc("** hoppla - unexpected token, skipped "); debugtoken(); }
+				nexttoken(); */
+/*  strict syntax checking */
+				error(EUNKNOWN);
+				return;
+				//debugtoken();
+				//nexttoken();
 		}
 /* after each statement we check on a break character 
 		on an Arduino entering "#" at runtime stops the program */
@@ -5974,9 +6200,14 @@ void setup() {
 /* init all io functions */
 	ioinit();
 
-/* get the BASIC memory */
+/* get the BASIC memory, either as memory array with
+	ballocmem() or as an SPI serical memory */
+#if defined(USEMEMINTERFACE) && MEMSIZE == 0
+	himem=memsize=spirambegin();
+#else 
 	himem=memsize=ballocmem();
-  
+#endif
+
 /* be ready for a new program */
  	xnew();	
 

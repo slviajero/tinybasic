@@ -665,6 +665,8 @@ const address_t maxaddr=(address_t)(~0);
 
 	x, y, xc, yc are two n*8 bit and two 8 bit accumulators.
 
+	ax, ax are address type accumulators.
+
 	z is a mixed n*8 bit accumulator
 
 	ir, ir2 are general index registers for string processing.
@@ -723,6 +725,8 @@ static short gosubsp = 0;
 
 static number_t x, y;
 static signed char xc, yc;
+
+static address_t ax, ay;
 
 struct twobytes {signed char l; signed char h;};
 static union accunumber { number_t i; address_t a; struct twobytes b; signed char c[sizeof(number_t)]; } z;
@@ -950,6 +954,11 @@ short radioavailable();
 void sensorbegin();
 number_t sensorread(short, short);
 
+/* SPI RAM code */
+address_t spirambegin();
+void spiramrawwrite(address_t, signed char);
+signed char spiramrawread(address_t );
+
 /*
  * Layer 0 functions - I/O and memory management 
  */
@@ -1065,6 +1074,8 @@ void nexttoken();
 char nomemory(number_t);
 void storetoken(); 
 char memread(address_t);
+signed char memread2(address_t);
+void memwrite2(address_t, signed char);
 void gettoken();
 void firstline();
 void nextline();

@@ -40,8 +40,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define BASICFULL
-#undef   BASICINTEGER
+#undef  BASICFULL
+#define   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -95,7 +95,7 @@
 #undef  HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
-#undef HASDARKARTS
+#define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
 #endif
@@ -185,7 +185,7 @@
  *	just returns the static MEMSIZE.
  *
  */
-#if MEMSIZE == 0 && !defined(ARDUINOSPIRAM)
+#if MEMSIZE == 0 && !defined(USEMEMINTERFACE)
 address_t ballocmem() { 
 	signed char i = 0;
 
@@ -816,10 +816,14 @@ address_t createstring(char c, char d, address_t i) {
 #endif
 }
 
-/* get a string at position b, the -1+stringdexsize is needed because a string index starts with 1 */
+/* get a string at position b, the -1+stringdexsize is needed because a string index starts with 1 
+	in addition to the memory pointer, return the address in memory*/
 char* getstring(char c, char d, address_t b) {	
-	address_t a;
+#ifdef USEMEMINTERFACE
+	address_t k;
+#endif
 
+	ax=0;
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
 
 /* direct access to the input buffer - deprectated but still there */
@@ -837,9 +841,9 @@ char* getstring(char c, char d, address_t b) {
 #endif
 
 /* dynamically allocated strings */
-	if (! (a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, STRSIZEDEF);
+	if (! (ax=bfind(STRINGVAR, c, d)) ) ax=createstring(c, d, STRSIZEDEF);
 
-	if (DEBUG) { outsc("** heap address "); outnumber(a); outcr(); }
+	if (DEBUG) { outsc("** heap address "); outnumber(ax); outcr(); }
 	if (DEBUG) { outsc("** byte length "); outnumber(z.a); outcr(); }
 
 	if (er != 0) return 0;
@@ -848,11 +852,19 @@ char* getstring(char c, char d, address_t b) {
 		error(EORANGE); return 0;
 	}
 
-	a=a+b-1+strindexsize;
+	ax=ax+b-1+strindexsize;
 
-	if (DEBUG) { outsc("** payload address address "); outnumber(a); outcr(); }
+	if (DEBUG) { outsc("** payload address address "); outnumber(ax); outcr(); }
 
-	return (char *)&mem[a];
+/* return value is 0 if we have no direct memory access, the caller needs to handle the string 
+	through the mem address, we return no pointer but provide a copy of the string in the first 
+	string buffer*/
+#ifdef USEMEMINTERFACE
+	for (k=0; k<z.a && k<SPIRAMSBSIZE; k++) spistrbuf1[k]=memread2(ax+k);
+	return 0;
+#else
+	return (char *)&mem[ax];
+#endif
 
 #else 
 	return 0;
@@ -2133,7 +2145,7 @@ void storetoken() {
  * memread2 and memwrite2 always go to ram. 
  *
  */
-#ifndef ARDUINOSPIRAM
+#ifndef USEMEMINTERFACE
 char memread(address_t a) {
 	if (st != SERUN) {
 		return mem[a];
@@ -2147,6 +2159,7 @@ signed char memread2(address_t a) {
 }
 
 void memwrite2(address_t a, signed char c) {
+  if (a<0 || a>memsize) { outsc("Mem overflow error\n"); };
 	mem[a]=c;
 }
 #else 
@@ -2204,7 +2217,7 @@ void gettoken() {
  * we (ab)use the input buffer which is not needed here, this limits
  * the string constant length to the length of the input buffer
  */
-#if defined(ARDUINOSPIRAM)
+#if defined(USEMEMINTERFACE)
 			for(int i=0; i<x; i++) spistrbuf1[i]=memread(here+i);	
 			ir=spistrbuf1;
 #else
@@ -2778,13 +2791,19 @@ void xpow(){
 /* 
  * stringvalue() evaluates a string value, FALSE if there is no string
  * ir2 has the string location, the stack has the length
+ * ax the memory byte address
  */
 char stringvalue() {
 	char xcl;
 	char ycl;
+  short k;
 	if (token == STRING) {
 		ir2=ir;
 		push(x);
+#ifdef USEMEMINTERFACE
+    for(k=0; k<x && x<SPIRAMSBSIZE; k++ ) spistrbuf1[k]=ir[k];
+    ir2=spistrbuf1;
+#endif
 #ifdef HASAPPLE1
 	} else if (token == STRINGVAR) {
 		xcl=xc;
@@ -2794,6 +2813,10 @@ char stringvalue() {
 		y=pop();
 		x=pop();
 		ir2=getstring(xcl, ycl, x);
+/* when the memory interface is active spistrbuf1 has the string */
+#ifdef USEMEMINTERFACE
+		ir2=spistrbuf1;
+#endif
 		push(y-x+1);
 		xc=xcl;
 		yc=ycl;
@@ -2831,6 +2854,7 @@ void streval(){
 	signed char t;
 	address_t h1;
 	char* b1;
+	int k;
 
 	if (!stringvalue()) {
 		error(EUNKNOWN);
@@ -2864,6 +2888,12 @@ void streval(){
 	t=token;
 	nexttoken(); 
 	//debugtoken();
+
+/* with the mem interface -> copy */ 
+#ifdef USEMEMINTERFACE
+	for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=irl[k];
+	irl=spistrbuf2;
+#endif
 
 	if (!stringvalue()){
 		error(EUNKNOWN);
@@ -3491,7 +3521,11 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
 		case STRINGVAR:
 			ir=getstring(xcl, ycl, i);
 			if (er != 0) return;
+#ifndef USEMEMINTERFACE
 			ir[0]=pop();
+#else 
+			if (ir == 0) memwrite2(ax, pop());
+#endif
 			if (ps)
 				setstringlength(xcl, ycl, 1);
 			else 
@@ -3556,7 +3590,14 @@ void assignment() {
 /* this is the string righthandside code - how long is the rightandside */
 			lensource=pop();
 
-/* the destination address of the lefthandside */
+/* the destination address of the lefthandside, on an SPI RAM system, we 
+	 save the source in the second string buffer and let ir2 point to it
+	 this is needed to avoid the overwrite from the second getstring
+	 then reuse much of the old code */
+#ifdef USEMEMINTERFACE
+			for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=ir2[k];
+			ir2=spistrbuf2;
+#endif			
 			ir=getstring(xcl, ycl, i);
 			if (er != 0) return;
 
@@ -3576,10 +3617,22 @@ void assignment() {
 
 /* this code is needed to make sure we can copy one string to the same string 
 	without overwriting stuff, we go either left to right or backwards */
+#ifndef USEMEMINTERFACE			
 			if (x > i) 
 				for (k=0; k<lensource; k++) ir[k]=ir2[k];
 			else
 				for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
+#else
+/* on an SPIRAM system we need to go through the mem interface 
+	for write, if ir is zero i.e. is not a valid memory location */
+			if (ir != 0) {
+				if (x > i) 
+					for (k=0; k<lensource; k++) ir[k]=ir2[k];
+				else
+					for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
+			} else 
+				for (k=0; k<lensource; k++) memwrite2(ax+k, ir2[k]);
+#endif
 
 /* classical Apple 1 behaviour is string truncation in substring logic */
 			newlength = i+lensource-1;	
@@ -3606,6 +3659,7 @@ void xinput(){
 	char l;
 	number_t xv;
 	signed char xcl, ycl;
+	short k;
 
 	nexttoken();
 
@@ -3716,20 +3770,38 @@ nextvariable:
 
 #ifdef HASAPPLE1
 /* strings are not passed through the input buffer but inputed directly 
-	  in the string memory location, ir after getstring points to the first data byte */
-	if (token == STRINGVAR) {
-		ir=getstring(xc, yc, 1); 
-		if (prompt) showprompt();
-		l=stringdim(xc, yc);
-		if (id == IWIRE && form != 0 && form < l) l=form; 
-		ins(ir-1, l);
+    in the string memory location, ir after getstring points to the first data byte */
+  if (token == STRINGVAR) {
+    ir=getstring(xc, yc, 1); 
+    if (prompt) showprompt();
+    l=stringdim(xc, yc);
+/* the form parameter in WIRE can be used to set the expected number of bytes */
+    if (id == IWIRE && form != 0 && form < l) l=form; 
+#ifndef USEMEMINTERFACE   
+    ins(ir-1, l);
 /* this is the length information correction for large strings, ins
-		stored the string length in z.a as a side effect */
-		if (xc != '@' && strindexsize == 2) { 
-			*(ir-2)=z.b.l;
-			*(ir-1)=z.b.h;
-		}
- 	}
+    stored the string length in z.a as a side effect */
+    if (xc != '@' && strindexsize == 2) { 
+      *(ir-2)=z.b.l;
+      *(ir-1)=z.b.h;
+    } 
+#else
+    if (ir == 0) {
+      ins(spistrbuf1, l);
+      for(int k=0; k<SPIRAMSBSIZE && k<l; k++) memwrite2(ax+k, spistrbuf1[k+1]);
+      memwrite2(ax-2, z.b.l);
+      memwrite2(ax-1, z.b.h);
+    } else {
+      ins(ir-1, l);
+/* this is the length information correction for large strings, ins
+    stored the string length in z.a as a side effect */
+      if (xc != '@' && strindexsize == 2) { 
+        *(ir-2)=z.b.l;
+        *(ir-1)=z.b.h;
+      } 
+    }
+#endif
+  }
 #endif
 
 	nexttoken();
@@ -4154,9 +4226,9 @@ void xnew(){
 	clrvars();
 
 /* program memory back to zero and variable heap cleared */
-	zeroblock(0, top);
-	himem=memsize;
-	top=0;;
+  himem=memsize;
+	zeroblock(0, memsize);
+	top=0;
 	clrlinecache();
 
 /* error status reset */
@@ -5613,6 +5685,12 @@ void xread(){
 			ir2=ir;
 			lensource=x;
 
+/* if we use te memory interface we have to save the source */ 
+#ifdef USEMEMINTERFACE
+			for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=ir2[k];
+			ir2=spistrbuf2;
+#endif	
+
 /* the destination address of the lefthandside, on the fly create included */
 			ir=getstring(xcl, ycl, i);
 			if (er != 0) return;
@@ -5632,10 +5710,22 @@ void xread(){
 
 /* this code is needed to make sure we can copy one string to the same string 
 	without overwriting stuff, we go either left to right or backwards */
+#ifndef USEMEMINTERFACE
 			if (x > i) 
 				for (k=0; k<lensource; k++) { ir[k]=ir2[k];}
 			else
 				for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
+#else 
+/* on an SPIRAM system we need to go through the mem interface 
+	for write */
+			if (ir != 0) {
+				if (x > i) 
+					for (k=0; k<lensource; k++) ir[k]=ir2[k];
+				else
+					for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
+			} else 
+				for (k=0; k<lensource; k++) memwrite2(ax+k, ir2[k]);
+#endif
 
 /* classical Apple 1 behaviour is string truncation in substring logic */
 			newlength = i+lensource-1;	
@@ -6112,7 +6202,7 @@ void setup() {
 
 /* get the BASIC memory, either as memory array with
 	ballocmem() or as an SPI serical memory */
-#if defined(ARDUINOSPIRAM) && MEMSIZE == 0
+#if defined(USEMEMINTERFACE) && MEMSIZE == 0
 	himem=memsize=spirambegin();
 #else 
 	himem=memsize=ballocmem();

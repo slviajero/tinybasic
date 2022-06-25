@@ -59,7 +59,7 @@
 */
 #undef USESPICOSERIAL 
 #undef ARDUINOPS2
-#undef ARDUINOPRT
+#define ARDUINOPRT
 #undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
@@ -74,12 +74,13 @@
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ARDUINORTC
-#define ARDUINOWIRE
-#define ARDUINOWIRESLAVE
+#undef ARDUINOWIRE
+#undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
 #undef ARDUINOETH
 #undef ARDUINOMQTT
 #undef ARDUINOSENSORS
+#undef ARDUINOSPIRAM
 #undef STANDALONE
 
 /* 
@@ -141,6 +142,8 @@
 /* near field pin settings for CE and CSN*/
 #define RF24CEPIN 8
 #define RF24CSNPIN 9
+
+
 
 /* 
  *  list of default i2c addresses
@@ -355,6 +358,12 @@ const char bsystype = SYSTYPE_UNKNOWN;
 #if defined(ARDUINONOKIA51) || defined(ARDUINOILI9488)
 #define ARDUINOSPI
 #endif
+
+/* the RAM chips */
+#if defined(ARDUINOSPIRAM)
+#define ARDUINOSPI
+#endif
+
 
 /* Networking needs the background task capability */
 #if defined(ARDUINOMQTT) || defined(ARDUINOETH)
@@ -2971,6 +2980,74 @@ number_t sensorread(short s, short v) {
 void sensorbegin() {}
 number_t sensorread(short s, short v) {return 0;};
 #endif
+
+
+/*
+ * Experimental code to drive SPI SRAM modules
+ * Currently only the 23LCV512 is implemented, assuming a 
+ * 64kB SRAM
+ * The code below is taken in part from the SRAMsimple library
+ * 
+ * curren
+ */
+
+#ifdef ARDUINOSPIRAM
+#define USEMEMINTERFACE
+
+#ifndef RAMPIN
+#define RAMPIN 10
+#endif
+
+#define SPIRAMWRMR  1 
+#define SPIRAMRDMR  5
+#define SPIRAMREAD  3     
+#define SPIRAMWRITE 2     
+#define SPIRAMRSTIO 0xFF
+#define SPIRAMSEQ   0x40
+#define SPIRAMBYTE  0x00
+
+/* the RAM begin method sets the RAM to byte mode */
+address_t spirambegin() {
+  pinMode(RAMPIN, OUTPUT);
+  digitalWrite(RAMPIN, LOW);
+  SPI.transfer(SPIRAMWRMR);
+  SPI.transfer(SPIRAMBYTE);
+  digitalWrite(RAMPIN, HIGH);
+  /* only 32 kB addressable with 16 bit integers because address_t has to fit into number_t */
+  if (maxnum>32767) return 65534; else return 32766;  
+}
+
+/* the simple unbuffered byte write, with a cast to signed char */
+void spiramrawwrite(address_t a, signed char c) {
+  digitalWrite(RAMPIN, LOW);
+  SPI.transfer(SPIRAMWRITE);
+  SPI.transfer((byte)(a >> 8));
+  SPI.transfer((byte)a);
+  SPI.transfer((byte) c);
+  digitalWrite(RAMPIN, HIGH);
+}
+
+/* the simple unbuffered byte read, with a cast to signed char */
+signed char spiramrawread(address_t a) {
+  signed char c;
+  digitalWrite(RAMPIN, LOW);
+  SPI.transfer(SPIRAMREAD);
+  SPI.transfer((byte)(a >> 8));
+  SPI.transfer((byte)a);
+  c = SPI.transfer(0x00);
+  digitalWrite(RAMPIN, HIGH);
+  return c;
+}
+
+/* to handle strings in SPIRAM situations two more buffers are needed 
+ * they store intermediate results of string operations. The buffersize 
+ * limits the maximum string length indepents of how big strings are set
+ */
+#define SPIRAMSBSIZE 128
+signed char spistrbuf1[SPIRAMSBSIZE];
+signed char spistrbuf2[SPIRAMSBSIZE];
+#endif
+
 
 // defined HARDWARE_H
 #endif
