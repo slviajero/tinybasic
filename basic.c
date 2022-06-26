@@ -4686,7 +4686,7 @@ void xget(){
 /* store the data element as a number */
 	assignnumber(t, xcl, ycl, i, j, ps);
 
-	nexttoken();
+	//nexttoken();
 	id=oid;
 }
 

@@ -44,8 +44,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef   BASICFULL
-#define   BASICINTEGER
+#define   BASICFULL
+#undef   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -4686,7 +4686,7 @@ void xget(){
 /* store the data element as a number */
 	assignnumber(t, xcl, ycl, i, j, ps);
 
-	nexttoken();
+	//nexttoken();
 	id=oid;
 }
 
