@@ -45,7 +45,7 @@
  * BASICMINIMAL: minimal language
  */
 #undef   BASICFULL
-#undef   BASICINTEGER
+#define   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -56,17 +56,17 @@
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
-#undef HASTONE
-#undef HASPULSE
+#define HASTONE
+#define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#undef HASFLOAT
+#define HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
-#undef HASDARKARTS
+#define HASDARKARTS
 #define HASIOT
-#undef HASMULTIDIM
+#define HASMULTIDIM
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
