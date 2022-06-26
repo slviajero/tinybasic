@@ -37,7 +37,7 @@
 425 INPUT "Read to go - press return ", A$
 426 CLS 
 430 PRINT "SEC  FEET  SPEED  FUEL "
-450 PRINT 
+450 PRINT
 455 T=0: H=1000: V=50: F=150
 490 PRINT #6,T,H,V,F;" I";
 495 TAB(H/70): PRINT "*"
