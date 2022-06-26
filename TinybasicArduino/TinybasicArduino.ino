@@ -20,8 +20,12 @@
 	- the extension flags control features and code size
 
 	MEMSIZE sets the BASIC main memory to a fixed value,
-		if MEMSIZE=0 a heuristic is used stepping down 
-		from 60000 to 128 bytes.
+		if MEMSIZE=0 a heuristic is used based on free heap
+		size and architecture parameters
+
+	USEMEMINTERFACE controls the way memory is accessed. Don't change 
+	this here. It is a parameter set by hardware-arduino.h. 
+	This feature is experimental.
 
 */
 
@@ -40,8 +44,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef  BASICFULL
-#define  BASICINTEGER
+#undef   BASICFULL
+#undef   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -52,17 +56,17 @@
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
-#define HASTONE
-#define HASPULSE
+#undef HASTONE
+#undef HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
-#define HASFLOAT
+#undef HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
-#define HASDARKARTS
+#undef HASDARKARTS
 #define HASIOT
-#define HASMULTIDIM
+#undef HASMULTIDIM
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -187,7 +191,7 @@
  */
 #if MEMSIZE == 0 && !defined(USEMEMINTERFACE)
 address_t ballocmem() { 
-	signed char i = 0;
+	mem_t i = 0;
 
 	const unsigned short memmodel[] = {
 		60000,  // DUE systems, RP2040 and ESP32, all POSIX systems - set to fit in one 16 bit page
@@ -229,7 +233,7 @@ address_t ballocmem() {
 #endif
 
 	do {
-		mem=(signed char*)malloc(memmodel[i]);
+		mem=(mem_t*)malloc(memmodel[i]);
 		if (mem != NULL) break;
 		i++;
 	} while (memmodel[i] != 0);
@@ -334,7 +338,7 @@ char autorun() {
  *		heap every objects is identified by name (c,d) and type t
  *		3 bytes are used here.
  */
-address_t bmalloc(signed char t, char c, char d, address_t l) {
+address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 	address_t vsize;     /* the length of the header */
 	address_t b;
 
@@ -409,11 +413,11 @@ address_t bmalloc(signed char t, char c, char d, address_t l) {
  *	bfind() passes back the location of the object as result
  *		the length of the object is in z.a as a side effect 
  */
-address_t bfind(signed char t, char c, char d) {
+address_t bfind(mem_t t, mem_t c, mem_t d) {
 	address_t b = memsize;
-	signed char t1;
-	char c1, d1;
-	short i=0;
+	mem_t t1;
+	mem_t c1, d1;
+	address_t i=0;
 
 	while (i < nvars) { 
 
@@ -450,18 +454,18 @@ address_t bfind(signed char t, char c, char d) {
 }
 
 /* the length of an object */
-address_t blength (signed char t, char c, char d) {
+address_t blength (mem_t t, mem_t c, mem_t d) {
 	if (bfind(t, c, d)) return z.a; else return 0;
 }
 #endif
 
 /* ununsed so far, simple variables are created on the fly */
-void createvar(char c, char d){
+void createvar(mem_t c, mem_t d){
 	return;
 }
 
 /* get and create a variable */
-number_t getvar(char c, char d){
+number_t getvar(mem_t c, mem_t d){
 	address_t a;
 
 	if (DEBUG) { outsc("* getvar "); outch(c); outch(d); outspc(); outcr(); }
@@ -512,7 +516,7 @@ number_t getvar(char c, char d){
 }
 
 /* set and create a variable */
-void setvar(char c, char d, number_t v){
+void setvar(mem_t c, mem_t d, number_t v){
 	address_t a;
 
 	if (DEBUG) { outsc("* setvar "); outch(c); outch(d); outspc(); outnumber(v); outcr(); }
@@ -575,8 +579,8 @@ void clrvars() {
 }
 
 /* the program memory access */
-void getnumber(address_t m, short n){
-	signed char i;
+void getnumber(address_t m, mem_t n){
+	mem_t i;
 
 	z.i=0;
 
@@ -600,8 +604,8 @@ void getnumber(address_t m, short n){
 }
 
 /* the eeprom memory access */
-void egetnumber(address_t m, short n){
-	signed char i;
+void egetnumber(address_t m, mem_t n){
+	mem_t i;
 
 	z.i=0;
 
@@ -619,8 +623,8 @@ void egetnumber(address_t m, short n){
 }
 
 /* set a number at a memory location */
-void setnumber(address_t m, short n){
-	signed char i;
+void setnumber(address_t m, mem_t n){
+	mem_t i;
 
 	switch (n) {
 		case 1:
@@ -643,8 +647,8 @@ void setnumber(address_t m, short n){
 }
 
 /* set a number at a eepromlocation */
-void esetnumber(address_t m, short n){
-	signed char i; 
+void esetnumber(address_t m, mem_t n){
+	mem_t i; 
 
 	switch (n) {
 		case 1:
@@ -660,10 +664,9 @@ void esetnumber(address_t m, short n){
 }
 
 /* create an array */
-address_t createarray(char c, char d, address_t i, address_t j) {
-#ifdef HASMULTIDIM
+address_t createarray(mem_t c, mem_t d, address_t i, address_t j) {
 	address_t a, zat, at;
-#endif
+
 #ifdef HASAPPLE1
 	if (DEBUG) { outsc("* create array "); outch(c); outch(d); outspc(); outnumber(i); outcr(); }
 #ifndef HASMULTIDIM
@@ -710,7 +713,7 @@ address_t getarrayseconddim(address_t a, address_t za) {
 }
 
 /* generic array access function */
-void array(char m, char c, char d, address_t i, address_t j, number_t* v) {
+void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 	address_t a;
 	address_t h;
 	char e = FALSE;
@@ -819,9 +822,8 @@ address_t createstring(char c, char d, address_t i) {
 /* get a string at position b, the -1+stringdexsize is needed because a string index starts with 1 
 	in addition to the memory pointer, return the address in memory*/
 char* getstring(char c, char d, address_t b) {	
-#ifdef USEMEMINTERFACE
 	address_t k;
-#endif
+
 
 	ax=0;
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
@@ -1025,7 +1027,7 @@ void printmessage(char i){
  * reseterror() sets the error state to normal and end the 
  * run loop.
 */ 
-void error(signed char e){
+void error(mem_t e){
 	er=e;
 /* set input and output device back to default */
 	iodefaults();
@@ -1132,7 +1134,7 @@ void clrdata() {
  *	Stack handling for gosub and for
  */
 void pushforstack(){
-	short i, j;
+	index_t i, j;
 
 	if (DEBUG) { outsc("** forsp and here in pushforstack "); outnumber(forsp); outspc(); outnumber(here); outcr(); }
 	
@@ -1419,7 +1421,7 @@ short availch(){
  */
 void inb(char *b, short nb) {
 	long m;
-	short i = 0;
+	index_t i = 0;
 	if (blockmode == 1 ) {
 		i=availch();
 		if (i>nb-1) i=nb-1;
@@ -1460,7 +1462,7 @@ void inb(char *b, short nb) {
  *	all other streams are read using consins() for character by character
  *	input until a terminal character is reached
  */
-void ins(char *b, short nb) {
+void ins(char *b, address_t nb) {
   	switch(id) {
 #ifdef ARDUINOWIRE
   		case IWIRE:
@@ -1545,8 +1547,8 @@ void outspc() {
  *	default is a character by character operation, block 
  *	oriented write needs special functions
  */
-void outs(char *ir, short l){
-	int i;
+void outs(char *ir, address_t l){
+	address_t i;
 
 	switch (od) {
 #ifdef ARDUINORF24
@@ -1593,8 +1595,8 @@ void outscf(const char *c, short f){
  *	ugly here, testcode when introducting 
  *	number_t was only 16 bit before
  */
-short parsenumber(char *c, number_t *r) {
-	short nd = 0;
+address_t parsenumber(char *c, number_t *r) {
+	address_t nd = 0;
 
 	*r=0;
 	while (*c >= '0' && *c <= '9' && *c != 0) {
@@ -1608,9 +1610,9 @@ short parsenumber(char *c, number_t *r) {
 
 #ifdef HASFLOAT
 /* a poor man's atof implementation with character count */
-short parsenumber2(char *c, number_t *r) {
-	short nd = 0;
-	short i;
+address_t parsenumber2(char *c, number_t *r) {
+	address_t nd = 0;
+	index_t i;
 	number_t fraction = 0;
 	number_t exponent = 0;
 	char nexp = FALSE;
@@ -1653,11 +1655,11 @@ short parsenumber2(char *c, number_t *r) {
  *	the use of long v here is a hack related to HASFLOAT 
  *	unfinished here and needs to be improved
  */
-short writenumber(char *c, number_t vi){
-	short nd = 0;	
+address_t writenumber(char *c, number_t vi){
+	address_t nd = 0;	
 	long v;
-	short i,j;
-	short s = 1;
+	index_t i,j;
+	mem_t s = 1;
 	char c1;
 
 /* not really needed any more */
@@ -1694,11 +1696,11 @@ short writenumber(char *c, number_t vi){
  * this is for floats, going back to library functions
  * for a starter.
  */
-short writenumber2(char *c, number_t vi) {
-	short i;
+address_t writenumber2(char *c, number_t vi) {
+	index_t i;
 	number_t f;
-	short exponent = 0; 
-	char eflag=0;
+	index_t exponent = 0; 
+	mem_t eflag=0;
 
 /* pseudo integers are displayed as integer
 		zero trapped here */
@@ -1746,8 +1748,8 @@ short writenumber2(char *c, number_t vi) {
  * innumber() uses sbuffer as a char buffer to get a number input 
  */
 char innumber(number_t *r) {
-	short i = 1;
-	short s = 1;
+	index_t i = 1;
+	index_t s = 1;
 
 again:
 	*r=0;
@@ -1791,7 +1793,7 @@ again:
 
 /* prints a number */
 void outnumber(number_t n){
-	short nd;
+	address_t nd;
 
 #ifndef HASFLOAT
 	nd=writenumber(sbuffer, n);
@@ -1949,7 +1951,7 @@ void nexttoken() {
 	x=0;
 	ir=bi;
 	while (-1) {
-		// toupper 
+/* toupper code */
 		if (*ir >= 'a' && *ir <= 'z') {
 			*ir-=32;
 			ir++;
@@ -2074,7 +2076,7 @@ char nomemory(number_t b){
 
 /* store a token - check free memory before changing anything */
 void storetoken() {
-	short i=x;
+	index_t i=x;
 	switch (token) {
 		case LINENUMBER:
 			if ( nomemory(addrsize+1) ) break;
@@ -2144,9 +2146,12 @@ void storetoken() {
  *
  * memread2 and memwrite2 always go to ram. 
  *
+ * currently only the SPIRAM interface is implemented. This is 
+ * handled in hardware-arduino.h.
+ *
  */
 #ifndef USEMEMINTERFACE
-char memread(address_t a) {
+mem_t memread(address_t a) {
 	if (st != SERUN) {
 		return mem[a];
 	} else {
@@ -2154,16 +2159,16 @@ char memread(address_t a) {
 	}
 }
 
-signed char memread2(address_t a) {
+mem_t memread2(address_t a) {
 	return mem[a];
 }
 
-void memwrite2(address_t a, signed char c) {
+void memwrite2(address_t a, mem_t c) {
   if (a<0 || a>memsize) { outsc("Mem overflow error\n"); };
 	mem[a]=c;
 }
 #else 
-char memread(address_t a) {
+mem_t memread(address_t a) {
 	if (st != SERUN) {
 		return spiramrawread(a);
 	} else {
@@ -2171,11 +2176,11 @@ char memread(address_t a) {
 	}
 }
 
-signed char memread2(address_t a) {
+mem_t memread2(address_t a) {
 	return spiramrawread(a);
 }
 
-void memwrite2(address_t a, signed char c) {
+void memwrite2(address_t a, mem_t c) {
 	spiramrawwrite(a, c);
 }
 #endif
@@ -2410,8 +2415,8 @@ void diag(){
 #endif
 
 void storeline() {
-	const short lnlength=addrsize+1;
-	short linelength;
+	const index_t lnlength=addrsize+1;
+	index_t linelength;
 	number_t newline; 
 	address_t here2, here3; 
 	address_t t1, t2;
@@ -2555,7 +2560,7 @@ char termsymbol() {
 }
 
 /* a little helpers - one token expect */ 
-char expect(signed char t, char e) {
+char expect(mem_t t, mem_t e) {
 	nexttoken();
 	if (token != t) {error(e); return FALSE; } else return TRUE;
 }
@@ -2794,9 +2799,8 @@ void xpow(){
  * ax the memory byte address
  */
 char stringvalue() {
-	char xcl;
-	char ycl;
-  short k;
+	mem_t xcl, ycl;
+	address_t k;
 	if (token == STRING) {
 		ir2=ir;
 		push(x);
@@ -2850,11 +2854,10 @@ char stringvalue() {
 void streval(){
 	char *irl;
 	address_t xl, x;
-	char xcl;
-	signed char t;
+	mem_t t;
 	address_t h1;
 	char* b1;
-	int k;
+	index_t k;
 
 	if (!stringvalue()) {
 		error(EUNKNOWN);
@@ -3456,7 +3459,7 @@ separators:
  *
  *	assignnumber assigns a number to a given lefthandside
  */
-void lefthandside(address_t* i, address_t* j, char* ps) {
+void lefthandside(address_t* i, address_t* j, mem_t* ps) {
 	switch (token) {
 		case VARIABLE:
 			nexttoken();
@@ -3540,14 +3543,14 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
  *	LET - the core assigment function, this is different from other BASICs
  */
 void assignment() {
-	signed char t;  // remember the left hand side token until the end of the statement, type of the lhs
-	char ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
-	char xcl, ycl; // to preserve the left hand side variable names
+	mem_t t;  // remember the left hand side token until the end of the statement, type of the lhs
+	mem_t ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
+	mem_t xcl, ycl; // to preserve the left hand side variable names
 	address_t i=1; // and the beginning of the destination string  
 	address_t j=1; /* the second dimension of the array */
 	address_t lensource, lendest, newlength;
-	char s;
-	int k;
+	mem_t s;
+	index_t k;
 
 /* this code evaluates the left hand side */
 	ycl=yc;
@@ -3654,12 +3657,12 @@ void showprompt() {
 }
 
 void xinput(){
-	char oldid = id;
-	char prompt = TRUE;
-	char l;
+	mem_t oldid = id;
+	mem_t prompt = TRUE;
+	address_t l;
 	number_t xv;
-	signed char xcl, ycl;
-	short k;
+	mem_t xcl, ycl;
+	address_t k;
 
 	nexttoken();
 
@@ -3825,7 +3828,7 @@ resetinput:
  *	GOTO and GOSUB function for a simple one statement goto
  */
 void xgoto() {
-	signed char t=token;
+	mem_t t=token;
 
 	if (!expectexpr()) return;
 	if (t == TGOSUB) pushgosubstack();
@@ -3834,7 +3837,7 @@ void xgoto() {
 	x=pop();
 
 	if (DEBUG) { outsc("** goto/gosub evaluated line number "); outnumber(x); outcr(); }
-	findline(x);
+	findline((address_t) x);
 	if (er != 0) return;
 
 /* goto in interactive mode switched to RUN mode
@@ -3877,7 +3880,7 @@ void xif() {
 		if (token == TELSE) {
 			nexttoken();
 			if (token == NUMBER) {
-				findline(x);
+				findline((address_t) x);
 				return;	
 			} 
 		} 	
@@ -3889,7 +3892,7 @@ void xif() {
 	if (token == TTHEN) {
 		nexttoken();
 		if (token == NUMBER) {
-			findline(x);
+			findline((address_t) x);
 		}
 	} 
 #endif
@@ -3941,7 +3944,7 @@ void findnextcmd(){
  *	as an open loop with no boundary
  */
 void xfor(){
-	char xcl, ycl;
+	mem_t xcl, ycl;
 	number_t b=1;
 	number_t e=maxnum;
 	number_t s=1;
@@ -4025,8 +4028,8 @@ void xcont() {
  *	NEXT variable statement 
  */
 void xnext(){
-	char xcl=0;
-	char ycl;
+	mem_t xcl=0;
+	mem_t ycl;
 	address_t h;
 	number_t t;
 
@@ -4078,7 +4081,7 @@ void xnext(){
  *	TOKEN output - this is also used in save, list does a minimal formatting with a simple heuristic
  */
 void outputtoken() {
-	unsigned short i;
+	address_t i;
 
 	if (spaceafterkeyword) {
 		if (token != '(' && token != LINENUMBER && token !=':' ) outspc();
@@ -4136,7 +4139,8 @@ void outputtoken() {
  */
 void xlist(){
 	number_t b, e;
-	char oflag = FALSE;
+	mem_t oflag = FALSE;
+
 	lastouttoken=0;
 	spaceafterkeyword=0;
 
@@ -4268,8 +4272,8 @@ void xclr() {
  *	DIM - the dimensioning of arrays and strings from Apple 1 BASIC
  */
 void xdim(){
-	char xcl, ycl; 
-	signed char t;
+	mem_t xcl, ycl; 
+	mem_t t;
 
 	nexttoken();
 
@@ -4454,7 +4458,7 @@ void dumpmem(address_t r, address_t b) {
  *	to the data and x the string length
  */
 void stringtobuffer(char *buffer) {
-	short i;
+	index_t i;
 	i=x;
 	if (i >= SBUFSIZE) i=SBUFSIZE-1;
 	buffer[i--]=0;
@@ -4463,7 +4467,7 @@ void stringtobuffer(char *buffer) {
 
 /* get a file argument */
 void getfilename(char *buffer, char d) {
-	char s;
+	index_t s;
 	char *sbuffer;
 
 	s=stringvalue();
@@ -4504,7 +4508,7 @@ void getfilename(char *buffer, char d) {
 void xsave() {
 	char filename[SBUFSIZE];
 	address_t here2;
-	char t;
+	mem_t t;
 
 	nexttoken();
 	getfilename(filename, 1);
@@ -4558,9 +4562,9 @@ void xsave() {
  */
 void xload(const char* f) {
 	char filename[SBUFSIZE];
-	char ch;
+	address_t ch;
 	address_t here2;
-	char chain = FALSE;
+	mem_t chain = FALSE;
 
 	if (f == 0) {
 		nexttoken();
@@ -4596,23 +4600,23 @@ void xload(const char* f) {
 				return;
 			} 
 
-    bi=ibuffer+1;
+    	bi=ibuffer+1;
 		while (fileavailable()) {
-      ch=fileread();
-      if (ch == '\n' || ch == '\r') {
-        *bi=0;
-        bi=ibuffer+1;
-        nexttoken();
-        if (token == NUMBER) storeline();
-        if (er != 0 ) break;
-        bi=ibuffer+1;
-      } else {
-        *bi++=ch;
-      }
-      if ( (bi-ibuffer) > BUFSIZE ) {
-        error(EOUTOFMEMORY);
-        break;
-      }
+      		ch=fileread();
+      		if (ch == '\n' || ch == '\r') {
+        		*bi=0;
+        		bi=ibuffer+1;
+        		nexttoken();
+        		if (token == NUMBER) storeline();
+        		if (er != 0 ) break;
+        		bi=ibuffer+1;
+      		} else {
+        		*bi++=ch;
+      		}
+      		if ( (bi-ibuffer) > BUFSIZE ) {
+        		error(EOUTOFMEMORY);
+        		break;
+      		}
 		}   	
 		ifileclose();
 
@@ -4646,12 +4650,12 @@ void xload(const char* f) {
  *	GET just one character from input 
  */
 void xget(){
-	signed char t;	// remember the left hand side token until the end of the statement, type of the lhs
-	char ps=TRUE;		// also remember if the left hand side is a pure string of something with an index 
-	char xcl, ycl;	// to preserve the left hand side variable names
-	address_t i=1;	// and the beginning of the destination string  
-	address_t j=1;	// the second dimension of the array if needed
-	unsigned char oid=id;
+	mem_t t;		/* remember the left hand side token until the end of the statement, type of the lhs */
+	mem_t ps=TRUE;	/* also remember if the left hand side is a pure string of something with an index */
+	mem_t xcl, ycl;	/* to preserve the left hand side variable names	*/
+	address_t i=1;	/* and the beginning of the destination string  	*/
+	address_t j=1;	/* the second dimension of the array if needed		*/
+	mem_t oid=id;
 
 	nexttoken();
 
@@ -4690,8 +4694,8 @@ void xget(){
  *	PUT writes one character to an output stream
  */
 void xput(){
-	unsigned char ood=od;
-	short i;
+	mem_t ood=od;
+	index_t i;
 
 	nexttoken();
 
@@ -4723,7 +4727,7 @@ void xput(){
  */
 void xset(){
 	address_t fn;
-  address_t args;
+	address_t args;
 
 	nexttoken();
 	parsenarguments(2);
@@ -4817,10 +4821,10 @@ void xset(){
 void xnetstat(){
 #ifdef ARDUINOMQTT
 	if (netconnected()) outsc("Network connected \n"); else outsc("Network not connected \n");
-  outsc("MQTT state "); outnumber(mqttstate()); outcr();
+	outsc("MQTT state "); outnumber(mqttstate()); outcr();
  	outsc("MQTT out topic "); outsc(mqtt_otopic); outcr();
-  outsc("MQTT inp topic "); outsc(mqtt_itopic); outcr();
-  outsc("MQTT name "); outsc(mqttname); outcr();
+	outsc("MQTT inp topic "); outsc(mqtt_itopic); outcr();
+	outsc("MQTT name "); outsc(mqttname); outcr();
 #endif	
 	nexttoken();		
 }
@@ -4873,7 +4877,8 @@ void xpinm(){
  * Otherwise just plain delay.
  */
 void xdelay(){
-	unsigned int i;
+	unsigned long i;
+
 	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
@@ -4881,9 +4886,9 @@ void xdelay(){
 #ifdef ARDUINOBGTASK
 	x=pop();
 	if (x>0) {
-		for(i=0; i<x; i++) {
+		for(i=0; i<x && i<maxnum; i++) {
 			delay(1);
-			if ( i%YIELDINTERVAL==0 ) byield();
+			if (i%YIELDINTERVAL == 0) byield();
 		}
 	}
 #else 
@@ -5129,7 +5134,7 @@ void xeval(){
  * AVAIL of a stream - are there characters in the stream
  */
 void xavail() {
-	unsigned char oid=id;
+	mem_t oid=id;
 	id=pop();
 	push(availch());
 	id=oid;
@@ -5573,7 +5578,7 @@ void xdata() {
  */
 void nextdatarecord() {
 	address_t h;
-	signed char s=1;
+	mem_t s=1;
 
 /* save the location of the interpreter */
 	h=here;
@@ -5644,12 +5649,12 @@ enddatarecord:
  *	this code resembles get - generic stream read code needed later
  */
 void xread(){
-	signed char t, t0;  // remember the left hand side token until the end of the statement, type of the lhs
-	char ps=TRUE;  			// also remember if the left hand side is a pure string of something with an index 
-	char xcl, ycl; 			// to preserve the left hand side variable names
-	address_t i=1;  		// and the beginning of the destination string 
-	address_t j=1; /* the second dimension of the array if needed */
-	signed char datat;	// the type of the data element
+	mem_t t, t0;	/* remember the left hand side token until the end of the statement, type of the lhs */
+	mem_t ps=TRUE;	/* also remember if the left hand side is a pure string of something with an index 	*/
+	mem_t xcl, ycl; /* to preserve the left hand side variable names	*/
+	address_t i=1;  /* and the beginning of the destination string */
+	address_t j=1;	/* the second dimension of the array if needed */
+	mem_t datat;	/* the type of the data element */
 	address_t lendest, lensource, newlength;
 	int k;
 	
@@ -5759,7 +5764,7 @@ void xrestore(){
  *	DEF a function, functions are tokenized as FN Arrayvar
  */
 void xdef(){
-	char xcl1, ycl1, xcl2, ycl2;
+	mem_t xcl1, ycl1, xcl2, ycl2;
 	address_t a;
 
 /*  do we define a function */
@@ -5871,7 +5876,7 @@ void xfn() {
 void xon(){
 	number_t cr;
 	int ci;
-	signed char t;
+	mem_t t;
 	address_t tmp, line = 0;
 	
 	if(!expectexpr()) return;

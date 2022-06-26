@@ -80,7 +80,7 @@
 #undef ARDUINOETH
 #undef ARDUINOMQTT
 #undef ARDUINOSENSORS
-#undef ARDUINOSPIRAM
+#undef ARDUINOSPIRAM /* unfinished code, do not use, string handling broken */
 #undef STANDALONE
 
 /* 
@@ -2988,7 +2988,7 @@ number_t sensorread(short s, short v) {return 0;};
  * 64kB SRAM
  * The code below is taken in part from the SRAMsimple library
  * 
- * curren
+ * currently only a raw interface without buffering is implemented
  */
 
 #ifdef ARDUINOSPIRAM
@@ -3018,7 +3018,7 @@ address_t spirambegin() {
 }
 
 /* the simple unbuffered byte write, with a cast to signed char */
-void spiramrawwrite(address_t a, signed char c) {
+void spiramrawwrite(address_t a, mem_t c) {
   digitalWrite(RAMPIN, LOW);
   SPI.transfer(SPIRAMWRITE);
   SPI.transfer((byte)(a >> 8));
@@ -3028,8 +3028,8 @@ void spiramrawwrite(address_t a, signed char c) {
 }
 
 /* the simple unbuffered byte read, with a cast to signed char */
-signed char spiramrawread(address_t a) {
-  signed char c;
+mem_t spiramrawread(address_t a) {
+  mem_t c;
   digitalWrite(RAMPIN, LOW);
   SPI.transfer(SPIRAMREAD);
   SPI.transfer((byte)(a >> 8));

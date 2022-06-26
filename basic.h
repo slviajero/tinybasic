@@ -612,15 +612,24 @@ const char* const message[] PROGMEM = {
  *	the original code was 16 bit but can be extended here
  * 	to arbitrary types 
  *
+ *	number_t is the type for numerical work - either float or int
+ *  address_t is an unsigned type adddressing memory 
+ *  mem_t is a SIGNED 8bit character type.
+ *	index_t is a SIGNED minimum 16 bit integer type
+ *
  *	works with the tacit assumption that 
  *	sizeof(number_t) >= sizeof(address_t) 
- *	floating point here is under construction we always 
- *	assume that float >= 4 bytes in the following
+ *	and that the entire memory is smaller than the positive
+ * 	part of number type (!!)
+ *
+ *	we assume that float >= 4 bytes in the following
  *
  *	maxnum: the maximum accurate(!) integer of a 
  *		32 bit float 
  *	strindexsize: the index size of strings either 
  *		1 byte or 2 bytes - no other values supported
+ *
+ *
  */
 #ifdef HASFLOAT
 typedef float number_t;
@@ -635,7 +644,8 @@ const int addrsize=sizeof(address_t);
 const int eheadersize=sizeof(address_t)+1;
 const int strindexsize=2; // 
 const address_t maxaddr=(address_t)(~0); 
-
+typedef signed char mem_t;
+typedef short index_t;
 
 /* 
  * system type identifiers
@@ -710,60 +720,60 @@ static char *bi;
 static number_t vars[VARSIZE];
 
 #if MEMSIZE != 0
-static signed char mem[MEMSIZE];
+static mem_t mem[MEMSIZE];
 #else
-static signed char* mem;
+static mem_t* mem;
 #endif
 static address_t himem, memsize;
 
-static struct {char varx; char vary; address_t here; number_t to; number_t step;} forstack[FORDEPTH];
-static short forsp = 0;
-static char fnc; 
+static struct {mem_t varx; mem_t vary; address_t here; number_t to; number_t step;} forstack[FORDEPTH];
+static index_t forsp = 0;
+static mem_t fnc; 
 
 static address_t gosubstack[GOSUBDEPTH];
-static short gosubsp = 0;
+static index_t gosubsp = 0;
 
 static number_t x, y;
-static signed char xc, yc;
+static mem_t xc, yc;
 
 static address_t ax, ay;
 
-struct twobytes {signed char l; signed char h;};
-static union accunumber { number_t i; address_t a; struct twobytes b; signed char c[sizeof(number_t)]; } z;
+struct twobytes {mem_t l; mem_t h;};
+static union accunumber { number_t i; address_t a; struct twobytes b; mem_t c[sizeof(number_t)]; } z;
 
 static char *ir, *ir2;
-static signed char token;
-static signed char er;
-static signed char ert;
+static mem_t token;
+static mem_t er;
+static mem_t ert;
 
-static signed char st; 
+static mem_t st; 
 static address_t here; 
 static address_t top;
 
 static address_t nvars = 0; 
 
-static char form = 0;
+static mem_t form = 0;
 
-static signed char args;
+static mem_t args;
 
 /* this is unsigned hence address_t */
 static address_t rd;
 
 /* output and input vector */
-static unsigned char id;
-static unsigned char od;
+static mem_t id;
+static mem_t od;
 
 /* default IO - not constant, can be changed at runtime 
 	through a user call */
-static unsigned char idd = ISERIAL;
-static unsigned char odd = OSERIAL;
+static mem_t idd = ISERIAL;
+static mem_t odd = OSERIAL;
 
 /* the runtime debuglevel */
-char debuglevel = 0;
+static mem_t debuglevel = 0;
 
 /* data pointer */
 #ifdef HASDARTMOUTH
-address_t data = 0;
+static address_t data = 0;
 #endif
 
 /*
@@ -777,8 +787,8 @@ static long lastyield=0;
 static long lastlongyield=0;
 
 /* formaters lastouttoken and spaceafterkeyword to make a nice LIST */
-signed char lastouttoken;
-signed char spaceafterkeyword;
+static mem_t lastouttoken;
+static mem_t spaceafterkeyword;
 
 /* 
  * Function prototypes, ordered by layers
@@ -956,8 +966,8 @@ number_t sensorread(short, short);
 
 /* SPI RAM code */
 address_t spirambegin();
-void spiramrawwrite(address_t, signed char);
-signed char spiramrawread(address_t );
+void spiramrawwrite(address_t, mem_t);
+mem_t spiramrawread(address_t );
 
 /*
  * Layer 0 functions - I/O and memory management 
@@ -972,27 +982,27 @@ void esave();
 char autorun();
 
 /* the variable heap from Apple 1 BASIC */
-address_t bmalloc(signed char, char, char, address_t);
-address_t bfind(signed char, char, char);
-address_t blength (signed char, char, char);
+address_t bmalloc(mem_t, mem_t, mem_t, address_t);
+address_t bfind(mem_t, mem_t, mem_t);
+address_t blength (mem_t, mem_t, mem_t);
 
 /* normal variables of number_t */
-void reatevar(char, char);
-number_t getvar(char, char);
-void setvar(char, char, number_t);
+void createvar(mem_t, mem_t);
+number_t getvar(mem_t, mem_t);
+void setvar(mem_t, mem_t, number_t);
 void clrvars();
 
 /*	low level memory access packing n*8bit bit into n 8 bit objects
 	e* is for Arduino EEPROM */
-void getnumber(address_t, short);
-void setnumber(address_t, short);
-void egetnumber(address_t, short);
-void esetnumber(address_t, short);
+void getnumber(address_t, mem_t);
+void setnumber(address_t, mem_t);
+void egetnumber(address_t, mem_t);
+void esetnumber(address_t, mem_t);
 
 /* array and string handling */
 /* the multidim extension is experimental, here only 2 array dimensions implemented as test */
-address_t createarray(char, char, address_t, address_t);
-void array(char, char, char, address_t, address_t, number_t*);
+address_t createarray(mem_t, mem_t, address_t, address_t);
+void array(mem_t, mem_t, mem_t, address_t, address_t, number_t*);
 address_t createstring(char, char, address_t);
 char* getstring(char, char, address_t);
 number_t arraydim(char, char);
@@ -1008,7 +1018,7 @@ signed char gettokenvalue(char);
 void printmessage(char);
 
 /* error handling */
-void error(signed char);
+void error(mem_t);
 void reseterror();
 void debugtoken();
 void bdebug(const char*);
@@ -1042,21 +1052,21 @@ char inch();
 char checkch();
 short availch();
 void inb(char*, short);
-void ins(char*, short); 
+void ins(char*, address_t); 
 
 /* output */
 void outch(char);
 void outcr();
 void outspc();
-void outs(char*, short);
+void outs(char*, address_t);
 void outsc(const char*);
 void outscf(const char *, short);
 
 /* I/O of number_t - floats and integers */
-short parsenumber(char*, number_t*);
-short parsenumber2(char*, number_t*);
-short writenumber(char*, number_t);
-short writenumber2(char*, number_t);
+address_t parsenumber(char*, number_t*);
+address_t parsenumber2(char*, number_t*);
+address_t writenumber(char*, number_t);
+address_t writenumber2(char*, number_t);
 char innumber(number_t*);
 void outnumber(number_t);
 
@@ -1073,9 +1083,9 @@ void nexttoken();
 /* storing and retrieving programs */
 char nomemory(number_t);
 void storetoken(); 
-char memread(address_t);
-signed char memread2(address_t);
-void memwrite2(address_t, signed char);
+mem_t memread(address_t);
+mem_t memread2(address_t);
+void memwrite2(address_t, mem_t);
 void gettoken();
 void firstline();
 void nextline();
@@ -1092,7 +1102,7 @@ void storeline();
 
 /* read arguments from the token stream and process them */
 char termsymbol();
-char expect(signed char, char);
+char expect(mem_t, mem_t);
 char expectexpr();
 void parsearguments();
 void parsenarguments(char);
@@ -1139,7 +1149,7 @@ void expression();
 
 /* basic commands of the core language set */
 void xprint();
-void lefthandside(address_t*, address_t*, char*);
+void lefthandside(address_t*, address_t*, mem_t*);
 void assignnumber(signed char, char, char, address_t, address_t, char);
 void assignment();
 void showprompt();
