@@ -59,7 +59,7 @@
 */
 #undef USESPICOSERIAL 
 #undef ARDUINOPS2
-#define ARDUINOPRT
+#undef ARDUINOPRT
 #undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
@@ -152,7 +152,7 @@
  * 0x050 this is the default lowest adress of standard EEPROMs
  * default for the size is 4096, define your EFS EEPROM size here 
  */
-#define EEPROMI2CADDR 0x057
+#define EEPROMI2CADDR 0x050
 #define RTCI2CADDR 0x068
 #undef EFSEEPROMSIZE
 
@@ -1070,6 +1070,7 @@ void vgawrite(char c){}
 #define PS2FABLIB
 #define HASKEYBOARD
 fabgl::PS2Controller PS2Controller;
+char fabgllastchar = 0;
 #else
 #if defined(ARDUINO) && defined(ARDUINOPS2)
 #define PS2KEYBOARD
@@ -1096,7 +1097,7 @@ char kbdavailable(){
 	return keyboard.available();
 #else
 #ifdef PS2FABLIB
-	return Terminal.available();
+  if (fabgllastchar) return Terminal.available()+1; else return Terminal.available();
 #endif
 #endif
 #ifdef HASKEYPAD
@@ -1112,7 +1113,8 @@ char kbdread() {
 	c=keyboard.read();
 #endif
 #ifdef PS2FABLIB
-	c=Terminal.read();
+  if (fabgllastchar) { c=fabgllastchar; fabgllastchar=0; }
+  else c=Terminal.read();
 #endif
 #ifdef HASKEYPAD
 	c=keypadread();
@@ -1125,16 +1127,22 @@ char kbdread() {
 }
 
 char kbdcheckch() {
+char c;
 #ifdef PS2KEYBOARD
 /*
  * only works with the patched library https://github.com/slviajero/PS2Keyboard
- * return keyboard.peek();
- * for the original library  https://github.com/PaulStoffregen/PS2Keyboard use this code 
  */
-	if (kbdavailable()) return kbdread();
+ return keyboard.peek();
+/*
+ * for the original library  https://github.com/PaulStoffregen/PS2Keyboard use this code 
+ * GET does not work properly with it as there is no peek functionality which is needed
+ * for non blocking IO and the ability to stop programs
+ */
+ /* if (kbdavailable()) return kbdread(); */
 #else
 #ifdef PS2FABLIB
-	if (kbdavailable()) return kbdread();
+  if (fabgllastchar) return fabgllastchar;
+	if (kbdavailable()) { fabgllastchar=Terminal.read(); return fabgllastchar; }
 #endif
 #endif
 #ifdef HASKEYPAD
@@ -2854,6 +2862,7 @@ short radioavailable() {
 #ifdef ARDUINORF24
   return radio.available();
 #endif
+  return 0;
 }
 
 /* 
@@ -2988,7 +2997,7 @@ number_t sensorread(short s, short v) {return 0;};
  * 64kB SRAM
  * The code below is taken in part from the SRAMsimple library
  * 
- * currently only a raw interface without buffering is implemented
+ * curren
  */
 
 #ifdef ARDUINOSPIRAM
