@@ -824,7 +824,6 @@ address_t createstring(char c, char d, address_t i) {
 char* getstring(char c, char d, address_t b) {	
 	address_t k;
 
-
 	ax=0;
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
 
@@ -836,11 +835,13 @@ char* getstring(char c, char d, address_t b) {
 #ifdef HASAPPLE1
 /* special strings */
 #if !defined(ARDUINO) || defined(ARDUINORTC)
-	if ( c== '@' && d == 'T') {
+	if ( c == '@' && d == 'T') {
 		rtcmkstr();
 		return rtcstring+b;
 	}
 #endif
+
+	if ( c == '@') { error(EVARIABLE); return 0;}
 
 /* dynamically allocated strings */
 	if (! (ax=bfind(STRINGVAR, c, d)) ) ax=createstring(c, d, STRSIZEDEF);
@@ -2867,6 +2868,12 @@ void streval(){
 	irl=ir2;
 	xl=pop();
 
+/* with the mem interface -> copy */ 
+#ifdef USEMEMINTERFACE
+	for(k=0; k<SPIRAMSBSIZE && k<xl; k++) spistrbuf2[k]=irl[k];
+	irl=spistrbuf2;
+#endif
+
 /* get ready for rewind. */
 	if (st != SINT)
 		h1=here; 
@@ -2891,12 +2898,6 @@ void streval(){
 	t=token;
 	nexttoken(); 
 	//debugtoken();
-
-/* with the mem interface -> copy */ 
-#ifdef USEMEMINTERFACE
-	for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=irl[k];
-	irl=spistrbuf2;
-#endif
 
 	if (!stringvalue()){
 		error(EUNKNOWN);
@@ -3532,7 +3533,7 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
 			if (ps)
 				setstringlength(xcl, ycl, 1);
 			else 
-				if (lenstring(xcl, ycl) < i && i < stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
+				if (lenstring(xcl, ycl) < i && i <= stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
 			break;
 #endif
 	}

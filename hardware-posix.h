@@ -22,6 +22,9 @@
 
 */
 
+/* simulates SPI RAM, only test code, keep undefed if you don't want to do something special */
+#undef SPIRAMSIMULATOR
+
 
 #if ! defined(ARDUINO) && ! defined(__HARDWAREH__)
 #define __HARDWAREH__ 
@@ -500,6 +503,45 @@ short radioavailable() { return 0; }
 /* Arduino sensors */
 void sensorbegin() {}
 number_t sensorread(short s, short v) {return 0;};
+
+/*
+ * Experimental code to simulate 64kb SPI SRAM modules
+ * 
+ * currently used to test the string code of the mem 
+ * interface
+ *
+ */
+
+#ifdef SPIRAMSIMULATOR
+#define USEMEMINTERFACE
+
+static mem_t* spiram;
+
+/* the RAM begin method sets the RAM to byte mode */
+address_t spirambegin() {
+  spiram=(mem_t*)malloc(65536);
+  if (maxnum>32767) return 65534; else return 32766;  
+}
+
+/* the simple unbuffered byte write, with a cast to signed char */
+void spiramrawwrite(address_t a, mem_t c) {
+  spiram[a]=c;
+}
+
+/* the simple unbuffered byte read, with a cast to signed char */
+mem_t spiramrawread(address_t a) {
+	return spiram[a];
+}
+
+/* to handle strings in SPIRAM situations two more buffers are needed 
+ * they store intermediate results of string operations. The buffersize 
+ * limits the maximum string length indepents of how big strings are set
+ */
+#define SPIRAMSBSIZE 128
+char spistrbuf1[SPIRAMSBSIZE];
+char spistrbuf2[SPIRAMSBSIZE];
+#endif
+
 
 #endif
 
