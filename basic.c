@@ -44,7 +44,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define BASICFULL
+#define  BASICFULL
 #undef   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
@@ -91,7 +91,7 @@
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
-#define HASTONE
+#undef HASTONE
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
@@ -2868,7 +2868,7 @@ void streval(){
 	irl=ir2;
 	xl=pop();
 
-/* with the mem interface -> copy */ 
+/* with the mem interface -> copy, irl now point to buffer2 */ 
 #ifdef USEMEMINTERFACE
 	for(k=0; k<SPIRAMSBSIZE && k<xl; k++) spistrbuf2[k]=irl[k];
 	irl=spistrbuf2;
@@ -4532,25 +4532,30 @@ void xsave() {
 		od=OFILE;
 		
 /* the core save - xlist() not used any more */
+    ert=0; /* reset error to trap file problems */
 		here2=here;
 		here=0;
 		gettoken();
 		while (here < top) {
 			outputtoken();
+      		if (ert) break;
 			gettoken();
 			if (token == LINENUMBER) outcr();
 		}
 		if (here == top) outputtoken();
-   	outcr(); 
+   		outcr(); 
    	
 /* back to where we were */
-   	here=here2;
+   		here=here2;
 
 /* restore the output mode */
 		od=pop();
 
 /* clean up */
 		ofileclose();
+
+/* did an accident happen */
+    if (ert) { printmessage(EGENERAL); outcr();  ert=0; }
 	}
 
 /* and continue remembering, where we were */
