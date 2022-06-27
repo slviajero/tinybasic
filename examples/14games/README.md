@@ -62,6 +62,8 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Queen: queen.bas - try to move a queen on a chessboard 
 - King: king.bas - a clone of Hamurabi, you are the king of an island
 - BlackJack: blackjk.bas - play blackjack, up to 7 players
+- Chomp: chomp.bas - avoid to eat the poissoned cockie, no computer player 
+- Hangman: hangman.bas - guess a letter and be hanged step by step
 
 ## BASIC language features
 
@@ -177,6 +179,9 @@ king.bas: elementary BASIC, random numbers
 
 blackjk.bas: strings and arrays
 
+chomp.bas: 2 dimensional arrays 
+
+hangman.bas: mixing characters and arrays, 2d arrays, character out with PUT, @R
 
 ## Sources
 
