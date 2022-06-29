@@ -69,7 +69,7 @@
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #define ARDUINOEEPROM
-#define ARDUINOEFS
+#undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
@@ -80,7 +80,7 @@
 #undef ARDUINOETH
 #undef ARDUINOMQTT
 #undef ARDUINOSENSORS
-#define ARDUINOSPIRAM /* unfinished code, string handling not fully tested */
+#undef ARDUINOSPIRAM /* unfinished code, string handling not fully tested */
 #undef STANDALONE
 
 /* 
