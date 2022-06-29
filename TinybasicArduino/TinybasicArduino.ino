@@ -578,7 +578,7 @@ void clrvars() {
 	himem=memsize;
 }
 
-/* the program memory access */
+/* the BASIC memory access function */
 void getnumber(address_t m, mem_t n){
 	mem_t i;
 
@@ -601,6 +601,26 @@ void getnumber(address_t m, mem_t n){
 /*			for (i=0; i<n; i++) z.c[i]=mem[m++]; */
 			for (i=0; i<n; i++) z.c[i]=memread2(m++);
 	}
+}
+
+/* test code only for the SPI RAM code, this function goes through the 
+  ro buffer to avoit rw buffer page faults*/
+void pgetnumber(address_t m, mem_t n){
+  mem_t i;
+
+  z.i=0;
+
+  switch (n) {
+    case 1:
+      z.i=memread(m);
+      break;
+    case 2:
+      z.b.l=memread(m++);
+      z.b.h=memread(m);
+      break;
+    default:
+      for (i=0; i<n; i++) z.c[i]=memread(m++);
+  }
 }
 
 /* the eeprom memory access */
@@ -2171,18 +2191,21 @@ void memwrite2(address_t a, mem_t c) {
 #else 
 mem_t memread(address_t a) {
 	if (st != SERUN) {
-		return spiramrawread(a);
+		/* return spiramrawread(a); */
+    return spiram_robufferread(a);
 	} else {
 		return eread(a+eheadersize);
 	}
 }
 
 mem_t memread2(address_t a) {
-	return spiramrawread(a);
+	/* return spiramrawread(a); */
+  return spiram_rwbufferread(a);
 }
 
 void memwrite2(address_t a, mem_t c) {
-	spiramrawwrite(a, c);
+	/* spiramrawwrite(a, c); */
+  spiram_rwbufferwrite(a, c);
 }
 #endif
 
@@ -2200,12 +2223,20 @@ void gettoken() {
 	token=memread(here++);
 	switch (token) {
 		case LINENUMBER:
+#ifdef USEMEMINTERFACE
+			if (st != SERUN) pgetnumber(here, addrsize); else egetnumber(here+eheadersize, addrsize);
+#else
 			if (st != SERUN) getnumber(here, addrsize); else egetnumber(here+eheadersize, addrsize);
+#endif
 			x=z.a;
 			here+=addrsize;
 			break;
 		case NUMBER:	
+#ifdef USEMEMINTERFACE
+			if (st !=SERUN) pgetnumber(here, numsize); else egetnumber(here+eheadersize, numsize);
+#else
 			if (st !=SERUN) getnumber(here, numsize); else egetnumber(here+eheadersize, numsize);
+#endif
 			x=z.i;
 			here+=numsize;	
 			break;

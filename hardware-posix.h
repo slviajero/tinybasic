@@ -1,6 +1,6 @@
 /*
 
-	$Id: hardware-posix.h,v 1.2 2022/04/10 06:25:05 stefan Exp stefan $
+	$Id: hardware-posix.h,v 1.3 2022/06/28 15:09:40 stefan Exp stefan $
 
 	Stefan's basic interpreter 
 
@@ -524,14 +524,20 @@ address_t spirambegin() {
 }
 
 /* the simple unbuffered byte write, with a cast to signed char */
-void spiramrawwrite(address_t a, mem_t c) {
-  spiram[a]=c;
-}
+void spiramrawwrite(address_t a, mem_t c) { spiram[a]=c;}
 
 /* the simple unbuffered byte read, with a cast to signed char */
-mem_t spiramrawread(address_t a) {
-	return spiram[a];
-}
+mem_t spiramrawread(address_t a) { return spiram[a]; }
+
+/* the buffers calls, also only simulated here */
+
+void spiram_rwbufferwrite(address_t a, mem_t c) {spiram[a]=c;}
+
+mem_t spiram_rwbufferread(address_t a) {return spiram[a];}
+
+mem_t spiram_robufferread(address_t a) {return spiram[a];}
+
+
 
 /* to handle strings in SPIRAM situations two more buffers are needed 
  * they store intermediate results of string operations. The buffersize 

@@ -1,6 +1,6 @@
 /*
 
-  $Id: hardware-arduino.h,v 1.2 2022/04/10 06:25:05 stefan Exp stefan $
+  $Id: hardware-arduino.h,v 1.3 2022/06/28 15:09:40 stefan Exp stefan $
 
   Stefan's basic interpreter 
 
@@ -69,7 +69,7 @@
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #define ARDUINOEEPROM
-#undef ARDUINOEFS
+#define ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
@@ -80,7 +80,7 @@
 #undef ARDUINOETH
 #undef ARDUINOMQTT
 #undef ARDUINOSENSORS
-#undef ARDUINOSPIRAM /* unfinished code, string handling not fully tested */
+#define ARDUINOSPIRAM /* unfinished code, string handling not fully tested */
 #undef STANDALONE
 
 /* 
@@ -2994,12 +2994,19 @@ number_t sensorread(short s, short v) {return 0;};
 
 
 /*
- * Experimental code to drive SPI SRAM modules
+ * Experimental code to drive SPI SRAM 
+ *
  * Currently only the 23LCV512 is implemented, assuming a 
  * 64kB SRAM
  * The code below is taken in part from the SRAMsimple library
  * 
- * curren
+ * two buffers are implemented: 
+ * - a ro buffer used by memread, this buffer is mainly reading the token 
+ *  stream at runtime. 
+ * - a rw buffer used by memread2 and memwrite2, this buffer is mainly accessing
+ *  the heap at runtime. In interactive mode this is also the interface to read 
+ *  and write program code to memory 
+ * 
  */
 
 #ifdef ARDUINOSPIRAM
@@ -3017,25 +3024,17 @@ number_t sensorread(short s, short v) {return 0;};
 #define SPIRAMSEQ   0x40
 #define SPIRAMBYTE  0x00
 
-/* the RAM begin method sets the RAM to byte mode */
+/* the RAM begin method sets the RAM to sequential mode */
 address_t spirambegin() {
   pinMode(RAMPIN, OUTPUT);
   digitalWrite(RAMPIN, LOW);
+  SPI.transfer(SPIRAMRSTIO);
   SPI.transfer(SPIRAMWRMR);
-  SPI.transfer(SPIRAMBYTE);
+  //SPI.transfer(SPIRAMBYTE);
+  SPI.transfer(SPIRAMSEQ);
   digitalWrite(RAMPIN, HIGH);
   /* only 32 kB addressable with 16 bit integers because address_t has to fit into number_t */
   if (maxnum>32767) return 65534; else return 32766;  
-}
-
-/* the simple unbuffered byte write, with a cast to signed char */
-void spiramrawwrite(address_t a, mem_t c) {
-  digitalWrite(RAMPIN, LOW);
-  SPI.transfer(SPIRAMWRITE);
-  SPI.transfer((byte)(a >> 8));
-  SPI.transfer((byte)a);
-  SPI.transfer((byte) c);
-  digitalWrite(RAMPIN, HIGH);
 }
 
 /* the simple unbuffered byte read, with a cast to signed char */
@@ -3049,6 +3048,113 @@ mem_t spiramrawread(address_t a) {
   digitalWrite(RAMPIN, HIGH);
   return c;
 }
+
+/* one read only buffer for access from the token stream 
+    memread calls this */
+address_t spiram_robufferaddr = 0;
+mem_t spiram_robuffervalid=0;
+const address_t spiram_robuffersize = 32;
+mem_t spiram_robuffer[spiram_robuffersize];
+
+/* one rw buffer for access to the heap and all the program editing 
+    memread2 and memwrite2 call this*/
+address_t spiram_rwbufferaddr = 0;
+mem_t spiram_rwbuffervalid=0;
+const address_t spiram_rwbuffersize = 32; /* also change the addressmask if you want to play here */
+mem_t spiram_rwbuffer[spiram_rwbuffersize];
+mem_t spiram_rwbufferclean = 1; 
+
+const address_t spiram_addrmask=0xffe0;
+/* const address_t spiram_addrmask=0xffd0; // 64 byte frame */
+
+mem_t spiram_robufferread(address_t a) {
+/* we address a byte known to the rw buffer, then get it from there */
+  if (spiram_rwbuffervalid && ((a & spiram_addrmask) == spiram_rwbufferaddr)) {
+    return spiram_rwbuffer[a-spiram_rwbufferaddr];
+  }
+  
+/* page fault, we dont have the byte in the ro buffer, so read from the chip*/
+  if (!spiram_robuffervalid || a >= spiram_robufferaddr + spiram_robuffersize || a < spiram_robufferaddr ) {
+      digitalWrite(RAMPIN, LOW);
+      SPI.transfer(SPIRAMREAD);
+      SPI.transfer((byte)(a >> 8));
+      SPI.transfer((byte)a);
+      SPI.transfer(spiram_robuffer, spiram_robuffersize);
+      digitalWrite(RAMPIN, HIGH);
+      spiram_robufferaddr=a;
+      spiram_robuffervalid=1;
+  }
+  return spiram_robuffer[a-spiram_robufferaddr];
+}
+
+/* flush the buffer */
+void spiram_rwbufferflush() {
+  if (!spiram_rwbufferclean) {
+    digitalWrite(RAMPIN, LOW); 
+    SPI.transfer(SPIRAMWRITE);
+    SPI.transfer((byte)(spiram_rwbufferaddr >> 8));
+    SPI.transfer((byte)spiram_rwbufferaddr);
+    SPI.transfer(spiram_rwbuffer, spiram_rwbuffersize);
+    digitalWrite(RAMPIN, HIGH);
+    spiram_rwbufferclean=1;
+   }
+}
+
+mem_t spiram_rwbufferread(address_t a) {
+/* page fault, do read, ignore the ro buffer buffer */
+  address_t p=a & spiram_addrmask;
+  if (!spiram_rwbuffervalid || (p != spiram_rwbufferaddr)) {
+/* flush the buffer if needed */
+    spiram_rwbufferflush();
+/* and reload it */
+    digitalWrite(RAMPIN, LOW);
+    SPI.transfer(SPIRAMREAD);
+    SPI.transfer((byte)(p >> 8));
+    SPI.transfer((byte)p);
+    SPI.transfer(spiram_rwbuffer, spiram_rwbuffersize);
+    digitalWrite(RAMPIN, HIGH);
+    spiram_rwbufferaddr = p; /* we only handle full pages here */
+    spiram_rwbuffervalid=1;
+  }
+  return spiram_rwbuffer[a-spiram_rwbufferaddr];
+}
+
+/* the buffered file write */
+void spiram_rwbufferwrite(address_t a, mem_t c) {
+  address_t p=a&spiram_addrmask;
+/* correct the two buffers if needed */
+  if (spiram_robuffervalid && a >= spiram_robufferaddr && a < spiram_robufferaddr + spiram_robuffersize) {
+    spiram_robuffer[a-spiram_robufferaddr]=c;
+  }
+/* if we have the frame, write it, mark the buffer dirty and return */
+  if (spiram_rwbuffervalid && p == spiram_rwbufferaddr) {
+    spiram_rwbuffer[a-spiram_rwbufferaddr]=c;
+    spiram_rwbufferclean=0;
+    return;
+  }
+/* if we end up here the write was impossible because we dont have the frame, so flush and then get it */
+  spiram_rwbufferflush();
+  (void) spiram_rwbufferread(a);
+  spiram_rwbuffer[a-spiram_rwbufferaddr]=c;
+  spiram_rwbufferclean=0;
+}
+
+/* the simple unbuffered byte write, with a cast to signed char */
+void spiramrawwrite(address_t a, mem_t c) {
+  digitalWrite(RAMPIN, LOW);
+  SPI.transfer(SPIRAMWRITE);
+  SPI.transfer((byte)(a >> 8));
+  SPI.transfer((byte)a);
+  SPI.transfer((byte) c);
+  digitalWrite(RAMPIN, HIGH);
+/* also refresh the ro buffer if in the frame */
+  if (a >= spiram_robufferaddr && a < spiram_robufferaddr + spiram_robuffersize && spiram_robufferaddr > 0) 
+    spiram_robuffer[a-spiram_robufferaddr]=c;
+/* and the rw buffer if needed) */
+  if (a >= spiram_rwbufferaddr && a < spiram_rwbufferaddr + spiram_rwbuffersize && spiram_rwbufferaddr > 0) 
+    spiram_rwbuffer[a-spiram_rwbufferaddr]=c;
+}
+
 
 /* to handle strings in SPIRAM situations two more buffers are needed 
  * they store intermediate results of string operations. The buffersize 
