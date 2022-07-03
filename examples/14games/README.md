@@ -74,6 +74,8 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Golf: golf.bas - simulate golf training
 - Boxing: boxing.bas - simulate boxing matches
 - BasketBall: basket.bas - basketball game simulation
+- Bombardment: bomb.bas - bombarding the enenmy
+- BombsAway: bombsaw.bas - fly a WWII bomber simulation
 
 ## BASIC language features
 
@@ -212,6 +214,11 @@ golf.bas: Arrays, floating point math, READ DATA
 boxing.bas: Random numbers, elementary BASIC syntax
 
 basket.bas: autodimensioning of arrays, random nummbers
+
+bomb.bas: arrays and random numbers 
+
+bombsaw.bas: random numbers
+
 
 ## Sources
 
