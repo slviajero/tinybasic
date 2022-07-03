@@ -76,6 +76,7 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - BasketBall: basket.bas - basketball game simulation
 - Bombardment: bomb.bas - bombarding the enenmy
 - BombsAway: bombsaw.bas - fly a WWII bomber simulation
+- Poker: poker.bas - play a game of poker
 
 ## BASIC language features
 
@@ -219,6 +220,7 @@ bomb.bas: arrays and random numbers
 
 bombsaw.bas: random numbers
 
+poker.bas: DEF FN functions, random numbers, mathematical functions
 
 ## Sources
 
@@ -229,5 +231,6 @@ This is an unofficial mirror of the source code provided inside the book **"Basi
 The files were taken from http://vintage-basic.net/games.html and ported to Stefan's Tinybasic to see how the interpreter would work. 
 
 The archive itself was a fork from https://github.com/GReaperEx/bcg.
+
 
 
