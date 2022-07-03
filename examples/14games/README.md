@@ -71,6 +71,9 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Bug: bug.bas - try to complete your bug before the computer does
 - BatNum: batnum.pas - take objects from a pile game with arbitrary parameters
 - Bowling: bowling.bas - bowling game simulation
+- Golf: golf.bas - simulate golf training
+- Boxing: boxing.bas - simulate boxing matches
+- BasketBall: basket.bas - basketball game simulation
 
 ## BASIC language features
 
@@ -203,6 +206,12 @@ bug.bas: ON GOTO, elementary string output
 batnum.bas: standard BASIC
 
 bowling.bas: random numbers and millis, 2D arrays
+
+golf.bas: Arrays, floating point math, READ DATA
+
+boxing.bas: Random numbers, elementary BASIC syntax
+
+basket.bas: autodimensioning of arrays, random nummbers
 
 ## Sources
 
