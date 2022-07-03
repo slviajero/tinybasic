@@ -64,6 +64,13 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - BlackJack: blackjk.bas - play blackjack, up to 7 players
 - Chomp: chomp.bas - avoid to eat the poissoned cockie, no computer player 
 - Hangman: hangman.bas - guess a letter and be hanged step by step
+- Digits: digits.bas - yet another number guessing game
+- Hello: hello.bas - a little dialoge with the computer
+- Awari: awari.bas - an African board game
+- Roulette: roulette.bas - roll the ball and bet your money
+- Bug: bug.bas - try to complete your bug before the computer does
+- BatNum: batnum.pas - take objects from a pile game with arbitrary parameters
+- Bowling: bowling.bas - bowling game simulation
 
 ## BASIC language features
 
@@ -182,6 +189,20 @@ blackjk.bas: strings and arrays
 chomp.bas: 2 dimensional arrays 
 
 hangman.bas: mixing characters and arrays, 2d arrays, character out with PUT, @R
+
+digits.bas: two dimensional arrays, standard BASIC syntax
+
+hello.bas: string constants and variables
+
+awari.bas: arrays and elementary BASIC syntac
+
+roulette.bas: ON GOTO, arrays, random numbers
+
+bug.bas: ON GOTO, elementary string output
+
+batnum.bas: standard BASIC
+
+bowling.bas: random numbers and millis, 2D arrays
 
 ## Sources
 
