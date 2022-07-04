@@ -359,20 +359,20 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
     		vsize=numsize+3;
     		break;
 #ifndef HASMULTIDIM
-		case ARRAYVAR:
-			vsize=numsize*l+addrsize+3;
-			break;
+			case ARRAYVAR:
+				vsize=numsize*l+addrsize+3;
+				break;
 #else
 /* test multidim implementation for n=2 */
-		case ARRAYVAR:
-			vsize=numsize*l+addrsize*2+3;
-			break;
+			case ARRAYVAR:
+				vsize=numsize*l+addrsize*2+3;
+				break;
 #endif
-		case TFN:
-			vsize=addrsize+2+3;
-			break;
-		default:
-			vsize=l+addrsize+3;
+			case TFN:
+				vsize=addrsize+2+3;
+				break;
+			default:
+				vsize=l+addrsize+3;
 	}
 	
 /* enough memory ? */ 
@@ -2256,7 +2256,7 @@ void gettoken() {
  * the string constant length to the length of the input buffer
  */
 #if defined(USEMEMINTERFACE)
-			for(int i=0; i<x; i++) spistrbuf1[i]=memread(here+i);	
+			for(int i=0; i<x; i++) spistrbuf1[i]=memread(here+i);
 			ir=spistrbuf1;
 #else
 			if (st == SERUN) { 					
@@ -3666,8 +3666,10 @@ void assignment() {
 					for (k=0; k<lensource; k++) ir[k]=ir2[k];
 				else
 					for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
-			} else 
+			} else {
 				for (k=0; k<lensource; k++) memwrite2(ax+k, ir2[k]);
+			}
+
 #endif
 
 /* classical Apple 1 behaviour is string truncation in substring logic */

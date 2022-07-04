@@ -54,6 +54,7 @@
 	storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS
 	sensors ARDUINORTC, ARDUINOWIRE, ARDUINOSENSORS
 	network ARDUINORF24, ARDUNIOMQTT
+  memory ARDUINOSPIRAM
 
 	leave this unset if you use the definitions below
 */
@@ -80,7 +81,7 @@
 #undef ARDUINOETH
 #undef ARDUINOMQTT
 #undef ARDUINOSENSORS
-#undef ARDUINOSPIRAM /* unfinished code, string handling not fully tested */
+#undef ARDUINOSPIRAM 
 #undef STANDALONE
 
 /* 
@@ -3067,6 +3068,26 @@ mem_t spiram_rwbufferclean = 1;
 const address_t spiram_addrmask=0xffe0;
 /* const address_t spiram_addrmask=0xffd0; // 64 byte frame */
 
+/* the elementary buffer access functions used almost everywhere */
+
+void spiram_bufferread(address_t a, mem_t* b, address_t l) {
+  digitalWrite(RAMPIN, LOW);
+  SPI.transfer(SPIRAMREAD);
+  SPI.transfer((byte)(a >> 8));
+  SPI.transfer((byte)a);
+  SPI.transfer(b, l);
+  digitalWrite(RAMPIN, HIGH);
+} 
+
+void spiram_bufferwrite(address_t a, mem_t* b, address_t l) {
+  digitalWrite(RAMPIN, LOW); 
+  SPI.transfer(SPIRAMWRITE);
+  SPI.transfer((byte)(a >> 8));
+  SPI.transfer((byte)a);
+  SPI.transfer(b, l);
+  digitalWrite(RAMPIN, HIGH);
+}
+
 mem_t spiram_robufferread(address_t a) {
 /* we address a byte known to the rw buffer, then get it from there */
   if (spiram_rwbuffervalid && ((a & spiram_addrmask) == spiram_rwbufferaddr)) {
@@ -3075,12 +3096,7 @@ mem_t spiram_robufferread(address_t a) {
   
 /* page fault, we dont have the byte in the ro buffer, so read from the chip*/
   if (!spiram_robuffervalid || a >= spiram_robufferaddr + spiram_robuffersize || a < spiram_robufferaddr ) {
-      digitalWrite(RAMPIN, LOW);
-      SPI.transfer(SPIRAMREAD);
-      SPI.transfer((byte)(a >> 8));
-      SPI.transfer((byte)a);
-      SPI.transfer(spiram_robuffer, spiram_robuffersize);
-      digitalWrite(RAMPIN, HIGH);
+      spiram_bufferread(a, spiram_robuffer, spiram_robuffersize);
       spiram_robufferaddr=a;
       spiram_robuffervalid=1;
   }
@@ -3090,12 +3106,7 @@ mem_t spiram_robufferread(address_t a) {
 /* flush the buffer */
 void spiram_rwbufferflush() {
   if (!spiram_rwbufferclean) {
-    digitalWrite(RAMPIN, LOW); 
-    SPI.transfer(SPIRAMWRITE);
-    SPI.transfer((byte)(spiram_rwbufferaddr >> 8));
-    SPI.transfer((byte)spiram_rwbufferaddr);
-    SPI.transfer(spiram_rwbuffer, spiram_rwbuffersize);
-    digitalWrite(RAMPIN, HIGH);
+    spiram_bufferwrite(spiram_rwbufferaddr, spiram_rwbuffer, spiram_rwbuffersize);
     spiram_rwbufferclean=1;
    }
 }
@@ -3107,12 +3118,7 @@ mem_t spiram_rwbufferread(address_t a) {
 /* flush the buffer if needed */
     spiram_rwbufferflush();
 /* and reload it */
-    digitalWrite(RAMPIN, LOW);
-    SPI.transfer(SPIRAMREAD);
-    SPI.transfer((byte)(p >> 8));
-    SPI.transfer((byte)p);
-    SPI.transfer(spiram_rwbuffer, spiram_rwbuffersize);
-    digitalWrite(RAMPIN, HIGH);
+    spiram_bufferread(p, spiram_rwbuffer, spiram_rwbuffersize);
     spiram_rwbufferaddr = p; /* we only handle full pages here */
     spiram_rwbuffervalid=1;
   }

@@ -524,10 +524,10 @@ address_t spirambegin() {
 }
 
 /* the simple unbuffered byte write, with a cast to signed char */
-void spiramrawwrite(address_t a, mem_t c) { spiram[a]=c;}
+void spiramrawwrite(address_t a, mem_t c) {spiram[a]=c;}
 
 /* the simple unbuffered byte read, with a cast to signed char */
-mem_t spiramrawread(address_t a) { return spiram[a]; }
+mem_t spiramrawread(address_t a) {return spiram[a];}
 
 /* the buffers calls, also only simulated here */
 
