@@ -77,6 +77,8 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Bombardment: bomb.bas - bombarding the enenmy
 - BombsAway: bombsaw.bas - fly a WWII bomber simulation
 - Poker: poker.bas - play a game of poker
+- HighIQ: highiq.bas - a board games 
+- Pizza: pizza.bas - deliver pizza quickly
 
 ## BASIC language features
 
@@ -221,6 +223,11 @@ bomb.bas: arrays and random numbers
 bombsaw.bas: random numbers
 
 poker.bas: DEF FN functions, random numbers, mathematical functions
+
+highiq.bas: multidim arrays 
+
+pizza.bas: string functions, substring, times
+
 
 ## Sources
 
