@@ -79,6 +79,8 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Poker: poker.bas - play a game of poker
 - HighIQ: highiq.bas - a board games 
 - Pizza: pizza.bas - deliver pizza quickly
+- Combat: combat.bas - combat simulation of air force, navy and army
+- OneCheck: onecheck.bas - solitaire like checker game
 
 ## BASIC language features
 
@@ -228,6 +230,9 @@ highiq.bas: multidim arrays
 
 pizza.bas: string functions, substring, times
 
+combat.bas: integer BASIC type game, uses ON GOTO
+
+onecheck.bas: arrays, elementary BASIC syntax
 
 ## Sources
 
