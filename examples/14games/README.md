@@ -65,7 +65,7 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Chomp: chomp.bas - avoid to eat the poissoned cockie, no computer player 
 - Hangman: hangman.bas - guess a letter and be hanged step by step
 - Digits: digits.bas - yet another number guessing game
-- Hello: hello.bas - a little dialoge with the computer
+- Hello: hello.bas - a little dialogue with the computer
 - Awari: awari.bas - an African board game
 - Roulette: roulette.bas - roll the ball and bet your money
 - Bug: bug.bas - try to complete your bug before the computer does
@@ -81,6 +81,10 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Pizza: pizza.bas - deliver pizza quickly
 - Combat: combat.bas - combat simulation of air force, navy and army
 - OneCheck: onecheck.bas - solitaire like checker game
+- GameOfEvenWins: gevenwin.bas - take pieces from a heap and win if you have an even number
+- Qubic: qubic.bas - 3d tictactoe game
+- Slalom: slalom.bas - a ski slalom simulator, find the optimal speed 
+- Stockmarket: stocks.bas - simulation of the stock market
 
 ## BASIC language features
 
@@ -233,6 +237,14 @@ pizza.bas: string functions, substring, times
 combat.bas: integer BASIC type game, uses ON GOTO
 
 onecheck.bas: arrays, elementary BASIC syntax
+
+gevenwin.bas: 2d arrays, elementary BASIC syntax
+
+qubic.bas: full BASIC language set including 2d arrays 
+
+slalom.bas: full BASIC language set, strings and integer conversion
+
+stocks.bas: ull BASIC language set, random numbers and arrays 
 
 ## Sources
 
