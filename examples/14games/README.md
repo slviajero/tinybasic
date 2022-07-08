@@ -85,6 +85,8 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Qubic: qubic.bas - 3d tictactoe game
 - Slalom: slalom.bas - a ski slalom simulator, find the optimal speed 
 - Stockmarket: stocks.bas - simulation of the stock market
+- Furtrader: furtrade.bas - simulation of a fur trade business
+- Lem: lem.bas - simulation of a lunar landing
 
 ## BASIC language features
 
@@ -244,7 +246,11 @@ qubic.bas: full BASIC language set including 2d arrays
 
 slalom.bas: full BASIC language set, strings and integer conversion
 
-stocks.bas: ull BASIC language set, random numbers and arrays 
+stocks.bas: full BASIC language set, random numbers and arrays 
+
+furtrade.bas: full BASIC language set, random numbers and arrays 
+
+lem.bas: using INSTR and VAL to split strings, standard BASIC language set
 
 ## Sources
 
