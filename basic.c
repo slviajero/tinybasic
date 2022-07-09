@@ -4942,7 +4942,7 @@ void xtone(){
 	nexttoken();
 	parsearguments();
 	if (er != 0) return;
-	if (args>3 || args<2) {
+	if (args>4 || args<2) {
 		error(EARGS);
 		return;
 	}

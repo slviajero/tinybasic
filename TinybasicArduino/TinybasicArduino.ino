@@ -45,8 +45,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef   BASICFULL
-#define  BASICINTEGER
+#undef BASICFULL
+#define   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -92,7 +92,7 @@
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
-#define HASTONE
+#undef HASTONE
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
@@ -4942,7 +4942,7 @@ void xtone(){
 	nexttoken();
 	parsearguments();
 	if (er != 0) return;
-	if (args>3 || args<2) {
+	if (args>4 || args<2) {
 		error(EARGS);
 		return;
 	}

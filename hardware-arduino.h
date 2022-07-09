@@ -69,7 +69,7 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -239,7 +239,7 @@
 #define ARDUINOEEPROM
 #define ARDUINOVGA
 #define ARDUINOSD
-#define ARDUINOMQTT
+//#define ARDUINOMQTT
 #define SDPIN   13
 #define STANDALONE 
 #endif
@@ -953,13 +953,17 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
 #if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32) 
 //static fabgl::VGAController VGAController;
 fabgl::VGA16Controller VGAController; // 16 color object with less memory 
-static fabgl::Terminal      Terminal;
+static fabgl::Terminal Terminal;
 static Canvas cv(&VGAController);
 TerminalController tc(&Terminal);
 Color vga_graph_pen = Color::BrightWhite;
 Color vga_graph_brush = Color::Black;
 Color vga_txt_pen = Color::BrightGreen;
 Color vga_txt_background = Color::Black;
+#ifdef HASTONE
+fabgl::SoundGenerator soundGenerator;
+#endif
+
 
 /* this starts the vga controller and the terminal right now */
 void vgabegin() {
@@ -1958,11 +1962,49 @@ void bpulsein() {
 
 void btone(short a) {
   number_t d = 0;
-  if (a == 3) d=pop();
+  number_t v = 100;
+  if (a == 4) v=pop();
+  if (a >= 3) d=pop();
 	x=pop();
 	y=pop();
 #if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_ESP32)
+#if defined(ARDUINO_TTGO_T7_V14_Mini32) 
+/* fabGL soundgenerator code of suggestes by testerrossa
+ * pin numbers below 128 are real arduino pins while 
+ * pin numvers from 128 onwards are sound generator capabilities
+ * this is different from the original code
+ * 
+ * Sound generator capabilities are numbered as follows
+ * 128: Sine wave 
+ * 129: Symmetric square wave 
+ * 130: Sawtooth
+ * 131: Triangle
+ * 132: VIC noise
+ * 133: noise
+ *
+ * 256-511: square wave with variable duty cycle
+ * 
+ */
+  if (x == 0) {
+    soundGenerator.play(false);
+    return;
+  } 
+  if (a == 2) d=60000;
+  if (y == 128) soundGenerator.playSound(SineWaveformGenerator(), x, d, v); 
+  if (y == 129) soundGenerator.playSound(SquareWaveformGenerator(), x, d, v);
+  if (y == 130) soundGenerator.playSound(SawtoothWaveformGenerator(), x, d, v);
+  if (y == 131) soundGenerator.playSound(TriangleWaveformGenerator(), x, d, v); 
+  if (y == 132) soundGenerator.playSound(VICNoiseGenerator(), x, d, v);
+  if (y == 133) soundGenerator.playSound(NoiseWaveformGenerator(), x, d, v);
+  if (y >= 255 && y < 512 ) {
+      y=y-255;
+      SquareWaveformGenerator sqw;
+      sqw.setDutyCycle(y);
+      soundGenerator.playSound(sqw, x, d,v); 
+  }
+#else
 	return;
+#endif
 #else 
   if (x == 0) {
     noTone(y);
