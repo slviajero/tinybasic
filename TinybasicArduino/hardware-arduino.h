@@ -69,7 +69,7 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#undef ARDUINOEEPROM
+#define ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -1987,6 +1987,7 @@ void btone(short a) {
  */
   if (x == 0) {
     soundGenerator.play(false);
+    soundGenerator.clear();
     return;
   } 
   if (a == 2) d=60000;
