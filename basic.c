@@ -141,6 +141,15 @@
 #undef HASMULTIDIM
 #endif
 
+/*
+ * Experimental features, to be tested and not sure that the add
+ * real value 
+ *
+ * HASRELTAB: make tab more like MS TAB then Apple 1 TAB
+ */
+
+#define HASRELTAB
+
 /* 
  *	Language feature dependencies
  * 
@@ -4397,7 +4406,8 @@ void xpoke(){
 }
 
 /*
- *	TAB - spaces command of Apple 1 BASIC
+ *	TAB - spaces command of Apple 1 BASIC 
+ * 		charcount mechanism for relative tab on
  */
 void xtab(){
 	nexttoken();
@@ -4405,6 +4415,9 @@ void xtab(){
 	if (er != 0) return;
 
 	x=pop();
+#ifdef HASRELTAB
+	if (reltab && od == OSERIAL && charcount < x) x=x-charcount-1;
+#endif	
 	while (x-- > 0) outspc();	
 }
 #endif
@@ -4852,6 +4865,12 @@ void xset(){
     case 10:
       dspsetupdatemode(args);
       break;
+/* change the serial device to a true TAB */
+#ifdef HASRELTAB
+    case 11:
+      if (args) reltab=1; else reltab=0;
+      break;
+#endif
 	}
 }
 

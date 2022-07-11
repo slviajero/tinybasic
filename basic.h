@@ -693,6 +693,10 @@ typedef short index_t;
 
 	form is used for number formation Palo Alto BASIC style.
 
+	charcount counts the printed characters to create a real TAB
+		only implemented on the serial stream
+	reltab controls if the relative char mechanisms is active
+
 	rd is the random number storage.
 
 	fnc counts the depth of for - next loop nesting
@@ -753,6 +757,11 @@ static address_t top;
 static address_t nvars = 0; 
 
 static mem_t form = 0;
+
+#ifdef HASRELTAB
+static mem_t charcount = 0;
+static mem_t reltab = 1;
+#endif
 
 static mem_t args;
 

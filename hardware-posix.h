@@ -440,7 +440,13 @@ int serialstat(char c) {
   if (c == 1) return serial_baudrate;
   return 0;
 }
-void serialwrite(char c) { putchar(c); }
+void serialwrite(char c) { 
+#ifdef HASRELTAB
+	if (c > 31) charcount+=1;
+	if (c == 10) charcount=0;
+#endif
+	putchar(c); 
+}
 char serialread() { return getchar(); }
 short serialcheckch(){ return TRUE; }
 short serialavailable() {return TRUE; }

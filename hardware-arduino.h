@@ -2582,12 +2582,16 @@ int serialstat(char c) {
 
 /* write to a serial stream */
 void serialwrite(char c) {
+#ifdef HASRELTAB
+  if (c > 31) charcount+=1;
+  if (c == 10) charcount=0;
+#endif
 #ifdef USESPICOSERIAL
 	PicoSerial.print(c);
 #else
 /* write never blocks. discard any bytes we can't get rid of */
   Serial.write(c);  
-  // if (Serial.availableForWrite()>0) Serial.write(c);	
+/* if (Serial.availableForWrite()>0) Serial.write(c);	*/
 #endif
 }
 
