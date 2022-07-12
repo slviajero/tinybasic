@@ -145,10 +145,10 @@
  * Experimental features, to be tested and not sure that the add
  * real value 
  *
- * HASRELTAB: make tab more like MS TAB then Apple 1 TAB
+ * HASMSTAB: make tab more like MS TAB then Apple 1 TAB
  */
 
-#define HASRELTAB
+#define HASMSTAB
 
 /* 
  *	Language feature dependencies
@@ -4415,8 +4415,10 @@ void xtab(){
 	if (er != 0) return;
 
 	x=pop();
-#ifdef HASRELTAB
-	if (reltab && od == OSERIAL && charcount < x) x=x-charcount-1;
+#ifdef HASMSTAB
+	if (reltab && od == OSERIAL) {
+		if (charcount >= x ) x=0; else x=x-charcount-1;
+	} 
 #endif	
 	while (x-- > 0) outspc();	
 }
@@ -4866,10 +4868,9 @@ void xset(){
       dspsetupdatemode(args);
       break;
 /* change the serial device to a true TAB */
-#ifdef HASRELTAB
+#ifdef HASMSTAB
     case 11:
-      if (args) reltab=1; else reltab=0;
-      break;
+      reltab=args;
 #endif
 	}
 }

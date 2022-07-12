@@ -758,9 +758,9 @@ static address_t nvars = 0;
 
 static mem_t form = 0;
 
-#ifdef HASRELTAB
+#ifdef HASMSTAB
 static mem_t charcount = 0;
-static mem_t reltab = 1;
+static mem_t reltab = 0;
 #endif
 
 static mem_t args;

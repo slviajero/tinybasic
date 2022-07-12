@@ -2582,7 +2582,7 @@ int serialstat(char c) {
 
 /* write to a serial stream */
 void serialwrite(char c) {
-#ifdef HASRELTAB
+#ifdef HASMSTAB
   if (c > 31) charcount+=1;
   if (c == 10) charcount=0;
 #endif
