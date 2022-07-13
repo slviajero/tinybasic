@@ -87,6 +87,8 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Stockmarket: stocks.bas - simulation of the stock market
 - Furtrader: furtrade.bas - simulation of a fur trade business
 - Lem: lem.bas - simulation of a lunar landing
+- Tower: tower.bas - tower of Hanoi game
+- Bounce: bounce.bas - bouncing ball simulation
 
 ## BASIC language features
 
@@ -251,6 +253,10 @@ stocks.bas: full BASIC language set, random numbers and arrays
 furtrade.bas: full BASIC language set, random numbers and arrays 
 
 lem.bas: using INSTR and VAL to split strings, standard BASIC language set
+
+tower.bas: use of array vars, modified TAB with MS style behaviour
+
+bouncing.bas: TAB MS style function, arrays
 
 ## Sources
 
