@@ -90,6 +90,8 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Tower: tower.bas - tower of Hanoi game
 - Bounce: bounce.bas - bouncing ball simulation
 - Salvo: salvo.bas - a sea battle 
+- 3DPlot: 3dplot.bas - plot a 3d function
+- Hexapawn: hexapawn.bas - a board game 
 
 ## BASIC language features
 
@@ -259,7 +261,11 @@ tower.bas: use of array vars, modified TAB with MS style behaviour
 
 bouncing.bas: TAB MS style function, arrays
 
-salvo.bas: arrays, splitting strings and numbers
+salvo.bas: arrays, splitting strings and numbers with INSTR and VAL
+
+3dplot.bas: math functions, using TAB in MS mode and the respective SET command
+
+hexapawn.bas: functions, boolean expressions and arrays
 
 ## Sources
 
