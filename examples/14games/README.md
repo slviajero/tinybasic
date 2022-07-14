@@ -89,6 +89,7 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Lem: lem.bas - simulation of a lunar landing
 - Tower: tower.bas - tower of Hanoi game
 - Bounce: bounce.bas - bouncing ball simulation
+- Salvo: salvo.bas - a sea battle 
 
 ## BASIC language features
 
@@ -257,6 +258,8 @@ lem.bas: using INSTR and VAL to split strings, standard BASIC language set
 tower.bas: use of array vars, modified TAB with MS style behaviour
 
 bouncing.bas: TAB MS style function, arrays
+
+salvo.bas: arrays, splitting strings and numbers
 
 ## Sources
 
