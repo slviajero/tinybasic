@@ -835,13 +835,21 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 }
 
 /* create a string on the heap */
-address_t createstring(char c, char d, address_t i) {
+address_t createstring(char c, char d, address_t i, address_t j) {
 #ifdef HASAPPLE1
 	address_t a;
 	
 	if (DEBUG) { outsc("Create string "); outch(c); outch(d); outspc(); outnumber(nvars); outcr(); }
 
+#ifndef HASMULTIDIM
+/* if no string arrays are in the code, we reserve the number of bytes i and space for the index */
 	if (bfind(STRINGVAR, c, d)) error(EVARIABLE); else a=bmalloc(STRINGVAR, c, d, i+strindexsize);
+#else
+/* string arrays need the number of array elements which address_ hence addresize bytes and then 
+		the space for j strings */
+	if (bfind(STRINGVAR, c, d)) error(EVARIABLE); else a=bmalloc(STRINGVAR, c, d, addrsize+j*(i+strindexsize));
+#endif
+
 	if (er != 0) return 0;
 	return a;
 #else 
@@ -850,8 +858,11 @@ address_t createstring(char c, char d, address_t i) {
 }
 
 /* get a string at position b, the -1+stringdexsize is needed because a string index starts with 1 
-	in addition to the memory pointer, return the address in memory*/
-char* getstring(char c, char d, address_t b) {	
+ * 	in addition to the memory pointer, return the address in memory.
+ *	We use a pointer to memory here instead of going through the mem interface with an integer variable
+ *	This makes string code lean to compile but is awkward for systems with serial memory
+ */
+char* getstring(char c, char d, address_t b, address_t j) {	
 	address_t k;
 
 	ax=0;
@@ -874,7 +885,7 @@ char* getstring(char c, char d, address_t b) {
 	if ( c == '@') { error(EVARIABLE); return 0;}
 
 /* dynamically allocated strings */
-	if (! (ax=bfind(STRINGVAR, c, d)) ) ax=createstring(c, d, STRSIZEDEF);
+	if (! (ax=bfind(STRINGVAR, c, d)) ) ax=createstring(c, d, STRSIZEDEF, 1);
 
 	if (DEBUG) { outsc("** heap address "); outnumber(ax); outcr(); }
 	if (DEBUG) { outsc("** byte length "); outnumber(z.a); outcr(); }
@@ -983,7 +994,7 @@ void setstring(char c, char d, address_t w, char* s, address_t n) {
 	if (c == '@') {
 		b=ibuffer;
 	} else {
-		if ( !(a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, STRSIZEDEF);
+		if ( !(a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, STRSIZEDEF, 1);
 		if (er != 0) return;
 		b=(char *)&mem[a+strindexsize];
 	}
@@ -1073,6 +1084,7 @@ void error(mem_t e){
 	outspc();
 #endif
 	printmessage(EGENERAL);
+	/* outsc("** at "); outnumber(here); */
 	outcr();
 	clearst();
 	clrforstack();
@@ -1086,7 +1098,7 @@ void reseterror() {
 }
 
 void debugtoken(){
-	outsc("* ");
+	outsc("* "); /* outnumber(here); outsc(" * "); */
 
 	if (token == EOL) {
 		outsc("EOL\n");
@@ -2650,9 +2662,15 @@ void parsesubscripts() {
 	args=0;
 	if (token != '(') return; /* zero arguments is legal here */
 	nexttoken();
+#ifdef HASMULTIDIM
+	if (token == ')') {
+		args=-1;
+		return; /* () is interpreted as no argument at all -> needed for string arrays */
+	}
+#endif
 	parsearguments();
 	if (er != 0) return; 
-	if (token != ')') {error(EARGS); return; }
+	if (token != ')') {error(EARGS); return; } /* we return with ) as a last token on success */
 }
 
 
@@ -2675,17 +2693,23 @@ void parseoperator(void (*f)()) {
 }
 
 #ifdef HASAPPLE1
-/* substring evaluation, mind the rewinding here - a bit of a hack */
+/* substring evaluation, mind the rewinding here - a bit of a hack 
+ * 	this is one of the few places in the code where the token stream 
+ *  cannot be interpreted forward i.e. without looking back. Reason is 
+ * 	an inconsistency the the way expression() is implemented
+ */
 void parsesubstring() {
 	char xc1, yc1; 
 	address_t h1; /* remember the here */
-	char* bi1;
+	char* bi1;		/* or the postion in the input buffer */
+	mem_t a1; /* some info on args remembered as well for multidim */
+	address_t j; /* the index of a string array */
 
 /* remember the string name */
 	xc1=xc;
 	yc1=yc;
 
-/* this is a hack - we rewind a token ! */
+/* this is a hack - we rewind a token later on! */
   if (st == SINT) bi1=bi; 
 	else h1=here; 
 
@@ -2693,6 +2717,7 @@ void parsesubstring() {
 	parsesubscripts();
 	if (er != 0) return; 
 
+#ifndef HASMULTIDIM
 	switch(args) {
 		case 2: 
 			break;
@@ -2700,13 +2725,68 @@ void parsesubstring() {
 			push(lenstring(xc1, yc1));
 			break;
 		case 0: 
-/* this is a hack - we rewind a token !	*/
+/* this is a hack - we rewind a token if we have a pure string variable!	*/
 			if (st == SINT) bi=bi1;
 			else here=h1; 
+/* no rewind in the () construct */			
+		case -1:
+			args=0;		
 			push(1);
 			push(lenstring(xc1, yc1));	
 			break;
 	}
+
+#else 
+/* for a string array the situation is more complicated as we 
+ 		need to parse the argument completely including the possible subscript */
+
+/*remember how many arguments we have received */
+	a1=args;
+
+/* check if there is more to come */
+
+	if (a1 != 0) {
+  	if (st == SINT) bi1=bi; /* remember this point now: the ) */
+		else h1=here;
+		nexttoken();	/* and dvance */
+  }
+
+	parsesubscripts();
+
+	switch(args) {
+		case 1:
+			j=pop();
+			break;
+		case 0:
+			j=1;
+			break;
+		default:
+			error(EARGS);
+			return;
+	}
+
+	switch(a1) {
+		case 2: 
+			break;
+		case 1:
+			push(lenstring(xc1, yc1));
+			break;
+		case 0: 	
+		case -1:
+			args=0;		
+			push(1);
+			push(lenstring(xc1, yc1));	
+			break;
+	}
+
+/* set the program cursor right	*/
+	if (args == 0 || a1 == 0) {
+		if (st == SINT) bi=bi1;
+		else here=h1; 			
+	}
+
+#endif
+
 }
 #endif
 
@@ -2843,6 +2923,9 @@ void xpow(){
 char stringvalue() {
 	mem_t xcl, ycl;
 	address_t k;
+
+	if (DEBUG) outsc("** entering stringvalue \n");
+
 	if (token == STRING) {
 		ir2=ir;
 		push(x);
@@ -2858,7 +2941,7 @@ char stringvalue() {
 		if (er != 0) return FALSE;
 		y=pop();
 		x=pop();
-		ir2=getstring(xcl, ycl, x);
+		ir2=getstring(xcl, ycl, x, 1);
 /* when the memory interface is active spistrbuf1 has the string */
 #ifdef USEMEMINTERFACE
 		ir2=spistrbuf1;
@@ -3564,7 +3647,7 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
 			break;
 #ifdef HASAPPLE1
 		case STRINGVAR:
-			ir=getstring(xcl, ycl, i);
+			ir=getstring(xcl, ycl, i, 1);
 			if (er != 0) return;
 #ifndef USEMEMINTERFACE
 			ir[0]=pop();
@@ -3643,7 +3726,7 @@ void assignment() {
 			for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=ir2[k];
 			ir2=spistrbuf2;
 #endif			
-			ir=getstring(xcl, ycl, i);
+			ir=getstring(xcl, ycl, i, 1);
 			if (er != 0) return;
 
 /* the length of the original string */
@@ -3819,7 +3902,7 @@ nextvariable:
 /* strings are not passed through the input buffer but inputed directly 
     in the string memory location, ir after getstring points to the first data byte */
   if (token == STRINGVAR) {
-    ir=getstring(xc, yc, 1); 
+    ir=getstring(xc, yc, 1, 1); 
     if (prompt) showprompt();
     l=stringdim(xc, yc);
 /* the form parameter in WIRE can be used to set the expected number of bytes */
@@ -4096,7 +4179,7 @@ void xnext(){
 	popforstack();
 	if (er != 0) return;
 /* a variable argument in next clears the for stack 
-		down as BASIC programs can and do jump out to a outer next */
+		down as BASIC programs ca and do jump out to a outer next */
 	if (xcl) {
 		while (xcl != xc || ycl != yc ) {
 			popforstack();
@@ -4339,13 +4422,12 @@ nextvariable:
 		if (x<=0) {error(EORANGE); return; }
 		if (t == STRINGVAR) {
 			if ( (x>255) && (strindexsize==1) ) {error(EORANGE); return; }
-			(void) createstring(xcl, ycl, x);
+			(void) createstring(xcl, ycl, x, 1);
 		} else {
 			(void) createarray(xcl, ycl, x, 1);
 		}
 #else 
-		if (t == STRINGVAR && args != 1 ) {error(EARGS); return; }
-		if (t == ARRAYVAR && (args != 1 && args != 2)) {error(EARGS); return; }
+		if (args != 1 && args != 2) {error(EARGS); return; }
 
 		x=pop();
 		if (args == 2) {y=x; x=pop(); } else { y=1; }
@@ -4354,11 +4436,12 @@ nextvariable:
 		if (t == STRINGVAR) {
 			if ( (x>255) && (strindexsize==1) ) {error(EORANGE); return; }
 /* running from an SPI RAM means that we need to go through buffers in real memory which 
-	limits string sizes */
+	limits string sizes, this should ne be here but encapsulated, todo after multidim string 
+	implementation is complete */
 #ifdef SPIRAMSBSIZE
 			if (x>SPIRAMSBSIZE-1) {error(EORANGE); return; }
 #endif			
-			(void) createstring(xcl, ycl, x);
+			(void) createstring(xcl, ycl, x, y);
 		} else {
 			(void) createarray(xcl, ycl, x, y);
 		}
@@ -5756,7 +5839,7 @@ void xread(){
 #endif	
 
 /* the destination address of the lefthandside, on the fly create included */
-			ir=getstring(xcl, ycl, i);
+			ir=getstring(xcl, ycl, i, 1);
 			if (er != 0) return;
 
 /* the length of the lefthandside string */

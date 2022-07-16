@@ -1012,8 +1012,8 @@ void esetnumber(address_t, mem_t);
 /* the multidim extension is experimental, here only 2 array dimensions implemented as test */
 address_t createarray(mem_t, mem_t, address_t, address_t);
 void array(mem_t, mem_t, mem_t, address_t, address_t, number_t*);
-address_t createstring(char, char, address_t);
-char* getstring(char, char, address_t);
+address_t createstring(char, char, address_t, address_t);
+char* getstring(char, char, address_t, address_t);
 number_t arraydim(char, char);
 number_t stringdim(char, char);
 number_t lenstring(char, char);
