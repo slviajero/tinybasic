@@ -939,7 +939,7 @@ number_t stringdim(char c, char d) {
 }
 
 /* the length of a string as in LEN(A$) */
-number_t lenstring(char c, char d){
+number_t lenstring(char c, char d, number_t j){
 	char* b;
 	number_t a;
 
@@ -955,8 +955,13 @@ number_t lenstring(char c, char d){
 	a=bfind(STRINGVAR, c, d);
 	if (er != 0) return 0;
 
+#ifndef HASMULTIDIM
 	getnumber(a, strindexsize);
 	return z.a;
+#else 
+	getnumber(a, strindexsize);
+	return z.a;
+#endif
 }
 
 /* set the length of a string */
@@ -2709,9 +2714,8 @@ void parsesubstring() {
 	xc1=xc;
 	yc1=yc;
 
-/* this is a hack - we rewind a token later on! */
-  if (st == SINT) bi1=bi; 
-	else h1=here; 
+/* Remember the token before the first parsesubscript */
+  if (st == SINT) bi1=bi; else h1=here; 
 
 	nexttoken();
 	parsesubscripts();
@@ -2722,17 +2726,16 @@ void parsesubstring() {
 		case 2: 
 			break;
 		case 1:
-			push(lenstring(xc1, yc1));
+			push(lenstring(xc1, yc1, 1));
 			break;
 		case 0: 
-/* this is a hack - we rewind a token if we have a pure string variable!	*/
-			if (st == SINT) bi=bi1;
-			else here=h1; 
+/* rewind the token if there were no braces to be in sync	*/
+			if (st == SINT) bi=bi1; else here=h1; 
 /* no rewind in the () construct */			
 		case -1:
 			args=0;		
 			push(1);
-			push(lenstring(xc1, yc1));	
+			push(lenstring(xc1, yc1, 1));	
 			break;
 	}
 
@@ -2740,51 +2743,53 @@ void parsesubstring() {
 /* for a string array the situation is more complicated as we 
  		need to parse the argument completely including the possible subscript */
 
-/*remember how many arguments we have received */
-	a1=args;
+/* how many args has the first parsesubsscript scanned, if none, we are done
+	rewind and set the parametes*/
+	if ( args == 0 ) {
 
-/* check if there is more to come */
+		if (st == SINT) bi=bi1; else here=h1; 
 
-	if (a1 != 0) {
-  	if (st == SINT) bi1=bi; /* remember this point now: the ) */
+		j=1; 
+		push(1);
+		push(lenstring(xc1, yc1, j));	
+
+/* if more then zero or an empty (), we need a second parsesubscript */
+	} else {
+
+		if (st == SINT) bi1=bi; 
 		else h1=here;
-		nexttoken();	/* and dvance */
-  }
 
-	parsesubscripts();
+		a1=args;
 
-	switch(args) {
-		case 1:
-			j=pop();
-			break;
-		case 0:
-			j=1;
-			break;
-		default:
-			error(EARGS);
-			return;
+		nexttoken();
+		parsesubscripts();
+
+		switch (args) {
+			case 1:
+				j=pop();
+				break;
+			case 0:
+				j=1;
+				if (st == SINT) bi=bi1; else here=h1;
+				break;
+			default:
+				error(EARGS);
+				return;
+		}	
+
+		switch(a1) {
+			case 2: 
+				break;
+			case 1:
+				push(lenstring(xc1, yc1, j));
+				break;
+			case 0: 	
+			case -1:	
+				push(1);
+				push(lenstring(xc1, yc1, j));	
+				break;
+		}
 	}
-
-	switch(a1) {
-		case 2: 
-			break;
-		case 1:
-			push(lenstring(xc1, yc1));
-			break;
-		case 0: 	
-		case -1:
-			args=0;		
-			push(1);
-			push(lenstring(xc1, yc1));	
-			break;
-	}
-
-/* set the program cursor right	*/
-	if (args == 0 || a1 == 0) {
-		if (st == SINT) bi=bi1;
-		else here=h1; 			
-	}
-
 #endif
 
 }
@@ -3657,7 +3662,7 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
 			if (ps)
 				setstringlength(xcl, ycl, 1);
 			else 
-				if (lenstring(xcl, ycl) < i && i <= stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
+				if (lenstring(xcl, ycl, 1) < i && i <= stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
 			break;
 #endif
 	}
@@ -3730,13 +3735,13 @@ void assignment() {
 			if (er != 0) return;
 
 /* the length of the original string */
-			lendest=lenstring(xcl, ycl);
+			lendest=lenstring(xcl, ycl, 1);
 
 			if (DEBUG) {
 				outsc("* assigment stringcode "); outch(xcl); outch(ycl); outcr();
 				outsc("** assignment source string length "); outnumber(lensource); outcr();
 				outsc("** assignment dest string length "); outnumber(lendest); outcr();
-				outsc("** assignment old string length "); outnumber(lenstring(xcl, ycl)); outcr();
+				outsc("** assignment old string length "); outnumber(lenstring(xcl, ycl, 1)); outcr();
 				outsc("** assignment dest string dimension "); outnumber(stringdim(xcl, ycl)); outcr();
 			};
 
@@ -5843,7 +5848,7 @@ void xread(){
 			if (er != 0) return;
 
 /* the length of the lefthandside string */
-			lendest=lenstring(xcl, ycl);
+			lendest=lenstring(xcl, ycl, 1);
 
 			if (DEBUG) {
 				outsc("* read stringcode "); outch(xcl); outch(ycl); outcr();

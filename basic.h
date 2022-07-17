@@ -1016,7 +1016,7 @@ address_t createstring(char, char, address_t, address_t);
 char* getstring(char, char, address_t, address_t);
 number_t arraydim(char, char);
 number_t stringdim(char, char);
-number_t lenstring(char, char);
+number_t lenstring(char, char, number_t);
 void setstringlength(char, char, address_t);
 void setstring(char, char, address_t, char *, address_t);
 
