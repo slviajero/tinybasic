@@ -1015,10 +1015,10 @@ void array(mem_t, mem_t, mem_t, address_t, address_t, number_t*);
 address_t createstring(char, char, address_t, address_t);
 char* getstring(char, char, address_t, address_t);
 number_t arraydim(char, char);
-number_t stringdim(char, char);
-number_t lenstring(char, char, number_t);
-void setstringlength(char, char, address_t);
-void setstring(char, char, address_t, char *, address_t);
+address_t stringdim(char, char);
+address_t lenstring(char, char, address_t);
+void setstringlength(char, char, address_t, address_t);
+void setstring(char, char, address_t, char *, address_t, address_t);
 
 /* get keywords and tokens from PROGMEM */
 char* getkeyword(unsigned short);

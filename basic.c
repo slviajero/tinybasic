@@ -68,6 +68,7 @@
 #define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
+#undef HASSTRINGARRAYS
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -85,6 +86,7 @@
 #undef HASDARKARTS
 #undef HASIOT
 #undef HASMULTIDIM
+#undef HASSTRINGARRAYS
 #endif
 
 /* all features minus float */
@@ -103,6 +105,7 @@
 #define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
+#undef HASSTRINGARRAYS
 #endif
 
 /* all features activated */
@@ -121,6 +124,7 @@
 #define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
+#undef HASSTRINGARRAYS
 #endif
 
 /* a Tinybasic with float support */
@@ -139,6 +143,7 @@
 #undef HASDARKARTS
 #undef HASIOT
 #undef HASMULTIDIM
+#undef HASSTRINGARRAYS
 #endif
 
 /*
@@ -160,11 +165,15 @@
 #define HASAPPLE1
 #endif
 
+#if defined(HASSTRINGARRAYS)
+#define HASMULTIDIM
+#endif
+
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
 #define MEMSIZE 0
 
 /* debug mode switch */
-#define DEBUG 0
+#define DEBUG 1
 
 /*
  * the core basic language headers including some Arduino device stuff
@@ -834,22 +843,34 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 	}
 }
 
-/* create a string on the heap */
+/* create a string on the heap, i is the length of the string, j the dimension of the array */
 address_t createstring(char c, char d, address_t i, address_t j) {
 #ifdef HASAPPLE1
-	address_t a;
+	address_t a, zt;
 	
 	if (DEBUG) { outsc("Create string "); outch(c); outch(d); outspc(); outnumber(nvars); outcr(); }
 
-#ifndef HASMULTIDIM
+#ifndef HASSTRINGARRAYS
 /* if no string arrays are in the code, we reserve the number of bytes i and space for the index */
 	if (bfind(STRINGVAR, c, d)) error(EVARIABLE); else a=bmalloc(STRINGVAR, c, d, i+strindexsize);
+	if (er != 0) return 0;
+	return a;
 #else
 /* string arrays need the number of array elements which address_ hence addresize bytes and then 
 		the space for j strings */
 	if (bfind(STRINGVAR, c, d)) error(EVARIABLE); else a=bmalloc(STRINGVAR, c, d, addrsize+j*(i+strindexsize));
-#endif
+	if (er != 0) return 0;
 
+/* preserve z.a, this is a side effect of bmalloc and bfind */
+	zt=z.a;
+
+/* set the dimension of the array */
+	z.a=j;
+	setnumber(a+j*(i+strindexsize), addrsize);
+	z.a=zt;
+
+	return a;
+#endif
 	if (er != 0) return 0;
 	return a;
 #else 
@@ -863,7 +884,7 @@ address_t createstring(char c, char d, address_t i, address_t j) {
  *	This makes string code lean to compile but is awkward for systems with serial memory
  */
 char* getstring(char c, char d, address_t b, address_t j) {	
-	address_t k;
+	address_t k, zt;
 
 	ax=0;
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
@@ -896,7 +917,15 @@ char* getstring(char c, char d, address_t b, address_t j) {
 		error(EORANGE); return 0;
 	}
 
+/* this calculates the memory address of the string data we want to access 
+	again, the call to stringdim causes a second heap search which is inefficient */ 
+#ifndef HASSTRINGARRAYS
 	ax=ax+b-1+strindexsize;
+#else 
+	zt=z.a;
+	ax=ax+b-1+strindexsize+(stringdim(c, d) + strindexsize)*(j-1);
+	z.a=zt;
+#endif
 
 	if (DEBUG) { outsc("** payload address address "); outnumber(ax); outcr(); }
 
@@ -932,14 +961,39 @@ number_t arraydim(char c, char d) {
 }
 
 #ifdef HASAPPLE1
-/* dimension of a string as in DIM a$(100) */ 
-number_t stringdim(char c, char d) {
+/* in case of a string array, this function finds the number 
+	of array elements */
+address_t strarraydim(char c, char d) {
+address_t a, b;
+#ifndef HASSTRINGARRAYS
+	return 1;
+#else 
+	if ((a=bfind(STRINGVAR, c, d))) {
+		b=z.a; /* the byte length of the objects payload */
+		getnumber(a+b-addrsize, addrsize); /* the dimension of the array is the first number */
+		return z.a;
+	} else 
+		return 1;
+#endif
+}
+
+
+/* dimension of a string as in DIM a$(100), only needed on assign! */ 
+address_t stringdim(char c, char d) {
+	number_t a;
 	if (c == '@') return BUFSIZE-1;
+#ifndef HASSTRINGARRAYS
 	else return blength(STRINGVAR, c, d)-strindexsize;
+#else 
+	if ((a=bfind(STRINGVAR, c, d))) {
+		return (z.a-addrsize)/strarraydim(c, d)-strindexsize;
+	} else 
+		return 0;
+#endif
 }
 
 /* the length of a string as in LEN(A$) */
-number_t lenstring(char c, char d, number_t j){
+address_t lenstring(char c, char d, address_t j){
 	char* b;
 	number_t a;
 
@@ -955,7 +1009,7 @@ number_t lenstring(char c, char d, number_t j){
 	a=bfind(STRINGVAR, c, d);
 	if (er != 0) return 0;
 
-#ifndef HASMULTIDIM
+#ifndef HASSTRINGARRAYS
 	getnumber(a, strindexsize);
 	return z.a;
 #else 
@@ -965,8 +1019,15 @@ number_t lenstring(char c, char d, number_t j){
 }
 
 /* set the length of a string */
-void setstringlength(char c, char d, address_t l) {
+void setstringlength(char c, char d, address_t l, address_t j) {
 	address_t a; 
+
+	if (DEBUG) {
+		outsc("** setstringlength "); 
+		outch(c); outch(d); 
+		outspc(); outnumber(l); outspc(); outnumber(j);
+		outcr();
+	} 
 
 	if (c == '@') {
 		*ibuffer=l;
@@ -981,15 +1042,27 @@ void setstringlength(char c, char d, address_t l) {
 		return;
 	}
 
+/* error handling at this point wrong and potentially not needed */
+/*
 	if (l < z.a) {
 		z.a=l;
 		setnumber(a, strindexsize);
 	} else
 		error(EORANGE);
 }
+*/
 
-/* inset data into a string, currently unused */
-void setstring(char c, char d, address_t w, char* s, address_t n) {
+/* multiple calls of bfind here - not good, rewrite this for one call  */ 
+
+	a=a+(stringdim(c, d)+strindexsize)*(j-1);
+
+	z.a=l;
+	setnumber(a, strindexsize);
+}
+
+
+/* insert data into a string, currently unused - does not support string arrays, to be removed soon*/
+void setstring(char c, char d, address_t w, char* s, address_t n, address_t j) {
 	char *b;
 	address_t a;
 	int i;
@@ -2707,8 +2780,8 @@ void parsesubstring() {
 	char xc1, yc1; 
 	address_t h1; /* remember the here */
 	char* bi1;		/* or the postion in the input buffer */
-	mem_t a1; /* some info on args remembered as well for multidim */
-	address_t j; /* the index of a string array */
+	mem_t a1; 		/* some info on args remembered as well for multidim */
+	address_t j; 	/* the index of a string array */
 
 /* remember the string name */
 	xc1=xc;
@@ -2721,7 +2794,9 @@ void parsesubstring() {
 	parsesubscripts();
 	if (er != 0) return; 
 
-#ifndef HASMULTIDIM
+#ifndef HASSTRINGARRAYS
+
+/* the stack has - the first index, the second index */
 	switch(args) {
 		case 2: 
 			break;
@@ -2745,6 +2820,8 @@ void parsesubstring() {
 
 /* how many args has the first parsesubsscript scanned, if none, we are done
 	rewind and set the parametes*/
+
+/* the stack has - the first string index, the second string index, the array index */	
 	if ( args == 0 ) {
 
 		if (st == SINT) bi=bi1; else here=h1; 
@@ -2752,6 +2829,7 @@ void parsesubstring() {
 		j=1; 
 		push(1);
 		push(lenstring(xc1, yc1, j));	
+		push(j);
 
 /* if more then zero or an empty (), we need a second parsesubscript */
 	} else {
@@ -2777,6 +2855,7 @@ void parsesubstring() {
 				return;
 		}	
 
+/* which part of the string */
 		switch(a1) {
 			case 2: 
 				break;
@@ -2789,6 +2868,10 @@ void parsesubstring() {
 				push(lenstring(xc1, yc1, j));	
 				break;
 		}
+
+/* and which index element */
+		push(j);
+
 	}
 #endif
 
@@ -2946,7 +3029,12 @@ char stringvalue() {
 		if (er != 0) return FALSE;
 		y=pop();
 		x=pop();
-		ir2=getstring(xcl, ycl, x, 1);
+#ifdef HASSTRINGARRAYS
+		k=pop();
+#else 
+		k=1;
+#endif
+		ir2=getstring(xcl, ycl, x, k);
 /* when the memory interface is active spistrbuf1 has the string */
 #ifdef USEMEMINTERFACE
 		ir2=spistrbuf1;
@@ -3615,6 +3703,8 @@ void lefthandside(address_t* i, address_t* j, mem_t* ps) {
 			break;
 #ifdef HASAPPLE1
 		case STRINGVAR:
+#ifndef HASSTRINGARRAYS
+			*j=1;
 			nexttoken();
 			parsesubscripts();
 			if (er != 0) return;
@@ -3632,6 +3722,27 @@ void lefthandside(address_t* i, address_t* j, mem_t* ps) {
 					error(EARGS);
 					return;
 			}
+#else 
+			*j=1;
+			nexttoken();
+			parsesubscripts();
+			if (er != 0) return;
+			switch(args) {
+				case 0:
+					*i=1;
+					*ps=TRUE;
+					break;
+				case 1:
+					*ps=FALSE;
+					nexttoken();
+					*i=pop();
+					break;
+				default:
+					error(EARGS);
+					return;
+			}
+
+#endif
 			break;
 #endif
 		default:
@@ -3652,7 +3763,7 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
 			break;
 #ifdef HASAPPLE1
 		case STRINGVAR:
-			ir=getstring(xcl, ycl, i, 1);
+			ir=getstring(xcl, ycl, i, j);
 			if (er != 0) return;
 #ifndef USEMEMINTERFACE
 			ir[0]=pop();
@@ -3660,9 +3771,9 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
 			if (ir == 0) memwrite2(ax, pop());
 #endif
 			if (ps)
-				setstringlength(xcl, ycl, 1);
+				setstringlength(xcl, ycl, 1, j);
 			else 
-				if (lenstring(xcl, ycl, 1) < i && i <= stringdim(xcl, ycl)) setstringlength(xcl, ycl, i);
+				if (lenstring(xcl, ycl, 1) < i && i <= stringdim(xcl, ycl)) setstringlength(xcl, ycl, i, j);
 			break;
 #endif
 	}
@@ -3772,7 +3883,7 @@ void assignment() {
 /* classical Apple 1 behaviour is string truncation in substring logic */
 			newlength = i+lensource-1;	
 		
-			setstringlength(xcl, ycl, newlength);
+			setstringlength(xcl, ycl, newlength, 1);
 			nexttoken();
 			break;
 #endif
@@ -5882,7 +5993,7 @@ void xread(){
 /* classical Apple 1 behaviour is string truncation in substring logic */
 			newlength = i+lensource-1;	
 		
-			setstringlength(xcl, ycl, newlength);
+			setstringlength(xcl, ycl, newlength, 1);
 			break;
 		default:
 			error(EUNKNOWN);
