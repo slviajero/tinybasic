@@ -73,14 +73,14 @@ typedef unsigned char uint8_t;
 /* the small memory model with shallow stacks and small buffers */
 #define BUFSIZE 		80
 #define STACKSIZE		15
-#define GOSUBDEPTH		4
+#define GOSUBDEPTH	4
 #define FORDEPTH		4
 #define LINECACHESIZE	4
 #else 
 /* the for larger microcontrollers and real computers */
 #define BUFSIZE 		128
 #define STACKSIZE		64
-#define GOSUBDEPTH		8
+#define GOSUBDEPTH	8
 #define FORDEPTH		8
 #define LINECACHESIZE	16
 #endif
