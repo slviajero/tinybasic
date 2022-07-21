@@ -73,14 +73,14 @@ typedef unsigned char uint8_t;
 /* the small memory model with shallow stacks and small buffers */
 #define BUFSIZE 		80
 #define STACKSIZE		15
-#define GOSUBDEPTH	4
+#define GOSUBDEPTH		4
 #define FORDEPTH		4
 #define LINECACHESIZE	4
 #else 
 /* the for larger microcontrollers and real computers */
 #define BUFSIZE 		128
 #define STACKSIZE		64
-#define GOSUBDEPTH	8
+#define GOSUBDEPTH		8
 #define FORDEPTH		8
 #define LINECACHESIZE	16
 #endif
@@ -693,6 +693,10 @@ typedef short index_t;
 
 	form is used for number formation Palo Alto BASIC style.
 
+	charcount counts the printed characters to create a real TAB
+		only implemented on the serial stream
+	reltab controls if the relative char mechanisms is active
+
 	rd is the random number storage.
 
 	fnc counts the depth of for - next loop nesting
@@ -753,6 +757,11 @@ static address_t top;
 static address_t nvars = 0; 
 
 static mem_t form = 0;
+
+#ifdef HASMSTAB
+static mem_t charcount = 0;
+static mem_t reltab = 0;
+#endif
 
 static mem_t args;
 
@@ -1003,13 +1012,13 @@ void esetnumber(address_t, mem_t);
 /* the multidim extension is experimental, here only 2 array dimensions implemented as test */
 address_t createarray(mem_t, mem_t, address_t, address_t);
 void array(mem_t, mem_t, mem_t, address_t, address_t, number_t*);
-address_t createstring(char, char, address_t);
-char* getstring(char, char, address_t);
+address_t createstring(char, char, address_t, address_t);
+char* getstring(char, char, address_t, address_t);
 number_t arraydim(char, char);
-number_t stringdim(char, char);
-number_t lenstring(char, char);
-void setstringlength(char, char, address_t);
-void setstring(char, char, address_t, char *, address_t);
+address_t stringdim(char, char);
+address_t lenstring(char, char, address_t);
+void setstringlength(char, char, address_t, address_t);
+void setstring(char, char, address_t, char *, address_t, address_t);
 
 /* get keywords and tokens from PROGMEM */
 char* getkeyword(unsigned short);
