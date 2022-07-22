@@ -173,7 +173,7 @@
 #define MEMSIZE 0
 
 /* debug mode switch */
-#define DEBUG 1
+#define DEBUG 0
 
 /*
  * the core basic language headers including some Arduino device stuff
@@ -884,7 +884,7 @@ address_t createstring(char c, char d, address_t i, address_t j) {
  *	This makes string code lean to compile but is awkward for systems with serial memory
  */
 char* getstring(char c, char d, address_t b, address_t j) {	
-	address_t k, zt;
+	address_t k, zt, dim, maxlen;
 
 	ax=0;
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
@@ -913,18 +913,56 @@ char* getstring(char c, char d, address_t b, address_t j) {
 
 	if (er != 0) return 0;
 
+#ifndef HASSTRINGARRAYS
+
 	if ((b < 1) || (b > z.a-strindexsize )) {
 		error(EORANGE); return 0;
 	}
 
+	ax=ax+strindexsize+(b-1);
+
 /* this calculates the memory address of the string data we want to access 
 	again, the call to stringdim causes a second heap search which is inefficient */ 
-#ifndef HASSTRINGARRAYS
-	ax=ax+b-1+strindexsize;
+
 #else 
+
+/* find the proper dimemsion, this is not good because stringdim causes a second 
+	heap search */
+
+/* the dimension of the string array */
+
 	zt=z.a;
-	ax=ax+b-1+strindexsize+(stringdim(c, d) + strindexsize)*(j-1);
-	z.a=zt;
+	getnumber(ax+z.a-addrsize, addrsize);
+	dim=z.a;
+
+	if ((j < 1) || (j > dim )) {
+		error(EORANGE); return 0;
+	}
+
+ 	if (DEBUG) { outsc("** string dimension "); outnumber(dim); outcr(); }
+
+/* the max length of a string */
+	maxlen=(zt-addrsize)/dim-strindexsize;
+
+	if ((b < 1) || (b > maxlen )) {
+		error(EORANGE); return 0;
+	}
+
+	if (DEBUG) { outsc("** maximum string length "); outnumber(maxlen); outcr(); }
+	
+/* the base address of a string */
+	ax=ax+(j-1)*maxlen;
+
+	if (DEBUG) { outsc("** string base address "); outnumber(ax); outcr(); }
+
+/* get the actual length */
+/*	getnumber(ax, strindexsize); */
+
+/* the address */
+	ax=ax+b-1+strindexsize;
+
+/* leave the string data record length in z.a */
+	z.a=maxlen+strindexsize;
 #endif
 
 	if (DEBUG) { outsc("** payload address address "); outnumber(ax); outcr(); }
@@ -3027,13 +3065,13 @@ char stringvalue() {
 		ycl=yc;
 		parsesubstring();
 		if (er != 0) return FALSE;
-		y=pop();
-		x=pop();
 #ifdef HASSTRINGARRAYS
 		k=pop();
 #else 
 		k=1;
 #endif
+		y=pop();
+		x=pop();
 		ir2=getstring(xcl, ycl, x, k);
 /* when the memory interface is active spistrbuf1 has the string */
 #ifdef USEMEMINTERFACE
@@ -3670,6 +3708,7 @@ separators:
 /* 
  *	LET assigment code for various lefthand and righthand side. 
  *
+ *
  *	lefthandside is a helper function for reuse in other 
  *	commands. It determines the address the value is to be 
  *	assigned to and whether the assignment target is a 
@@ -3728,6 +3767,8 @@ void lefthandside(address_t* i, address_t* j, mem_t* ps) {
 			parsesubscripts();
 			if (er != 0) return;
 			switch(args) {
+				case -1:
+					nexttoken();
 				case 0:
 					*i=1;
 					*ps=TRUE;
@@ -3741,7 +3782,20 @@ void lefthandside(address_t* i, address_t* j, mem_t* ps) {
 					error(EARGS);
 					return;
 			}
-
+/* we deal with a string array */ 
+			if (token == '(') {
+				parsesubscripts();
+				if (er != 0) return;
+				switch(args) {
+					case 1:
+						*j=pop();
+						nexttoken();
+						break;
+					default:
+						error(EARGS);
+						return;
+				}
+			}
 #endif
 			break;
 #endif
@@ -3801,6 +3855,13 @@ void assignment() {
 	lefthandside(&i, &j, &ps);
 	if (er != 0) return;
 
+	if (DEBUG) {
+		outsc("** in assignment lefthandside with ");
+		outnumber(i); outspc();
+		outnumber(j); outspc();
+		outnumber(ps); outcr();
+	}
+
 /* the assignment part */
 	if (token != '=') {
 		error(EUNKNOWN);
@@ -3842,11 +3903,11 @@ void assignment() {
 			for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=ir2[k];
 			ir2=spistrbuf2;
 #endif			
-			ir=getstring(xcl, ycl, i, 1);
+			ir=getstring(xcl, ycl, i, j);
 			if (er != 0) return;
 
 /* the length of the original string */
-			lendest=lenstring(xcl, ycl, 1);
+			lendest=lenstring(xcl, ycl, j);
 
 			if (DEBUG) {
 				outsc("* assigment stringcode "); outch(xcl); outch(ycl); outcr();
@@ -5955,11 +6016,11 @@ void xread(){
 #endif	
 
 /* the destination address of the lefthandside, on the fly create included */
-			ir=getstring(xcl, ycl, i, 1);
+			ir=getstring(xcl, ycl, i, j);
 			if (er != 0) return;
 
 /* the length of the lefthandside string */
-			lendest=lenstring(xcl, ycl, 1);
+			lendest=lenstring(xcl, ycl, j);
 
 			if (DEBUG) {
 				outsc("* read stringcode "); outch(xcl); outch(ycl); outcr();
