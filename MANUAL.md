@@ -1,84 +1,43 @@
-# Stefan's IoT BASIC
+# Stefan's IoT BASIC in a nutshell
 
-## The idea
+## BASIC language sets
 
-My attempt to create a basic interpreter from scratch. The project was inspired by Steve Wozniak's statement that the Apple 1 basic interpreter was the biggest challenge in his professional life. Bill Gates also had started his career and his fortune by writing a basic interpreter for the Altair microcomputer around the some time. 
+This BASIC interpreter is structured in language sets. They can be compiled into the code separately. With every language set there are more features and command. This makes it adaptable to the purpose. The manual is structured according to the language sets. 
 
-The project has outgrown its beginnings by now. It became a full featured BASIC interpreter with IoT and microcontroller specific features. There is an underlying hardware abstraction layer making the interpreter
-useable on a number of architectures like Arduino AVR, ESP8266, ESP32, SAMD, RP2040 and ARM. 
+The intepreter has two data types - numbers and strings. The number type can be set at compile time. It is either an integer or foating point. Depending on the definition of number_t in the code the interpreter can use everything from 16 bit integers to 64 bit floats as basic number type. String variables are part of the Apple 1 language sets. They are static, i.e. they reserve the entire length of the string on the heap. Depending on the definition of the string index type in the code, strings can be either 255 characters or 65535 characters maximum length. 
 
-Arithmetic is 16 bit, 32bit or float depending on the compiler settings and the platform. The full set of Dartmouth language features like ON GOSUB and DEF FN is implemented. Strings are Apple 1 style. They are essentially integer arrays like in C. Conditions are also C style meaning part of the arithmetic.
+## Core language set
 
-Filesystems like Arduino SD, SPIFFS and LittleFS are supported on microcontrollers. EEPROMS can be used
-as BASIC filesystem using the EepromFS library.
+### Introduction
 
-Small LCD displays, OLEDs, Nokia5110m TFT and VGA monitors are supported. Graphics is supported on all graphic capable displays.
-
-PS2 keyboard support and keypads are added for standalone computer projects.
-
-Microcontroller specific features are EEPROM access, EEPROM program storage and autorun, control of digital and analog I/O as well as the delay function, Wire library support, RF2401 support and very simple MQTT / Wifi support on ESP.
-
-Most of the builtin Arduino demos are ported to BASIC and published here https://github.com/slviajero/tinybasic/tree/main/examples. These programs are the BASIC versions of the C++ programs in https://docs.arduino.cc/built-in-examples/. Please look at this original Arduino website for wiring and project information.
+The core language set is based on the Palo Alto BASIC language. This is the grandfather of all the Tinybasics currently on the market. Commands are PRINT, LET, INPUT, GOTO, GOSUB, RETURN, IF, FOR, TO, STEP, NEXT, STOP, REM, LIST, NEW, RUN, ABS, INT, RND, SIZE.
 
 
-The interpreter can be compliled with standard gcc on almost any architecture or in the Arduino IDE without changes. 
 
-Look at the WIKI https://github.com/slviajero/tinybasic/wiki for more information.
+## Apple 1 language set
 
+### Multidim and String Array capability
 
-## Language features in a nutshell 
+## Stefan's extension language set
 
-The interpreter includes most of the Dartmouth language set. Differences are mainly the string handling which was taken from Apple Integer BASIC. Autodimensioning of arrays and strings was taken from ECMA BASIC.
+### Error Message capability
 
-The intepreter is compatible with two of the 1976 early basic dialects. It implements the full language set of Dr. Wang's Palo Alto Tinybasic from the December 1976 edition of Dr. Dobbs (https://github.com/slviajero/tinybasic/wiki/Unforgotten:-Palo-Alto-BASIC). This is a remarkably complete little language with many useful features. 
+### VT52 capability
 
-The interpreter also implements the specification of Apple Integer BASIC sold for the Apple 1 and 2 computers (https://github.com/slviajero/tinybasic/wiki/The-original-Apple-1-BASIC-manual).
+## Arduino I/O language set
 
-I/O handling and some of the microcontroller BASIC features are new and are not compatible to the BASIC dialects above.
+### PULSE and TONE extensions
 
-The interpreter is not meant to be compatible to any BASIC dialect. I ported most of the games of 101 BASIC games from 1977 as test programs to test and check compatibility. The main restriction is that arrays can only be one dimensional and that there are no string arrays. All data objects remain in the same memory location once they are defined. There is no garbage collection. This makes the behaviour of the BASIC interpreter deterministic, real time capable and fast. 
+## File I/O language set
 
-Programs are always fully tokenized at input. This includes keywords, numbers, strings and variables names. No lexical analysis is done or needed at runtime. The stored BASIC program resembles more a byte code language than a stored interpreter code. This is the concept Steve Wozniak used on the Apple 1. 
+## Float language set
 
-The core interpreter loop runs at approximately one token every 40 microseconds on an Arduino. ESP are a bit faster but not much as the memory bandwidth limits the performance in the loop. ESPs are much faster in calulations, though.
+## Dartmouth language set
 
-For further information, please look at: https://github.com/slviajero/tinybasic/wiki
+## Darkarts language set
 
-There is a set of BASIC programs in the examples section https://github.com/slviajero/tinybasic/tree/main/examples of the repo. They showcase language features and use cases.
+## IOT language set
 
-## Files in this archive 
+## Graphics language set
 
-basic.c is the program source. basic.h is the header file. TinybasicArduino/TinybasicArduino.ino is a copy of basic.c. The Arduino and POSIX source code is the same.
-
-In addition to this file and basic.h you need a hardware definition file.
-
-For the Arduino IDE place hardware-arduino.h in your Arduino sketch directory. These are the platform specific definitions and a thin OS like layer for hardware abstraction. All platforms from tiny AVR168 up to the powerful ESP32 and RP2040 are covered by this one file. 
-
-For POSIX OSes you need hardware-posix.h in your working directory. GCC compiles BASIC for Linux, Mac (primary dev platform), Windows (with MINGW), and MSDOS (Turbo C 2).
-
-For simple Arduino boards I prepared file versions in Arduino cloud 
-
-Use one of these two links.
-
-A bare minimum Arduino system is prepared here
-
-https://create.arduino.cc/editor/sl001/ade3b2af-6781-4dfc-b9dd-4eec95405723/preview
-
-
-A quite complete ESP8266 system without network support can be found here
-
-https://create.arduino.cc/editor/sl001/27a26f15-c23b-408d-8d39-e6948aead495/preview
-
-
-The single file versions contain the full code but are not maintained regularly. They always will be behind the newest code. Please use them only as quick and dirty demos. They are not updated often.
-
-utility/monitor.py is a little serial monitor to interact with the running BASIC interpreter on the Arduino. It allows very simple loading of files into the Arduino and saving of output to a file on a computer. utility/arduinoterm is a wrapper of monitor.py.
-
-utility/dosify converts the code to tcc 2.01 ready format to be compiled in DOSBOX.
-
-examples contains a lot of demo programs and games ported to BASIC.
-
-## What's next
-
-More IoT functionality. More devices.
 
