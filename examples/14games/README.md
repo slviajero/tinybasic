@@ -283,5 +283,5 @@ The files were taken from http://vintage-basic.net/games.html and ported to Stef
 
 The archive itself was a fork from https://github.com/GReaperEx/bcg.
 
-
+Not all programs are thoroughly tested. Have fun with games from 1975.
 
