@@ -12,7 +12,37 @@ The intepreter has two data types - numbers and strings. The number type can be 
 
 The core language set is based on the Palo Alto BASIC language. This is the grandfather of all the Tinybasics currently on the market. Commands are PRINT, LET, INPUT, GOTO, GOSUB, RETURN, IF, FOR, TO, STEP, NEXT, STOP, REM, LIST, NEW, RUN, ABS, INT, RND, SIZE.
 
+In the core language set there are 26 static variables A-Z and a special array @() which addresses the free memory. If an EEPROM is present or the EEPROM dummy is compiled to the code, the array @E() addresses the EEPROM. 
 
+### PRINT
+
+### LET
+
+### GOTO
+
+### GOSUB and RETURN
+
+### IF 
+
+### FOR loops
+
+### STOP
+
+### REM
+
+### LIST
+
+### NEW
+
+### RUN
+
+### ABS
+
+### INT
+
+### RND
+
+### SIZE
 
 ## Apple 1 language set
 
