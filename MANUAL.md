@@ -44,11 +44,57 @@ In the core language set there are 26 static variables A-Z and a special array @
 
 ### SIZE
 
+### Storing programs with SAVE and LOAD
+
+### Special variables and arrays 
+
 ## Apple 1 language set
+
+### String variables, arrays, DIM, and LEN
+
+### Logical expressions NOT, AND, OR
+
+### Memory access with PEEK and POKE
+
+### THEN
+
+### END
+
+### CLR
+
+### HIMEM
+
+### TAB
+
+### SGN
 
 ### Multidim and String Array capability
 
 ## Stefan's extension language set
+
+### FOR loops with CONT and BREAK
+
+### Command line CONT
+
+### ELSE
+
+### Character output with PUT and GET
+
+### Low level functions USR
+
+### Low level calls CALL
+
+### Setting system properties with SET
+
+### SQR
+
+### POW
+
+### MAP
+
+### CLS
+
+### Debugging with DUMP
 
 ### Error Message capability
 
