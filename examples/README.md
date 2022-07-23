@@ -49,4 +49,3 @@ A major difference to other BASIC are the special variables. These variables sta
 The commands EVAL, MALLOC, and FIND are the dark arts of BASIC programming. It allows run time modification of the running program, access to the variable heap, and creating of buffers.
 
 SET, CALL and USR access low level features of the interpreter. These commands can be extended to integrate own code.
-
