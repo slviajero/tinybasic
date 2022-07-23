@@ -124,7 +124,7 @@
 #define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
-#undef HASSTRINGARRAYS
+#define HASSTRINGARRAYS
 #endif
 
 /* a Tinybasic with float support */
@@ -883,6 +883,7 @@ address_t createstring(char c, char d, address_t i, address_t j) {
  *	We use a pointer to memory here instead of going through the mem interface with an integer variable
  *	This makes string code lean to compile but is awkward for systems with serial memory
  */
+
 char* getstring(char c, char d, address_t b, address_t j) {	
 	address_t k, zt, dim, maxlen;
 
@@ -951,7 +952,7 @@ char* getstring(char c, char d, address_t b, address_t j) {
 	if (DEBUG) { outsc("** maximum string length "); outnumber(maxlen); outcr(); }
 	
 /* the base address of a string */
-	ax=ax+(j-1)*maxlen;
+	ax=ax+(j-1)*(maxlen + strindexsize);
 
 	if (DEBUG) { outsc("** string base address "); outnumber(ax); outcr(); }
 
@@ -1051,6 +1052,7 @@ address_t lenstring(char c, char d, address_t j){
 	getnumber(a, strindexsize);
 	return z.a;
 #else 
+	a=a+(stringdim(c, d)+strindexsize)*(j-1);
 	getnumber(a, strindexsize);
 	return z.a;
 #endif
@@ -1058,8 +1060,7 @@ address_t lenstring(char c, char d, address_t j){
 
 /* set the length of a string */
 void setstringlength(char c, char d, address_t l, address_t j) {
-	address_t a; 
-
+	address_t a, zt; 
 	if (DEBUG) {
 		outsc("** setstringlength "); 
 		outch(c); outch(d); 
@@ -1093,6 +1094,8 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 /* multiple calls of bfind here - not good, rewrite this for one call  */ 
 
 	a=a+(stringdim(c, d)+strindexsize)*(j-1);
+
+	if (DEBUG) { outsc("**  setstringlength writing to "); outnumber(a); outsc(" value "); outnumber(l); outcr(); }
 
 	z.a=l;
 	setnumber(a, strindexsize);
@@ -3078,6 +3081,7 @@ char stringvalue() {
 		ir2=spistrbuf1;
 #endif
 		push(y-x+1);
+	/*	outsc("** in stringvalue, length "); outnumber(y-x+1); outsc(" from "); outnumber(x); outspc(); outnumber(y); outcr(); */
 		xc=xcl;
 		yc=ycl;
 	} else if (token == TSTR) {	
@@ -3827,7 +3831,7 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
 			if (ps)
 				setstringlength(xcl, ycl, 1, j);
 			else 
-				if (lenstring(xcl, ycl, 1) < i && i <= stringdim(xcl, ycl)) setstringlength(xcl, ycl, i, j);
+				if (lenstring(xcl, ycl, j) < i && i <= stringdim(xcl, ycl)) setstringlength(xcl, ycl, i, j);
 			break;
 #endif
 	}
@@ -3944,7 +3948,7 @@ void assignment() {
 /* classical Apple 1 behaviour is string truncation in substring logic */
 			newlength = i+lensource-1;	
 		
-			setstringlength(xcl, ycl, newlength, 1);
+			setstringlength(xcl, ycl, newlength, j);
 			nexttoken();
 			break;
 #endif
@@ -6054,7 +6058,7 @@ void xread(){
 /* classical Apple 1 behaviour is string truncation in substring logic */
 			newlength = i+lensource-1;	
 		
-			setstringlength(xcl, ycl, newlength, 1);
+			setstringlength(xcl, ycl, newlength, j);
 			break;
 		default:
 			error(EUNKNOWN);
