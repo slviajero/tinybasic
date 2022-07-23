@@ -18,6 +18,8 @@ In the core language set there are 26 static variables A-Z and a special array @
 
 ### LET
 
+### INPUT
+
 ### GOTO
 
 ### GOSUB and RETURN
@@ -102,18 +104,56 @@ In the core language set there are 26 static variables A-Z and a special array @
 
 ## Arduino I/O language set
 
-### PULSE and TONE extensions
+## PINM 
+
+### DWRITE, DREAD, and LED
+
+### AWRITE, AREAD, and AZERO
+
+### Timing with MILLIS and DELAY
+
+### PULSEIN and TONE extensions
 
 ## File I/O language set
 
+### Opening and closing files with OPEN and CLOSE
+
+### DOS commands CATALOG, DELETE, FDISK
+
+### Reading and writing with INPUT, PRINT
+
+### Character IO with GET and PUT
+
 ## Float language set
+
+### SIN, COS, TAN, ATAN
+
+### LOG and EXP
+
+### Floating point precision
 
 ## Dartmouth language set
 
+### DATA, READ, and RESTORE
+
+### DEF FN
+
+### ON 
+
 ## Darkarts language set
+
+### MALLOC
+
+### FIND
+
+### EVAL
 
 ## IOT language set
 
+### 
+
 ## Graphics language set
+
+# Hardware drivers 
 
 
