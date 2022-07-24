@@ -3565,32 +3565,32 @@ void compexpression() {
 		case '=':
 			parseoperator(compexpression);
 			if (er != 0) return;
-			push(x == y);
+			push(x == y ? -1 : 0);
 			break;
 		case NOTEQUAL:
 			parseoperator(compexpression);
 			if (er != 0) return;
-			push(x != y);
+			push(x != y ? -1 : 0);
 			break;
 		case '>':
 			parseoperator(compexpression);
 			if (er != 0) return;
-			push(x > y);
+			push(x > y ? -1 : 0);
 			break;
 		case '<':
 			parseoperator(compexpression);
 			if (er != 0) return;
-			push(x < y);
+			push(x < y ? -1 : 0);
 			break;
 		case LESSEREQUAL:
 			parseoperator(compexpression);
 			if (er != 0) return;
-			push(x <= y);
+			push(x <= y ? -1 : 0);
 			break;
 		case GREATEREQUAL:
 			parseoperator(compexpression);
 			if (er != 0) return;
-			push(x >= y);
+			push(x >= y ? -1 : 0);
 			break;
 	}
 }
@@ -3603,7 +3603,7 @@ void notexpression() {
 		nexttoken();
 		expression();
 		if (er != 0) return;
-		push(!pop());
+		push(~(int)pop());
 	} else 
 		compexpression();
 }
