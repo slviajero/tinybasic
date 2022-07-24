@@ -217,9 +217,33 @@ If a file system is compiled to the Arduino code. The commands work like on a PO
 
 The character @ is a valid first character in variable names and addresses special variables. These variables give access to system properties. 
 
+@() is an array of numbers starting from the top of memory down to the program area. It can be used like any other array in BASIC. Indexing starts at 1. 
 
+@ is the upper array boundary of the array @() i.e. the number of elements in the array. 
+
+The program area is protected by BASIC. The maximum index prevents a program to overwrite the program.
+
+@E() is the EEPROM array. It indexes the entire EEPROM area down from the highest address. 
+
+@E is the number of elements in the EEPROM array. Unlike with the memory array @() there is no protection of saved programs in the EEPROM. @E() can overwrite the program space. 
+
+@R is the random number seed. It can be written and read. 
+
+@O is the currently active output stream.
+
+@I is the currently active input stream. 
+
+@C is the next character of the input stream or output stream. 
+
+@A is the number of available character of the current input stream.
+
+The variables @O, @I, @C, and @A can be used for byte I/O on any stream. See the examples section for more information on this.
+
+The array @t() is the real time clock array. See the hardware drivers section for more information.
 
 ## Apple 1 language set
+
+### Introduction
 
 ### String variables, arrays, DIM, and LEN
 
