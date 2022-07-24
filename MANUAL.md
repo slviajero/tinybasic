@@ -34,7 +34,7 @@ PRINT #6, A, B, C
 
 Tutorial programs: hello.bas and table.bas.
 
-BASIC I/O is stream based. Streams are numbered. The console I/O on a POSIX system or Serial on an Arduino is stream number 1. Other prefefined stream numbers are 2 for display and 16 for files. Please look at the file I/O section and the hardware driver chapter for more information. 
+BASIC I/O is stream based. Streams are numbered. The console I/O on a POSIX system or Serial on an Arduino is stream number 1. Other prefefined stream numbers are 2 for displays, 4 for secondary serial and 16 for files. Please look at the file I/O section and the hardware driver chapter for more information. 
 
 Printing to a display would be done with 
 
@@ -48,9 +48,37 @@ prints to a file.
 
 ### LET
 
+LET assigns an expression to a variable. It can be ommited and is only added to the language set to ensure compatibility. Typical LET statement would be 
+
+LET A=10
+
+A=B/2+C
+
+Expression evaluation is done left to right with multiplication and division precedence before addition and subtraction. Comparision have lowest precedence and evalute true to -1 and false to 0. This is not C style boolean logic but closer to the old MS BASIC definition. With this, NOT, AND and OR in the Apple 1 language set can be used as bitwise operators because NOT -1 is 0.
+
+Strings evaluate to the ASCII value of the first character.
+
+A="A" : PRINT A
+
+outputs 65.
+
 ### INPUT
 
+INPUT accepts a list of string constants and variable. String constants are output and variable request a user input. A "?" prompt is only displayed if not string constant has been supplied. Example: 
+
+INPUT "Input a number", A
+
+Unlike MS BASIC comma separated lists cannot be used as input values.
+
+INPUT A, B
+
+would prompt for two separate number inputs even if two number like e.g. 17,19 are enters after the first prompt. This saves memory. Please look at IOT extension for a way to split lists.
+
+In version 1.3. INPUT cannot read elements of string arrays. Only not indexed string variables are implemented.
+
 ### GOTO
+
+
 
 ### GOSUB and RETURN
 
