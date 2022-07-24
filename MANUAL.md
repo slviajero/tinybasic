@@ -620,6 +620,8 @@ For systems with a filesystem there is a set of file access commands. Only one d
 
 ### Character IO with GET and PUT
 
+### Error handling and EOF control
+
 ## Float language set
 
 ### Introduction
@@ -634,17 +636,59 @@ PI=4* ATAN(1)
 
 PRINT SIN(PI)* SIN(PI)+COS(PI)* COS(PI)
 
-PI is not a predefined constant but can be calculated using ATAN.
+PI is not a predefined constant but can be calculated using ATAN. The second line should output 1.
 
 ### LOG and EXP
 
-### Floating point precision
+LOG is the natural logarithm and EXP the exponantial function. 
+
+### Floating point precision 
+
+Floating point numbers are displayed as integers if they are smaller then 1e8. Numbers from 1e8 on are displayed in exponential notation. Numbers smaller then 1e-8 are also displayed in exponential notation. 
+
+The biggest accurate integer in a 32 bit float is 16777216. The number can be recalled in BASIC by USR(0, 5).
 
 ## Dartmouth language set
 
+### Introduction
+
+Since the early days of BASIC there were a few language features which I summarized as Dartmouth extension. DATA and DEF were in the First Edition of Dartmouth BASIC in the early 1960. ON appeared in the Fourth Edition in 1968.
+
 ### DATA, READ, and RESTORE
 
+Data statements can be anywhere in the program. Data items can be strings or numbers. Example:
+
+10 DATA "Hello", 3.141, "A"
+
+READ A$: PRINT A$
+
+READ A: PRINT A
+
+READ C: PRINT C
+
+Will print 
+
+Hello
+
+3.141
+
+65
+
+Strings have to be in quotes. Reading data with the READ command converts the data in the same way than the assignment commands. Strings reading numbers with contain the respective ASCII character. Numbers reading strings will contain the numerical ASCII code. 
+
+Unlike other BASIC versions, reading past the end of DATA will not lead to an error. The status variable @S will contain the value 1 once one reads past the last DATA item. @S is to reset explicitely after this. 
+
+RESTORE resets the data pointer. 
+
+Unlike other BASIC versions READ cannot have an argument list in the current version. 
+
+See readdata.bas in the tutorial for more information.
+
 ### DEF FN
+
+
+
+See func.bas in the tutorial for more information.
 
 ### ON 
 
