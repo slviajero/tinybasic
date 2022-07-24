@@ -622,7 +622,19 @@ For systems with a filesystem there is a set of file access commands. Only one d
 
 ## Float language set
 
+### Introduction
+
+Floating point arithemtic is taken from the standard C float library of the platform. The size of the numbers is the size of the base type number_t in the C code. It is set to float as a default but can be changed to double. 
+
 ### SIN, COS, TAN, ATAN
+
+The trigonometric function are standard BASIC. They are using radians as angle format. Examples: 
+
+PI=4* ATAN(1)
+
+PRINT SIN(PI)* SIN(PI)+COS(PI)* COS(PI)
+
+PI is not a predefined constant but can be calculated using ATAN.
 
 ### LOG and EXP
 
