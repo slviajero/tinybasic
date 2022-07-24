@@ -245,25 +245,139 @@ The array @t() is the real time clock array. See the hardware drivers section fo
 
 ### Introduction
 
-### String variables, arrays, DIM, and LEN
+The Apple 1 language set is based on an early version of the Apple Integer BASIC. I never worked with the language and just took the information from the the manual. The language set adds many useful features like arrays, strings, two letter variables, boolean expressions and a few functions. 
+
+### Variables 
+
+In addition to the static variable A-Z all two letter combinations which are not a keyword are legal variable names. Examples: 
+
+A0, BX, TT 
+
+Variables are placed on a heap that is searched every time a variable is used. Variables which are used often should be initialised early in the code. This makes BASIC programs faster. Static variables A-Z are accessed approximately 30% faster than heap variables. They should be used for loops.
+
+### Strings
+
+String variables can also have two characters followed by the $ symbol. Example: 
+
+ME$="Hello World"
+
+Unlike in the original Apple 1 BASIC, strings can be used without explicitely dimensioning them. They are auto dimensioned to length 32. Strings are static. The entire space is allocated on the heap and stays reserved. This is very different from MS BASIC with a dynamic heap. The saves memory but requires a garbage collector. Static strings like in this BASIC need more memory but make the execution of time critical code more deterministic. 
+
+A string can be dimensioned with DIM to any length. Example: 
+
+DIM A$(100), C$(2)
+
+A string of maximum 100 bytes and a string of 2 bytes are created. The maximum length of a string is 65535 in the default settings of the code. See the hardware section of the manual for more information on this.
+
+Strings are arrays of signed integer. String handling is done through the substring notation. Example: 
+
+A$="Hello World"
+
+PRINT A$(1,4), A$(6,6), A$(6)
+
+yields 
+
+Hello W World 
+
+as an output. 
+
+Substrings can be the lefthandside of an expression
+
+A$="Hello World"
+A$(12)=" today"
+PRINT A$
+
+outputs
+
+Hello world today
+
+Please look into the tutorial files string1.bas - string3.bas for more information. The commands LEFT$, RIGHT$, and MID$ do not exist and are not needed.
+
+The length of a string can be found with the LEN command. Example:
+
+A$="Hello"
+PRINT LEN(A$)
+
+### Arrays
+
+Arrays are autodimensioned to length 10. They start with index 1. If a different array length is needed the DIM command can be used. Example: 
+
+DIM A(100)
+
+Array variables can be used like normal variables except that they cannot be active variables in a FOR loop.
 
 ### Logical expressions NOT, AND, OR
 
+Logical operators NOT, AND, and OR have lowest precedence. They are at the same time bitwise logical operations on integers. Example:
+
+PRINT NOT 0
+
+yields -1 which is an integer with all bits set. Logical expressions like 
+
+IF A=10 AND B=11 THEN PRINT "Yes"
+
+can be formed. 
+
 ### Memory access with PEEK and POKE
+
+PEEK is a function which reads one byte of BASIC memory. Example: 
+
+PRINT PEEK(0) 
+
+outputs the first byte of BASIC memory.
+
+POKE writes a byte of memory. Example: 
+
+POKE 1024, 0 
+
+If PEEK and POKE are used with negative numbers they address the EEPROM of an Arduino. -1 is the first memory cell of the EEPROM. Peek and poke return bytes as signed 8 bit integers. 
 
 ### THEN
 
+THEN is added for comaptibity reasons. Typical statements would be 
+
+IF A=0 THEN PRINT "Zero"
+
+IF B=10 THEN 100 
+
 ### END
+
+END ends a program. On systems with EEPROM dummies in flash memory, END also flushed the buffer. On system with file operations, END flushed the file buffers. 
 
 ### CLR
 
+CLR removes all variables and stacks. 
+
 ### HIMEM
+
+HIMEM is the topmost free memory cell. The difference SIZE-HIMEM is the size of the stored program. 
 
 ### TAB
 
+TAB outputs n whitespace characters. Example: 
+
+TAB 20: PRINT "Hello"
+
 ### SGN
 
+The SGN function is 1 for positive arguments and -1 for negative arguments. SGN(0)=0. 
+
 ### Multidim and String Array capability
+
+If BASIC is compiled with the HASMULTIDIM option, arrays can be twodimensional. Example: 
+
+DIM A(8,9)
+A(5,6)=10
+
+The compile option HASSTRINGARRAYS activates one dimensional string arrays.
+
+DIM A$(32,10)
+
+dimensions an array of 10 strings of length 32. Assignments are done use double subscripts
+
+A$()(3)="Hello"
+A$()(4)="World"
+PRINT 
 
 ## Stefan's extension language set
 
