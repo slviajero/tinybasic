@@ -32,8 +32,19 @@ PRINT A, B, C
 
 PRINT #6, A, B, C
 
-See 
+Tutorial programs: hello.bas and table.bas.
 
+BASIC I/O is stream based. Streams are numbered. The console I/O on a POSIX system or Serial on an Arduino is stream number 1. Other prefefined stream numbers are 2 for display and 16 for files. Please look at the file I/O section and the hardware driver chapter for more information. 
+
+Printing to a display would be done with 
+
+PRINT &2, "Hello World"
+
+while 
+
+PRINT &16, "Hello World"
+
+prints to a file.
 
 ### LET
 
@@ -182,5 +193,9 @@ See
 ## Graphics language set
 
 # Hardware drivers 
+
+## I/O Streams
+
+
 
 
