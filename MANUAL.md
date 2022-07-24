@@ -486,23 +486,55 @@ PRINT SQR(8)
 
 In floating point system the library function is used. 
 
+See math.bas in the tutorial for more information.
+
 ### POW
 
+This two argument function calulates the n-th power of a number. It replaces the '^' operator of some BASIC dialects. Example: 
 
+PRINT POW(2,4)
+
+In integer systems POW calculates the result in a loop. It returns 0 for negative arguments of the exponent. In floating point systems the C function pow() is used and the result is returned.
+
+See math.bas in the tutorial for more information.
 
 ### MAP
 
+MAP is taken from the Arduino library. It maps an integer in a certain range to another ranges using (at least) 32 bit arithmetic. This is useful on 16 bit integer systems. Example: 
+
+M=MAP(V, 1000, 0, 200, 100)
+
+maps the variable V from the range 0 to 1000 to the range 100 to 200.
+
+See math.bas in the tutorial for more information.
+
 ### CLS
+
+Clears the screen on display systems. See VT52 capabilities for more information.
 
 ### Debugging with DUMP
 
+DUMP writes a memory and EEPROM range to the output. Example:
+
+DUMP 0, 100
+
+writes the first 100 bytes of the program memory. 
+
 ### Error Message capability
+
+tbd.
 
 ### VT52 capability
 
+tbd.
+
 ## Arduino I/O language set
 
-## PINM 
+### Introduction
+
+
+
+### PINM 
 
 ### DWRITE, DREAD, and LED
 
