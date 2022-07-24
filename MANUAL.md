@@ -532,19 +532,85 @@ tbd.
 
 ### Introduction
 
-
+Most of the standard Arduino I/O functions are available on BASIC. The Arduino standard examples have been ported to BASIC to showcase how they are used. Please look into the repo under examples/01basics to examples/10starter for these programs. 
 
 ### PINM 
 
+PINM sets a pin to input, output, or input-pullup. Example: 
+
+PINM 10, 0
+
+PINM 11, 1
+
+PINM 12, 2
+
+sets pin 10 to input, pin 11 to output, and pin 12 to input with the pullup active. The values for the second argument may be implementation specific. Some microcontroller cores use additional values. The number given in BASIC is directly handed through to the pinMode() C++ function.
+
 ### DWRITE, DREAD, and LED
+
+Digital I/O is done with DWRITE and DREAD. Examples: 
+
+DWRITE 11, 1 
+
+A=DREAD(10)
+
+sets pin 11 to high and reads the value of pin 10 to variable A.
+
+The constant LED is the builtin LED on system. This can be microcontroller dependent.
+
+PINM LED, 1 
+
+DWRITE LED, 1
+
+lights the buildin led.
 
 ### AWRITE, AREAD, and AZERO
 
+For analog I/O the command AWRITE and the function AREAD can be used. The pin number in these commands has to be the low level pin code of the microcontroller. For Arduino AVR systems the lowest analog pin number is the pin after the highest digital pin. On an UNO this is 14. The constant AZERO is the number of the lowest analog pin. Example: 
+
+PINM AZERO, 1
+
+PINM AZERO+1, 1
+
+PINM AZERO+2, 0
+
+sets the analog pin a0 and a1 of an Arduino to output and the pin a2 to input.
+
+AWRITE AZERO, 100
+
+AWRITE AZERO+1, 200
+
+V=AREAD(AZERO+2)
+
+write 100 to pin a0, 200 to pin a1 and reads pin a2. 
+
+Pin numbering can be tricky. More information can be found in the hardware section.
+
 ### Timing with MILLIS and DELAY
+
+DELAY triggers a delay of n ms. Example:
+
+DELAY 1000 
+
+waits for one second. 
+
+The function MILLIS measures the time in milliseconds divided by a divisor. Example:
+
+A=MILLIS(1) 
+
+B=MILLIS(1000)
+
+A contains the time since start in milliseconds. B is the time since start in seconds. The divisor can be used in 16 bit systems to control overflow of a variable.
 
 ### PULSEIN and TONE extensions
 
+tbd.
+
 ## File I/O language set
+
+### Introduction 
+
+For systems with a filesystem there is a set of file access commands. Only one directory is supported. The file system command cannot handle subdirectories. One open file for read and one open file for write is supported. 
 
 ### Opening and closing files with OPEN and CLOSE
 
