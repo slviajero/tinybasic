@@ -284,7 +284,9 @@ as an output.
 Substrings can be the lefthandside of an expression
 
 A$="Hello World"
+
 A$(12)=" today"
+
 PRINT A$
 
 outputs
@@ -367,6 +369,7 @@ The SGN function is 1 for positive arguments and -1 for negative arguments. SGN(
 If BASIC is compiled with the HASMULTIDIM option, arrays can be twodimensional. Example: 
 
 DIM A(8,9)
+
 A(5,6)=10
 
 The compile option HASSTRINGARRAYS activates one dimensional string arrays.
@@ -376,12 +379,26 @@ DIM A$(32,10)
 dimensions an array of 10 strings of length 32. Assignments are done use double subscripts
 
 A$()(3)="Hello"
+
 A$()(4)="World"
-PRINT 
+
+PRINT A$()(3), A$()(4)
+
+outputs 
+
+Hello World
+
+The first pair of parentheses are the substring part and the second pair the array index.
 
 ## Stefan's extension language set
 
+### Introduction
+
+The language extensions here are things I found useful and that were missing in Apple Integer BASIC. They are rather simple extensions of the language 
+
 ### FOR loops with CONT and BREAK
+
+
 
 ### Command line CONT
 
