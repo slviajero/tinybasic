@@ -265,7 +265,7 @@ Unlike in the original Apple 1 BASIC, strings can be used without explicitely di
 
 A string can be dimensioned with DIM to any length. Example: 
 
-DIM A$(100), C$(2)
+DIM A$ (100), C$ (2)
 
 A string of maximum 100 bytes and a string of 2 bytes are created. The maximum length of a string is 65535 in the default settings of the code. See the hardware section of the manual for more information on this.
 
@@ -285,7 +285,7 @@ Substrings can be the lefthandside of an expression
 
 A$="Hello World"
 
-A$(12)=" today"
+A$ (12)=" today"
 
 PRINT A$
 
@@ -374,15 +374,15 @@ A(5,6)=10
 
 The compile option HASSTRINGARRAYS activates one dimensional string arrays.
 
-DIM A$(32,10)
+DIM A$ (32,10)
 
 dimensions an array of 10 strings of length 32. Assignments are done use double subscripts
 
-A$()(3)="Hello"
+A$ ()(3)="Hello"
 
-A$()(4)="World"
+A$ ()(4)="World"
 
-PRINT A$()(3), A$()(4)
+PRINT A$ ()(3), A$ ()(4)
 
 outputs 
 
@@ -394,27 +394,101 @@ The first pair of parentheses are the substring part and the second pair the arr
 
 ### Introduction
 
-The language extensions here are things I found useful and that were missing in Apple Integer BASIC. They are rather simple extensions of the language 
+The language extensions here are things I found useful and that were missing in Apple Integer BASIC. They are rather simple extensions of the language.
 
 ### FOR loops with CONT and BREAK
 
+FOR loops can be ended with BREAK. Example: 
 
+10 FOR I=1 TO 10
+
+20 PRINT I
+
+30 IF I=8 THEN BREAK
+
+40 NEXT
+
+will end the loop after the 8th iteration. BREAK always ends the innermost loop just like the C break command.
+
+Alternatively CONT can be used to move forward in a loop. Example: 
+
+10 FOR I=1 TO 10 
+
+20 IF I%2=0 THEN CONT
+
+30 PRINT I
+
+40 NEXT
+
+will only display the odd values. CONT skips the entire rest of the loop and skips to the next I. 
+
+Using CONT and BREAK reduces the number of GOTO statements in a program and makes them more readable. 
 
 ### Command line CONT
 
+In interactive mode, CONT has a different function. It restarts a program previously stopped with STOP.
+
 ### ELSE
+
+ELSE can be used after THEN in one line.
+
+IF A=0 THEN PRINT "Zero" ELSE PRINT "Not zero"
+
+In programs ELSE can also be on the subsequent line
+
+10 IF A=0 THEN PRINT "Zero"
+
+20 ELSE PRINT "Not zero"
 
 ### Character output with PUT and GET
 
+Single characters can be written and read with the PUT and GET statement. Like PRINT and INPUT, these commands can take the I/O stream as an argument after the & modifier. Example: 
+
+GET &2, A 
+
+reads a character into variable A from the keyboard I/O stream. 
+
+PUT &2, "H", 65
+
+writes to characters to the display I/O stream. The behaviour of PUT and GET is hardware dependent. On Arduinos they are non blocking byte streams. On POSIX systems GET is blocking input.
+
 ### Low level functions USR
+
+USR is a two argument function accessing system properties. See the program hinv.bas in the tutorial for examples. USR can also be used to quickly add functionality to the interpreter. This will be explained in the hardware section of the manual. 
+
+Example for USR:
+
+PRINT "The EEPROM size is ", USR(0,10)
 
 ### Low level calls CALL
 
+CALL expects a numerical expression as an argumen. Currently only CALL 0 is implemented. It flushes all open files and ends the interpreter on POSIX systems. On Arduinos CALL 0 restarts the interpreter. 
+
 ### Setting system properties with SET
+
+SET is a two argument function setting system property. Please look into the hardware section of the manual for more information.
+
+Example: 
+
+SET 0, 1
+
+activates the debug mode of the interpreter. 
+
+SET 0, 0
+
+ends the debug mode.
 
 ### SQR
 
+On an integer BASIC the function calculates an integer approximation of the square root. It is the number closest to the exact result. It can be larger or smaller then the exact result. Example: 
+
+PRINT SQR(8)
+
+In floating point system the library function is used. 
+
 ### POW
+
+
 
 ### MAP
 
