@@ -799,6 +799,12 @@ static long lastlongyield=0;
 static mem_t lastouttoken;
 static mem_t spaceafterkeyword;
 
+/* the cache for the heap search - helps the string code */
+#ifdef HASAPPLE1
+static mem_t bfindc, bfindd, bfindt;
+static address_t bfinda, bfindz;
+#endif
+
 /* 
  * Function prototypes, ordered by layers
  * HAL - hardware abstraction

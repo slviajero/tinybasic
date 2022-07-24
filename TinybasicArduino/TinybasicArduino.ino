@@ -105,7 +105,7 @@
 #define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
-#undef HASSTRINGARRAYS
+#define HASSTRINGARRAYS
 #endif
 
 /* all features activated */
@@ -124,7 +124,7 @@
 #define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
-#undef HASSTRINGARRAYS
+#define HASSTRINGARRAYS
 #endif
 
 /* a Tinybasic with float support */
@@ -429,14 +429,21 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 }
 
 /*
- *	bfind() passes back the location of the object as result
- *		the length of the object is in z.a as a side effect 
+ * bfind() passes back the location of the object as result
+ *	the length of the object is in z.a as a side effect 
+ *	rememers the last search
+ *
  */
 address_t bfind(mem_t t, mem_t c, mem_t d) {
 	address_t b = memsize;
 	mem_t t1;
 	mem_t c1, d1;
 	address_t i=0;
+
+	if (t == bfindt && c == bfindc && d == bfindd) {
+		z.a=bfindz;
+		return bfinda;
+	}
 
 	while (i < nvars) { 
 
@@ -465,7 +472,14 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 
 		b-=z.a;
 
-		if (c1 == c && d1 == d && t1 == t) return b+1;
+		if (c1 == c && d1 == d && t1 == t) {
+			bfindc=c;
+			bfindd=d;
+			bfindt=t;
+			bfindz=z.a;
+			bfinda=b+1;
+			return b+1;
+		}
 		i++;
 	}
 
@@ -591,10 +605,14 @@ void setvar(mem_t c, mem_t d, number_t v){
 void clrvars() {
 	address_t i;
 	for (i=0; i<VARSIZE; i++) vars[i]=0;
+#ifdef HASAPPLE1
 	nvars=0;
 /*	for (i=himem; i<memsize; i++) mem[i]=0; */
 	for (i=himem; i<memsize; i++) memwrite2(i, 0);
 	himem=memsize;
+	bfindc=bfindd=bfindt=0;
+	bfinda=bfindz=0;
+#endif
 }
 
 /* the BASIC memory access function */
@@ -883,8 +901,9 @@ address_t createstring(char c, char d, address_t i, address_t j) {
  *	We use a pointer to memory here instead of going through the mem interface with an integer variable
  *	This makes string code lean to compile but is awkward for systems with serial memory
  */
+
 char* getstring(char c, char d, address_t b, address_t j) {	
-	address_t k, zt;
+	address_t k, zt, dim, maxlen;
 
 	ax=0;
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
@@ -913,18 +932,56 @@ char* getstring(char c, char d, address_t b, address_t j) {
 
 	if (er != 0) return 0;
 
+#ifndef HASSTRINGARRAYS
+
 	if ((b < 1) || (b > z.a-strindexsize )) {
 		error(EORANGE); return 0;
 	}
 
+	ax=ax+strindexsize+(b-1);
+
 /* this calculates the memory address of the string data we want to access 
 	again, the call to stringdim causes a second heap search which is inefficient */ 
-#ifndef HASSTRINGARRAYS
-	ax=ax+b-1+strindexsize;
+
 #else 
+
+/* find the proper dimemsion, this is not good because stringdim causes a second 
+	heap search */
+
+/* the dimension of the string array */
+
 	zt=z.a;
-	ax=ax+b-1+strindexsize+(stringdim(c, d) + strindexsize)*(j-1);
-	z.a=zt;
+	getnumber(ax+z.a-addrsize, addrsize);
+	dim=z.a;
+
+	if ((j < 1) || (j > dim )) {
+		error(EORANGE); return 0;
+	}
+
+ 	if (DEBUG) { outsc("** string dimension "); outnumber(dim); outcr(); }
+
+/* the max length of a string */
+	maxlen=(zt-addrsize)/dim-strindexsize;
+
+	if ((b < 1) || (b > maxlen )) {
+		error(EORANGE); return 0;
+	}
+
+	if (DEBUG) { outsc("** maximum string length "); outnumber(maxlen); outcr(); }
+	
+/* the base address of a string */
+	ax=ax+(j-1)*(maxlen + strindexsize);
+
+	if (DEBUG) { outsc("** string base address "); outnumber(ax); outcr(); }
+
+/* get the actual length */
+/*	getnumber(ax, strindexsize); */
+
+/* the address */
+	ax=ax+b-1+strindexsize;
+
+/* leave the string data record length in z.a */
+	z.a=maxlen+strindexsize;
 #endif
 
 	if (DEBUG) { outsc("** payload address address "); outnumber(ax); outcr(); }
@@ -1013,6 +1070,7 @@ address_t lenstring(char c, char d, address_t j){
 	getnumber(a, strindexsize);
 	return z.a;
 #else 
+	a=a+(stringdim(c, d)+strindexsize)*(j-1);
 	getnumber(a, strindexsize);
 	return z.a;
 #endif
@@ -1020,8 +1078,7 @@ address_t lenstring(char c, char d, address_t j){
 
 /* set the length of a string */
 void setstringlength(char c, char d, address_t l, address_t j) {
-	address_t a; 
-
+	address_t a, zt; 
 	if (DEBUG) {
 		outsc("** setstringlength "); 
 		outch(c); outch(d); 
@@ -1055,6 +1112,8 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 /* multiple calls of bfind here - not good, rewrite this for one call  */ 
 
 	a=a+(stringdim(c, d)+strindexsize)*(j-1);
+
+	if (DEBUG) { outsc("**  setstringlength writing to "); outnumber(a); outsc(" value "); outnumber(l); outcr(); }
 
 	z.a=l;
 	setnumber(a, strindexsize);
@@ -3027,19 +3086,20 @@ char stringvalue() {
 		ycl=yc;
 		parsesubstring();
 		if (er != 0) return FALSE;
-		y=pop();
-		x=pop();
 #ifdef HASSTRINGARRAYS
 		k=pop();
 #else 
 		k=1;
 #endif
+		y=pop();
+		x=pop();
 		ir2=getstring(xcl, ycl, x, k);
 /* when the memory interface is active spistrbuf1 has the string */
 #ifdef USEMEMINTERFACE
 		ir2=spistrbuf1;
 #endif
 		push(y-x+1);
+	/*	outsc("** in stringvalue, length "); outnumber(y-x+1); outsc(" from "); outnumber(x); outspc(); outnumber(y); outcr(); */
 		xc=xcl;
 		yc=ycl;
 	} else if (token == TSTR) {	
@@ -3670,6 +3730,7 @@ separators:
 /* 
  *	LET assigment code for various lefthand and righthand side. 
  *
+ *
  *	lefthandside is a helper function for reuse in other 
  *	commands. It determines the address the value is to be 
  *	assigned to and whether the assignment target is a 
@@ -3728,6 +3789,8 @@ void lefthandside(address_t* i, address_t* j, mem_t* ps) {
 			parsesubscripts();
 			if (er != 0) return;
 			switch(args) {
+				case -1:
+					nexttoken();
 				case 0:
 					*i=1;
 					*ps=TRUE;
@@ -3741,7 +3804,20 @@ void lefthandside(address_t* i, address_t* j, mem_t* ps) {
 					error(EARGS);
 					return;
 			}
-
+/* we deal with a string array */ 
+			if (token == '(') {
+				parsesubscripts();
+				if (er != 0) return;
+				switch(args) {
+					case 1:
+						*j=pop();
+						nexttoken();
+						break;
+					default:
+						error(EARGS);
+						return;
+				}
+			}
 #endif
 			break;
 #endif
@@ -3773,7 +3849,7 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
 			if (ps)
 				setstringlength(xcl, ycl, 1, j);
 			else 
-				if (lenstring(xcl, ycl, 1) < i && i <= stringdim(xcl, ycl)) setstringlength(xcl, ycl, i, j);
+				if (lenstring(xcl, ycl, j) < i && i <= stringdim(xcl, ycl)) setstringlength(xcl, ycl, i, j);
 			break;
 #endif
 	}
@@ -3800,6 +3876,13 @@ void assignment() {
 
 	lefthandside(&i, &j, &ps);
 	if (er != 0) return;
+
+	if (DEBUG) {
+		outsc("** in assignment lefthandside with ");
+		outnumber(i); outspc();
+		outnumber(j); outspc();
+		outnumber(ps); outcr();
+	}
 
 /* the assignment part */
 	if (token != '=') {
@@ -3842,11 +3925,11 @@ void assignment() {
 			for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=ir2[k];
 			ir2=spistrbuf2;
 #endif			
-			ir=getstring(xcl, ycl, i, 1);
+			ir=getstring(xcl, ycl, i, j);
 			if (er != 0) return;
 
 /* the length of the original string */
-			lendest=lenstring(xcl, ycl, 1);
+			lendest=lenstring(xcl, ycl, j);
 
 			if (DEBUG) {
 				outsc("* assigment stringcode "); outch(xcl); outch(ycl); outcr();
@@ -3883,7 +3966,7 @@ void assignment() {
 /* classical Apple 1 behaviour is string truncation in substring logic */
 			newlength = i+lensource-1;	
 		
-			setstringlength(xcl, ycl, newlength, 1);
+			setstringlength(xcl, ycl, newlength, j);
 			nexttoken();
 			break;
 #endif
@@ -5955,11 +6038,11 @@ void xread(){
 #endif	
 
 /* the destination address of the lefthandside, on the fly create included */
-			ir=getstring(xcl, ycl, i, 1);
+			ir=getstring(xcl, ycl, i, j);
 			if (er != 0) return;
 
 /* the length of the lefthandside string */
-			lendest=lenstring(xcl, ycl, 1);
+			lendest=lenstring(xcl, ycl, j);
 
 			if (DEBUG) {
 				outsc("* read stringcode "); outch(xcl); outch(ycl); outcr();
@@ -5993,7 +6076,7 @@ void xread(){
 /* classical Apple 1 behaviour is string truncation in substring logic */
 			newlength = i+lensource-1;	
 		
-			setstringlength(xcl, ycl, newlength, 1);
+			setstringlength(xcl, ycl, newlength, j);
 			break;
 		default:
 			error(EUNKNOWN);

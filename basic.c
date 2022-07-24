@@ -429,14 +429,21 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 }
 
 /*
- *	bfind() passes back the location of the object as result
- *		the length of the object is in z.a as a side effect 
+ * bfind() passes back the location of the object as result
+ *	the length of the object is in z.a as a side effect 
+ *	rememers the last search
+ *
  */
 address_t bfind(mem_t t, mem_t c, mem_t d) {
 	address_t b = memsize;
 	mem_t t1;
 	mem_t c1, d1;
 	address_t i=0;
+
+	if (t == bfindt && c == bfindc && d == bfindd) {
+		z.a=bfindz;
+		return bfinda;
+	}
 
 	while (i < nvars) { 
 
@@ -465,7 +472,14 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 
 		b-=z.a;
 
-		if (c1 == c && d1 == d && t1 == t) return b+1;
+		if (c1 == c && d1 == d && t1 == t) {
+			bfindc=c;
+			bfindd=d;
+			bfindt=t;
+			bfindz=z.a;
+			bfinda=b+1;
+			return b+1;
+		}
 		i++;
 	}
 
@@ -591,10 +605,14 @@ void setvar(mem_t c, mem_t d, number_t v){
 void clrvars() {
 	address_t i;
 	for (i=0; i<VARSIZE; i++) vars[i]=0;
+#ifdef HASAPPLE1
 	nvars=0;
 /*	for (i=himem; i<memsize; i++) mem[i]=0; */
 	for (i=himem; i<memsize; i++) memwrite2(i, 0);
 	himem=memsize;
+	bfindc=bfindd=bfindt=0;
+	bfinda=bfindz=0;
+#endif
 }
 
 /* the BASIC memory access function */
