@@ -46,6 +46,8 @@ PRINT &16, "Hello World"
 
 prints to a file.
 
+PRINT ends a line with LF. No CR is sent at the end of a line.
+
 ### LET
 
 LET assigns an expression to a variable. It can be ommited and is only added to the language set to ensure compatibility. Typical LET statement would be 
@@ -62,11 +64,19 @@ A="A" : PRINT A
 
 outputs 65.
 
+The operator % calculates the integer divisions modulus. Example:
+
+B=A%2 
+
+to test divisibility.
+
 ### INPUT
 
 INPUT accepts a list of string constants and variable. String constants are output and variable request a user input. A "?" prompt is only displayed if not string constant has been supplied. Example: 
 
 INPUT "Input a number", A
+
+INPUT "First number: ", A, "Second number: ", B
 
 Unlike MS BASIC comma separated lists cannot be used as input values.
 
@@ -76,37 +86,138 @@ would prompt for two separate number inputs even if two number like e.g. 17,19 a
 
 In version 1.3. INPUT cannot read elements of string arrays. Only not indexed string variables are implemented.
 
+Like PRINT, the & modifier can be used to specify an input channel.
+
+INPUT &2, A
+
+would read data from the keyboard of a Arduino standalone system.
+
 ### GOTO
 
+GOTO branches to the line number specified. Expressions are accepted. Examples:
 
+GOTO 100
+
+GOTO 100+I
+
+The later statement can be used to program ON GOTO constructs of Dartmouth BASIC.
+
+BASIC has a line cache and remembers jump targets to speed up the code. 
 
 ### GOSUB and RETURN
 
+GOSUB is identical to GOTO and saves the location after the GOSUB statement to a return stack. RETURN ends the execution of the subroutine. 
+
+The GOSUB stack is shallow with a depth of 4 elements on small Arduinos. This can be increased at compile time.
+
 ### IF 
+
+IF expects an expression and executes the command after it if the condition is true. 0 is interpreted as false and all non zero values as true. Examples:
+
+IF A=0 GOTO 100
+
+IF B=A PRINT "Equal"
+
+There is not THEN in the core language set. THEN is part of the Apple 1 language set.
 
 ### FOR loops
 
+FOR have the form
+
+FOR I=1 TO 10 STEP 2: PRINT I: NEXT I
+
+Specifying the parameter I in NEXT is optional. STEP can be ommited and defaults to STEP 1. 
+
+Unline in other BASIC dialects the loops. 
+
+FOR I=10: PRINT I: NEXT
+
+and 
+
+FOR I: PRINT I: NEXT
+
+are legal. They generate infinite loops that can be interrupted with the BREAK command which 
+is part of the extension language set. 
+
+All parameters in FOR loops are evaluated once when the FOR statement is read. FOR loops use the memory location as jump target in NEXT. They are faster than GOTO loops. 
+
+The statement NEXT I, J to terminate two loops is not supported. Each loop needs to have their own NEXT statement.
+
 ### STOP
+
+STOP stops a program. There is no END in the core language set.
 
 ### REM
 
+Comment line start with the REM statement. As BASIC tokenizes the entire input, comments should be enclosed in comments. Example:
+
+10 REM "This is a comment"
+
 ### LIST
+
+Lists the program lines. Examples: 
+
+LIST 
+
+LIST 10
+
+LIST 10, 100
+
+The first statement lists the entire program, the second only line 10. The last statement lists all line between 10 and 100.
 
 ### NEW
 
+Deletes all variables and the program. 
+
 ### RUN
+
+Starts to run a program. A line can be specified as first line to be executed. RUN deletes all variables and clears the stacks. GOTO linnumber can be used for a warm start of a program.
 
 ### ABS
 
+Calculates the absolute value of a number. Example:
+
+A=ABS(B)
+
 ### INT
+
+Calculates the integer value of a number. Example:
+
+A=INT(B)
 
 ### RND
 
+Calculates a random number. The builtin random number generator is a 16/32 bit congruence code and is good enough for games and simple applications but repeats itself rather fast. The argument of the function is the upper bound. 
+
+On an integer BASIC 
+
+PRINT RND(8)
+
+would produce numbers from 0 to 7, while 
+
+PRINT RND(-8)
+
+would produce numbers between -8 and -1. 
+
+The random number seed can be changes by using the special variable @R. See the "special variable" section for more information.
+
 ### SIZE
+
+Outputs the space between the top of the program and the bottom of the variable heap. It is the free memory the interpreter has. 
 
 ### Storing programs with SAVE and LOAD
 
+LOAD and SAVE are part of the core language set if the hardware has a filesystem. On POSIX systems (Mac, Windows, Linux) they take a file name as argument. Default is "file.bas". 
+
+Arduino systems with only EEPROM support save the program to the EEPROM in binary format, overwriting all data on the EEPROM by it. 
+
+If a file system is compiled to the Arduino code. The commands work like on a POSIX system. LOAD "!" and SAVE "!" can be used in these cases to access programs stored in EEPROM.
+
 ### Special variables and arrays 
+
+The character @ is a valid first character in variable names and addresses special variables. These variables give access to system properties. 
+
+
 
 ## Apple 1 language set
 
