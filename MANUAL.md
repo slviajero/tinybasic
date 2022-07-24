@@ -273,7 +273,7 @@ Strings are arrays of signed integer. String handling is done through the substr
 
 A$="Hello World"
 
-PRINT A\$(1,4), A\$(6,6), A\$(6)
+PRINT A$ (1,4), A$ (6,6), A$ (6)
 
 yields 
 
