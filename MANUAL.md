@@ -298,6 +298,7 @@ Please look into the tutorial files string1.bas - string3.bas for more informati
 The length of a string can be found with the LEN command. Example:
 
 A$="Hello"
+
 PRINT LEN(A$)
 
 ### Arrays
@@ -522,9 +523,9 @@ writes the first 100 bytes of the program memory.
 
 ### Error Message capability
 
-tbd.
+Error messages are stored in Arduino program memory. For systems with low program memory undefining the #HASERRORMSG flag removes explicit error messages. 
 
-### VT52 capability
+### Terminal emulation and VT52 capability
 
 tbd.
 
@@ -686,21 +687,107 @@ See readdata.bas in the tutorial for more information.
 
 ### DEF FN
 
+Functions can have one numerical argument and a two character name. Example: 
 
+10 DEF FN TK(X) = X+SIN(X)
+
+Functions have to be DEFed before use. 
 
 See func.bas in the tutorial for more information.
 
 ### ON 
 
+ON is used in combination with GOTO or GOSUB arguments. Examples: 
+
+10 ON X GOTO 100,200,300
+
+See ongo.bas in the tutorial for more information.
+
 ## Darkarts language set
+
+### Introduction 
+
+The dark arts language set contain a set of command which can cause evil. BASIC is a beginner language and protects the user from dangerous things. This makes it somehow rigid. The three dark arts commands give access to the inner working of the heap and the program storage. They have side effects and can destroy a running program.
 
 ### MALLOC
 
+MALLOC allocates a junk of memory on the heap and returns the address. The function receives two arguments. One is the identifier. It is a 16 bit integer. The second argument is the number of bytes to be reserved. Example: 
+
+A = MALLOC(1, 64)
+
+This reserves 64 bytes which can be accessed with PEEK and POKE as 8 bit signed integers. 
+
+MALLOC helps to reserve storage in a controlled way. It is no side effects and can be used savely as long as the POKEs stay within the allocated range.
+
+See malloc.bas in the tutorial for more information.
+
 ### FIND
+
+FIND finds a memory segement on the heap. It can be used to find memory segements allocated with MALLOC but it also finds variables, strings and arrays. 
+
+In all of these examples the argument of the function is the name of an object and not an expression. It has to be the pure string or array without any subscripts.
+
+All heap variables can be searched. Example: 
+
+A0=10 
+
+PRINT FIND(A0)
+
+This command outputs the address of the variable A0. The variable is stored with the least significant byte first. The size of the variable area is the size of number_t. It is 2 bytes for integer BASICs and 4 bytes for floating point BASICs.
+
+Arrays are searched by specifiying the array name without arguments. Example:
+
+DIM A(8)
+
+PRINT FIND(A())
+
+Arrays are stored like variables with the lowest array element first. 
+
+Strings can be searched as well. Example: 
+
+A\$="Hello World"
+
+PRINT FIND(A\$)
+
+This command outputs the address of a string. If A$ is a pure string and not a string array, the first byte is the least significant byte of the length of the string. The second byte is the most significant byte of the length for 16 bit strings. All following bytes are payload. Strings are not necessarily 0 terminated. One has to process the length in all code accessing strings directly.
+
+If a memory segment allocated with MALLOC needs to be searched, a numerical expression can be specified. Example: 
+
+A = MALLOC(1, 64)
+
+PRINT FIND(1)
+
+If the segement to be searched is stored in a variable, FIND has to be called like in this example:
+
+M=1
+
+PRINT FIND((M))
+
+Note the inner braces around M. They are needed here as they trigger expression evaluation. This is unusual for BASIC interpreters. 
+
+FIND itself has no side effects but POKEing around in the heap area can kill the interpreter if the structure of the heap list is destroyed.
+
+See find.bas in the tutorial for more information.
 
 ### EVAL
 
+EVAL adds a new line to the BASIC code at runtime. Doing so has many side effects and EVAL does not protect you in any way. Examples: 
+
+10 EVAL 20, "PRINT X"
+
+20 PRINT "Hello World"
+
+RUN 
+
+LIST 
+
+In the examples above line 20 is replaced by the string in the EVAL command.
+
+EVAL includes the line to the program heap. This changes memory addresses of all code behind the inserted line. FOR loops, GOSUB commands, the linenumber cache and READ/DATA statements use plain memory addresses. This means that the DATA pointer, all active FOR loops and active GOSUBs break. A safe way to use EVAL is to change only lines further down in the code outside of any active FOR loop and to RESTORE the DATA pointer after EVAL. 
+
 ## IOT language set
+
+### Introduction
 
 ### AVAIL
 
@@ -714,9 +801,25 @@ See func.bas in the tutorial for more information.
 
 ## Graphics language set
 
+### Introduction
+
+### COLOR
+
+### PLOT
+
+### LINE
+
+### CIRCLE and FCIRCLE
+
+### RECT and FRECT
+
 # Hardware drivers 
 
 ## I/O Streams
+
+### Introduction
+
+
 
 
 
