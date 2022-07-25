@@ -660,7 +660,7 @@ Data statements can be anywhere in the program. Data items can be strings or num
 
 10 DATA "Hello", 3.141, "A"
 
-READ A$: PRINT A$
+READ A\$ : PRINT A\$
 
 READ A: PRINT A
 
