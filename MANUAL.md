@@ -887,31 +887,97 @@ See eval.bas in the tutorial for more information.
 
 ### Introduction
 
+The IoT language set are commands needed to use IoT services. They help to implement I/O function. This part of the interpreter is under active development. Some commands may change in the future.
+
 ### AVAIL
+
+AVAIL returns the number of characters ready for input on an input stream. Example: 
+
+PRINT AVAIL(4)
+
+returns the number of characters on input stream 4 which is the secondary serial port. The function is hardware dependent.
 
 ### String commands INSTR, VAL, and STR
 
+INSTR finds a character in a string and returns the index. Example: 
+
+A\$="1, 2, 3"
+
+A=INST(",", A\$)
+
+finds the first comma in the string. INSTR can be used to split strings. See splitstr.bas in the tutorial for more information.
+
+VAL scans a string for a number and returns the value. If no number is found the return value is 0 and the error status @S is set to 1. Example: 
+
+A\$="125"
+
+A=VAL(A$)
+
+STR converts a number to a string. Example: 
+
+A\$=STR(125)
+
+Tutorial: splitstr.bas, converst.bas
+
 ### SENSOR
+
+SENSOR is the generic sensor interface. It handles sensor drivers in the hardware dependent code. The first argument of the function is the sensor number. The second argument can be used to indentify interal properties of the sensor. If the second argument is zero, SENSOR returns if the sensor code is available. Example: 
+
+10 IF NOT SENSOR(1, 0) THEN PRINT "no DHT11 sensor detected": END
+
+20 PRINT SENSOR(1, 2)
+
+The first command looks if there is a DHT temperature sensor. The second command read the temperature value.
 
 ### SLEEP
 
+SLEEP puts a system into deep sleep mode. It requires one argument which is the sleep time in milliseconds. The command is currently only implemented on ESP8266 and ESP32 systems. The microcontroller restarts after deep sleep. This command needs to be used with an autostart program.
+
 ### NETSTAT
+
+In command mode NETSTAT displays the network status. It is implemented for all Wifi systems and Arduino Ethernet. As a arithemtic constant it returns a network status. With 0 the system is not connected. 1 means connected but no MQTT connection. 3 is network and MQTT connected.
+
+The network code is under active development.
 
 ## Graphics language set
 
 ### Introduction
 
-The graphics language set is a thin layer over the low level graphics function. 
+The graphics language set is a thin layer over the low level graphics functions of the graphics driver. They try to be as generic as possible and avoid driver specific code. Some of the commands behave differently on different platforms. The graphics commands were first implemented with an SD1963 TFT in mind. Currently various monochrome and color displays are supported.
 
 ### COLOR
 
+Sets the color of the graphics pen. COLOR either accepts either 3 arguments for rgb color or one argument for vga like colors. The exact color palette depends on the graphics driver. Example: 
+
+COLOR 255 
+
+COLOR 100, 100, 100
+
 ### PLOT
+
+PLOT draws one pixel on the display. The coordinate system starts at the upper left corner of the display. First arguments is the x coordinate, second argument is the y coordinate. Example:
+
+PLOT 100, 100
+
+A pixel is drawn in the colour specified by the COLOR command.
 
 ### LINE
 
+LINE draws a line from one point to another. Example: 
+
+LINE 100, 100, 200, 200
+
 ### CIRCLE and FCIRCLE
 
+CIRCLE and FCIRCLE draw a circle or filled circle around a point on the canvas with radius r. The last argument is the radius. Example:
+
+CIRCLE 100, 100, 50
+
 ### RECT and FRECT
+
+RECT and FRECT draw a rectangle or filled rectangle. The first pair of argument is the left lower corner. The second pair is the right upper corner. Example: 
+
+RECT 100, 100, 200, 200
 
 # Hardware drivers 
 
