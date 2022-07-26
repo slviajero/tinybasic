@@ -10,7 +10,7 @@ Keywords ad variable names are not case sensitive. They are printed as uppercase
 
 In the core language set 26 static variables with names A-Z are supported. The Apple 1 languages set has two character variables, arrays and string variables. 
 
-There is a set of examples program in examples/00tutorial. They are reffered to here as "the tutorial".
+There is a set of examples program in examples/00tutorial. They are referred to here as "the tutorial".
 
 ## Core language set
 
@@ -213,6 +213,12 @@ Arduino systems with only EEPROM support save the program to the EEPROM in binar
 
 If a file system is compiled to the Arduino code. The commands work like on a POSIX system. LOAD "!" and SAVE "!" can be used in these cases to access programs stored in EEPROM.
 
+File names must be strings. To load a program you need to enter
+
+LOAD "myprog.bas"
+
+i.e. with the filename enclosed quotes.
+
 ### Special variables and arrays 
 
 The character @ is a valid first character in variable names and addresses special variables. These variables give access to system properties. 
@@ -237,7 +243,9 @@ The program area is protected by BASIC. The maximum index prevents a program to 
 
 @A is the number of available character of the current input stream.
 
-The variables @O, @I, @C, and @A can be used for byte I/O on any stream. See the examples section for more information on this.
+@S is the I/O error status. See the file I/O section for more information on it.
+
+The variables @O, @I, @C, and @A can be used for byte I/O on any stream. 
 
 The array @t() is the real time clock array. See the hardware drivers section for more information.
 
@@ -525,9 +533,25 @@ writes the first 100 bytes of the program memory.
 
 Error messages are stored in Arduino program memory. For systems with low program memory undefining the #HASERRORMSG flag removes explicit error messages. 
 
-### Terminal emulation and VT52 capability
+### Terminal emulation and VT52 capability on display systems
 
-tbd.
+BASIC has a minimal set of terminal control characters build in. Compiling the code with the HASVT52 option adds a subset of the VT52 terminal commands for systems with displays. 
+
+Most importantly 
+
+PUT &2, 12
+
+clears the screen.
+
+The special variables @X, @Y contain the cursor position. The variables are read write. 
+
+@X=10: @Y=10: PUT "X"
+
+would write the letter X at position 10, 10.
+
+The array @D() is the display character buffer by column and row. It is also read write and can be used to display characters directly.
+
+Please look into the hardware section for the display driver commands.
 
 ## Arduino I/O language set
 
@@ -603,25 +627,93 @@ B=MILLIS(1000)
 
 A contains the time since start in milliseconds. B is the time since start in seconds. The divisor can be used in 16 bit systems to control overflow of a variable.
 
-### PULSEIN and TONE extensions
+### PULSEIN and PLAY extensions
 
-tbd.
+Two more compley Arduino I/O function are available from BASIC. 
+
+PULSEIN reads a pulse on a pin. The first argument is the pin number, the second whether a LOW=0 or HIGH=1 state is expected. The third argument is the timeout in milliseconds. Note the difference to the original Arduino pulseIN(). The low level Arduino commands expects the pulse length in microseconds. 
+
+PLAY is a wrapper around the Arduino tone() function for Arduino systems. For ESP32 VGA systems it is mapped to the sound generator function of the FabGL library. More information on this can be found in the hardware section. 
 
 ## File I/O language set
 
 ### Introduction 
 
-For systems with a filesystem there is a set of file access commands. Only one directory is supported. The file system command cannot handle subdirectories. One open file for read and one open file for write is supported. 
+For systems with a filesystem there is a set of file access commands. Only one directory is supported. The file system command cannot handle subdirectories. One open file for read and one open file for write or append is supported. The file I/O commands mask the different underlying filesystems. Currently EEPROM EFS, SD, ESPSPIFFS and LittleFS are supported. Look for more information in the hardware section.
 
 ### Opening and closing files with OPEN and CLOSE
 
+Files are opened with the OPEN command. Open needs a filename and optionally a file open mode as argument. As a file open mode 0 is read, 1 is write and 2 is append. Read mode is the default is no argument is given. Examples:
+
+OPEN "data.txt"
+
+OPEN "data.txt", 0
+
+OPEN "temp.txt", 1
+
+OPEN "append.txt", 2
+
+The first two commands are equivalent, the file "data.txt" is opened for read. The second line opens "temp.txt" for write. A new file is created if it doesn't exist. If the file exists writing starts at the beginning and existing data is overwritten. The third commands opens the file for append. 
+
+File name lengths are filesystem specific. The maximum length in BASIC is 32 characters.
+
+Files that have been written need to be closed not to lose the data. CLOSE without an argument closes the read file. This is not really necessary. CLOSE 1 or CLOSE 2 close the write file. Opening a new file automatically closes an open file. 
+
+OPEN and CLOSE and be used to open and close other I/O streams as well. For this, a file modifier can be added. Example:
+
+OPEN &7, 64, 1
+
+This command opens the Wire stream for write addressing the device 64 as a target. See the hardware section for more information.
+
 ### DOS commands CATALOG, DELETE, FDISK
 
-### Reading and writing with INPUT, PRINT
+CATALOG lists the files in the filesystem. Am optional string pattern can be used to list only file that begin with it. Example: 
+
+CATALOG
+
+CATALOG "da"
+
+The first command lists all file, the second one all file beginning with the pattern "da".
+
+DELETE deletes one file. The name has to match exactly. No pattern matching is supported.
+
+FDISK formats a file system. This is not supported for all file systems. Arguments depend on the hardware implementation. Please look in the hardware section for more information.
+
+### Reading and writing with INPUT, PRINT, and the error variable @S
+
+Files can be written and read with PRINT and INPUT adding the file stream modifier. The I/O stream number for files is 16. Example:
+
+PRINT &16, "Hello World"
+
+writes "Hello World" to the open write file.
+
+INPUT &16, A\$
+
+reads the string A\$ from the file. INPUT can have comma seperated arguments. Each variable expects the input in a new line of the file. Like for in console input, INPUT does not split the I/O. Example:
+
+INPUT &16, A, B
+
+would read the first line of the file as a number into variable A and the second line into variable B.
+
+I/O operations ususally report no errors on the console and keep the the program running if an error occurs. The variable @S contains the error status of the operation. @S has to be reset explicitly before using it because it remembers and error status of previous operations and is never reset by the interpreter. Example:
+
+@S=0
+
+INPUT &16, A$
+
+IF @S=-1 THEN PRINT "End of file reached"
+
+@S takes the value -1 for the end of file condition. For general error it takes the value 1.
+
+Tutorial: fileio.bas
 
 ### Character IO with GET and PUT
 
-### Error handling and EOF control
+Like PRINT and INPUT, the byte I/O command can take a stream modifier. Example: 
+
+GET &16, A
+
+would read one byte from the file putting the signed ASCII value to variable A.
 
 ## Float language set
 
@@ -639,9 +731,13 @@ PRINT SIN(PI)* SIN(PI)+COS(PI)* COS(PI)
 
 PI is not a predefined constant but can be calculated using ATAN. The second line should output 1.
 
+Tutorial: trig.bas
+
 ### LOG and EXP
 
 LOG is the natural logarithm and EXP the exponantial function. 
+
+Tutorial: stir.bas
 
 ### Floating point precision 
 
@@ -683,7 +779,7 @@ RESTORE resets the data pointer.
 
 Unlike other BASIC versions READ cannot have an argument list in the current version. 
 
-See readdata.bas in the tutorial for more information.
+Tutorial: readdata.bas
 
 ### DEF FN
 
@@ -693,7 +789,7 @@ Functions can have one numerical argument and a two character name. Example:
 
 Functions have to be DEFed before use. 
 
-See func.bas in the tutorial for more information.
+Tutorial: func.bas
 
 ### ON 
 
@@ -701,7 +797,7 @@ ON is used in combination with GOTO or GOSUB arguments. Examples:
 
 10 ON X GOTO 100,200,300
 
-See ongo.bas in the tutorial for more information.
+Tutorial: ongo.bas 
 
 ## Darkarts language set
 
@@ -719,7 +815,7 @@ This reserves 64 bytes which can be accessed with PEEK and POKE as 8 bit signed 
 
 MALLOC helps to reserve storage in a controlled way. It is no side effects and can be used savely as long as the POKEs stay within the allocated range.
 
-See malloc.bas in the tutorial for more information.
+Tutorial: malloc.bas
 
 ### FIND
 
@@ -757,7 +853,7 @@ A = MALLOC(1, 64)
 
 PRINT FIND(1)
 
-If the segement to be searched is stored in a variable, FIND has to be called like in this example:
+If the segment to be searched is stored in a variable, FIND has to be called like in this example:
 
 M=1
 
@@ -767,7 +863,7 @@ Note the inner braces around M. They are needed here as they trigger expression 
 
 FIND itself has no side effects but POKEing around in the heap area can kill the interpreter if the structure of the heap list is destroyed.
 
-See find.bas in the tutorial for more information.
+Tutorial: find.bas
 
 ### EVAL
 
@@ -784,6 +880,8 @@ LIST
 In the examples above line 20 is replaced by the string in the EVAL command.
 
 EVAL includes the line to the program heap. This changes memory addresses of all code behind the inserted line. FOR loops, GOSUB commands, the linenumber cache and READ/DATA statements use plain memory addresses. This means that the DATA pointer, all active FOR loops and active GOSUBs break. A safe way to use EVAL is to change only lines further down in the code outside of any active FOR loop and to RESTORE the DATA pointer after EVAL. 
+
+See eval.bas in the tutorial for more information.
 
 ## IOT language set
 
@@ -803,6 +901,8 @@ EVAL includes the line to the program heap. This changes memory addresses of all
 
 ### Introduction
 
+The graphics language set is a thin layer over the low level graphics function. 
+
 ### COLOR
 
 ### PLOT
@@ -818,6 +918,26 @@ EVAL includes the line to the program heap. This changes memory addresses of all
 ## I/O Streams
 
 ### Introduction
+
+### Serial channel
+
+### Display and keyboard driver
+
+### Secondary serial
+
+### Wire communication
+
+### Radio communication
+
+### MQTT 
+
+### Filesystems
+
+## Special systems 
+
+### ESP32 VGA with FabGL
+
+
 
 
 
