@@ -56,27 +56,13 @@ For the Arduino IDE place hardware-arduino.h in your Arduino sketch directory. T
 
 For POSIX OSes you need hardware-posix.h in your working directory. GCC compiles BASIC for Linux, Mac (primary dev platform), Windows (with MINGW), and MSDOS (Turbo C 2).
 
-For simple Arduino boards I prepared file versions in Arduino cloud 
-
-Use one of these two links.
-
-A bare minimum Arduino system is prepared here
-
-https://create.arduino.cc/editor/sl001/ade3b2af-6781-4dfc-b9dd-4eec95405723/preview
-
-
-A quite complete ESP8266 system without network support can be found here
-
-https://create.arduino.cc/editor/sl001/27a26f15-c23b-408d-8d39-e6948aead495/preview
-
-
-The single file versions contain the full code but are not maintained regularly. They always will be behind the newest code. Please use them only as quick and dirty demos. They are not updated often.
-
 utility/monitor.py is a little serial monitor to interact with the running BASIC interpreter on the Arduino. It allows very simple loading of files into the Arduino and saving of output to a file on a computer. utility/arduinoterm is a wrapper of monitor.py.
 
 utility/dosify converts the code to tcc 2.01 ready format to be compiled in DOSBOX.
 
 examples contains a lot of demo programs and games ported to BASIC.
+
+MANUAL.md is the BASIC manual.
 
 ## What's next
 
