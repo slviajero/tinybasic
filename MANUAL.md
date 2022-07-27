@@ -985,6 +985,62 @@ RECT 100, 100, 200, 200
 
 ### Introduction
 
+BASIC I/O goes through input output streams. Every stream has an integer number. Sending data to a stream sends it through to a device driver. These device drivers handle the underlying OS or microcontroller cores. The logic is as close as possible to the Arduino stream class. 
+
+Streams are
+
+1: Console input and output
+
+2: Keyboard or keypad input and display output
+
+4: Secondary serial channel
+
+7: I2C protocol 
+
+8: RF24 radio interface
+
+9: MQTT network connection
+
+16: File I/O
+
+All other stream numbers are currently unused but will be allocated to drivers in the future. The stream numbers below 32 should not be used for extensions. 
+
+Stream numbers are agruments of the modifier of OPEN, CLOSE, PRINT, INPUT, GET and PUT. Typical commands would look like:
+
+INPUT &2, A$
+
+PRINT &4, "Hello world"
+
+GET $2, A
+
+PUT &16, "A", "B"
+
+The expression after & is the I/O stream number.
+
+There is a default I/O stream compiled into the code. For systems not compiled with the STANDALONE option this default stream is the console stream 1. If the STANDALONE option is used, the default stream is 2. 
+
+The active I/O stream can be changed by stetting the special variable @O for output and @I for input. The two code lines
+
+10 @O=2: PRINT "Hello World"
+
+and 
+
+10 PRINT &2, "Hello World"
+
+both write "Hello World" to the display. 
+
+The active I/O stream is always reset to the default stream once the interpreter changes to interactive mode. This is a failsafe to avoid a program to shut out a user permanently.
+
+The default stream can be changed permanently with the SET command.
+
+SET 3,0 sets the default output stream to console.
+
+SET 3,1 sets the default output stream to display.
+
+SET 5,0 sets the default input stream to console.
+
+SET 5,1 sets the default input stream to display.
+
 ### Serial channel
 
 ### Display and keyboard driver
