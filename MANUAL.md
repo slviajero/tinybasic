@@ -8,8 +8,6 @@ The intepreter has two data types - numbers and strings. The number type can be 
 
 Keywords ad variable names are not case sensitive. They are printed as uppercase with the LIST command. Strings and string constants are case sensitive. 
 
-In the core language set 26 static variables with names A-Z are supported. The Apple 1 languages set has two character variables, arrays and string variables. 
-
 There is a set of examples program in examples/00tutorial. They are referred to here as "the tutorial".
 
 ## Core language set
