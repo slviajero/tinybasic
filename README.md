@@ -20,8 +20,9 @@ Microcontroller specific features are EEPROM access, EEPROM program storage and 
 
 Most of the builtin Arduino demos are ported to BASIC and published here https://github.com/slviajero/tinybasic/tree/main/examples. These programs are the BASIC versions of the C++ programs in https://docs.arduino.cc/built-in-examples/. Please look at this original Arduino website for wiring and project information.
 
-
 The interpreter can be compliled with standard gcc on almost any architecture or in the Arduino IDE without changes. 
+
+A manual of the BASIC interpreter is in the repo https://github.com/slviajero/tinybasic/blob/main/MANUAL.md
 
 Look at the WIKI https://github.com/slviajero/tinybasic/wiki for more information.
 
