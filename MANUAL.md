@@ -1043,7 +1043,63 @@ SET 5,1 sets the default input stream to display.
 
 ### Serial channel
 
-### Display and keyboard driver
+Channel 1 is the default serial I/O stream on Arduino IDE programmed microcontrollers and it is standard input and output on POSIX like systems. The behaviour of channel 1 differed between the two version.
+
+On microcontrollers channel 1 is a true byte I/O stream and non blocking. The command
+
+GET A
+
+will return immediately and return 0 in the variable A if no character is available on the stream. The function AVAIL(1) or the special variable @A will return the correct number of characters in the serial buffer. If there is no character, the result will be 0.
+
+On POSIX systems, getchar() is used on OS level. This means that I/O on channel 1 is blocking. 
+
+GET A
+
+will wait for a character. AVAIL(1) or @A will always return 1 to make sure that a program like this
+
+10 IF AVAIL(1) THEN GET A
+
+runs correctly on both archtitectures.
+
+For line oriented input with the INPUT command, the difference is irrelevant. INPUT works in the same way on both system types.
+
+There is currently no mechanism to change the precompiled baud rate of the serial stream at runtime of a BASIC program. Default in the interpreter code is 9600 baud. This can be changed at compile time by changing serial_baudrate in the code.
+
+A line end is LF, which means ASCII 10. This is UNIX style end of line. DOS and other systems usually send CR LF which is 13 10 in decimal ASCII. If you use a terminal program to interact with BASIC, "only LF", should be configured in the settings. Currently channel 1 cannot be reconfigured to use LF CF. Channel 4, the secondary serial stream, can use CR LF. This is mostly relevant for input. 
+
+### Display and keyboard drivers
+
+Keyboard and display are accessed through channel 2. Only one device can be present, i.e. one keyboard and one display. Multidisplay or multikeyboard systems are not supported. Channel 3 is reserved for these usecases but currently not implemented. 
+
+BASIC currently supports either PS2 keyboards and the keypad of the LCDSHIELD as input device. For PS2 keyboards on standard Arduino systems the patches PS2keyboard library should be downloaded from my repo for optimal functionality. It implements keyboard.peek() which has a few advantages. 
+
+PS2 keyboard input is buffered and non blocking. AVAIL(2) gives the correct number of characters in the keyboard buffer. 
+
+GET &2, A
+
+return 0 if no character is present and the ASCII value if a character is there. 
+
+GET &2, A$ 
+
+transfers the result directly in the string A$ as a first character. The string is empty if no key was pressed.
+
+The keymap is compiled into the code. A few standard US or European keymaps are supported.
+
+If the code is compiled with the LCDSHIELD option, the keys of the shield can be used to input data. The "select" key of the shield is mapped to ASCII 10 means "end of line". The arrow keys of the shield are mapped to the digits 1 to 4. 
+
+INPUT &2, A
+
+can be used on an lcd shield for number input. The command returns after select and A has a valid number. Alternatively 
+
+INPUT &2, A$ 
+
+will enter a string consisting of the digits 1 to 4. 
+
+GET &2, A 
+
+will contain either 0 if no key is pressed or the ASCII code of the key. The command will wait until the key is released. Keypad input is unbuffered. No interrupt or timer function is currently implemented on keypads. This will change for future releases of the code. 
+
+ASCII output to a display is sent through the output channel 2. Displays are handled by a generic display driver. For low memory systems the display driver supports a non scrolling / unbuffered mode. Only a few basic display functions are supported. If there is enough memory, the display driver can be compiled in scrolling / buffered mode. For the the option DISPLAYCANSCROLL has to be defined in hardware-arduino.h. All characters are buffered in a display buffer which can be accessed byte wise. 
 
 ### Secondary serial
 
