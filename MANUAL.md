@@ -1101,7 +1101,33 @@ will contain either 0 if no key is pressed or the ASCII code of the key. The com
 
 ASCII output to a display is sent through the output channel 2. Displays are handled by a generic display driver. For low memory systems the display driver supports a non scrolling / unbuffered mode. Only a few basic display functions are supported. If there is enough memory, the display driver can be compiled in scrolling / buffered mode. For the the option DISPLAYCANSCROLL has to be defined in hardware-arduino.h. All characters are buffered in a display buffer which can be accessed byte wise. 
 
+In non buffered mode the display driver has the following functions: 
+
+The cursor of the display can be accessed special variables @X and @Y. Both variables are read/write. One can find out where the cursor is and set its position. Output with PUT &2 and PRINT &2 goes to the next cursor postion.
+
+Sending ASCII character 12 clears the display. PUT &2, 12 is clear screen on the display.
+
+Sending ASCII character 10 goes to the beginning of next line.
+
+Sending ASCII character 13 goes to the next line leaving the column the same.
+
+Sending ASCII character 127 goes back one cursor position and clears the character. It is "delete".
+
+ASCII character 27 (ESC) is sets the terminal to esc mode and triggers vt52 character interpretation. 
+
+ASCII character 3 (ETX) is used for page mode displays to trigger the redraw.
+
+Buffered displays add scrolling. Once the cursor goes beyond the last line, the display is redraw with the first line disappearing. This is simple line based software scrolling. 
+
+Each character in the display is buffered a display buffer. This buffer can be accessed through the special array D(). Writing to the array immediately display the character on the display. Reading from it gives the displayed character at the index position. The array starts from 1. The index advances by column and then by row. 
+
+Currently LCD displays 16x2 and 20x4, Nokia 5110, ILI9488, SSD1306, and SD1963 are supported. All displays use 8x8 fonts. Nokia has 10 columns and 6 rows. SSD1306 character buffer dimension depend on the display size. 16x8 is the most common size. ILI9488 has 20 columns and 30 rows. It is portrait mode by default. A 7 inch SD1963 has 50 columns and 30 rows. 
+
+In addition to the displays, VGA output is supported with the FabGL library on ESP32 systems. These systems are described in the special systems section.
+
 ### Secondary serial
+
+
 
 ### Wire communication
 
