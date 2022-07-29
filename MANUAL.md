@@ -84,7 +84,7 @@ would prompt for two separate number inputs even if two number like e.g. 17,19 a
 
 In version 1.3. INPUT cannot read elements of string arrays. Only not indexed string variables are implemented.
 
-Like PRINT, the & modifier can be used to specify an input channel.
+Like PRINT, the & modifier can be used to specify an input stream.
 
 INPUT &2, A
 
@@ -991,7 +991,7 @@ Streams are
 
 2: Keyboard or keypad input and display output
 
-4: Secondary serial channel
+4: Secondary serial stream
 
 7: I2C protocol 
 
@@ -1039,17 +1039,17 @@ SET 5,0 sets the default input stream to console.
 
 SET 5,1 sets the default input stream to display.
 
-### Serial channel
+### Serial Stream
 
-Channel 1 is the default serial I/O stream on Arduino IDE programmed microcontrollers and it is standard input and output on POSIX like systems. The behaviour of channel 1 differed between the two version.
+Stream 1 is the default serial I/O stream on Arduino IDE programmed microcontrollers and it is standard input and output on POSIX like systems. The behaviour of stream 1 differed between the two version.
 
-On microcontrollers channel 1 is a true byte I/O stream and non blocking. The command
+On microcontrollers stream 1 is a true byte I/O stream and non blocking. The command
 
 GET A
 
 will return immediately and return 0 in the variable A if no character is available on the stream. The function AVAIL(1) or the special variable @A will return the correct number of characters in the serial buffer. If there is no character, the result will be 0.
 
-On POSIX systems, getchar() is used on OS level. This means that I/O on channel 1 is blocking. 
+On POSIX systems, getchar() is used on OS level. This means that I/O on stream 1 is blocking. 
 
 GET A
 
@@ -1063,11 +1063,11 @@ For line oriented input with the INPUT command, the difference is irrelevant. IN
 
 There is currently no mechanism to change the precompiled baud rate of the serial stream at runtime of a BASIC program. Default in the interpreter code is 9600 baud. This can be changed at compile time by changing serial_baudrate in the code.
 
-A line end is LF, which means ASCII 10. This is UNIX style end of line. DOS and other systems usually send CR LF which is 13 10 in decimal ASCII. If you use a terminal program to interact with BASIC, "only LF", should be configured in the settings. Currently channel 1 cannot be reconfigured to use LF CF. Channel 4, the secondary serial stream, can use CR LF. This is mostly relevant for input. 
+A line end is LF, which means ASCII 10. This is UNIX style end of line. DOS and other systems usually send CR LF which is 13 10 in decimal ASCII. If you use a terminal program to interact with BASIC, "only LF", should be configured in the settings. Currently stream 1 cannot be reconfigured to use LF CR. Stream 4, the secondary serial stream, can use CR LF. This is mostly relevant for input. 
 
 ### Display and keyboard drivers
 
-Keyboard and display are accessed through channel 2. Only one device can be present, i.e. one keyboard and one display. Multidisplay or multikeyboard systems are not supported. Channel 3 is reserved for these usecases but currently not implemented. 
+Keyboard and display are accessed through stream 2. Only one device can be present, i.e. one keyboard and one display. Multidisplay or multikeyboard systems are not supported. Stream 3 is reserved for these usecases but currently not implemented. 
 
 BASIC currently supports either PS2 keyboards and the keypad of the LCDSHIELD as input device. For PS2 keyboards on standard Arduino systems the patches PS2keyboard library should be downloaded from my repo for optimal functionality. It implements keyboard.peek() which has a few advantages. 
 
@@ -1097,7 +1097,7 @@ GET &2, A
 
 will contain either 0 if no key is pressed or the ASCII code of the key. The command will wait until the key is released. Keypad input is unbuffered. No interrupt or timer function is currently implemented on keypads. This will change for future releases of the code. 
 
-ASCII output to a display is sent through the output channel 2. Displays are handled by a generic display driver. For low memory systems the display driver supports a non scrolling / unbuffered mode. Only a few basic display functions are supported. If there is enough memory, the display driver can be compiled in scrolling / buffered mode. For the the option DISPLAYCANSCROLL has to be defined in hardware-arduino.h. All characters are buffered in a display buffer which can be accessed byte wise. 
+ASCII output to a display is sent through the output stream 2. Displays are handled by a generic display driver. For low memory systems the display driver supports a non scrolling / unbuffered mode. Only a few basic display functions are supported. If there is enough memory, the display driver can be compiled in scrolling / buffered mode. For the the option DISPLAYCANSCROLL has to be defined in hardware-arduino.h. All characters are buffered in a display buffer which can be accessed byte wise. 
 
 In non buffered mode the display driver has the following functions: 
 
@@ -1121,11 +1121,67 @@ Each character in the display is buffered a display buffer. This buffer can be a
 
 Currently LCD displays 16x2 and 20x4, Nokia 5110, ILI9488, SSD1306, and SD1963 are supported. All displays use 8x8 fonts. Nokia has 10 columns and 6 rows. SSD1306 character buffer dimension depend on the display size. 16x8 is the most common size. ILI9488 has 20 columns and 30 rows. It is portrait mode by default. A 7 inch SD1963 has 50 columns and 30 rows. 
 
+Some displays use page based low level graphics drivers. These displays mirror the entire canvas in memory on a pixel basis. When one draws to the canvas, nothing is shown until an update command transfers the buffer to the display. SPI bus based monochrome display use this technique. The ILI9488 and SSD1306 Oled driver use this mechanism. By default these displays behave like the other displays and page mode is of. Drawing of graphics and text appears slow.
+
+Activating the page mode is done with
+
+SET 10, 1
+
+after this all updates stay in memory until an ETX code is sent with 
+
+PUT &2, 3
+
+only then the display is redrawn. The display can be set back to character mode by 
+
+SET 10, 0
+
+For epaper displays page mode is default. Epaper disply integration is in preparation.
+
 In addition to the displays, VGA output is supported with the FabGL library on ESP32 systems. These systems are described in the special systems section.
 
-### Secondary serial
+### Secondary serial stream
 
+The secondary serial stream is addressed through stream number 4. For microcontroller platforms with a hardware secondary serial port, the Serial1 object on the Arduino library is used. This can be changed in hardware-arduino.h by modifiying the functions beginning with prt. For microcontrollers without multiple hardware serial ports Softwareserial is used. The RX and TX pins are set through the macro SOFTSERIALRX and SOFTSERIALTX. Default are pin 11 and 12. This conflicts with the SPI pins. If SPI is to be used the soft serial pins have to be changed.
 
+Default baudrate on the secondary serial port is 9600 baud.
+
+The secondary serial port implements a blockmode function. Blockmode is on by default. Without blockmode an INPUT command would wait until a LF is received. This means that 
+
+INPUT &4, A$
+
+would never return if the sender on the serial port does not send LF. If a modem with AT commands or any other device is on the input port, the BASIC program would stop indefinitely if the sender side misbehaves. With blockmode active, the INPUT command handles I/O differently. 
+
+With the command 
+
+SET 7, 1 
+
+the blockmode parameter can be set to 1. In this mode the entire serial buffer is transfered to the string A$. The number of characters waiting in the serial buffer for transfer can be found by the function AVAIL(4). This number of character is in the string after INPUT &4 with the length of the string set to the value of AVAIL(4) before INPUT. Immediately after read, AVAIL(4) is zero. For secondary serial blockmode 1 is the default.
+
+Setting the blockmode parameter to a value greater 1 the timeout mode is activated. INPUT reads all characters in the buffer and waits timeout microseconds for further input until it returns. It also returns if the string is full. Example: 
+
+SET 7, 500
+
+INPUT &4, A$
+
+In this mode the INPUT command would read all characters, wait for 500ms for further input, and returns latest after this 500ms or when the string is full. 
+
+For communication with modems, the secondary serial channel has one more parameter. Normally only LF is sent after the end of a line. Some modems and other devices on a serial port expect a LF CR sequence at the end of a line. The communication is blocked if CR is not sent. With the command 
+
+SET 6, 1 
+
+CR mode is activated. A print command to the serial channel like 
+
+PRINT &4, "AT"
+
+would print the characters "A", "T", followed by a LF (ASCII 10) and a CR (ASCII 13).
+
+Answer of a model could be collected with the input sequence above.
+
+Unlike the primary serial port, the baudrate of the secondary port can be changed by the BASIC program. Example:
+
+SET 8, 31250 
+
+would set the baudrate to the standard MIDI baudrate of 31250. Any allowed baudrate of the hardware platform can be used. The serial port is reset after this command.
 
 ### Wire communication
 
