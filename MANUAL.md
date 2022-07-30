@@ -299,11 +299,11 @@ outputs
 
 Hello world today
 
-Please look into the tutorial files string1.bas - string3.bas for more information. The commands LEFT$, RIGHT$, and MID$ do not exist and are not needed.
+Please look into the tutorial files string1.bas - string3.bas for more information. The commands LEFT\$, RIGHT\$, and MID\$ do not exist and are not needed.
 
 The length of a string can be found with the LEN command. Example:
 
-A$="Hello"
+A\$="Hello"
 
 PRINT LEN(A$)
 
@@ -381,15 +381,15 @@ A(5,6)=10
 
 The compile option HASSTRINGARRAYS activates one dimensional string arrays.
 
-DIM A$ (32,10)
+DIM A\$(32,10)
 
 dimensions an array of 10 strings of length 32. Assignments are done use double subscripts
 
-A$ ()(3)="Hello"
+A\$()(3)="Hello"
 
-A$ ()(4)="World"
+A\$()(4)="World"
 
-PRINT A$ ()(3), A$ ()(4)
+PRINT A\$()(3), A$ ()(4)
 
 outputs 
 
@@ -1185,13 +1185,79 @@ would set the baudrate to the standard MIDI baudrate of 31250. Any allowed baudr
 
 ### Wire communication
 
+Stream 7 is used for Wire i.e. the I2C protocol. BASIC uses the implementation of the Arduino Wire library and the Wire object. Actually, the I2C protocol is very compley and the Wire library hides this complexity making it a byte stream. PRINT, INPUT, GET and PUT can deal well with byte streams, therefore most of the Wire libraries functionality can be used from BASIC. There is a master and a slave mode implementation.
+
+In master mode, the OPEN statement for the I2C stream is used in read mode. Example: 
+
+OPEN &7, 104 
+
+prepares I2C to control the slave with address 104. This address is a real time clock. Any valid I2C slave address can be used as an argument in the OPEN statement. OPEN &7 does not transfer any data and it also does not make any calls to the Wire library except if the microcontroller was in slave mode before. Then OPEN restarts the Wire object in master mode.
+
+Sending data can be done with PUT for sequences with just a few bytes. Alternatively the information can be collected in a string and then sent with print. Examples: 
+
+PUT &7, 0 
+
+sends a null byte to the device. 
+
+PRINT &7, A\$ 
+
+sends as many bytes as are stored in A$ to the device. LEN(A$) is the number of bytes transferred. The maximum is 31 bytes, a limit given by the wire libraries internal buffers.
+
+Requesting a byte from the device can either be done with GET or with INPUT.
+
+GET &7, A 
+
+requests one byte from the device.
+
+INPUT &7, A\$
+
+requests as many bytes as fit into the string, maximum 32. After INPUT the string will always have a length of 32 bytes on AVR. The Wire library does not transmit the number of transferred bytes properly despite some comments that indicate otherwise in the documentation. The library returns the number of requested bytes. 
+
+One can request fewer bytes than fit into the string by using the # modifier in the INPUT command. 
+
+INPUT &7, #8, A$
+
+would request 8 bytes from the device. The length of the string will be 8 after the command. Again, this does not mean that the device really sent 8 bytes.
+
+On stream 7 the status variable @S is set after each transmission to the status of the request or sent method. From this one can detect if the transmission has worked.
+
+Wire can be reopen in master mode if one want to communicate with another device by a new OPEN command with a different address. This way multiple devices can be controlled.
+
+See examples/13wire/master* for more info on master mode. This is a port of the example programs of the Arduino library from C++ to BASIC. It shows how easy it is to use Wire from BASIC.
+
+Slave mode is open with OPEN in write mode, i.e. with 1 as a thrid parameter. Example: 
+
+OPEN &7, 8, 1
+
+makes your BASIC Arduino a slave that listens on Wire port 8. This OPEN statement stops the Wire object, interaction with devices where the Arduino has to be master is no longer possible. Any open in master mode will stop the slave mode. 
+
+After slave mode is started the BASIC program continues normally. In the background there is an interrupt handler collecting the data the master sends. The program has to check periodically to see if the master has sent or requested data.
+
+If the master has sent data, AVAIL(7) will be larger than 0. The data sent by the master can be collected by
+
+INPUT &7, A\$
+
+and then processed by the program. It the master sends additional data before the BASIC program has recalled the message, the buffer is overwritten. Only one transaction is stored. This means that a Wire slave needs to check AVAIL(7) in a tight loop.
+
+If the master has requested data, USR(7, 1) has the number of requested bytes. The program should now prepare a string with this number of bytes and send it with
+
+PRINT &7, A\$
+
+After this, USR(7, 1) will be zero once the master has collected the data from the buffer. 
+
+Alternatively, the slave can deposite data in the buffer before the master has even requested it. A master request at a later time will be answered with the data. This would be useful for sensors of all kind. The slave measures data, puts it in the buffer with PRINT &7 and waits a while e.g. with DELAY until it does the next measurement. The new data overwrite the old one after every measurement cycle. A master can request data asynchronously at any time and will receive the data in the buffer. This BASIC program does not need to handle this.
+
+See examples/13wire/slave* for more info on slave mode.
+
+There is a number of example programs in examples/13wire to show how Wire programming works. 
+
 ### Radio communication
 
 ### MQTT 
 
 ### Filesystems
 
-## Special systems 
+## Special systems and hardware components
 
 ### ESP32 VGA with FabGL
 
