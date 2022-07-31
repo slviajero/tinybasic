@@ -45,7 +45,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define BASICFULL
+#define  BASICFULL
 #undef   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
@@ -5857,7 +5857,7 @@ void xusr() {
 			push(mqttstat(arg));	
 			break;			
 #endif
-/* access to properties of stream 16 - mqtt */
+/* access to properties of stream 16 - file */
 #ifdef FILESYSTEMDRIVER	
 		case 16: 
 			push(fsstat(arg));	
