@@ -37,7 +37,9 @@ The interpreter also implements the specification of Apple Integer BASIC sold fo
 
 I/O handling and some of the microcontroller BASIC features are new and are not compatible to the BASIC dialects above.
 
-The interpreter is not meant to be compatible to any BASIC dialect. I ported most of the games of 101 BASIC games from 1977 as test programs to test and check compatibility. The main restriction is that arrays can only be one dimensional and that there are no string arrays. All data objects remain in the same memory location once they are defined. There is no garbage collection. This makes the behaviour of the BASIC interpreter deterministic, real time capable and fast. 
+The interpreter is not meant to be compatible to any BASIC dialect. I ported most of the games of 101 BASIC games from 1977 as test programs to test and check compatibility. T
+
+The main difference to the old BASIC interpreters is that data objects remain in the same memory location once they are defined. There is no garbage collection. This makes the behaviour of the BASIC interpreter deterministic, real time capable and fast. 
 
 Programs are always fully tokenized at input. This includes keywords, numbers, strings and variables names. No lexical analysis is done or needed at runtime. The stored BASIC program resembles more a byte code language than a stored interpreter code. This is the concept Steve Wozniak used on the Apple 1. 
 
@@ -46,6 +48,8 @@ The core interpreter loop runs at approximately one token every 40 microseconds 
 For further information, please look at: https://github.com/slviajero/tinybasic/wiki
 
 There is a set of BASIC programs in the examples section https://github.com/slviajero/tinybasic/tree/main/examples of the repo. They showcase language features and use cases.
+
+For more information on the language, please look in the manual at: https://github.com/slviajero/tinybasic/blob/main/MANUAL.md
 
 ## Files in this archive 
 
