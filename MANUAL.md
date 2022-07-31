@@ -1411,8 +1411,58 @@ The one exception is string commands. Strings have to be copied to local memory,
 
 Well behaved BASIC programs like the game library of David Ahl in examples/14games have been tested and run on SPI RAM.
 
+## Low level commands
 
+### SET 
 
+SET changes internal variables of the interpreter. Set has two arguments, the variable or class to be changed and a value. There is no systematic in the numbering of the variables and classes.
 
+SET 0,1 switches on the debug mode. The token stream in the statement loop is displayed. SET 0,0 resets the interpreter to normal mode.
+
+SET 1,1 activates the autorun mode of the EEPROM. SET 1,0 resets the autorun mode. SET 1,255 marks the EEPROM as not to contain a program. SET 1,1 should only be used if a program was stored with SAVE "!" to the EEPROM. There is no safety net here.
+
+SET 2,1 sets the output to display mode, SET 2,0 to serial mode. This is a deprecated feature. Using @O is a better way to do this.
+
+SET 3,1 sets the default output to display, SET 3,0 to serial mode. This is a risky command. If the output channel is not connected to a device the user can control, they are locked out.
+
+SET 4,1 sets the input to keyboard mode, SET 4,0 to serial mode. This is a deprecated feature. Using @I is a better way to do this.
+
+SET 5,1 sets the default input to keyboard, SET 5,0 to serial mode. This is a risky command. If the input channel is not connected to a device the user can control, you they are locked out.
+
+SET 6,1 sets the CR output of the secondary serial port. A CR is sent after each line. SET 6,0 switches of CR. Default is off.
+
+SET 7,1 switches on blockmode of the secondary serial port input. SET 7, timeout with a number timeout>1 sets an input timeout in ms. In both cases INPUT &4 does not wait for a line feed. SET 7,0 resets block mode. 
+
+SET 8,baud will set the baudrate of the secondary serial port and resets the port. Default is 9600.
+
+SET 9,n will set the radio signal strength. n is between 0 and 3. 3 is maximal signal strength. 
+
+SET 10,1 sets the display update to page mode. In this mode the display does not display text or graphics until am ETX (ASCII 3) is sent.
+
+SET 11,1 sets the TAB command to Microsoft mode. In this mode the TAB position is the absolute character count and not a relative postion. SET 11,0 resets the behaviout.
+
+More SET parameter will be implemented in the future.
+
+### USR
+
+USR calls a low level function, passes one value to it and returns the value. Typically USR would be used like
+
+A=USR(function, parameter)
+
+USR(0,x) returns an interpreter parameter or capability. The program can find out which platform it is running on. Please look at examples/00tutorial/hinv.bas for a list of the parameters and return values.
+
+Function numbers 1 to 31 are assigned to the I/O streams. Currently only USR(f, 0) is implemented for the I/O streams. They output the status of the stream. 
+
+Function numbers 32 and above can be used to implement individual commands.
+
+### CALL 
+
+Currently only CALL 0 is implemented. Call 0 flushes all buffers. On POSIX systems it ends the interpreter and returns to the OS. On Arduino AVR and ESP the microcontroller kernel is restarted.
+
+CALL parameters 0 to 31 are reserved. Values from 32 on can be used for implementing own commands.
+
+### SLEEP 
+
+SLEEP n enters sleep mode. This is only implemented on ESP right now. n is the time in milliseconds. For ESP8266 the wiring for sleep mode has to be right. ESP32 can awake from SLEEP without additional wiring.
 
 
