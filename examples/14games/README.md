@@ -94,6 +94,16 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Hexapawn: hexapawn.bas - a board game 
 - Checkers: checkers.bas - checkers against the computer
 - Weekday: weekday.bas - show some information on dates
+- Tower: tower.bas - tower of Hanoi game 
+- Civilwar: civilwar.bas - Civil war battle simulation
+- Synonym: synonym.bas - Synonym guessing trainer
+- Bullfight: bullfight.bas - fight a bull
+- Bullseye: bullseye.bas - dart game simulator
+- Mastermind: mastermind.bas - mastermind game 
+- Life: life.bas - game of life
+- Ftball: ftball.bas - football game simulator
+
+
 
 ## BASIC language features
 
@@ -272,6 +282,23 @@ hexapawn.bas: functions, boolean expressions and arrays
 checkers.bas: multidim arrays, string split with INSTR and VAL, MS style TAB
 
 weekday.bas: arithemtic, printing tables
+
+tower.bas: 2D arrays, MS style TAB command
+
+civilwar.bas: string arrays 
+
+synonym.bas: string arrays, DATA READ
+
+bullfight.bas: arrays, DEF FN functions and random numbers
+
+bullseye.bas: MS style TAB command
+
+mastermind.bas: MS style TAB, string arrays 
+
+life.bas: string arrays and numerical arrays 
+
+ftball.bas: string arrays, DEF FN, READ DATA
+
 
 ## Sources
 
