@@ -1,5 +1,9 @@
 # Stefan's IoT BASIC in a nutshell
 
+## Version information
+
+This manual is for the released version 1.3 of Stefan's IoT BASIC interpreter. 
+
 ## BASIC language sets
 
 This BASIC interpreter is structured in language sets. They can be compiled into the code separately. With every language set there are more features and command. This makes it adaptable to the purpose. The manual is structured according to the language sets. 
@@ -1355,11 +1359,57 @@ On POSIX and SD no formating is supported.
 
 ## Special systems and hardware components
 
+### Introduction
+
+The hardware section of the interpreter contains mechanism to make the platform look the same. This works for many platforms but there are exceptions. BASIC language features work differently on these systems. In this chapter these exceptions are described.
+
 ### ESP32 VGA with FabGL
+
+BASIC runs on TTGO VGA ESP32 hardware boards. These boards are specifically designed for retro computin applications. They have a PS2 keyboard and mouse, a VGA adapter and an SD card slot. Many old OSes and computer games can run on them. 
+
+I ported the BASIC interpreter to it with a VGA 640x200 screen. The sound generator and the SD is also supported. This makes the TTGO VGA board a fully function 64 kB home computer. 
+
+Unlike other systems with displays, the generic BASIC display driver is not used. Instead, the built-in VT52 terminal emulation of the graphics library FabGL processes text output. This means that cursor positioning with the special variables @X and @X as well as the display array @D() does not exist on these systems. Cursor positioning has to be done with the standard VT52 control sequences. See the extensive documentation of FabGL for more information http://www.fabglib.org.
+
+The sound generator of FabGL can be used with the BASIC PLAY command but the syntax is different from Arduinos. PLAY is called like this
+
+PLAY n, frequency, duration, volume.
+
+The parameters volume and duration are optional. Duration is measured in ms. This is like Arduinos. Setting the volume is not possible for Arduinos. The parameter is directly passed to the FabGL library. On Arduinos this parameter is ignored.
+
+The first parameter n would be the pin number in an Arduino configuation. For FabGL it sets the wave form generator instead. The following values are possible:
+
+128: Sine wave 
+
+129: Symmetric square wave 
+
+130: Sawtooth
+
+131: Triangle
+
+132: VIC noise
+
+133: noise
+
+256-511: Square wave with variable duty cycles, pulse length is n-255.
+
+TTGO VGA hardware is supported for graphics with a 16 color VGA palette. Colors are mapped to this palette if the COLOR command is used with rgb color arguments as best as possible.
+
+The SD card is supported but some cards will cause stability problems of the system. 
+
+Networking is possible but not really supported. There are internal memory conflicts that required to reduce BASIC RAM to 10 kB. This will be solved in version 1.4 of the interpreter.
 
 ### SPI RAM systems 
 
+8bit AVR systems have rather small RAM sizes. The UNO has just 2 kB which limits the number of appliactions. Otherwise an Arduino UNO would be a great computer for BASIC. The RAM limitation of the smaller 8bit microcontrollers can be removed by using 64kB serial RAM modules. The chips are really cheap and the can be connected easily. 
 
+Activating the ARDUINOSPIRAM flag on compile time will use the SPI RAM interface for memory access. If a 16 bit integer BASIC is compiled, the computer will show 32 kB of BASIC memory. If a floating point BASIC is compiled, it will see 64 kB of memory. Only 64 kByte ATMEGA 23LCV512 SPI RAM modules are supported. There is no library needed, the device driver is integrated in BASIC. 
+
+All BASIC commands work the same. Most of them with a similar performance as local RAM. This is due to the fact that the interpreter has two memory access mechanisms, one for the program token stream and one for read/write of variables. Both are buffered separately, reducing SPI memory access. 
+
+The one exception is string commands. Strings have to be copied to local memory, can be processed there and have to be compied back. String buffers of 128 bytes handle this task. For this reason, the maximum string length is restructed to 128 bytes when using the SPI RAM interface. Also, string commands should not be nested in complicated expressions. This part of the code is not tested a lot. String code is considerably slower then in direct memory situations but still faster than many old 8 bit homecomputers.
+
+Well behaved BASIC programs like the game library of David Ahl in examples/14games have been tested and run on SPI RAM.
 
 
 
