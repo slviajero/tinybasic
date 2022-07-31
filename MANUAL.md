@@ -1253,9 +1253,25 @@ There is a number of example programs in examples/13wire to show how Wire progra
 
 ### Radio communication
 
+Stream &8 is used for RF2401 radio communication. For this, BASIC needs to be compiled with the ARDUINORF24 flag and the respective pin definitions set. The open statement can be used to open one stream for read and one writing simulataneously. Example:
+
+OPEN &8, "0815x", 0
+
+OPEN &8, "0815y", 1
+
+The first command opens a stream for reading, using the string given as file name to generate the 5 byte pipe address. The second command opens a write pipe with a different pipe address. 
+
+OPEN on the radio interface sets @S if there is in a error in the module communication. Typically this would mean that the module is not connected properly.
+
+After opening INPUT, PRINT, PUT and GET on stream &8 work similar to Wire. The maximum message length is restricted by the unterlying library to 32 bytes.
+
+The radio module is started with maximum power. To power it down SET 9, x can be used. x is an integer between 0 and 3. 3 is maximum power and 0 is minumum power.
+
 ### MQTT 
 
 ### Filesystems
+
+
 
 ## Special systems and hardware components
 
