@@ -4,11 +4,21 @@
 
 This BASIC interpreter is structured in language sets. They can be compiled into the code separately. With every language set there are more features and command. This makes it adaptable to the purpose. The manual is structured according to the language sets. 
 
-The intepreter has two data types - numbers and strings. The number type can be set at compile time. It is either an integer or foating point. Depending on the definition of number_t in the code the interpreter can use everything from 16 bit integers to 64 bit floats as basic number type. String variables are part of the Apple 1 language sets. They are static, i.e. they reserve the entire length of the string on the heap. Depending on the definition of the string index type in the code, strings can be either 255 characters or 65535 characters maximum length. 
+The intepreter has two data types - numbers and strings. The number type can be set at compile time. It is either an integer or foating point. Depending on the definition of number_t in the code the interpreter can use everything from 16 bit integers to 64 bit floats as basic number type. 
+
+Arrays and string variables are part of the Apple 1 language sets. Strings are static, i.e. they reserve the entire length of the string on the heap. Depending on the definition of the string index type in the code, strings can be either 255 characters or 65535 characters maximum length. 
+
+Array can be maximum two dimensional and string arrays can be one dimensional.
+
+Variable names are maximum two letters or one letter and one digit. 
 
 Keywords ad variable names are not case sensitive. They are printed as uppercase with the LIST command. Strings and string constants are case sensitive. 
 
 There is a set of examples program in examples/00tutorial. They are referred to here as "the tutorial".
+
+As a proof of concept many of the 101 BASIC computer games in David Ahl's original book from 1975 have been ported. Look into examples/14games for some 70s gaming fun.
+
+Most Arduino built-in examples from https://docs.arduino.cc/built-in-examples/ have been ported to BASIC. They are in examples in the folders 01-10.
 
 ## Core language set
 
@@ -661,7 +671,11 @@ OPEN and CLOSE and be used to open and close other I/O streams as well. For this
 
 OPEN &7, 64, 1
 
-This command opens the Wire stream for write addressing the device 64 as a target. See the hardware section for more information.
+This command opens the Wire stream for write addressing the device 64 as a target. 
+
+If the modifier & is ommited, it is always assumed that the file stream &16 is meant.
+
+See the hardware section for more information on supported filesystems.
 
 ### DOS commands CATALOG, DELETE, FDISK
 
@@ -1185,7 +1199,7 @@ would set the baudrate to the standard MIDI baudrate of 31250. Any allowed baudr
 
 ### Wire communication
 
-Stream 7 is used for Wire i.e. the I2C protocol. BASIC uses the implementation of the Arduino Wire library and the Wire object. Actually, the I2C protocol is very compley and the Wire library hides this complexity making it a byte stream. PRINT, INPUT, GET and PUT can deal well with byte streams, therefore most of the Wire libraries functionality can be used from BASIC. There is a master and a slave mode implementation.
+Stream &7 is used for Wire i.e. the I2C protocol. BASIC uses the implementation of the Arduino Wire library and the Wire object. Actually, the I2C protocol is very compley and the Wire library hides this complexity making it a byte stream. PRINT, INPUT, GET and PUT can deal well with byte streams, therefore most of the Wire libraries functionality can be used from BASIC. There is a master and a slave mode implementation.
 
 In master mode, the OPEN statement for the I2C stream is used in read mode. Example: 
 
@@ -1267,15 +1281,83 @@ After opening INPUT, PRINT, PUT and GET on stream &8 work similar to Wire. The m
 
 The radio module is started with maximum power. To power it down SET 9, x can be used. x is an integer between 0 and 3. 3 is maximum power and 0 is minumum power.
 
-### MQTT 
+### MQTT
+
+Stream &9 is used for networking with MQTT. MQTT is the only network protocoll that is supported and the code is experimental. The network code is generic and more protocols will be integrated in the future. 
+
+Supported network adapters are Ardunio Ethernet shields, ESP8266 and ESP32 WLAN, Arduino MKR and RP2040 WifiNINA. These network codes have some timing needs like yielding the CPU and refreshing DHCP leases. BASIC integrates this in the central statement loop processing all time critical tasks in the function byield(). This code is best tested and very stable on ESP8266 and ESP32. Other platforms are alpha. 
+
+For Wifi systems, the SSID and password are hardcoded in the BASIC interpreter binary by setting the respective lines in "wifisettings.h". In this file there are two lines defining the MQTT server and port. This data is also compiled into the code. Currently only unencrypted and unautheticated MQTT is supported as this is only a toy. The fiths line in the code is a MAC address which is needed for the Arduino Ethernet shield. For all other hardware platforms this line is ignored.
+
+After startup of the microcontroller it tries to connect to Wifi or Ethernet. The command NETSTAT can be used to see the connection status. This command is meant for interactive use only. 
+
+Finding the connection status in a program can be done by using NETSTAT as a function.
+
+PRINT NETSTAT
+
+or 
+
+A=NETSTAT
+
+will return 0 is the network is not connected, 1 if the network is connected but MQTT is not connected, 3 is network and MQTT are connected. More status values will be added here in the future.
+
+An MQTT topic an be open with the OPEN command using the topic name as a file name. Example: 
+
+OPEN &9, "iotbasic/data", 1
+
+would open the topic "iotbasic/data" for writing because 1 was provided as a third parameter.
+
+OPEN &9, "iotbasic/command", 0
+
+would open the topic "iotbasic/command" for read. 
+
+There can be one read and write topic simulataneously. After opening the topics, data can be written by the commands PRINT, INPUT, GET, and PUT.
+
+Every command will generate one MQTT message. 
+
+PRINT &9, "humidity", A 
+
+would send a message consisting of the string "humidity" and a number from variable A.
+
+The maximum MQTT message length is hardcode to 128 bytes but can be extended. The maximum topic length is 32 bytes.
+
+Incoming messages are buffered in the background. A new message overwrites the old one as there is only one buffer. The function AVAIL(9) has the number of bytes currently in the buffer. If AVAIL(9) is greater then 0 then 
+
+INPUT &9, A\$
+
+transfers the entire message into A\$. From the string the message can be parsed with INSTR and VAL if numerical data was sent. The implementation is "binary data safe". Any set of bytes can be send as a message and be processed.
+
+On POSIX systems not networking is supported as I haven't found a suitable multi platform MQTT library and was too lazy to write one myself.
+
+The network code will be extended in version 1.4. Currently it is only a proof of concept.
 
 ### Filesystems
 
+BASIC runs on very different platforms. From small 8 bit AVR based system to 64 bit Macs. These computers have different filesystems and capabilities. The BASIC commands are designed to make a minimal file I/O possible. Only one directory is supported. One file can be open for reading and another for writing simulateously. Stream &16 is used for file I/O.
 
+Supported filesystems are SD on all microcontroller platforms that have it, ESPSPIFFS for ESP8266 and ESP32, LittleFS for Arduino MKR and RP2040 based systems. The file system driver removed leading rootfs names and everything else starting with a '/'. It shows a flat namespace of filenames. BASIC itself limits filenames to a maximum of 32 bytes. Some filesystems cannot handle this. In this case the name is truncated. No check is made if the filename is legal for the particular filesystem. For ESPSPIFFS and LittleFS the FDISK command is supported. Example: 
+
+FDISK 
+
+would answer with the prompt
+
+Format disk (y/N)?
+
+and then format the disk. No parameters are used here.
+
+In addition to the standard filesystems, I developed a minimalist EEPROM filesystem. This filesystem partitions an I2C EEPROM into n equal size slots that can be used for files. Formating this filesystem requires the number of slots as a parameter. Example: 
+
+FDISK 4
+
+would partition the EEPROM to 4 equal slot. For the very common 32kB serial EEPROM it would mean that 4 files of maximum of 8k can be stored. The EEPROM size has to be hard coded into the BASIC interpeter at the moment. This will change in the future.
+
+On POSIX and SD no formating is supported. 
 
 ## Special systems and hardware components
 
 ### ESP32 VGA with FabGL
+
+### SPI RAM systems 
 
 
 
