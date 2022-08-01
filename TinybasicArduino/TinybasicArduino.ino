@@ -172,7 +172,7 @@
 #endif
 
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
-#define MEMSIZE 8192
+#define MEMSIZE 0
 
 /* debug mode switch */
 #define DEBUG 0
@@ -3085,6 +3085,7 @@ void xpow(){
 char stringvalue() {
 	mem_t xcl, ycl;
 	address_t k;
+	int ix, iy;
 
 	if (DEBUG) outsc("** entering stringvalue \n");
 
@@ -3106,15 +3107,15 @@ char stringvalue() {
 #else 
 		k=arraylimit;
 #endif
-		y=pop();
-		x=pop();
+		iy=pop();
+		ix=pop();
 		ir2=getstring(xcl, ycl, x, k);
 /* when the memory interface is active spistrbuf1 has the string */
 #ifdef USEMEMINTERFACE
 		ir2=spistrbuf1;
 #endif
-		push(y-x+1);
-	  if (DEBUG) { outsc("** in stringvalue, length "); outnumber(y-x+1); outsc(" from "); outnumber(x); outspc(); outnumber(y); outcr(); }
+		if (iy-ix+1 > 0) push(iy-ix+1); else push(0);
+	  if (DEBUG) { outsc("** in stringvalue, length "); outnumber(iy-ix+1); outsc(" from "); outnumber(ix); outspc(); outnumber(iy); outcr(); }
 		xc=xcl;
 		yc=ycl;
 	} else if (token == TSTR) {	
@@ -3780,7 +3781,7 @@ void lefthandside(address_t* i, address_t* j, mem_t* ps) {
 #ifdef HASAPPLE1
 		case STRINGVAR:
 #ifndef HASSTRINGARRAYS
-			*j=1;
+			*j=arraylimit;
 			nexttoken();
 			parsesubscripts();
 			if (er != 0) return;
@@ -3799,7 +3800,7 @@ void lefthandside(address_t* i, address_t* j, mem_t* ps) {
 					return;
 			}
 #else 
-			*j=1;
+			*j=arraylimit;
 			nexttoken();
 			parsesubscripts();
 			if (er != 0) return;
