@@ -2001,7 +2001,7 @@ void btone(short a) {
       y=y-255;
       SquareWaveformGenerator sqw;
       sqw.setDutyCycle(y);
-      soundGenerator.playSound(sqw, x, d,v); 
+      soundGenerator.playSound(sqw, x, d, v); 
   }
 #else
 	return;

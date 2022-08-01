@@ -46,7 +46,7 @@
  * BASICMINIMAL: minimal language
  */
 #undef   BASICFULL
-#define   BASICINTEGER
+#define  BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -68,7 +68,7 @@
 #define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
-#undef HASSTRINGARRAYS
+#define HASSTRINGARRAYS
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -94,7 +94,7 @@
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
-#undef HASTONE
+#undef  HASTONE
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
@@ -151,9 +151,11 @@
  * real value 
  *
  * HASMSTAB: make tab more like MS TAB then Apple 1 TAB
+ * HASARRAYLIMIT: make the lower limit of an variable
  */
 
 #define HASMSTAB
+#define HASARRAYLIMIT
 
 /* 
  *	Language feature dependencies
@@ -827,14 +829,20 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 /* dynamically allocated arrays autocreated if needed */ 
 		if ( !(a=bfind(ARRAYVAR, c, d)) ) a=createarray(c, d, ARRAYSIZEDEF, 1);
 		if (er != 0) return;
+#ifndef HASMULTIDIM
 		h=z.a/numsize;
+#else 
+		h=(z.a - addrsize)/numsize;
+#endif
+
+		if (DEBUG) { outsc("** in array base address"); outnumber(a); outcr(); }
 
 /* redudant code to getarrayseconddim */
 #ifdef HASMULTIDIM
 		dim=getarrayseconddim(a, z.a);
-		a=a+((i-1)*dim+(j-1))*numsize;
+		a=a+((i-arraylimit)*dim+(j-arraylimit))*numsize;
 #else 
-		a=a+(i-1)*numsize;
+		a=a+(i-arraylimit)*numsize;
 #endif
 #else
 		error(EVARIABLE); 
@@ -842,13 +850,20 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 #endif
 	}
 
-
 /* is the index in range */
 #ifdef HASMULTIDIM
-	if (DEBUG) { outsc("** in array "); outnumber(i); outspc(); outnumber(j); outspc(); outnumber(dim); outspc(); outnumber(a); outcr(); }
-	if ( (j < 1) || (j > dim) || (i < 1) || (i > h/dim) ) { error(EORANGE); return; }
+  if (DEBUG) { 
+  	outsc("** in array "); 
+  	outnumber(i); outspc(); 
+  	outnumber(j); outspc(); 
+  	outnumber(dim); outspc(); 
+  	outnumber(h); outspc();
+  	outnumber(a); outcr();
+  }
+	if ( (j < arraylimit) || (j >= dim + arraylimit) || (i < arraylimit) || (i >= h/dim + arraylimit)) { error(EORANGE); return; }
 #else
-	if ( (i < 1) || (i > h) ) { error(EORANGE); return; }
+	if (DEBUG) { outsc("** in array "); outnumber(i);  outspc(); outnumber(a); outcr(); }
+	if ( (i < arraylimit) || (i >= h + arraylimit) ) { error(EORANGE); return; }
 #endif
 
 /* set or get the array */
@@ -954,7 +969,7 @@ char* getstring(char c, char d, address_t b, address_t j) {
 	getnumber(ax+z.a-addrsize, addrsize);
 	dim=z.a;
 
-	if ((j < 1) || (j > dim )) {
+	if ((j < arraylimit) || (j >= dim + arraylimit )) {
 		error(EORANGE); return 0;
 	}
 
@@ -970,7 +985,7 @@ char* getstring(char c, char d, address_t b, address_t j) {
 	if (DEBUG) { outsc("** maximum string length "); outnumber(maxlen); outcr(); }
 	
 /* the base address of a string */
-	ax=ax+(j-1)*(maxlen + strindexsize);
+	ax=ax+(j-arraylimit)*(maxlen + strindexsize);
 
 	if (DEBUG) { outsc("** string base address "); outnumber(ax); outcr(); }
 
@@ -1070,7 +1085,7 @@ address_t lenstring(char c, char d, address_t j){
 	getnumber(a, strindexsize);
 	return z.a;
 #else 
-	a=a+(stringdim(c, d)+strindexsize)*(j-1);
+	a=a+(stringdim(c, d)+strindexsize)*(j-arraylimit);
 	getnumber(a, strindexsize);
 	return z.a;
 #endif
@@ -2860,7 +2875,7 @@ void parsesubstring() {
 		case 2: 
 			break;
 		case 1:
-			push(lenstring(xc1, yc1, 1));
+			push(lenstring(xc1, yc1, arraylimit));
 			break;
 		case 0: 
 /* rewind the token if there were no braces to be in sync	*/
@@ -2869,7 +2884,7 @@ void parsesubstring() {
 		case -1:
 			args=0;		
 			push(1);
-			push(lenstring(xc1, yc1, 1));	
+			push(lenstring(xc1, yc1, arraylimit));	
 			break;
 	}
 
@@ -2885,7 +2900,7 @@ void parsesubstring() {
 
 		if (st == SINT) bi=bi1; else here=h1; 
 
-		j=1; 
+		j=arraylimit; 
 		push(1);
 		push(lenstring(xc1, yc1, j));	
 		push(j);
@@ -2906,7 +2921,7 @@ void parsesubstring() {
 				j=pop();
 				break;
 			case 0:
-				j=1;
+				j=arraylimit;
 				if (st == SINT) bi=bi1; else here=h1;
 				break;
 			default:
@@ -3089,7 +3104,7 @@ char stringvalue() {
 #ifdef HASSTRINGARRAYS
 		k=pop();
 #else 
-		k=1;
+		k=arraylimit;
 #endif
 		y=pop();
 		x=pop();
@@ -3099,7 +3114,7 @@ char stringvalue() {
 		ir2=spistrbuf1;
 #endif
 		push(y-x+1);
-	/*	outsc("** in stringvalue, length "); outnumber(y-x+1); outsc(" from "); outnumber(x); outspc(); outnumber(y); outcr(); */
+	  if (DEBUG) { outsc("** in stringvalue, length "); outnumber(y-x+1); outsc(" from "); outnumber(x); outspc(); outnumber(y); outcr(); }
 		xc=xcl;
 		yc=ycl;
 	} else if (token == TSTR) {	
@@ -3250,12 +3265,12 @@ void factor(){
 			x=pop();
 			xc=pop();
 			yc=pop();
-			array('g', xc, yc, x, 1, &y);	
+			array('g', xc, yc, x, arraylimit, &y);	
 #else
 			switch(args) {
 				case 1:
 					x=pop();
-					y=1;
+					y=arraylimit;
 					break;
 				case 2:
 					y=pop();
@@ -3565,32 +3580,32 @@ void compexpression() {
 		case '=':
 			parseoperator(compexpression);
 			if (er != 0) return;
-			push(x == y);
+			push(x == y ? -1 : 0);
 			break;
 		case NOTEQUAL:
 			parseoperator(compexpression);
 			if (er != 0) return;
-			push(x != y);
+			push(x != y ? -1 : 0);
 			break;
 		case '>':
 			parseoperator(compexpression);
 			if (er != 0) return;
-			push(x > y);
+			push(x > y ? -1 : 0);
 			break;
 		case '<':
 			parseoperator(compexpression);
 			if (er != 0) return;
-			push(x < y);
+			push(x < y ? -1 : 0);
 			break;
 		case LESSEREQUAL:
 			parseoperator(compexpression);
 			if (er != 0) return;
-			push(x <= y);
+			push(x <= y ? -1 : 0);
 			break;
 		case GREATEREQUAL:
 			parseoperator(compexpression);
 			if (er != 0) return;
-			push(x >= y);
+			push(x >= y ? -1 : 0);
 			break;
 	}
 }
@@ -3603,7 +3618,7 @@ void notexpression() {
 		nexttoken();
 		expression();
 		if (er != 0) return;
-		push(!pop());
+		push(~(int)pop());
 	} else 
 		compexpression();
 }
@@ -3751,7 +3766,7 @@ void lefthandside(address_t* i, address_t* j, mem_t* ps) {
 			switch(args) {
 				case 1:
 					*i=pop();
-					*j=1;
+					*j=arraylimit;
 					break;
 				case 2:
 					*j=pop();
@@ -3864,7 +3879,7 @@ void assignment() {
 	mem_t ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
 	mem_t xcl, ycl; // to preserve the left hand side variable names
 	address_t i=1; // and the beginning of the destination string  
-	address_t j=1; /* the second dimension of the array */
+	address_t j=arraylimit; /* the second dimension of the array */
 	address_t lensource, lendest, newlength;
 	mem_t s;
 	index_t k;
@@ -4062,7 +4077,7 @@ nextvariable:
 			token=EOL;
 			goto resetinput;
 		} else {
-			array('s', xcl, ycl, pop(), 1, &xv);
+			array('s', xcl, ycl, pop(), arraylimit, &xv);
 		}
 	}
 #else
@@ -4075,7 +4090,7 @@ nextvariable:
 		switch(args) {
 			case 1:
 				x=pop();
-				y=1; 
+				y=arraylimit; 
 				break;
 			case 2:
 				y=pop();
@@ -4101,7 +4116,7 @@ nextvariable:
 /* strings are not passed through the input buffer but inputed directly 
     in the string memory location, ir after getstring points to the first data byte */
   if (token == STRINGVAR) {
-    ir=getstring(xc, yc, 1, 1); 
+    ir=getstring(xc, yc, 1, arraylimit); 
     if (prompt) showprompt();
     l=stringdim(xc, yc);
 /* the form parameter in WIRE can be used to set the expected number of bytes */
@@ -5154,6 +5169,12 @@ void xset(){
     case 11:
       reltab=args;
 #endif
+/* change the lower array limit */
+#ifdef HASARRAYLIMIT
+    case 12:
+      arraylimit=args;
+#endif
+
 	}
 }
 
@@ -5857,7 +5878,7 @@ void xusr() {
 			push(mqttstat(arg));	
 			break;			
 #endif
-/* access to properties of stream 16 - mqtt */
+/* access to properties of stream 16 - file */
 #ifdef FILESYSTEMDRIVER	
 		case 16: 
 			push(fsstat(arg));	
@@ -5994,7 +6015,7 @@ void xread(){
 	mem_t ps=TRUE;	/* also remember if the left hand side is a pure string of something with an index 	*/
 	mem_t xcl, ycl; /* to preserve the left hand side variable names	*/
 	address_t i=1;  /* and the beginning of the destination string */
-	address_t j=1;	/* the second dimension of the array if needed */
+	address_t j=arraylimit;	/* the second dimension of the array if needed */
 	mem_t datat;	/* the type of the data element */
 	address_t lendest, lensource, newlength;
 	int k;

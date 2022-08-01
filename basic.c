@@ -68,7 +68,7 @@
 #define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
-#undef HASSTRINGARRAYS
+#define HASSTRINGARRAYS
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -94,7 +94,7 @@
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
-#undef HASTONE
+#undef  HASTONE
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
@@ -105,7 +105,7 @@
 #define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
-#undef HASSTRINGARRAYS
+#define HASSTRINGARRAYS
 #endif
 
 /* all features activated */
@@ -172,7 +172,7 @@
 #endif
 
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
-#define MEMSIZE 0
+#define MEMSIZE 8192
 
 /* debug mode switch */
 #define DEBUG 0
@@ -829,7 +829,11 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 /* dynamically allocated arrays autocreated if needed */ 
 		if ( !(a=bfind(ARRAYVAR, c, d)) ) a=createarray(c, d, ARRAYSIZEDEF, 1);
 		if (er != 0) return;
+#ifndef HASMULTIDIM
 		h=z.a/numsize;
+#else 
+		h=(z.a - addrsize)/numsize;
+#endif
 
 		if (DEBUG) { outsc("** in array base address"); outnumber(a); outcr(); }
 
@@ -846,14 +850,19 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 #endif
 	}
 
-
-if (DEBUG) { outsc("** in array "); outnumber(i); outspc(); outnumber(j); outspc(); outnumber(dim); outspc(); outnumber(a); outcr(); }
-
-
 /* is the index in range */
 #ifdef HASMULTIDIM
+  if (DEBUG) { 
+  	outsc("** in array "); 
+  	outnumber(i); outspc(); 
+  	outnumber(j); outspc(); 
+  	outnumber(dim); outspc(); 
+  	outnumber(h); outspc();
+  	outnumber(a); outcr();
+  }
 	if ( (j < arraylimit) || (j >= dim + arraylimit) || (i < arraylimit) || (i >= h/dim + arraylimit)) { error(EORANGE); return; }
 #else
+	if (DEBUG) { outsc("** in array "); outnumber(i);  outspc(); outnumber(a); outcr(); }
 	if ( (i < arraylimit) || (i >= h + arraylimit) ) { error(EORANGE); return; }
 #endif
 
@@ -2866,7 +2875,7 @@ void parsesubstring() {
 		case 2: 
 			break;
 		case 1:
-			push(lenstring(xc1, yc1, 1));
+			push(lenstring(xc1, yc1, arraylimit));
 			break;
 		case 0: 
 /* rewind the token if there were no braces to be in sync	*/
@@ -2875,7 +2884,7 @@ void parsesubstring() {
 		case -1:
 			args=0;		
 			push(1);
-			push(lenstring(xc1, yc1, 1));	
+			push(lenstring(xc1, yc1, arraylimit));	
 			break;
 	}
 
@@ -3757,7 +3766,7 @@ void lefthandside(address_t* i, address_t* j, mem_t* ps) {
 			switch(args) {
 				case 1:
 					*i=pop();
-					*j=1;
+					*j=arraylimit;
 					break;
 				case 2:
 					*j=pop();
