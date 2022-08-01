@@ -285,15 +285,15 @@ Unlike in the original Apple 1 BASIC, strings can be used without explicitely di
 
 A string can be dimensioned with DIM to any length. Example: 
 
-DIM A$ (100), C$ (2)
+DIM A\$(100), C\$(2)
 
 A string of maximum 100 bytes and a string of 2 bytes are created. The maximum length of a string is 65535 in the default settings of the code. See the hardware section of the manual for more information on this.
 
 Strings are arrays of signed integer. String handling is done through the substring notation. Example: 
 
-A$="Hello World"
+A\$="Hello World"
 
-PRINT A$ (1,4), A$ (6,6), A$ (6)
+PRINT A\$(1,4), A\$(6,6), A\$(6)
 
 yields 
 
@@ -303,11 +303,11 @@ as an output.
 
 Substrings can be the lefthandside of an expression
 
-A$="Hello World"
+A\$="Hello World"
 
-A$ (12)=" today"
+A\$(12)=" today"
 
-PRINT A$
+PRINT A\$
 
 outputs
 
@@ -319,7 +319,9 @@ The length of a string can be found with the LEN command. Example:
 
 A\$="Hello"
 
-PRINT LEN(A$)
+PRINT LEN(A\$)
+
+String arrays are possible if the BASIC interpreter is compiled with the respective option. This is an extension of the Apple 1 language set.
 
 ### Arrays
 
@@ -328,6 +330,16 @@ Arrays are autodimensioned to length 10. They start with index 1. If a different
 DIM A(100)
 
 Array variables can be used like normal variables except that they cannot be active variables in a FOR loop.
+
+Compiled with the multidim options arrays can be two dimensional. This is an extension of the Apple 1 language set.
+
+Arrays range from 1 to the maximum index by default. The statement above reserves array elements from A(1) to A(100). 
+
+With 
+
+SET 12,0
+
+the array lower bound can be changed to 0. The array ranges from A(0) to A(99) now. It still has 100 elements. SET 12 can be used to set any postive lower bound. This holds for all arrays except the special arrays starting with @. It can be changed at any time as SET 12 only modifies the offset but not the memory location.
 
 ### Logical expressions NOT, AND, OR
 
@@ -403,7 +415,7 @@ A\$()(3)="Hello"
 
 A\$()(4)="World"
 
-PRINT A\$()(3), A$ ()(4)
+PRINT A\$()(3), A\$()(4)
 
 outputs 
 
@@ -1440,6 +1452,8 @@ SET 9,n will set the radio signal strength. n is between 0 and 3. 3 is maximal s
 SET 10,1 sets the display update to page mode. In this mode the display does not display text or graphics until am ETX (ASCII 3) is sent.
 
 SET 11,1 sets the TAB command to Microsoft mode. In this mode the TAB position is the absolute character count and not a relative postion. SET 11,0 resets the behaviout.
+
+SET 12,0 sets the lower bound of all arrays to 0. This means that arrays with 8 elements DIMed with DIM A(8) go from 0 to 7 instead of 1 to 8. SET 12, 1 resets the value. This command does not change the array or anything in memory. It merely adds an offset. Any positive value can be used as an argument.
 
 More SET parameter will be implemented in the future.
 
