@@ -1126,7 +1126,7 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 
 /* multiple calls of bfind here - not good, rewrite this for one call  */ 
 
-	a=a+(stringdim(c, d)+strindexsize)*(j-1);
+	a=a+(stringdim(c, d)+strindexsize)*(j-arraylimit);
 
 	if (DEBUG) { outsc("**  setstringlength writing to "); outnumber(a); outsc(" value "); outnumber(l); outcr(); }
 

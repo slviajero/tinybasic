@@ -45,8 +45,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef   BASICFULL
-#define  BASICINTEGER
+#undef  BASICFULL
+#define   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
 
@@ -172,7 +172,7 @@
 #endif
 
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
-#define MEMSIZE 0
+#define MEMSIZE 8192
 
 /* debug mode switch */
 #define DEBUG 0
@@ -1126,7 +1126,7 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 
 /* multiple calls of bfind here - not good, rewrite this for one call  */ 
 
-	a=a+(stringdim(c, d)+strindexsize)*(j-1);
+	a=a+(stringdim(c, d)+strindexsize)*(j-arraylimit);
 
 	if (DEBUG) { outsc("**  setstringlength writing to "); outnumber(a); outsc(" value "); outnumber(l); outcr(); }
 
