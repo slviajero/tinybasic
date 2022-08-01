@@ -3085,7 +3085,7 @@ void xpow(){
 char stringvalue() {
 	mem_t xcl, ycl;
 	address_t k;
-	int ix, iy;
+	// int ix, iy;
 
 	if (DEBUG) outsc("** entering stringvalue \n");
 
@@ -3107,15 +3107,20 @@ char stringvalue() {
 #else 
 		k=arraylimit;
 #endif
-		iy=pop();
-		ix=pop();
+#ifdef HASFLOAT
+		y=floor(pop());
+		x=floor(pop());
+#else
+		y=pop();
+		x=pop();
+#endif
 		ir2=getstring(xcl, ycl, x, k);
 /* when the memory interface is active spistrbuf1 has the string */
 #ifdef USEMEMINTERFACE
 		ir2=spistrbuf1;
 #endif
-		if (iy-ix+1 > 0) push(iy-ix+1); else push(0);
-	  if (DEBUG) { outsc("** in stringvalue, length "); outnumber(iy-ix+1); outsc(" from "); outnumber(ix); outspc(); outnumber(iy); outcr(); }
+		if (y-x+1 > 0) push(y-x+1); else push(0);
+	  if (DEBUG) { outsc("** in stringvalue, length "); outnumber(y-x+1); outsc(" from "); outnumber(x); outspc(); outnumber(y); outcr(); }
 		xc=xcl;
 		yc=ycl;
 	} else if (token == TSTR) {	
