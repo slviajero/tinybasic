@@ -763,6 +763,12 @@ static mem_t charcount = 0;
 static mem_t reltab = 0;
 #endif
 
+#ifdef HASARRAYLIMIT
+static address_t arraylimit = 1;
+#else 
+const static address_t arraylimit = 1;
+#endif
+
 static mem_t args;
 
 /* this is unsigned hence address_t */
