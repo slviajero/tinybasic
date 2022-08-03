@@ -1,33 +1,33 @@
 /*
-
-	$Id: basic.c,v 1.136 2022/05/30 04:43:52 stefan Exp stefan $
-
-	Stefan's IoT BASIC interpreter 
-
- 	See the licence file on 
-	https://github.com/slviajero/tinybasic for copyright/left.
-    (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
-
-	Author: Stefan Lenz, sl001@serverfabrik.de
-
-	The first set of definions define the target.
-	- MINGW switches on Windows calls. 
-	- MSDOS for MSDOS file access.
-	- MAC doesn't need more settings here
-	- RASPPI activates wiring code
-	- Review hardware-*.h for settings specific Arduino hardware settings
-	- HAS* activates or deactives features of the interpreter
-	- the extension flags control features and code size
-
-	MEMSIZE sets the BASIC main memory to a fixed value,
-		if MEMSIZE=0 a heuristic is used based on free heap
-		size and architecture parameters
-
-	USEMEMINTERFACE controls the way memory is accessed. Don't change 
-	this here. It is a parameter set by hardware-arduino.h. 
-	This feature is experimental.
-
-*/
+ *
+ *	$Id: basic.c,v 1.136 2022/05/30 04:43:52 stefan Exp stefan $ 
+ *
+ *	Stefan's IoT BASIC interpreter 
+ *
+ * 	See the licence file on 
+ *	https://github.com/slviajero/tinybasic for copyright/left.
+ *    (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
+ *
+ *	Author: Stefan Lenz, sl001@serverfabrik.de
+ *
+ *	The first set of definions define the target.
+ *	- MINGW switches on Windows calls. 
+ *	- MSDOS for MSDOS file access.
+ *	- MAC doesn't need more settings here
+ *	- RASPPI activates wiring code
+ *	- Review hardware-*.h for settings specific Arduino hardware settings
+ *	- HAS* activates or deactives features of the interpreter
+ *	- the extension flags control features and code size
+ *
+ *	MEMSIZE sets the BASIC main memory to a fixed value,
+ *		if MEMSIZE=0 a heuristic is used based on free heap
+ *		size and architecture parameters
+ *
+ *	USEMEMINTERFACE controls the way memory is accessed. Don't change 
+ *	this here. It is a parameter set by hardware-arduino.h. 
+ *	This feature is experimental.
+ *
+ */
 
 
 #undef MINGW
@@ -5174,11 +5174,13 @@ void xset(){
 #ifdef HASMSTAB
     case 11:
       reltab=args;
+      break;
 #endif
 /* change the lower array limit */
 #ifdef HASARRAYLIMIT
     case 12:
       arraylimit=args;
+      break;
 #endif
 
 	}
