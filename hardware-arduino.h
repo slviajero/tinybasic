@@ -2868,7 +2868,7 @@ int radiostat(char c) {
   return 0; 
 }
 
-/* generate a uint64_t pipe address from the filename string for RF64 */
+/* generate a uint64_t pipe address from the filename string for RF24 */
 uint64_t pipeaddr(char * f){
 	uint64_t t = 0;
 	t=(uint8_t)f[0];
@@ -2881,7 +2881,7 @@ uint64_t pipeaddr(char * f){
 void radioins(char *b, short nb) {
 #ifdef ARDUINORF24
     if (radio.available()) {
-    	radio.read(b+1, nb);
+    	if (!radio.read(b+1, nb)) ert=1;
     	if (!blockmode) {
         for (z.a=0; z.a<nb; z.a++) if (b[z.a+1]==0) break;		
     	} else {
@@ -2905,7 +2905,7 @@ void radioins(char *b, short nb) {
 void radioouts(char *b, short l) {
 #ifdef ARDUINORF24
 	radio.stopListening();
-	if (radio.write(b, l)) ert=0; else ert=1;
+	if (!radio.write(b, l)) ert=1;
 	radio.startListening();
 #endif
 }
