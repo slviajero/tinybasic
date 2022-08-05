@@ -77,7 +77,7 @@
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINOWIRESLAVE
-#undef ARDUINORF24
+#define ARDUINORF24
 #undef ARDUINOETH
 #undef ARDUINOMQTT
 #undef ARDUINOSENSORS
@@ -653,6 +653,9 @@ long freememorysize() {
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM)
   int overhead=192;
 #ifdef ARDUINOWIRE
+  overhead+=128;
+#endif
+#ifdef ARDUINORF24
   overhead+=128;
 #endif
 #ifdef ARDUINOSD

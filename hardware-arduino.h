@@ -655,6 +655,9 @@ long freememorysize() {
 #ifdef ARDUINOWIRE
   overhead+=128;
 #endif
+#ifdef ARDUINORF24
+  overhead+=128;
+#endif
 #ifdef ARDUINOSD
   overhead+=512;
 #endif
