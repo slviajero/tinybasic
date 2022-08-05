@@ -1,0 +1,15 @@
+100 REM "4 nested for loops"
+110 PRINT "4 nested 4 loops"
+120 Z=0
+200 FOR I=1 TO 2
+210 FOR J=1 TO 2
+220 FOR K=1 TO 2
+230 FOR L=1 TO 2
+240 Z=Z+1
+250 PRINT Z;" :",I,J,K,L
+260 NEXT L
+270 NEXT K
+280 NEXT J
+290 NEXT I
+300 PRINT "16 lines should show here" 
+310 END
