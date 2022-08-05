@@ -1,6 +1,6 @@
 10 REM "Simple rf24 writer"
 100 REM "open the radio pipe for write "
-110 OPEN &8, "radio1", 1
+110 OPEN &8, "radi1", 1
 200 REM "send a message"
 210 FOR I
 220 A$="radio "
