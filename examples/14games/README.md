@@ -102,8 +102,13 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Mastermind: mastermind.bas - mastermind game 
 - Life: life.bas - game of life
 - Ftball: ftball.bas - football game simulator
-
-
+- Horserace: horserace.bas - betting on a horse race
+- Hockey: hockey.bas - Hockey game simulation
+- Football: football.bas - yet another football game simulator
+- LifeForTwo: lifefortwo - a guessing game
+- Animal: animal.bas - guess an animal, the program learns from your guesses
+- SuperStarTrek: superstartrek.bas - a classic, the original startrack game (not fully tested!)
+- SuperStarTrek Instructions: suberstartreckins.bas - learn how to operate the controls in SuperStarTrek
 
 ## BASIC language features
 
@@ -299,6 +304,19 @@ life.bas: string arrays and numerical arrays
 
 ftball.bas: string arrays, DEF FN, READ DATA
 
+horserace.bas: string arrays, MS compatibility settings with SET
+
+hockey.bas: string arrays, MS compatibility settings with SET
+
+football.bas: string arrays, MS compatibility settings with SET
+
+lifefortwo.bas: Arrays, standard BASIC syntax
+
+animal.bas: string arrays, MS compatibility settings with SET, file I/O
+
+superstartrek.bas: everything BASIC has
+
+superstartrekins.bas: strings 
 
 ## Sources
 
