@@ -22,11 +22,13 @@ As the language has become fairly large and complex (10000 lines of C source cod
 
 13wire shows the properties of the I2C interface commands in BASIC. Again, some of the Arduino examples of Wire have been ported. Other example programs have been added.
 
-14games are examples from David Ahl's legendary book 101 BASIC computer games. 
+14games are examples from David Ahl's legendary book 101 BASIC computer games. All games have been ported now.
+
+15radio are examples for the use of the RF2401 radio interface.
 
 (More will come here over time)
 
-96iot.99unfinished are unfinished test programs and work in progress.
+96iot and 99unfinished are unfinished test programs and work in progress.
 
 ## Main differences between BASIC and other BASIC dialects.
 
