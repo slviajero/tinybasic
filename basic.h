@@ -635,7 +635,7 @@ const char* const message[] PROGMEM = {
 typedef float number_t;
 const number_t maxnum=16777216; 
 #else
-typedef short number_t;
+typedef int number_t;
 const number_t maxnum=(number_t)~((number_t)1<<(sizeof(number_t)*8-1));
 #endif
 typedef unsigned short address_t;

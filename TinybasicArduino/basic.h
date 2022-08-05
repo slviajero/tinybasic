@@ -1,18 +1,18 @@
 /*
-
-	$Id: basic.h,v 1.8 2022/06/28 15:09:40 stefan Exp stefan $
-
-	Stefan's basic interpreter 
-
-	Playing around with frugal programming. See the licence file on 
-	https://github.com/slviajero/tinybasic for copyright/left.
-    (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
-
-	Author: Stefan Lenz, sl001@serverfabrik.de
-
-	basic.h are the core defintions and function protypes
-
-*/
+ *
+ *	$Id: basic.h,v 1.8 2022/06/28 15:09:40 stefan Exp stefan $
+ *
+ *	Stefan's basic interpreter 
+ *
+ *	Playing around with frugal programming. See the licence file on 
+ *	https://github.com/slviajero/tinybasic for copyright/left.
+ *    (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
+ *
+ *	Author: Stefan Lenz, sl001@serverfabrik.de
+ *
+ *	basic.h are the core defintions and function protypes
+ *
+ */
 
 /*
  *	if the PROGMEM macro is define we compile on the Arduino IDE
@@ -246,7 +246,7 @@ typedef unsigned char uint8_t;
  *	SERUN means running directly from EEPROM
  *		(enum would be the right way of doing this.)
  *	BREAKCHAR is the character stopping the program on Ardunios
-*/
+ */
 #define SINT 0
 #define SRUN 1
 #define SERUN 2
@@ -659,60 +659,61 @@ typedef short index_t;
 #define SYSTYPE_MSDOS	33
 
 /*
-	The basic interpreter is implemented as a stack machine
-	with global variable for the interpreter state, the memory
-	and the arithmetic during run time.
+ *	The basic interpreter is implemented as a stack machine
+ *	with global variable for the interpreter state, the memory
+ *	and the arithmetic during run time.
+ *
+ *	stack is the stack memory and sp controls the stack.
+ *
+ *	ibuffer is an input buffer and *bi a pointer to it.
+ *
+ *	sbuffer is a short buffer for arduino progmem access. 
+ *
+ *	vars is a static array of 26 single character variables.
+ *
+ *	mem is the working memory of the basic interperter.
+ *
+ *	x, y, xc, yc are two n*8 bit and two 8 bit accumulators.
+ *
+ *	ax, ax are address type accumulators.
+ *
+ *	z is a mixed n*8 bit accumulator
+ *
+ *	ir, ir2 are general index registers for string processing.
+ *
+ *	token contains the actually processes token.
+ *
+ *	er is the nontrapable error status
+ *
+ *	ert is the trapable error status 
+ *
+ *	st, here and top are the interpreter runtime controls.
+ *
+ *	nvars is the number of vars the interpreter has stored.
+ *
+ *	form is used for number formation Palo Alto BASIC style.
+ *
+ *	charcount counts the printed characters to create a real TAB
+ *		only implemented on the serial stream
+ *	reltab controls if the relative char mechanisms is active
+ *
+ *	rd is the random number storage.
+ *
+ *	fnc counts the depth of for - next loop nesting
+ *
+ *	args is the global arg count variable
+ *
+ *	id and od are the input and output model for an arduino
+ *		they are set to serial by default
+ *
+ *	idd and odd are the default values of the above
+ *
+ *	debuglevel is the statement loop debug level
+ *
+ *	data is the data pointer of the READ/DATA mechanism
+ *
+ */
 
-	stack is the stack memory and sp controls the stack.
-
-	ibuffer is an input buffer and *bi a pointer to it.
-
-	sbuffer is a short buffer for arduino progmem access. 
-
-	vars is a static array of 26 single character variables.
-
-	mem is the working memory of the basic interperter.
-
-	x, y, xc, yc are two n*8 bit and two 8 bit accumulators.
-
-	ax, ax are address type accumulators.
-
-	z is a mixed n*8 bit accumulator
-
-	ir, ir2 are general index registers for string processing.
-
-	token contains the actually processes token.
-
-	er is the nontrapable error status
-
-	ert is the trapable error status 
-
-	st, here and top are the interpreter runtime controls.
-
-	nvars is the number of vars the interpreter has stored.
-
-	form is used for number formation Palo Alto BASIC style.
-
-	charcount counts the printed characters to create a real TAB
-		only implemented on the serial stream
-	reltab controls if the relative char mechanisms is active
-
-	rd is the random number storage.
-
-	fnc counts the depth of for - next loop nesting
-
-	args is the global arg count variable
-
-	id and od are the input and output model for an arduino
-		they are set to serial by default
-
-	idd and odd are the default values of the above
-
-	debuglevel is the statement loop debug level
-
-	data is the data pointer of the READ/DATA mechanism
-
-*/
 static number_t stack[STACKSIZE];
 static address_t sp=0; 
 
