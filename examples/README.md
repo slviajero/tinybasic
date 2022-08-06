@@ -26,9 +26,7 @@ As the language has become fairly large and complex (10000 lines of C source cod
 
 15radio are examples for the use of the RF2401 radio interface.
 
-(More will come here over time)
-
-96iot and 99unfinished are unfinished test programs and work in progress.
+16mqtt are examples for the MQTT code.
 
 ## Main differences between BASIC and other BASIC dialects.
 
