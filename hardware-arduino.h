@@ -77,7 +77,7 @@
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINOWIRESLAVE
-#undef ARDUINORF24
+#define ARDUINORF24
 #undef ARDUINOETH
 #undef ARDUINOMQTT
 #undef ARDUINOSENSORS
@@ -2864,6 +2864,7 @@ RF24 radio(rf24_ce, rf24_csn);
 int radiostat(char c) {
 #if defined(ARDUINORF24)
   if (c == 0) return 1;
+  if (c == 1) return radio.isChipConnected();
 #endif
   return 0; 
 }
@@ -2881,7 +2882,7 @@ uint64_t pipeaddr(char * f){
 void radioins(char *b, short nb) {
 #ifdef ARDUINORF24
     if (radio.available()) {
-    	if (!radio.read(b+1, nb)) ert=1;
+    	radio.read(b+1, nb);
     	if (!blockmode) {
         for (z.a=0; z.a<nb; z.a++) if (b[z.a+1]==0) break;		
     	} else {
@@ -2926,7 +2927,7 @@ short radioavailable() {
  */
 void iradioopen(char *filename) {
 #ifdef ARDUINORF24
-	radio.begin();
+	if (!radio.begin()) ert=1;
 	radio.openReadingPipe(1, pipeaddr(filename));
 	radio.startListening();
 #endif
@@ -2934,7 +2935,7 @@ void iradioopen(char *filename) {
 
 void oradioopen(char *filename) {
 #ifdef ARDUINORF24
-	radio.begin();
+	if (!radio.begin()) ert=1;
 	radio.openWritingPipe(pipeaddr(filename));
 #endif
 }
