@@ -50,6 +50,16 @@ Test7	542
 Test8	23
 Creative	240
 
+DOSbox 3000 cycles
+Test1	220
+Test2	710 
+Test3	1320
+Test4	1370
+Test5	1590
+Test6	2960
+Test7	5100
+Test8	220
+Creative	2420
 
 
 
