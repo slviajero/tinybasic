@@ -975,7 +975,11 @@ short wireavailable();
 /* RF24 radio input */
 int radiostat(char);
 void radioset(int);
+#ifndef MSDOS
 uint64_t pipeaddr(char*);
+#else
+long pipeaddr(char*);
+#endif
 void iradioopen(char*);
 void oradioopen(char*);
 void radioins(char*, short);
