@@ -975,7 +975,7 @@ short wireavailable();
 /* RF24 radio input */
 int radiostat(char);
 void radioset(int);
-#ifndef MSDOS
+#if defined(ARDUINO)
 uint64_t pipeaddr(char*);
 #else
 long pipeaddr(char*);

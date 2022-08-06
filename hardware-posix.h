@@ -284,7 +284,7 @@ void pinm(number_t p, number_t m){
 void delay(number_t t) {usleep(t*1000);}
 #endif
 // ms style stuff
-#if defined(MINGW) || defined(MSDOS)
+#if defined(MINGW)
 void delay(number_t t) {Sleep(t);}
 #endif
 

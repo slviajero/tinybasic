@@ -45,7 +45,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef  BASICFULL
+#undef   BASICFULL
 #define   BASICINTEGER
 #undef   BASICMINIMAL
 #undef   BASICTINYWITHFLOAT
@@ -2386,6 +2386,7 @@ void memwrite2(address_t a, mem_t c) {
 
 /* get a token from memory */
 void gettoken() {
+	int i;
 
 /* if we have reached the end of the program, EOL is always returned
 		we don't rely on mem having a trailing EOL */
@@ -2429,11 +2430,11 @@ void gettoken() {
  * the string constant length to the length of the input buffer
  */
 #if defined(USEMEMINTERFACE)
-			for(int i=0; i<x; i++) spistrbuf1[i]=memread(here+i);
+			for(i=0; i<x; i++) spistrbuf1[i]=memread(here+i);
 			ir=spistrbuf1;
 #else
 			if (st == SERUN) { 					
-				for(int i=0; i<x; i++) ibuffer[i]=memread(here+i);	
+				for(i=0; i<x; i++) ibuffer[i]=memread(here+i);	
 				ir=ibuffer;
 			} else {
 				ir=(char*)&mem[here]; 
@@ -2475,7 +2476,7 @@ void nextline() {
 #if defined(LINECACHESIZE) && LINECACHESIZE>0
 const unsigned char linecachedepth = LINECACHESIZE;
 typedef struct {address_t l; address_t h;} linecacheentry;
-linecacheentry linecache[linecachedepth];
+linecacheentry linecache[LINECACHESIZE];
 unsigned char linecachehere = 0;
 
 void clrlinecache() {
