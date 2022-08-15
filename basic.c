@@ -3845,12 +3845,12 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 					nexttoken();
 					*i=pop();
 					break;
-                case 2:
-                    *ps=FALSE;
-                    nexttoken();
-                    *i2=pop();
-                    *i=pop();
-                    break; 
+				case 2:
+					*ps=FALSE;
+					nexttoken();
+					*i2=pop();
+					*i=pop();
+					break; 
 				default:
 					error(EARGS);
 					return;
@@ -3872,12 +3872,12 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 					nexttoken();
 					*i=pop();
 					break;
-                case 2:
-                    *ps=FALSE;
-                    nexttoken();
-                    *i2=pop();
-                    *i=pop();
-                    break;
+				case 2:
+					*ps=FALSE;
+					nexttoken();
+					*i2=pop();
+					*i=pop();
+					break;
 				default:
 					error(EARGS);
 					return;
@@ -3944,7 +3944,7 @@ void assignment() {
 	address_t i=1; /* and the beginning of the destination string */
 	address_t i2=0; /* and the end of the destination string */  
 	address_t j=arraylimit; /* the second dimension of the array */
-	address_t lensource, lendest, newlength;
+	address_t lensource, lendest, newlength, strdim, copybytes;
 	mem_t s;
 	index_t k;
 
@@ -4010,6 +4010,9 @@ void assignment() {
 /* the length of the original string */
 			lendest=lenstring(xcl, ycl, j);
 
+/* the dimension i.e. the maximum length of the string */
+			strdim=stringdim(xcl, ycl);
+
 			if (DEBUG) {
 				outsc("* assigment stringcode "); outch(xcl); outch(ycl); outcr();
 				outsc("** assignment source string length "); outnumber(lensource); outcr();
@@ -4018,36 +4021,46 @@ void assignment() {
 				outsc("** assignment dest string dimension "); outnumber(stringdim(xcl, ycl)); outcr();
 			};
 
-/* does the source string fit into the destination */
-			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(EORANGE); return; }
+/* does the source string fit into the destination if we have no destination second index*/
+			if ((i2 == 0) && ((i+lensource-1) > strdim)) { error(EORANGE); return; };
+
+/* if we have a second index, is it in range */
+			if((i2 !=0) && i2>strdim) { error(EORANGE); return; };
+
+/* caculate the number of bytes we truely want to copy */
+			if (i2 > 0) copybytes=((i2-i+1) > lensource) ? lensource : (i2-i+1); else copybytes=lensource;
 
 /* this code is needed to make sure we can copy one string to the same string 
 	without overwriting stuff, we go either left to right or backwards */
 #ifndef USEMEMINTERFACE
 			if (x > i) 
-				for (k=0; k<lensource; k++) ir[k]=ir2[k];
+				for (k=0; k<copybytes; k++) ir[k]=ir2[k];
 			else
-				for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
+				for (k=copybytes-1; k>=0; k--) ir[k]=ir2[k]; 
 
 #else
 /* on an SPIRAM system we need to go through the mem interface 
 	for write, if ir is zero i.e. is not a valid memory location */
 			if (ir != 0) {
 				if (x > i) 
-					for (k=0; k<lensource; k++) ir[k]=ir2[k];
+					for (k=0; k<copybytes; k++) ir[k]=ir2[k];
 				else
-					for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
+					for (k=copybytes-1; k>=0; k--) ir[k]=ir2[k]; 
 			} else {
-				for (k=0; k<lensource; k++) memwrite2(ax+k, ir2[k]);
+				for (k=0; k<copybytes; k++) memwrite2(ax+k, ir2[k]);
 			}
 
 #endif
 
-/* classical Apple 1 behaviour is string truncation in substring logic */
+/* 
+ * classical Apple 1 behaviour is string truncation in substring logic, with
+ * two index destination string we follow another route. We extend the string 
+ * for the number of copied bytes
+ */
 			if (i2 == 0) {
 				newlength = i+lensource-1;	
 			} else {
-				newlength = i+lensource-1; /* to be done */
+				if (i+copybytes > lendest) newlength=i+copybytes-1; else newlength=lendest;
 			} 
 		
 			setstringlength(xcl, ycl, newlength, j);
