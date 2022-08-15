@@ -223,7 +223,7 @@ address_t ballocmem() {
 		4096, 	// Arduino Nano Every, MEGA with a lot of stuff 
 		2048,   // AVR with a lot of additional stuff on them
 		1024, 	// UNO
-		128,		// fallback, something has gone wrong
+		128,	// fallback, something has gone wrong
 		0      
 	}; 
 
@@ -343,6 +343,18 @@ char autorun() {
 	} 
 #endif
 #if defined(FILESYSTEMDRIVER) || ! defined(ARDUINO)
+/* on a POSIX or DOS platform, we check the command line first and the autoexec */
+#ifndef ARDUINO
+    if (bargc > 0) {
+        if (ifileopen(bargv[1])) {
+          	xload(bargv[1]);
+  		    st=SRUN;
+            ifileclose();
+            bnointafterrun=1;
+            return TRUE;
+        }
+    }
+#endif
 	if (ifileopen("autoexec.bas")) {
   		xload("autoexec.bas");
   		st=SRUN;
@@ -930,11 +942,22 @@ char* getstring(char c, char d, address_t b, address_t j) {
 
 #ifdef HASAPPLE1
 /* special strings */
+    
+/* the time string */
 #if !defined(ARDUINO) || defined(ARDUINORTC)
 	if ( c == '@' && d == 'T') {
 		rtcmkstr();
 		return rtcstring+b;
 	}
+#endif
+    
+/* the arguments string on POSIX systems */
+#ifndef ARDUINO
+    if ( c == '@' && d == 'A' ) {
+        k=0;
+        if (bargc > 1) while(k < SBUFSIZE && bargv[2][k] !=0) { sbuffer[k]=bargv[2][k]; k++; } 
+        return sbuffer+b;
+    }
 #endif
 
 	if ( c == '@') { error(EVARIABLE); return 0;}
@@ -1067,7 +1090,7 @@ address_t stringdim(char c, char d) {
 /* the length of a string as in LEN(A$) */
 address_t lenstring(char c, char d, address_t j){
 	char* b;
-	number_t a;
+	address_t a;
 
 	if (c == '@' && d == 0) return ibuffer[0];
 
@@ -1077,7 +1100,16 @@ address_t lenstring(char c, char d, address_t j){
 		return rtcstring[0];
 	}
 #endif
-
+    
+/* the arguments string on POSIX systems */
+#ifndef ARDUINO
+    if ( c == '@' && d == 'A' ) {
+        a=0;
+        if (bargc > 1) while(a < SBUFSIZE && bargv[2][a] !=0) a++;
+        return a;
+    }
+#endif
+    
 	a=bfind(STRINGVAR, c, d);
 	if (er != 0) return 0;
 
@@ -3081,7 +3113,8 @@ void xpow(){
 /* 
  * stringvalue() evaluates a string value, FALSE if there is no string
  * ir2 has the string location, the stack has the length
- * ax the memory byte address
+ * ax the memory byte address, x is set to the lower index which is a nasty
+ * side effect
  */
 char stringvalue() {
 	mem_t xcl, ycl;
@@ -3136,6 +3169,7 @@ char stringvalue() {
 		push(writenumber(sbuffer, pop()));
 #endif
 		ir2=sbuffer;
+		x=1;
 		if (er != 0) return FALSE;
 		if (token != ')') {error(EARGS);return FALSE;	}
 #endif
@@ -3759,8 +3793,18 @@ separators:
  *	"pure" i.e. subscriptless string expression
  *
  *	assignnumber assigns a number to a given lefthandside
+ *
+ * in lefthandside the type of the object is determined and 
+ * possible subscripts are parsed
+ * 
+ * Variables have no subscripts. The arguments are unchanged.
+ * Arrays may have two subscript which will go to i, j
+ * Strings may have a string subscript, going to i and an array subscript 
+ * going to j
+ * Strings without a subscript i.e. pure strings, set the ps flag
+ * 
  */
-void lefthandside(address_t* i, address_t* j, mem_t* ps) {
+void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 	switch (token) {
 		case VARIABLE:
 			nexttoken();
@@ -3801,6 +3845,12 @@ void lefthandside(address_t* i, address_t* j, mem_t* ps) {
 					nexttoken();
 					*i=pop();
 					break;
+                case 2:
+                    *ps=FALSE;
+                    nexttoken();
+                    *i2=pop();
+                    *i=pop();
+                    break; 
 				default:
 					error(EARGS);
 					return;
@@ -3822,6 +3872,12 @@ void lefthandside(address_t* i, address_t* j, mem_t* ps) {
 					nexttoken();
 					*i=pop();
 					break;
+                case 2:
+                    *ps=FALSE;
+                    nexttoken();
+                    *i2=pop();
+                    *i=pop();
+                    break;
 				default:
 					error(EARGS);
 					return;
@@ -3882,10 +3938,11 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
  *	LET - the core assigment function, this is different from other BASICs
  */
 void assignment() {
-	mem_t t;  // remember the left hand side token until the end of the statement, type of the lhs
-	mem_t ps=TRUE;  // also remember if the left hand side is a pure string of something with an index 
-	mem_t xcl, ycl; // to preserve the left hand side variable names
-	address_t i=1; // and the beginning of the destination string  
+	mem_t t;  /* remember the left hand side token until the end of the statement, type of the lhs */
+	mem_t ps=TRUE;  /* also remember if the left hand side is a pure string of something with an index */
+	mem_t xcl, ycl; /* to preserve the left hand side variable names */
+	address_t i=1; /* and the beginning of the destination string */
+	address_t i2=0; /* and the end of the destination string */  
 	address_t j=arraylimit; /* the second dimension of the array */
 	address_t lensource, lendest, newlength;
 	mem_t s;
@@ -3896,7 +3953,7 @@ void assignment() {
 	xcl=xc;
 	t=token;
 
-	lefthandside(&i, &j, &ps);
+	lefthandside(&i, &i2, &j, &ps);
 	if (er != 0) return;
 
 	if (DEBUG) {
@@ -3966,11 +4023,12 @@ void assignment() {
 
 /* this code is needed to make sure we can copy one string to the same string 
 	without overwriting stuff, we go either left to right or backwards */
-#ifndef USEMEMINTERFACE			
+#ifndef USEMEMINTERFACE
 			if (x > i) 
 				for (k=0; k<lensource; k++) ir[k]=ir2[k];
 			else
 				for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
+
 #else
 /* on an SPIRAM system we need to go through the mem interface 
 	for write, if ir is zero i.e. is not a valid memory location */
@@ -3986,7 +4044,11 @@ void assignment() {
 #endif
 
 /* classical Apple 1 behaviour is string truncation in substring logic */
-			newlength = i+lensource-1;	
+			if (i2 == 0) {
+				newlength = i+lensource-1;	
+			} else {
+				newlength = i+lensource-1; /* to be done */
+			} 
 		
 			setstringlength(xcl, ycl, newlength, j);
 			nexttoken();
@@ -4564,6 +4626,11 @@ void xrun(){
 
 /* flush the EEPROM when changing to interactive mode */
 	eflush();
+
+/* if called from command line with file arg - exit after run */
+#ifndef ARDUINO
+    if (bnointafterrun) restartsystem();
+#endif
 }
 
 /*
@@ -5013,6 +5080,7 @@ void xget(){
 	mem_t ps=TRUE;	/* also remember if the left hand side is a pure string of something with an index */
 	mem_t xcl, ycl;	/* to preserve the left hand side variable names	*/
 	address_t i=1;	/* and the beginning of the destination string  	*/
+ 	address_t i2=1; /* and the end of the destination string    */
 	address_t j=1;	/* the second dimension of the array if needed		*/
 	mem_t oid=id;
 
@@ -5036,7 +5104,7 @@ void xget(){
 	t=token;
 
 /* find the indices */
-	lefthandside(&i, &j, &ps);
+	lefthandside(&i, &i2, &j, &ps);
 	if (er != 0) return;
 
 /* get the data */
@@ -6024,6 +6092,7 @@ void xread(){
 	mem_t ps=TRUE;	/* also remember if the left hand side is a pure string of something with an index 	*/
 	mem_t xcl, ycl; /* to preserve the left hand side variable names	*/
 	address_t i=1;  /* and the beginning of the destination string */
+    address_t i2=0;  /* and the end of the destination string */
 	address_t j=arraylimit;	/* the second dimension of the array if needed */
 	mem_t datat;	/* the type of the data element */
 	address_t lendest, lensource, newlength;
@@ -6039,7 +6108,7 @@ void xread(){
 	if (DEBUG) {outsc("assigning to variable "); outch(xcl); outch(ycl); outsc(" type "); outnumber(t); outcr();}
 
 /* find the indices and draw the next token of read */
-	lefthandside(&i, &j, &ps);
+	lefthandside(&i, &i2, &j, &ps);
 	if (er != 0) return;
 
 /* if the token after lhs is not a termsymbol, something is wrong */
@@ -6061,7 +6130,7 @@ void xread(){
 			ir2=ir;
 			lensource=x;
 
-/* if we use te memory interface we have to save the source */ 
+/* if we use the memory interface we have to save the source */ 
 #ifdef USEMEMINTERFACE
 			for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=ir2[k];
 			ir2=spistrbuf2;
@@ -6335,7 +6404,7 @@ void statement(){
 				break;
 			case TLET:
 				nexttoken();
-				if ((token != ARRAYVAR) && (token != STRINGVAR) && (token != VARIABLE)){
+				if ((token != ARRAYVAR) && (token != STRINGVAR) && (token != VARIABLE)) {
 					error(EUNKNOWN);
 					break;
 				}
@@ -6367,10 +6436,10 @@ void statement(){
 				xbreak();
 				break;
 			case TSTOP:
-			case TEND:		// return here because new input is needed
-				*ibuffer=0; // clear ibuffer - this is a hack
-				st=SINT;		// switch to interactive mode
-				eflush(); 	// if there is an EEPROM dummy, flush it here (protects flash storage!)
+			case TEND:		/* return here because new input is needed */
+				*ibuffer=0;	/* clear ibuffer - this is a hack */
+				st=SINT;	/* switch to interactive mode */
+				eflush(); 	/* if there is an EEPROM dummy, flush it here (protects flash storage!) */
 				ofileclose();
 				return;
 			case TLIST:		
@@ -6383,7 +6452,7 @@ void statement(){
 				if (st==SRUN || st==SERUN) {
 					xcont();
 					break;
-				}			/* no break here, because interactively CONT=RUN minus CLR */
+				}		/* no break here, because interactively CONT=RUN minus CLR */
 			case TRUN:
 				xrun();
 				return;	
@@ -6590,10 +6659,10 @@ void setup() {
 /* check if there is something to autorun and prepare 
 		the interpreter to got into autorun once loop is reached */
  	if (!autorun()) {
-			printmessage(MGREET); outspc();
-			printmessage(EOUTOFMEMORY); outspc(); 
-			outnumber(memsize+1); outspc();
-			outnumber(elength()); outcr();
+		printmessage(MGREET); outspc();
+		printmessage(EOUTOFMEMORY); outspc(); 
+		outnumber(memsize+1); outspc();
+		outnumber(elength()); outcr();
  	}
 }
 
@@ -6632,7 +6701,7 @@ void loop() {
 	if (token == NUMBER) {
 		storeline();		
 	} else {
- 		//st=SINT;
+ 		/* st=SINT; */
 		statement();   
 		st=SINT;
 	}
@@ -6643,7 +6712,13 @@ void loop() {
 
 /* if we are not on an Arduino */
 #ifndef ARDUINO
-int main(){
+int main(int argc, char* argv[]){
+
+/* save the arguments if there are any */
+    bargc=argc;
+    bargv=argv;
+  
+/* do what an Arduino would do, this loops for every interactive input */
 	setup();
 	while (TRUE)
 		loop();
