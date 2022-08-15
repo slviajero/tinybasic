@@ -791,6 +791,15 @@ static mem_t debuglevel = 0;
 #ifdef HASDARTMOUTH
 static address_t data = 0;
 #endif
+    
+/* process command line arguments in the POSIX world 
+    bnointafterrun is a flag to remember if called as command
+    line argument, in this case we don't return to interactive*/
+#ifndef ARDUINO
+int bargc;
+char** bargv;
+mem_t bnointafterrun = 0;
+#endif
 
 /*
  * IoT yield counter, we count when we did yield the last time
@@ -975,7 +984,7 @@ short wireavailable();
 /* RF24 radio input */
 int radiostat(char);
 void radioset(int);
-#if defined(ARDUINO)
+#ifdef ARDUINO 
 uint64_t pipeaddr(char*);
 #else
 long pipeaddr(char*);
@@ -1175,7 +1184,7 @@ void expression();
 
 /* basic commands of the core language set */
 void xprint();
-void lefthandside(address_t*, address_t*, mem_t*);
+void lefthandside(address_t*, address_t*, address_t*, mem_t*);
 void assignnumber(signed char, char, char, address_t, address_t, char);
 void assignment();
 void showprompt();
