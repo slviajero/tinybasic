@@ -1,26 +1,26 @@
 /*
-
-	$Id: hardware-posix.h,v 1.3 2022/06/28 15:09:40 stefan Exp stefan $
-
-	Stefan's basic interpreter 
-
-	Playing around with frugal programming. See the licence file on 
-	https://github.com/slviajero/tinybasic for copyright/left.
-    (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
-
-	Author: Stefan Lenz, sl001@serverfabrik.de
-
-	Hardware definition file coming with basic.c aka TinybasicArduino.ino
-
-	Link to some of the POSIX OS features to mimic a microcontroller platform
-	See hardware-arduino for more details on the interface.
-
-	Supported: filesystem, real time clock, (serial) I/O on the text console
-	Not supported: radio, wire, SPI, MQTT
-
-	Partially supported: Wiring library on Raspberry PI
-
-*/
+ *
+ * $Id: hardware-posix.h,v 1.4 2022/08/15 18:08:56 stefan Exp stefan $
+ *
+ *	Stefan's basic interpreter 
+ *
+ *	Playing around with frugal programming. See the licence file on 
+ *	https://github.com/slviajero/tinybasic for copyright/left.
+ *	(GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
+ *
+ *	Author: Stefan Lenz, sl001@serverfabrik.de
+ *
+ *	Hardware definition file coming with basic.c aka TinybasicArduino.ino
+ *
+ *	Link to some of the POSIX OS features to mimic a microcontroller platform
+ *	See hardware-arduino for more details on the interface.
+ *
+ *	Supported: filesystem, real time clock, (serial) I/O on the text console
+ *	Not supported: radio, wire, SPI, MQTT
+ *
+ *	Partially supported: Wiring library on Raspberry PI
+ *
+ */
 
 /* simulates SPI RAM, only test code, keep undefed if you don't want to do something special */
 #undef SPIRAMSIMULATOR

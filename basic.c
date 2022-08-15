@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.c,v 1.136 2022/05/30 04:43:52 stefan Exp stefan $ 
+ *	$Id: basic.c,v 1.138 2022/08/15 18:08:56 stefan Exp stefan $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -28,8 +28,6 @@
  *	This feature is experimental.
  *
  */
-
-
 #undef MINGW
 #undef MSDOS
 #undef RASPPI
@@ -153,7 +151,6 @@
  * HASMSTAB: make tab more like MS TAB then Apple 1 TAB
  * HASARRAYLIMIT: make the lower limit of an variable
  */
-
 #define HASMSTAB
 #define HASARRAYLIMIT
 

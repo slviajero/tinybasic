@@ -1,63 +1,64 @@
 /*
-
-  $Id: hardware-arduino.h,v 1.3 2022/06/28 15:09:40 stefan Exp stefan $
-
-  Stefan's basic interpreter 
-
-  Playing around with frugal programming. See the licence file on 
-  https://github.com/slviajero/tinybasic for copyright/left.
-    (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
-
-  Author: Stefan Lenz, sl001@serverfabrik.de
-
-  Hardware definition file coming with TinybasicArduino.ino aka basic.c
-
-  - ARDUINOLCD, ARDUINOTFT and LCDSHIELD active the LCD code, 
-    LCDSHIELD automatically defines the right settings for 
-    the classical shield modules
-  - ARDUINOPS2 activates the PS2 code. Default pins are 2 and 3.
-    If you use other pins the respective changes have to be made 
-      below. 
-  - _if_  and PS2 are both activated STANDALONE cause the Arduino
-      to start with keyboard and lcd as standard devices.
-  - ARDUINOEEPROM includes the EEPROM access code
-  - ARDUINOEFS, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS activate filesystem code 
-  - activating Picoserial, Picoserial doesn't work on MEGA
-
-  Architectures and the definitions from the Arduino IDE
-
-    ARDUINO_ARCH_SAM: no tone command, dtostrf
-    ARDUINO_ARCH_RP2040: dtostrf (for ARDUINO_NANO_RP2040_CONNECT)
-    ARDUINO_ARCH_SAMD: dtostrf (for ARDUINO_SAMD_MKRWIFI1010, ARDUINO_SEEED_XIAO_M0)
-    ARDUINO_ARCH_ESP8266: SPIFFS, dtostrf (ESP8266)
-    ARDUINO_AVR_MEGA2560, ARDUARDUINO_SAM_DUE: second serial port is Serial1 - no software serial
-    ARDUARDUINO_SAM_DUE: hardware heuristics
-    ARDUINO_ARCH_AVR: nothing
-    ARDUINO_AVR_LARDU_328E: odd EEPROM code, seems to work, somehow
-    ARDUINO_ARCH_EXP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
-
-  The code still contains hardware heuristics from my own projects, 
-  will be removed in the future
-
-*/
+ *
+ * $Id: hardware-arduino.h,v 1.4 2022/08/15 18:08:56 stefan Exp stefan $
+ *
+ * Stefan's basic interpreter 
+ *
+ * Playing around with frugal programming. See the licence file on 
+ * https://github.com/slviajero/tinybasic for copyright/left.
+ *   (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
+ *
+ * Author: Stefan Lenz, sl001@serverfabrik.de
+ *
+ * Hardware definition file coming with TinybasicArduino.ino aka basic.c
+ *
+ * - ARDUINOLCD, ARDUINOTFT and LCDSHIELD active the LCD code, 
+ *   LCDSHIELD automatically defines the right settings for 
+ *   the classical shield modules
+ *  - ARDUINOPS2 activates the PS2 code. Default pins are 2 and 3.
+ *    If you use other pins the respective changes have to be made 
+ *    below. 
+ *  - _if_  and PS2 are both activated STANDALONE cause the Arduino
+ *    to start with keyboard and lcd as standard devices.
+ *  - ARDUINOEEPROM includes the EEPROM access code
+ *  - ARDUINOEFS, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS activate filesystem code 
+ * - activating Picoserial, Picoserial doesn't work on MEGA
+ *
+ * Architectures and the definitions from the Arduino IDE
+ *
+ *  ARDUINO_ARCH_SAM: no tone command, dtostrf
+ *  ARDUINO_ARCH_RP2040: dtostrf (for ARDUINO_NANO_RP2040_CONNECT)
+ *  ARDUINO_ARCH_SAMD: dtostrf (for ARDUINO_SAMD_MKRWIFI1010, ARDUINO_SEEED_XIAO_M0)
+ *  ARDUINO_ARCH_ESP8266: SPIFFS, dtostrf (ESP8266)
+ *  ARDUINO_AVR_MEGA2560, ARDUARDUINO_SAM_DUE: second serial port is Serial1 - no software serial
+ *  ARDUARDUINO_SAM_DUE: hardware heuristics
+ *  ARDUINO_ARCH_AVR: nothing
+ *  ARDUINO_AVR_LARDU_328E: odd EEPROM code, seems to work, somehow
+ *  ARDUINO_ARCH_EXP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
+ *
+ * The code still contains hardware heuristics from my own projects, 
+ * will be removed in the future
+ *
+ */
 
 #if defined(ARDUINO) && ! defined(__HARDWAREH__)
 #define __HARDWAREH__ 
 
 /* 
-	Arduino hardware settings , set here what you need or
-	use one of the predefined configurations below
+ * Arduino hardware settings , set here what you need or
+ * use one of the predefined configurations below
+ *
+ * input/output methods USERPICOSERIAL, ARDUINOPS2
+ *	ARDUINOPRT, DISPLAYCANSCROLL, ARDUINOLCDI2C,
+ *	ARDUINOTFT
+ *	storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS
+ *	sensors ARDUINORTC, ARDUINOWIRE, ARDUINOSENSORS
+ *	network ARDUINORF24, ARDUNIOMQTT 
+ *  memory ARDUINOSPIRAM
+ *
+ *	leave this unset if you use the definitions below
+ */
 
-	input/output methods USERPICOSERIAL, ARDUINOPS2
-		ARDUINOPRT, DISPLAYCANSCROLL, ARDUINOLCDI2C,
-		ARDUINOTFT
-	storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS
-	sensors ARDUINORTC, ARDUINOWIRE, ARDUINOSENSORS
-	network ARDUINORF24, ARDUNIOMQTT
-  memory ARDUINOSPIRAM
-
-	leave this unset if you use the definitions below
-*/
 #undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
@@ -85,29 +86,29 @@
 #undef STANDALONE
 
 /* 
-	Predefined hardware configurations, this assumes that all of the 
-	above are undef
-
-	UNOPLAIN: 
-		a plain UNO with no peripherals
-	AVRLCD: 
-		a AVR system with an LCD shield
-	WEMOSSHIELD: 
-		a Wemos D1 with a modified simple datalogger shield
-		optional keyboard and i2c display
-	MEGASHIELD: 
-		an Arduino Mega with Ethernet Shield
-		optional keyboard and i2c display
-	TTGOVGA: 
-		TTGO VGA1.4 system with PS2 keyboard, standalone
-  MEGATFT, DUETFT
-    TFT 7inch screen systems, standalone
-  NANOBOARD
-    Arduino Nano Every board with PS2 keyboard and sensor 
-    kit
-  ESP01BOARD
-    ESP01 based board as a sensor / MQTT interface
-*/
+ * Predefined hardware configurations, this assumes that all of the 
+ *	above are undef
+ *
+ *	UNOPLAIN: 
+ *		a plain UNO with no peripherals
+ *	AVRLCD: 
+ *		a AVR system with an LCD shield
+ *	WEMOSSHIELD: 
+ *		a Wemos D1 with a modified simple datalogger shield
+ *		optional keyboard and i2c display
+ *	MEGASHIELD: 
+ *		an Arduino Mega with Ethernet Shield
+ *		optional keyboard and i2c display
+ *	TTGOVGA: 
+ *		TTGO VGA1.4 system with PS2 keyboard, standalone
+ * MEGATFT, DUETFT
+ *    TFT 7inch screen systems, standalone
+ * NANOBOARD
+ *   Arduino Nano Every board with PS2 keyboard and sensor 
+ *    kit
+ * ESP01BOARD
+ *    ESP01 based board as a sensor / MQTT interface
+ */
 
 #undef UNOPLAIN
 #undef AVRLCD
@@ -120,13 +121,13 @@
 #undef NANOBOARD
 
 /* 
-	PIN settings and I2C addresses for various hardware configurations
-	used a few heuristics and then the hardware definitions above 
-
-	#define SDPIN sets the SD CS pin - can be left as a default for most HW configs
-    	TTGO needs it as default definitions in the board file are broken
-	#define PS2DATAPIN, PS2IRQPIN sets PS2 pin
-*/
+ * PIN settings and I2C addresses for various hardware configurations
+ *	used a few heuristics and then the hardware definitions above 
+ *
+ *	#define SDPIN sets the SD CS pin - can be left as a default for most HW configs
+ *   	TTGO needs it as default definitions in the board file are broken
+ *	#define PS2DATAPIN, PS2IRQPIN sets PS2 pin
+ */
 
 /* PS2 Keyboard pins for AVR - use one interrupt pin 2 and one date pin 
     5 not 4 because 4 conflicts with SDPIN of the standard SD shield */
@@ -134,7 +135,7 @@
 #define PS2IRQPIN  2
 
 /* Ethernet - 10 is the default */
-//#define ETHPIN 10
+/* #define ETHPIN 10 */
 
 /* The Pretzelboard definitions for Software Serial, conflicts with SPI */
 #define SOFTSERIALRX 11
@@ -239,7 +240,7 @@
 #define ARDUINOEEPROM
 #define ARDUINOVGA
 #define ARDUINOSD
-//#define ARDUINOMQTT
+/* #define ARDUINOMQTT */
 #define SDPIN   13
 #define STANDALONE 
 #endif
@@ -954,8 +955,8 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
  * terminal emulation
  */
 #if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32) 
-//static fabgl::VGAController VGAController;
-fabgl::VGA16Controller VGAController; // 16 color object with less memory 
+/* static fabgl::VGAController VGAController; */
+fabgl::VGA16Controller VGAController; /* 16 color object with less memory */
 static fabgl::Terminal Terminal;
 static Canvas cv(&VGAController);
 TerminalController tc(&Terminal);
@@ -1045,11 +1046,11 @@ void fcircle(int x0, int y0, int r) {
 }
 void vgawrite(char c){
 	switch(c) {
-    case 12: // form feed is clear screen
+    case 12: /* form feed is clear screen */
   		Terminal.write(27); Terminal.write('H');
     	Terminal.write(27); Terminal.write('J');
       return;
-    case 10: // this is LF Unix style doing also a CR
+    case 10: /* this is LF Unix style doing also a CR */
       Terminal.write(10); Terminal.write(13);
     	return;
   	}
@@ -1264,27 +1265,27 @@ void dspvt52(char* c){
  
 /* commands of the terminal in text mode */
 	switch (*c) {
-		case 'A': // cursor up
+		case 'A': /* cursor up */
 			if (dspmyrow>0) dspmyrow--;
 			break;
-		case 'B': // cursor down
+		case 'B': /* cursor down */
 			dspmyrow=(dspmyrow++) % dsp_rows;
 			break;
-		case 'C': // cursor right
+		case 'C': /* cursor right */
 			dspmycol=(dspmycol++) % dsp_columns;
 			break; 
-		case 'D': // cursor left
+		case 'D': /* cursor left */
 			if (dspmycol>0) dspmycol--;
 			break;
-		case 'E': // GEMDOS / TOS extension clear screen
+		case 'E': /* GEMDOS / TOS extension clear screen */
 			dspbufferclear();
 			dspclear();
 			break;
-		case 'H': // cursor home
+		case 'H': /* cursor home */
 			dspmyrow=0;
    		dspmycol=0;
 			break;	
-		case 'Y': // Set cursor position
+		case 'Y': /* Set cursor position */
 			vt52s='Y';
 			esc=2;
   		*c=0;
