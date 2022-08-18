@@ -451,6 +451,8 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 	mem_t c1, d1;
 	address_t i=0;
 
+/* the bfind cache, did we ask for that object before? - 
+	needed to make the string code efficient */
 	if (t == bfindt && c == bfindc && d == bfindd) {
 		z.a=bfindz;
 		return bfinda;
@@ -494,6 +496,71 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 		i++;
 	}
 
+	return 0;
+}
+
+/* finds an object and deletes the heap from this object on 
+	including the object itself */
+address_t bfree(mem_t t, mem_t c, mem_t d) {
+	address_t b = memsize;
+	mem_t t1;
+	mem_t c1, d1;
+	address_t i=0;
+
+	if (DEBUG) { outsc("*** bfree called for "); outch(c); outch(d); outsc(" on heap with token "); outnumber(t); outcr(); }
+
+	while (i < nvars) { 
+
+/*
+		c1=mem[b--];
+		d1=mem[b--];
+		t1=mem[b--];
+*/
+
+		c1=memread2(b--);
+		d1=memread2(b--);
+		t1=memread2(b--);
+
+		if (t == t1 && c == c1 && d == d1) {
+
+/* set the number of variables to the new value */
+			nvars=i;
+			if (DEBUG) { outsc("*** bfree setting nvars to "); outnumber(nvars); outcr(); }
+
+/* clean up - this is somehow optional, one could drop this */
+
+			if (DEBUG) { outsc("*** bfree clearing "); outnumber(himem); outspc(); outnumber(b+3); outcr(); }
+			for (i=himem; i<=b+3; i++) memwrite2(i, 0);
+
+/* now set the memory to the right address */			
+			himem=b+3;
+
+/* forget the chache !! */
+			bfindc=0;
+			bfindd=0;
+			bfindt=0;
+			bfindz=0;
+			bfinda=0;
+
+			return himem;
+		}
+
+		switch(t1) {
+			case VARIABLE:
+				z.a=numsize;
+				break;
+			case TFN:
+				z.a=addrsize+2;
+				break;
+			default:
+				b=b-addrsize+1;
+				getnumber(b, addrsize);
+				b--;
+		}
+
+		b-=z.a;
+		i++;
+	}
 	return 0;
 }
 
@@ -924,6 +991,16 @@ address_t createstring(char c, char d, address_t i, address_t j) {
  * 	in addition to the memory pointer, return the address in memory.
  *	We use a pointer to memory here instead of going through the mem interface with an integer variable
  *	This makes string code lean to compile but is awkward for systems with serial memory
+ * 
+ * The code may look like doing multiple heap scans for just one string as stringdim and lenstring are
+ * 	called here which causes bfind to called multiple time. This is harmless as bfind caches the last 
+ * 	heap address.
+ * 
+ * Getstring returns a pointer to the first string element in question. 
+ * 
+ * There are two side effects of getstring
+ *	- ax has the address in memory of the string, if the string is on heap. 0 otherwise.
+ *	- z.a has the number of bytes in the string payload area inculding the string length counter
  */
 
 char* getstring(char c, char d, address_t b, address_t j) {	
@@ -974,14 +1051,8 @@ char* getstring(char c, char d, address_t b, address_t j) {
 	}
 
 	ax=ax+strindexsize+(b-1);
-
-/* this calculates the memory address of the string data we want to access 
-	again, the call to stringdim causes a second heap search which is inefficient */ 
-
+	
 #else 
-
-/* find the proper dimemsion, this is not good because stringdim causes a second 
-	heap search */
 
 /* the dimension of the string array */
 
@@ -3146,7 +3217,7 @@ char stringvalue() {
 		x=pop();
 #endif
 		ir2=getstring(xcl, ycl, x, k);
-/* when the memory interface is active spistrbuf1 has the string */
+/* if the memory interface is active spistrbuf1 has the string */
 #ifdef USEMEMINTERFACE
 		ir2=spistrbuf1;
 #endif
@@ -4472,7 +4543,7 @@ void xnext(){
 	popforstack();
 	if (er != 0) return;
 /* a variable argument in next clears the for stack 
-		down as BASIC programs ca and do jump out to a outer next */
+		down as BASIC programs can and do jump out to an outer next */
 	if (xcl) {
 		while (xcl != xc || ycl != yc ) {
 			popforstack();
@@ -4647,6 +4718,7 @@ void xrun(){
  * NEW the general cleanup function - new deletes everything
  */
 void xnew(){ 
+
 /* all stacks are purged */
 	clearst();
 	clrgosubstack();
@@ -4683,12 +4755,56 @@ void xrem() {
  *	CLR - clearing variable space
  */
 void xclr() {
+
+#ifdef HASDARKARTS
+	mem_t xcl, ycl, t;
+
+	nexttoken();
+
+	if (termsymbol()) {
+		clrvars();
+		clrgosubstack();
+		clrforstack();
+		clrdata();
+		clrlinecache();
+		ert=0;
+	} else {
+
+		xcl=xc;
+		ycl=yc;
+		t=token;
+
+		switch (t) {
+			case VARIABLE:
+				if (xcl == '@' || ycl == 0) { error(EVARIABLE); return; }
+				break;
+			case ARRAYVAR: 
+				nexttoken();
+				if (token != '(') { error(EVARIABLE); return; }
+				nexttoken();
+				if (token != ')') { error(EVARIABLE); return; }
+				break;
+			case STRINGVAR:
+				if (xcl == '@') { error(EVARIABLE); return; }
+				break;
+			default:
+				error(EVARIABLE);
+				return;
+		}
+
+		ax=bfree(t, xcl, ycl);
+		if (ax == 0) { error(EVARIABLE); return; }
+
+	}
+
+#else
 	clrvars();
 	clrgosubstack();
 	clrforstack();
 	clrdata();
 	clrlinecache();
 	ert=0;
+#endif
 	nexttoken();
 }
 
