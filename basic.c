@@ -1036,11 +1036,13 @@ char* getstring(char c, char d, address_t b, address_t j) {
 
 	if ( c == '@') { error(EVARIABLE); return 0;}
 
-/* dynamically allocated strings */
-	if (! (ax=bfind(STRINGVAR, c, d)) ) ax=createstring(c, d, STRSIZEDEF, 1);
+/* dynamically allocated strings, create on the fly */
+	if (!(ax=bfind(STRINGVAR, c, d))) ax=createstring(c, d, STRSIZEDEF, 1);
 
-	if (DEBUG) { outsc("** heap address "); outnumber(ax); outcr(); }
-	if (DEBUG) { outsc("** byte length "); outnumber(z.a); outcr(); }
+	if (DEBUG) {
+		outsc("** heap address "); outnumber(ax); outcr(); 
+		outsc("** byte length "); outnumber(z.a); outcr(); 
+	}
 
 	if (er != 0) return 0;
 
@@ -1107,22 +1109,6 @@ char* getstring(char c, char d, address_t b, address_t j) {
 #endif
 }
  
-/* this function is currently not used */
-number_t arraydim(char c, char d) {
-	if (c == '@')
-		switch (d) {
-			case 0:
-				return (himem-top)/numsize;
-			case 'E':
-				return elength()/numsize;
-		}
-#ifdef HASAPPLE1
-	return blength(ARRAYVAR, c, d)/numsize;
-#else 
-	return 0;
-#endif
-}
-
 #ifdef HASAPPLE1
 /* in case of a string array, this function finds the number 
 	of array elements */
@@ -1140,19 +1126,22 @@ address_t a, b;
 #endif
 }
 
-
 /* dimension of a string as in DIM a$(100), only needed on assign! */ 
 address_t stringdim(char c, char d) {
-	number_t a;
+
+/* input buffer, payload size is buffer -1 as the first byte is length */	
 	if (c == '@') return BUFSIZE-1;
+
+/* length of the payload from the parameters */
 #ifndef HASSTRINGARRAYS
 	else return blength(STRINGVAR, c, d)-strindexsize;
 #else 
-	if ((a=bfind(STRINGVAR, c, d))) {
+	if (bfind(STRINGVAR, c, d)) {
 		return (z.a-addrsize)/strarraydim(c, d)-strindexsize;
 	} else 
 		return 0;
 #endif
+
 }
 
 /* the length of a string as in LEN(A$) */
@@ -1160,8 +1149,10 @@ address_t lenstring(char c, char d, address_t j){
 	char* b;
 	address_t a;
 
+/* the input buffer, length is first byte */
 	if (c == '@' && d == 0) return ibuffer[0];
 
+/* the time */
 #if !defined(ARDUINO) || defined(ARDUINORTC) 
 	if (c == '@' && d == 'T') {
 		rtcmkstr();
@@ -1229,8 +1220,7 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 }
 */
 
-/* multiple calls of bfind here - not good, rewrite this for one call  */ 
-
+/* multiple calls of bfind here is harmless as bfind caches  */ 
 	a=a+(stringdim(c, d)+strindexsize)*(j-arraylimit);
 
 	if (DEBUG) { outsc("**  setstringlength writing to "); outnumber(a); outsc(" value "); outnumber(l); outcr(); }
@@ -1239,31 +1229,6 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 	setnumber(a, strindexsize);
 }
 
-
-/* insert data into a string, currently unused - does not support string arrays, to be removed soon*/
-void setstring(char c, char d, address_t w, char* s, address_t n, address_t j) {
-	char *b;
-	address_t a;
-	int i;
-
-	if (DEBUG) { outsc("* set var string "); outch(c); outch(d); outspc(); outnumber(w); outcr(); }
-
-	if (c == '@') {
-		b=ibuffer;
-	} else {
-		if ( !(a=bfind(STRINGVAR, c, d)) ) a=createstring(c, d, STRSIZEDEF, 1);
-		if (er != 0) return;
-		b=(char *)&mem[a+strindexsize];
-	}
-
-	if ((w+n-1) <= stringdim(c, d)) {
-		for (i=0; i<n; i++) { b[i+w]=s[i]; } 
-		z.a=w+n-1;
-		setnumber(a, strindexsize);	
-	}
-	else 
-		error(EORANGE);
-}
 #endif
 
 /*
