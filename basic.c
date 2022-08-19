@@ -1178,9 +1178,14 @@ address_t lenstring(char c, char d, address_t j){
     }
 #endif
     
+/* locate the string */
 	a=bfind(STRINGVAR, c, d);
 	if (er != 0) return 0;
 
+/* string does not yet exist, return length 0 */
+	if (a == 0) return 0;
+
+/* get the string length from memory */
 #ifndef HASSTRINGARRAYS
 	getnumber(a, strindexsize);
 	return z.a;
@@ -3246,6 +3251,7 @@ char stringvalue() {
 	}
 	return TRUE;
 }
+
 
 /*
  * (numerical) evaluation of a string expression, used for 
