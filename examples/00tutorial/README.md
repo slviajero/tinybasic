@@ -76,6 +76,7 @@ This language set has a few functions for low level access to the interpreter me
 
 - Malloc: malloc.bas - allocate memory and find it by identifier
 - Eval: eval.bas - plot a function
+- ClrVar: clrvar.bas - delete heap objects
 
 ### IoT Extensions 
 
