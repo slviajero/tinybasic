@@ -831,7 +831,7 @@ Tutorial: ongo.bas
 
 ### Introduction 
 
-The dark arts language set contain a set of command which can cause evil. BASIC is a beginner language and protects the user from dangerous things. This makes it somehow rigid. The three dark arts commands give access to the inner working of the heap and the program storage. They have side effects and can destroy a running program.
+The dark arts language set contain a set of command which can cause evil. BASIC is a beginner language and protects the user from dangerous things. This makes it somehow rigid. The three dark arts commands give access to the inner working of the heap and the program storage. They have side effects and can destroy a running program. CLR is extended in dark arts. It can delete variables from the heap.
 
 ### MALLOC
 
@@ -910,6 +910,30 @@ In the examples above line 20 is replaced by the string in the EVAL command.
 EVAL includes the line to the program heap. This changes memory addresses of all code behind the inserted line. FOR loops, GOSUB commands, the linenumber cache and READ/DATA statements use plain memory addresses. This means that the DATA pointer, all active FOR loops and active GOSUBs break. A safe way to use EVAL is to change only lines further down in the code outside of any active FOR loop and to RESTORE the DATA pointer after EVAL. 
 
 See eval.bas in the tutorial for more information.
+
+### CLR
+
+In the standard language sets CLR deletes all variables and resets stacks and caches. With dark arts enables it is extended to delete variables from the heap. Example: 
+
+10 DIM A(10)
+
+20 CLR A()
+
+30 DIM A(20)
+
+In this example the array A() is deleted and can be redefined. 
+
+All variables defined after A() are also deleted. Example:
+
+10 DIM A(10)
+
+20 B$="Hello World"
+
+30 CLR A()
+
+40 DIM A(20)
+
+In this examples B$ is also deleted. 
 
 ## IOT language set
 
