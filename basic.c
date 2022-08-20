@@ -4759,13 +4759,19 @@ void xclr() {
 				if (xcl == '@') { error(EVARIABLE); return; }
 				break;
 			default:
-				error(EVARIABLE);
-				return;
+				expression();
+				if (er != 0) return;
+				ax=pop();
+				xcl=ax%256;
+				ycl=ax/256;
+				t=TBUFFER;
 		}
 
 		ax=bfree(t, xcl, ycl);
-		if (ax == 0) { error(EVARIABLE); return; }
-
+		if (ax == 0) { 
+			if (t != TBUFFER) { error(EVARIABLE); return; }
+			else ert=1;
+		}
 	}
 
 #else
