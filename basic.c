@@ -989,7 +989,8 @@ address_t createstring(char c, char d, address_t i, address_t j) {
 
 /* this is an experimental helper for @X$, generates a string  
 	this is a method to insert a user defined string, e.g. from an I/O device 
-	makemyxstring() can be called multiple times in the code */
+	makemyxstring() can be called multiple times in the code for the same string 
+	operation in BASIC, it cannot be used as a trigger for an I/O operation*/
 
 void makemyxstring() {
 	int i;
