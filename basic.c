@@ -987,15 +987,15 @@ address_t createstring(char c, char d, address_t i, address_t j) {
 #endif
 }
 
-/* this is an experimental helper for @X$ */
-
-static char myxstringbuffer[32];
+/* this is an experimental helper for @X$, generates a string  
+	this is a method to insert a user defined string, e.g. from an I/O device 
+	makemyxstring() can be called multiple times in the code */
 
 void makemyxstring() {
 	int i;
 	const char text[] = "hello world";
-	for(i=0; i<31 && text[i]!=0 ; i++) myxstringbuffer[i+1]=text[i];
-	myxstringbuffer[0]=i;
+	for(i=0; i<SBUFSIZE-1 && text[i]!=0 ; i++) sbuffer[i+1]=text[i];
+	sbuffer[0]=i;
 }
 
 /* get a string at position b, the -1+stringdexsize is needed because a string index starts with 1 
@@ -1040,7 +1040,7 @@ char* getstring(char c, char d, address_t b, address_t j) {
 	user definable function  */
 	if ( c == '@' && d == 'X' ) {
 		makemyxstring();
-		return myxstringbuffer+b;
+		return sbuffer+b;
 	}
 
     
@@ -1185,7 +1185,7 @@ address_t lenstring(char c, char d, address_t j){
 	and sometimes lenstring */
 	if ( c == '@' && d == 'X' ) {
 		makemyxstring();
-		return myxstringbuffer[0];
+		return sbuffer[0];
 	}
     
 /* the arguments string on POSIX systems */
