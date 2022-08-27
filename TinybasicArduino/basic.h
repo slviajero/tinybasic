@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.h,v 1.8 2022/06/28 15:09:40 stefan Exp stefan $
+ *	$Id: basic.h,v 1.9 2022/08/15 18:08:56 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *
@@ -564,7 +564,7 @@ const signed char tokens[] PROGMEM = {
 
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "> ";
-const char mgreet[]		PROGMEM = "Stefan's Basic 1.3";
+const char mgreet[]		PROGMEM = "Stefan's Basic 1.4a";
 const char mline[]		PROGMEM = "LINE";
 const char mnumber[]	PROGMEM = "NUMBER";
 const char mvariable[]	PROGMEM = "VARIABLE";
@@ -791,6 +791,15 @@ static mem_t debuglevel = 0;
 #ifdef HASDARTMOUTH
 static address_t data = 0;
 #endif
+    
+/* process command line arguments in the POSIX world 
+    bnointafterrun is a flag to remember if called as command
+    line argument, in this case we don't return to interactive*/
+#ifndef ARDUINO
+int bargc;
+char** bargv;
+mem_t bnointafterrun = 0;
+#endif
 
 /*
  * IoT yield counter, we count when we did yield the last time
@@ -975,7 +984,7 @@ short wireavailable();
 /* RF24 radio input */
 int radiostat(char);
 void radioset(int);
-#if defined(ARDUINO)
+#ifdef ARDUINO 
 uint64_t pipeaddr(char*);
 #else
 long pipeaddr(char*);
@@ -1175,7 +1184,7 @@ void expression();
 
 /* basic commands of the core language set */
 void xprint();
-void lefthandside(address_t*, address_t*, mem_t*);
+void lefthandside(address_t*, address_t*, address_t*, mem_t*);
 void assignnumber(signed char, char, char, address_t, address_t, char);
 void assignment();
 void showprompt();

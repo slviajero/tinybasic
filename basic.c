@@ -43,10 +43,11 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define  BASICFULL
-#undef   BASICINTEGER
-#undef   BASICMINIMAL
-#undef   BASICTINYWITHFLOAT
+#undef	BASICFULL
+#undef	BASICINTEGER
+#define	BASICSIMPLE
+#undef	BASICMINIMAL
+#undef	BASICTINYWITHFLOAT
 
 /*
  * custom settings undef all the the language sets 
@@ -87,12 +88,12 @@
 #undef HASSTRINGARRAYS
 #endif
 
-/* all features minus float */
+/* all features minus float and tone */
 #ifdef  BASICINTEGER
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
-#undef  HASTONE
+#define HASTONE
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
@@ -104,6 +105,25 @@
 #define HASIOT
 #define HASMULTIDIM
 #define HASSTRINGARRAYS
+#endif
+
+/* a simple integer basic for small systems (UNO etc) */
+#ifdef  BASICSIMPLE
+#define HASAPPLE1
+#define HASARDUINOIO
+#define HASFILEIO
+#undef 	HASTONE
+#define HASPULSE
+#define HASSTEFANSEXT
+#define HASERRORMSG
+#define HASVT52
+#undef  HASFLOAT
+#undef  HASGRAPH
+#define HASDARTMOUTH
+#undef  HASDARKARTS
+#define HASIOT
+#undef  HASMULTIDIM
+#undef  HASSTRINGARRAYS
 #endif
 
 /* all features activated */
@@ -3218,7 +3238,7 @@ char stringvalue() {
 		ir2=getstring(xcl, ycl, x, k);
 /* if the memory interface is active spistrbuf1 has the string */
 #ifdef USEMEMINTERFACE
-		ir2=spistrbuf1;
+		if (ir2 == 0) ir2=spistrbuf1;
 #endif
 		if (y-x+1 > 0) push(y-x+1); else push(0);
 	  if (DEBUG) { outsc("** in stringvalue, length "); outnumber(y-x+1); outsc(" from "); outnumber(x); outspc(); outnumber(y); outcr(); }

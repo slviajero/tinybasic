@@ -145,8 +145,6 @@
 #define RF24CEPIN 8
 #define RF24CSNPIN 9
 
-
-
 /* 
  *  list of default i2c addresses
  *
@@ -293,7 +291,30 @@
 #define STANDALONE
 #endif
 
+/* a MEGA shield with memory and SD card */
+#if defined(MEGABOARD)
+#undef USESPICOSERIAL
+#define DISPLAYCANSCROLL
+#define ARDUINOLCDI2C
+#define ARDUINOEEPROM
+#define ARDUINOPRT
+#define ARDUINOSD
+#define ARDUINOWIRE
+#define ARDUINORTC 
+#define ARDUINOSPIRAM
+#define RAMPIN 53
+#define SDPIN  49
+#endif
 
+/* a UNO shield with memory and EFS EEPROM */
+#if defined(UNOBOARD)
+#define ARDUINOEEPROM
+#define ARDUINOSPIRAM
+#define ARDUINOEFS
+#define ARDUINOWIRE
+#define EEPROMI2CADDR 0x050
+#define EFSEEPROMSIZE 65534
+#endif
 /*
  * defining the systype variable which informs BASIC about the platform at runtime
  */
@@ -1874,17 +1895,18 @@ char mqttinch() {return 0;};
  *	loading and saving to EEPROM with the "!" mechanism
  */ 
 void ebegin(){
+/* this is the EEPROM dummy */
 #if ( defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM)
   EEPROM.begin(EEPROMSIZE);
 #endif
 }
 
 void eflush(){
+/* code for the EEPROM dummy */
 #if ( defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM) 
   EEPROM.commit();
 #endif 
 }
-
 
 #if defined(ARDUINOEEPROM)
 address_t elength() { 
@@ -2159,7 +2181,7 @@ void fsbegin(char v) {
 #ifndef SDPIN
 #define SDPIN
 #endif
- 	if (SD.begin(SDPIN) && v) { outsc("SDcard ok \n"); }	
+  if (SD.begin(SDPIN) && v) outsc("SDcard ok \n"); else outsc("SDcard not ok \n");	
 #endif
 #if defined(ESPSPIFFS) && defined(ARDUINO_ARCH_ESP8266) 
  	if (SPIFFS.begin() && v) {
@@ -3086,7 +3108,8 @@ address_t spirambegin() {
   //SPI.transfer(SPIRAMBYTE);
   SPI.transfer(SPIRAMSEQ);
   digitalWrite(RAMPIN, HIGH);
-  /* only 32 kB addressable with 16 bit integers because address_t has to fit into number_t */
+  /* only 32 kB addressable with 16 bit integers because address_t has to fit into number_t 
+    the interpreter would work also with 64kB but PEEK, POKE and the DARKARTS are broken then*/
   if (maxnum>32767) return 65534; else return 32766;  
 }
 
