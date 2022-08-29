@@ -1399,6 +1399,50 @@ On POSIX and SD no formating is supported.
 
 The hardware section of the interpreter contains mechanism to make the platform look the same. This works for many platforms but there are exceptions. BASIC language features work differently on these systems. In this chapter these exceptions are described.
 
+### Wemos D1R1 systems and shields
+
+These UNO form factor 8266 are really popular as they are cheap and powerful. BASIC supports these boards as datalogger and standalone systems. They are not really UNO hardware compatible, so some precautions are required. 
+
+BASIC uses the raw ESP822 pinout on the right side of this table:
+
+static const uint8_t D0   = 3;
+
+static const uint8_t D1   = 1;
+
+static const uint8_t D2   = 16;
+
+static const uint8_t D3   = 5;
+
+static const uint8_t D4   = 4;
+
+static const uint8_t D5   = 14;
+
+static const uint8_t D6   = 12;
+
+static const uint8_t D7   = 13;
+
+static const uint8_t D8   = 0;
+
+static const uint8_t D9   = 2;
+
+static const uint8_t D10  = 15;
+
+static const uint8_t D11  = 13;
+
+static const uint8_t D12  = 12;
+
+static const uint8_t D13  = 14;
+
+static const uint8_t D14  = 4;
+
+static const uint8_t D15  = 5;
+
+The values on the lefthand side are the lables on the board.
+
+A good discussion can be found here: https://forum.arduino.cc/t/wemos-d1-pins/523831
+
+More on ESP8266: https://tttapa.github.io/ESP8266/Chap04%20-%20Microcontroller.html
+
 ### ESP32 VGA with FabGL
 
 BASIC runs on TTGO VGA ESP32 hardware boards. These boards are specifically designed for retro computin applications. They have a PS2 keyboard and mouse, a VGA adapter and an SD card slot. Many old OSes and computer games can run on them. 
@@ -1446,6 +1490,12 @@ All BASIC commands work the same. Most of them with a similar performance as loc
 The one exception is string commands. Strings have to be copied to local memory, can be processed there and have to be compied back. String buffers of 128 bytes handle this task. For this reason, the maximum string length is restructed to 128 bytes when using the SPI RAM interface. Also, string commands should not be nested in complicated expressions. This part of the code is not tested a lot. String code is considerably slower then in direct memory situations but still faster than many old 8 bit homecomputers.
 
 Well behaved BASIC programs like the game library of David Ahl in examples/14games have been tested and run on SPI RAM.
+
+### Raspberry PI Wiring
+
+BASIC for Raspberry PI uses the wiring pinout and not the header pinout. Please look at this table for more details: http://wiringpi.com/pins/
+
+Some more can be found here: https://pi4j.com/1.2/pins/model-b-plus.html
 
 ## Low level commands
 
