@@ -62,25 +62,25 @@
 #undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
+#define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
-#undef ARDUINOILI9488
+#define ARDUINOILI9488
 #undef ARDUINOSSD1306
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #undef ARDUINOEFS
-#undef ARDUINOSD
+#define ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
-#undef ARDUINORTC
+#define ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#undef ARDUINOMQTT
+#define ARDUINOMQTT
 #undef ARDUINOSENSORS
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
@@ -103,22 +103,31 @@
  *		TTGO VGA1.4 system with PS2 keyboard, standalone
  * MEGATFT, DUETFT
  *    TFT 7inch screen systems, standalone
- * NANOBOARD
+ * NANOBOARD:
  *   Arduino Nano Every board with PS2 keyboard and sensor 
  *    kit
- * ESP01BOARD
+ * MEGABOARD:
+ *  A board for the MEGA with 64 kB RAM, SD Card, and real time
+ *    clock
+ * UNOBOARD:
+ *  A board for an UNO with 64kB memory and EEPROM disk
+ *    fits into an UNO flash only with integer
+ * ESP01BOARD:
  *    ESP01 based board as a sensor / MQTT interface
  */
 
 #undef UNOPLAIN
 #undef AVRLCD
 #undef WEMOSSHIELD
-#undef ESP01BOARD
 #undef MEGASHIELD
 #undef TTGOVGA
 #undef DUETFT
 #undef MEGATFT
 #undef NANOBOARD
+#undef MEGABOARD
+#undef UNOBOARD
+#undef ESP01BOARD
+
 
 /* 
  * PIN settings and I2C addresses for various hardware configurations
@@ -207,12 +216,7 @@
 #define ARDUINOMQTT
 #endif
 
-/* an ESP01 board, using the internal flash */
-#if defined(ESP01BOARD)
-#define ARDUINOEEPROM
-#define ESPSPIFFS
-#define ARDUINOMQTT
-#endif
+
 
 /*
  * mega with a Ethernet shield 
@@ -271,6 +275,7 @@
 #define ARDUINOSD
 #define ARDUINOWIRE
 #define ARDUINOPRT
+#define ARDUINORTC
 #define PS2DATAPIN 9
 #define PS2IRQPIN  8
 #define SDPIN 53
@@ -291,6 +296,16 @@
 #define STANDALONE
 #endif
 
+/* a UNO shield with memory and EFS EEPROM */
+#if defined(UNOBOARD)
+#define ARDUINOEEPROM
+#define ARDUINOSPIRAM
+#define ARDUINOEFS
+#define ARDUINOWIRE
+#define EEPROMI2CADDR 0x050
+#define EFSEEPROMSIZE 65534
+#endif
+
 /* a MEGA shield with memory and SD card */
 #if defined(MEGABOARD)
 #undef USESPICOSERIAL
@@ -306,15 +321,13 @@
 #define SDPIN  49
 #endif
 
-/* a UNO shield with memory and EFS EEPROM */
-#if defined(UNOBOARD)
+/* an ESP01 board, using the internal flash */
+#if defined(ESP01BOARD)
 #define ARDUINOEEPROM
-#define ARDUINOSPIRAM
-#define ARDUINOEFS
-#define ARDUINOWIRE
-#define EEPROMI2CADDR 0x050
-#define EFSEEPROMSIZE 65534
+#define ESPSPIFFS
+#define ARDUINOMQTT
 #endif
+
 /*
  * defining the systype variable which informs BASIC about the platform at runtime
  */
@@ -338,7 +351,6 @@ const char bsystype = SYSTYPE_UNKNOWN;
 #include <avr/dtostrf.h>
 #define ARDUINO 100
 #endif
-
 
 /*
  * Some settings, defaults, and dependencies
@@ -890,20 +902,37 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
  * currently only slow software scrolling implemented in BASIC
  * although the library can do more
  * https://github.com/jaretburkett/ILI9488
+ * 
+ * we use 9, 8, 7 as CS, CE, RST by default and A7 for the led brightness control
  */ 
 #ifdef ARDUINOILI9488
 #define DISPLAYDRIVER
-#define ILI_CS  2
-#define ILI_DC  3  
-#define ILI_LED A0  
-#define ILI_RST 4 
+#ifndef ILI_CS
+#define ILI_CS  9
+#endif
+#ifndef ILI_DC
+#define ILI_DC  8
+#endif
+#ifndef ILI_RST
+#define ILI_RST 7
+#endif
+#ifndef ILI_LED
+#define ILI_LED A3
+#endif
 ILI9488 tft = ILI9488(ILI_CS, ILI_DC, ILI_RST);
 const int dsp_rows=30;
 const int dsp_columns=20;
 char dspfontsize = 16;
 uint16_t dspfgcolor = ILI9488_WHITE;
 uint16_t dspbgcolor = ILI9488_BLACK;
-void dspbegin() { tft.begin(); tft.setTextColor(dspfgcolor); tft.setTextSize(2); tft.fillScreen(dspbgcolor); }
+void dspbegin() { 
+  tft.begin(); 
+  tft.setTextColor(dspfgcolor);
+  tft.setTextSize(2);
+  tft.fillScreen(dspbgcolor); 
+  pinMode(ILI_LED, OUTPUT);
+  analogWrite(ILI_LED, 255);
+ }
 void dspprintchar(char c, short col, short row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
 void dspclear() { tft.fillScreen(dspbgcolor); }
 void dspupdate() {}
@@ -1910,10 +1939,10 @@ void eflush(){
 
 #if defined(ARDUINOEEPROM)
 address_t elength() { 
-#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
   return EEPROMSIZE;
 #endif
-#ifdef ARDUINO_ARCH_AVR
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
 #ifndef ARDUINO_AVR_LARDU_328E
   return EEPROM.length(); 
 #else 
@@ -2175,6 +2204,9 @@ const char* rmrootfsprefix(const char* filename) {
 /* 
  *	filesystem starter for SPIFFS and SD on ESP, ESP32 and Arduino plus LittleFS
  *	the verbose option needs to be checked 
+ * 
+ * if SDPIN is empty it is the standard SS pin of the platfrom
+ * 
  */
 void fsbegin(char v) {
 #ifdef ARDUINOSD 
@@ -3240,8 +3272,14 @@ void spiramrawwrite(address_t a, mem_t c) {
 /* to handle strings in SPIRAM situations two more buffers are needed 
  * they store intermediate results of string operations. The buffersize 
  * limits the maximum string length indepents of how big strings are set
+ * 
+ * default is 128, on an MEGA 512 is possible
  */
+#ifdef ARDUINO_AVR_MEGA2560
+#define SPIRAMSBSIZE 512
+#else
 #define SPIRAMSBSIZE 128
+#endif
 signed char spistrbuf1[SPIRAMSBSIZE];
 signed char spistrbuf2[SPIRAMSBSIZE];
 #endif
