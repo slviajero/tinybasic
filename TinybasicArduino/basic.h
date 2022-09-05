@@ -840,7 +840,7 @@ void timeinit();
 void wiringbegin();
 
 /* low level mem and hardware features */
-int freeRam();
+long freeRam();
 long freememorysize();
 void restartsystem();
 void activatesleep(long t);
