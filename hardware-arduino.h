@@ -655,19 +655,19 @@ void wiringbegin() {}
 
 #if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM)
 extern "C" char* sbrk(int incr);
-int freeRam() {
+long freeRam() {
   char top;
   return &top - reinterpret_cast<char*>(sbrk(0));
 }
 #elif defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
-int freeRam() {
+long freeRam() {
   extern int __heap_start,*__brkval;
   int v;
   return (int)&v - (__brkval == 0  
     ? (int)&__heap_start : (int) __brkval);  
 }
 #elif defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
-int freeRam() {
+long freeRam() {
   return ESP.getFreeHeap();
 }
 #else
@@ -827,12 +827,22 @@ void dspupdate() {}
  * This is a buffered display it has a dspupdate() function 
  * it also needs to call dspgraphupdate() after each graphic 
  * operation
+ *
+ * default PIN settings here are for ESP8266, using the standard 
+ * SPI SS for 15 for CS/CE, and 0 for DC, 2 for reset
+ *
  */ 
 #ifdef ARDUINONOKIA51
 #define DISPLAYDRIVER
-#define NOKIA_CS 4
+#ifndef NOKIA_CS
+#define NOKIA_CS 15
+#endif
+#ifndef NOKIA_DC
 #define NOKIA_DC 0
-#define NOKIA_RST 5
+#endif
+#ifndef NOKIA_RST
+#define NOKIA_RST 2
+#endif
 U8G2_PCD8544_84X48_F_4W_HW_SPI u8g2(U8G2_R0, NOKIA_CS, NOKIA_DC, NOKIA_RST); 
 const int dsp_rows=6;
 const int dsp_columns=10;

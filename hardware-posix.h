@@ -71,7 +71,7 @@ long freememorysize() {
 #endif  
 }
 
-int freeRam() {
+long freeRam() {
 	return freememorysize();
 }
 
