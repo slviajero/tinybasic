@@ -62,25 +62,25 @@
 #undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOPRT
-#define DISPLAYCANSCROLL
+#undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
-#define ARDUINOILI9488
+#undef ARDUINOILI9488
 #undef ARDUINOSSD1306
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#undef ARDUINOEEPROM
+#define ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
-#define RP2040LITTLEFS
-#define ARDUINORTC
+#undef RP2040LITTLEFS
+#undef  ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#define ARDUINOMQTT
+#undef ARDUINOMQTT
 #undef ARDUINOSENSORS
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
@@ -169,16 +169,18 @@
  * Sensor library code - experimental
  */
 #ifdef ARDUINOSENSORS
-#define ARDUINODHT
+#undef ARDUINODHT
 #define DHTTYPE DHT22
 #define DHTPIN 2
-#define ARDUINOSHT
+#undef ARDUINOSHT
 #ifdef ARDUINOSHT
 #define ARDUINOWIRE
 #endif
 #undef  ARDUINOMQ2
 #define MQ2PIN A0
 #undef ARDUINOLMS6
+#define ARDUINOAHT
+#undef ARDUINOBMP280
 #endif
 
 /*
@@ -930,18 +932,21 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
 #define ILI_LED A3
 #endif
 ILI9488 tft = ILI9488(ILI_CS, ILI_DC, ILI_RST);
-const int dsp_rows=30;
-const int dsp_columns=20;
+/* ILI in landscape */
+const int dsp_rows=20;
+const int dsp_columns=30;
 char dspfontsize = 16;
 uint16_t dspfgcolor = ILI9488_WHITE;
 uint16_t dspbgcolor = ILI9488_BLACK;
 void dspbegin() { 
   tft.begin(); 
+  tft.setRotation(3); /* ILI in landscape, SD slot up */
   tft.setTextColor(dspfgcolor);
   tft.setTextSize(2);
   tft.fillScreen(dspbgcolor); 
   pinMode(ILI_LED, OUTPUT);
   analogWrite(ILI_LED, 255);
+  dspsetscrollmode(1, 4);
  }
 void dspprintchar(char c, short col, short row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
 void dspclear() { tft.fillScreen(dspbgcolor); }
@@ -2725,7 +2730,7 @@ void consins(char *b, short nb) {
  * instance
  */
 #ifdef ARDUINOPRT
-#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE) && !defined(ARDUINO_AVR_NANO_EVERY)
+#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE) && !defined(ARDUINO_AVR_NANO_EVERY) && !defined(ARDUINO_NANO_RP2040_CONNECT)
 #include <SoftwareSerial.h>
 /* definition of the serial port pins from "pretzel board"
 for UNO 11 is not good for rx */
@@ -3039,16 +3044,40 @@ MQ2 mq2(MQ2PIN);
 #include <Arduino_LSM6DSOX.h>
 /* https://www.arduino.cc/en/Reference/Arduino_LSM6DSOX */
 #endif
+#ifdef ARDUINOAHT
+#include <Adafruit_AHTX0.h>
+Adafruit_AHTX0 aht;
+#endif
+#ifdef ARDUINOBMP280
+/*
+#include <Adafruit_BMP280.h>
+Adafruit_BMP280 bmp;
+*/
+#include <BMP280_DEV.h>
+BMP280_DEV bmp280
+#endif
 
 void sensorbegin(){
 #ifdef ARDUINODHT
-  dht.begin();
+dht.begin();
 #endif
 #ifdef ARDUINOSHT
   SHT.Begin();
 #endif
 #ifdef ARDUINOMQ2
   mq2.begin();
+#endif
+#ifdef ARDUINOAHT
+  aht.begin();
+#endif
+#ifdef ARDUINOBMP280
+ /* bmp.begin(); */
+  bmp280.begin();                                 // Default initialisation, place the BMP280 into SLEEP_MODE 
+  //bmp280.setPresOversampling(OVERSAMPLING_X4);    // Set the pressure oversampling to X4
+  //bmp280.setTempOversampling(OVERSAMPLING_X1);    // Set the temperature oversampling to X1
+  //bmp280.setIIRFilter(IIR_FILTER_4);              // Set the IIR filter to setting 4
+  bmp280.setTimeStandby(TIME_STANDBY_2000MS);     // Set the standby time to 2 seconds
+  bmp280.startNormalConversion();                 // Start BMP280 continuous conversion in NORMAL_MODE 
 #endif
 }
 
@@ -3096,6 +3125,37 @@ number_t sensorread(short s, short v) {
         case 3:
           (void) mq2.read(false);
           return mq2.readSmoke();
+      }       
+#endif
+      return 0;
+    case 4:
+#ifdef ARDUINOAHT
+      sensors_event_t humidity, temp;
+      switch (v) {
+        case 0:
+          return 1;
+        case 1:
+          aht.getEvent(&humidity, &temp);
+          return temp.temperature;
+        case 2:
+          aht.getEvent(&humidity, &temp);
+          return humidity.relative_humidity;
+      }       
+#endif
+      return 0;
+    case 5:
+#ifdef ARDUINOBMP280  
+      float temperature, pressure, altitude;
+      bmp280.getMeasurements(temperature, pressure, altitude);
+      switch (v) {
+        case 0:
+          return 1;
+        case 1:
+          return temperature;
+        case 2:
+          return pressure;
+        case 3:
+          return altitude;
       }       
 #endif
       return 0;
