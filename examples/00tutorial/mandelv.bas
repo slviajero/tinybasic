@@ -2,7 +2,7 @@
 20 REM "The iteration cutoff, threshold, and resolution"
 30 N=24
 40 T=4
-50 R=200
+50 R=100
 100 C0=0: C1=0
 110 CLS
 200 REM "walk through the grid"
