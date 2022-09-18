@@ -47,6 +47,7 @@ These are a set of useful commands and features missing in Apple Integer BASIC. 
 - Fibonacci: fibo.bas - print the Golden ration on an Integer BASIC
 - Clock: clock.bas - shows time and date and on Arduinos also the temperature
 - Serial1: serial1.bas - read from and write to the second serial port
+- Mandel: mandel.bas - text graphics of the Mandelbrot set
 
 ### Dartmouth extension
 
@@ -85,6 +86,12 @@ This language set is work in progress. There are a few string helper functions a
 - Convert: convert.bas - convert strings to numbers and vice versa
 - Splitstring: splitstr.bas - split a string into substrings
 
+### Graphics
+
+BASIC graphics commands are plotting and setting colours.
+
+- MandelVGA: mandelv.bas - plot the Mandelbrot set with VGA colours.
+
 ### More programs to play with
 
 - Calculator: calc.bas - RPN pocket calculator in BASIC
@@ -92,8 +99,6 @@ This language set is work in progress. There are a few string helper functions a
 ### More BASIC features
 
 In addition to these language sets there are the Arduino IO functions. These features are explained in 01basics-10starter.
-
-Graphics functions are ommited here, they will be explained in a special section of the examples code as well.
 
 IoT and networking functions are also explained in a special section.
 
