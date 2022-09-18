@@ -1,4 +1,4 @@
-/*
+ /*
  *
  *	$Id: basic.c,v 1.138 2022/08/15 18:08:56 stefan Exp stefan $ 
  *
@@ -64,7 +64,7 @@
 #define HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
-#define HASDARKARTS
+#undef HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
 #define HASSTRINGARRAYS

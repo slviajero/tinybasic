@@ -114,6 +114,8 @@
  *    fits into an UNO flash only with integer
  * ESP01BOARD:
  *    ESP01 based board as a sensor / MQTT interface
+ * RP2040BOARD:
+ *    A ILI9488 hardware design based on an Arduino connect RP2040.
  */
 
 #undef UNOPLAIN
@@ -127,7 +129,7 @@
 #undef MEGABOARD
 #undef UNOBOARD
 #undef ESP01BOARD
-
+#undef RP2040BOARD
 
 /* 
  * PIN settings and I2C addresses for various hardware configurations
@@ -181,6 +183,7 @@
 #undef ARDUINOLMS6
 #define ARDUINOAHT
 #undef ARDUINOBMP280
+#undef ARDUINOBME280
 #endif
 
 /*
@@ -328,6 +331,21 @@
 #define ARDUINOEEPROM
 #define ESPSPIFFS
 #define ARDUINOMQTT
+#endif
+
+/* an RP2040 based board with an ILI9488 display */
+#if defined(RP2040BOARD)
+#undef USESPICOSERIAL
+#define DISPLAYCANSCROLL
+#define ARDUINOILI9488
+#undef  ARDUINOEEPROM
+#define ARDUINOPRT
+#define RP2040LITTLEFS
+#define ARDUINOWIRE
+#define ARDUINORTC 
+#define ARDUINOPS2
+#define ARDUINOMQTT
+#define STANDALONE
 #endif
 
 /*
@@ -3049,13 +3067,14 @@ MQ2 mq2(MQ2PIN);
 Adafruit_AHTX0 aht;
 #endif
 #ifdef ARDUINOBMP280
-/*
 #include <Adafruit_BMP280.h>
 Adafruit_BMP280 bmp;
-*/
-#include <BMP280_DEV.h>
-BMP280_DEV bmp280
 #endif
+#ifdef ARDUINOBME280
+#include <Adafruit_BME280.h>
+Adafruit_BME280 bme;
+#endif
+
 
 void sensorbegin(){
 #ifdef ARDUINODHT
@@ -3071,13 +3090,15 @@ dht.begin();
   aht.begin();
 #endif
 #ifdef ARDUINOBMP280
- /* bmp.begin(); */
-  bmp280.begin();                                 // Default initialisation, place the BMP280 into SLEEP_MODE 
-  //bmp280.setPresOversampling(OVERSAMPLING_X4);    // Set the pressure oversampling to X4
-  //bmp280.setTempOversampling(OVERSAMPLING_X1);    // Set the temperature oversampling to X1
-  //bmp280.setIIRFilter(IIR_FILTER_4);              // Set the IIR filter to setting 4
-  bmp280.setTimeStandby(TIME_STANDBY_2000MS);     // Set the standby time to 2 seconds
-  bmp280.startNormalConversion();                 // Start BMP280 continuous conversion in NORMAL_MODE 
+  bmp.begin(); 
+    bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
+                  Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
+                  Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
+                  Adafruit_BMP280::FILTER_X16,      /* Filtering. */
+                  Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
+#endif
+#ifdef ARDUINOBME280
+  bme.begin(); 
 #endif
 }
 
@@ -3145,20 +3166,34 @@ number_t sensorread(short s, short v) {
       return 0;
     case 5:
 #ifdef ARDUINOBMP280  
-      float temperature, pressure, altitude;
-      bmp280.getMeasurements(temperature, pressure, altitude);
       switch (v) {
         case 0:
           return 1;
         case 1:
-          return temperature;
+          return bmp.readTemperature();
         case 2:
-          return pressure;
+          return bmp.readPressure() / 100.0;
         case 3:
-          return altitude;
+          return bmp.readAltitude(1013.25);
       }       
 #endif
       return 0;
+    case 6:
+#ifdef ARDUINOBME280
+      switch (v) {
+        case 0:
+          return 1;
+        case 1:
+          return bme.readTemperature();
+        case 2:
+          return bme.readPressure() / 100.0;
+        case 3:
+          return bme.readAltitude(1013.25);
+        case 4:
+          return bme.readHumidity();
+      }       
+#endif
+      return 0;  
     default:
       return 0;
   }
