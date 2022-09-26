@@ -31,10 +31,10 @@
  *  ARDUINO_ARCH_SAMD: dtostrf (for ARDUINO_SAMD_MKRWIFI1010, ARDUINO_SEEED_XIAO_M0)
  *  ARDUINO_ARCH_ESP8266: SPIFFS, dtostrf (ESP8266)
  *  ARDUINO_AVR_MEGA2560, ARDUARDUINO_SAM_DUE: second serial port is Serial1 - no software serial
- *  ARDUARDUINO_SAM_DUE: hardware heuristics
+ *  ARDUINO_SAM_DUE: hardware heuristics
  *  ARDUINO_ARCH_AVR: nothing
  *  ARDUINO_AVR_LARDU_328E: odd EEPROM code, seems to work, somehow
- *  ARDUINO_ARCH_EXP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
+ *  ARDUINO_ARCH_ESP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
  *
  * The code still contains hardware heuristics from my own projects, 
  * will be removed in the future
@@ -70,7 +70,7 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -130,6 +130,8 @@
 #undef UNOBOARD
 #undef ESP01BOARD
 #undef RP2040BOARD
+#undef ESP32BOARD
+#undef MKR1010BOARD
 
 /* 
  * PIN settings and I2C addresses for various hardware configurations
@@ -171,9 +173,9 @@
  * Sensor library code - experimental
  */
 #ifdef ARDUINOSENSORS
-#undef ARDUINODHT
+#define ARDUINODHT
 #define DHTTYPE DHT22
-#define DHTPIN 2
+#define DHTPIN 3
 #undef ARDUINOSHT
 #ifdef ARDUINOSHT
 #define ARDUINOWIRE
@@ -181,7 +183,7 @@
 #undef  ARDUINOMQ2
 #define MQ2PIN A0
 #undef ARDUINOLMS6
-#define ARDUINOAHT
+#undef ARDUINOAHT
 #undef ARDUINOBMP280
 #undef ARDUINOBME280
 #endif
@@ -220,8 +222,6 @@
 #define PS2IRQPIN		D9
 #define ARDUINOMQTT
 #endif
-
-
 
 /*
  * mega with a Ethernet shield 
@@ -340,7 +340,7 @@
 #define ARDUINOILI9488
 #undef  ARDUINOEEPROM
 #define ARDUINOPRT
-#define RP2040LITTLEFS
+#define ARDUINOSD
 #define ARDUINOWIRE
 #define ARDUINORTC 
 #define ARDUINOPS2
@@ -348,6 +348,38 @@
 #define STANDALONE
 #endif
 
+/* an ESP32 board with an ILI9488 display, 
+  some SD problems here with some hardware */
+#if defined(ESP32BOARD)
+#define ILI_CS 12
+#define ILI_DC 27
+#define ILI_RST 14
+#define ILI_LED 26
+#undef USESPICOSERIAL
+#define ESPSPIFFS
+#define DISPLAYCANSCROLL
+#define ARDUINOILI9488
+#define ARDUINOEEPROM
+#define ARDUINOMQTT
+#define ARDUINOWIRE
+#endif
+
+/* a board based on the Arduino MKR 1010 Wifi 
+ *  made for low energy games 
+ */
+#if defined(MKR1010BOARD)
+#define ILI_CS 7
+#define ILI_DC 4
+#define ILI_RST 6
+#define ILI_LED A3
+#undef  USESPICOSERIAL
+#define DISPLAYCANSCROLL
+#define ARDUINOILI9488
+#define ARDUINOEFS
+#define ARDUINOMQTT
+#define ARDUINOWIRE
+#endif
+ 
 /*
  * defining the systype variable which informs BASIC about the platform at runtime
  */
@@ -358,6 +390,10 @@ const char bsystype = SYSTYPE_AVR;
 const char bsystype = SYSTYPE_ESP8266;
 #elif defined(ARDUINO_ARCH_ESP32)
 const char bsystype = SYSTYPE_ESP32;
+#elif defined(ARDUINO_ARCH_RP2040)
+const char bsystype = SYSTYPE_RP2040;
+#elif defined(ARDUINO_ARCH_SAM) && defined(ARDUINO_ARCH_SAMD)
+const char bsystype = SYSTYPE_SAM;
 #else
 const char bsystype = SYSTYPE_UNKNOWN;
 #endif 
@@ -749,6 +785,10 @@ void restartsystem() {
  * for this very simple implementation - needs to be improved (pass data from sleep
  * state to sleep state via EEPROM)
  */
+#if defined(ARDUINO_ARCH_SAMD)
+#include "RTCZero.h"
+#include "ArduinoLowPower.h"
+#endif
 
 void activatesleep(long t) {
 #if defined(ARDUINO_ARCH_ESP8266)
@@ -757,6 +797,9 @@ void activatesleep(long t) {
 #if defined(ARDUINO_ARCH_ESP32)
   esp_sleep_enable_timer_wakeup(t*1000);
   esp_deep_sleep_start();
+#endif
+#if defined(ARDUINO_ARCH_SAMD)
+  LowPower.sleep((int) t);
 #endif
 }
 
@@ -767,6 +810,16 @@ void activatesleep(long t) {
  */
 void spibegin() {
 #ifdef ARDUINOSPI
+/*
+#ifdef SDPIN
+  pinMode(SDPIN, OUTPUT);
+  digitalWrite(SDPIN, HIGH);
+#endif
+#ifdef ILI_CS
+  pinMode(ILI_CS, OUTPUT);
+  digitalWrite(ILI_CS, HIGH);
+#endif
+*/
 #ifdef ARDUINO_TTGO_T7_V14_Mini32
 /* this fixes the wrong board definition in the ESP32 core for this board */
   SPI.begin(14, 2, 12, 13);
@@ -935,6 +988,7 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
  * 
  * we use 9, 8, 7 as CS, CE, RST by default and A7 for the led brightness control
  */ 
+ 
 #ifdef ARDUINOILI9488
 #define DISPLAYDRIVER
 #ifndef ILI_CS
@@ -2906,8 +2960,11 @@ void wireouts(char *b, uint8_t l) {
   if (l>ARDUINOWIREBUFFER) l=ARDUINOWIREBUFFER; 
   if (wire_myid == 0) {
     Wire.beginTransmission(wire_slaveid); 
-    /* for(z.a=0; z.a<l; z.a++) Wire.write(b[z.a]);  */ 
-    Wire.write(b, l);  
+#ifdef ARDUINO_ARCH_ESP32
+    for(z.a=0; z.a<l; z.a++) Wire.write(b[z.a]);  
+#else
+    Wire.write(b, l);
+#endif
     ert=Wire.endTransmission(); 
   } else {
 #ifdef ARDUINOWIRESLAVE
