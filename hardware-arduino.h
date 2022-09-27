@@ -61,6 +61,7 @@
 
 #undef USESPICOSERIAL 
 #undef ARDUINOPS2
+#undef ARDUINOUSBKBD
 #undef ARDUINOPRT
 #undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
@@ -84,6 +85,7 @@
 #undef ARDUINOSENSORS
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
+
 
 /* 
  * Predefined hardware configurations, this assumes that all of the 
@@ -123,7 +125,7 @@
 #undef WEMOSSHIELD
 #undef MEGASHIELD
 #undef TTGOVGA
-#undef DUETFT
+#define DUETFT
 #undef MEGATFT
 #undef NANOBOARD
 #undef MEGABOARD
@@ -158,6 +160,10 @@
 #define RF24CEPIN 8
 #define RF24CSNPIN 9
 
+/* use standard I2C pins almost always */
+#undef SDA_PIN
+#undef SCL_PIN
+
 /* 
  *  list of default i2c addresses
  *
@@ -173,7 +179,7 @@
  * Sensor library code - experimental
  */
 #ifdef ARDUINOSENSORS
-#define ARDUINODHT
+#undef ARDUINODHT
 #define DHTTYPE DHT22
 #define DHTPIN 3
 #undef ARDUINOSHT
@@ -185,7 +191,7 @@
 #undef ARDUINOLMS6
 #undef ARDUINOAHT
 #undef ARDUINOBMP280
-#undef ARDUINOBME280
+#define ARDUINOBME280
 #endif
 
 /*
@@ -274,7 +280,8 @@
  */
 #if defined(DUETFT)
 #undef  ARDUINOEEPROM
-#define ARDUINOPS2
+#undef ARDUINOPS2
+#define ARDUINOUSBKBD
 #define DISPLAYCANSCROLL
 #define ARDUINOTFT
 #define ARDUINOSD
@@ -331,6 +338,9 @@
 #define ARDUINOEEPROM
 #define ESPSPIFFS
 #define ARDUINOMQTT
+//#define ARDUINOWIRE
+//#define SDA_PIN 0
+//#define SCL_PIN 2
 #endif
 
 /* an RP2040 based board with an ILI9488 display */
@@ -457,7 +467,7 @@ const char bsystype = SYSTYPE_UNKNOWN;
 
 
 /* Networking needs the background task capability */
-#if defined(ARDUINOMQTT) || defined(ARDUINOETH)
+#if defined(ARDUINOMQTT) || defined(ARDUINOETH) || defined(ARDUINOUSBKBD)
 #define ARDUINOBGTASK
 #endif
 
@@ -477,6 +487,13 @@ const char bsystype = SYSTYPE_UNKNOWN;
  */
 #ifdef ARDUINOPS2
 #include <PS2Keyboard.h>
+#endif
+
+/*
+ * The USB keyboard code - tested only on DUE and the like
+ */
+#ifdef ARDUINOUSBKBD
+#include <KeyboardController.h>
 #endif
 
 /*
@@ -1222,8 +1239,37 @@ char fabgllastchar = 0;
 #define PS2KEYBOARD
 #define HASKEYBOARD
 PS2Keyboard keyboard;
+#else 
+#if defined(ARDUINO) && defined(ARDUINOUSBKBD)
+#define HASKEYBOARD
+#define USBKEYBOARD
+USBHost usb;
+KeyboardController keyboard(usb);
+char usbkey=0;
 #endif
 #endif
+#endif
+
+#if defined(ARDUINOUSBKBD)
+void keyPressed() {}
+void keyReleased() {
+  switch (keyboard.getOemKey()) {
+    case 40:
+      usbkey=10;
+      break;
+    case 42:
+    case 76:
+      usbkey=127;
+      break;
+    case 41:
+      usbkey=27;
+      break;
+    default:
+      usbkey=keyboard.getKey(); 
+  }
+}
+#endif
+
 
 void kbdbegin() {
 #ifdef PS2KEYBOARD
@@ -1232,6 +1278,10 @@ void kbdbegin() {
 #ifdef PS2FABLIB
 	PS2Controller.begin(PS2Preset::KeyboardPort0);
 	PS2Controller.keyboard()->setLayout(&fabgl::GermanLayout);
+#else 
+#ifdef USBKEYBOARD
+/* nothing to be done here */
+#endif
 #endif
 #endif
 }
@@ -1244,6 +1294,13 @@ char kbdavailable(){
 #else
 #ifdef PS2FABLIB
   if (fabgllastchar) return Terminal.available()+1; else return Terminal.available();
+#else 
+#ifdef USBKEYBOARD
+/* if we already have a key, tell the caller we have one */
+  if (usbkey) return 1; 
+/* if not, look it up */
+  if (usbkey) return 1; else return 0;
+#endif
 #endif
 #endif
 #ifdef HASKEYPAD
@@ -1261,6 +1318,12 @@ char kbdread() {
 #ifdef PS2FABLIB
   if (fabgllastchar) { c=fabgllastchar; fabgllastchar=0; }
   else c=Terminal.read();
+#else 
+#ifdef USBKEYBOARD
+/* if we have read a key before, return it else look it up */
+  c=usbkey; 
+  usbkey=0; 
+#endif
 #endif
 #ifdef HASKEYPAD
 	c=keypadread();
@@ -1289,6 +1352,10 @@ char c;
 #ifdef PS2FABLIB
   if (fabgllastchar) return fabgllastchar;
 	if (kbdavailable()) { fabgllastchar=Terminal.read(); return fabgllastchar; }
+#else 
+#ifdef USBKEYBOARD
+  return usbkey;
+#endif
 #endif
 #endif
 #ifdef HASKEYPAD
@@ -2198,6 +2265,9 @@ void yieldfunction() {
 #ifdef ARDUINOMQTT
 	bmqtt.loop();
 #endif
+#ifdef ARDUINOUSBKBD
+  usb.Task();
+#endif
 }
 
 /* everything that needs to be done not so often - 1 second */
@@ -2868,13 +2938,21 @@ char wirerequestbuffer[ARDUINOWIREBUFFER];
 short wirerequestchars = 0;
 #endif
 
-/* default begin is as a master, no PIN definitions yet */
+/* default begin is as a master */
 void wirebegin() {
+#ifndef SDA_PIN   
 	Wire.begin();
+#else
+  Wire.begin(SDA_PIN, SCL_PIN);
+#endif
 }
 
 void wireslavebegin(char s) {
+#ifndef SDA_PIN
   Wire.begin(s);
+#else
+  Wire.begin(SDA_PIN, SCL_PIN, s);
+#endif
 }
 
 /* wire status - just checks if wire is compiled */
