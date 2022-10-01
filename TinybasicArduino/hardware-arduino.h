@@ -118,6 +118,8 @@
  *    ESP01 based board as a sensor / MQTT interface
  * RP2040BOARD:
  *    A ILI9488 hardware design based on an Arduino connect RP2040.
+ * RP2040BOARD2:
+ *  like the one above but based on the Pi Pico core
  */
 
 #undef UNOPLAIN
@@ -125,13 +127,14 @@
 #undef WEMOSSHIELD
 #undef MEGASHIELD
 #undef TTGOVGA
-#define DUETFT
+#undef DUETFT
 #undef MEGATFT
 #undef NANOBOARD
 #undef MEGABOARD
 #undef UNOBOARD
 #undef ESP01BOARD
 #undef RP2040BOARD
+#undef RP2040BOARD2
 #undef ESP32BOARD
 #undef MKR1010BOARD
 
@@ -280,8 +283,8 @@
  */
 #if defined(DUETFT)
 #undef  ARDUINOEEPROM
-#undef ARDUINOPS2
-#define ARDUINOUSBKBD
+#define ARDUINOPS2
+#undef ARDUINOUSBKBD
 #define DISPLAYCANSCROLL
 #define ARDUINOTFT
 #define ARDUINOSD
@@ -351,12 +354,34 @@
 #undef  ARDUINOEEPROM
 #define ARDUINOPRT
 #define ARDUINOSD
+#undef RP2040LITTLEFS
 #define ARDUINOWIRE
 #define ARDUINORTC 
 #define ARDUINOPS2
 #define ARDUINOMQTT
 #define STANDALONE
 #endif
+
+/* an RP2040 Raspberry Pi Pico based board with an ILI9488 display */
+#if defined(RP2040BOARD2)
+#undef USESPICOSERIAL
+#define DISPLAYCANSCROLL
+#define ARDUINOILI9488
+#undef  ARDUINOEEPROM
+#undef ARDUINOPRT
+#undef ARDUINOSD
+#define RP2040LITTLEFS
+#undef ARDUINOWIRE
+#undef ARDUINORTC 
+#undef ARDUINOPS2
+#undef ARDUINOMQTT
+#undef STANDALONE
+#define ILI_LED A2
+#define ILI_CS  15
+#define ILI_RST 14
+#define ILI_DC  13
+#endif
+
 
 /* an ESP32 board with an ILI9488 display, 
   some SD problems here with some hardware */
@@ -388,6 +413,9 @@
 #define ARDUINOEFS
 #define ARDUINOMQTT
 #define ARDUINOWIRE
+/* careful with the setting, lockout possible easily */
+#undef ARDUINOUSBKBD
+#undef STANDALONE
 #endif
  
 /*
@@ -400,7 +428,7 @@ const char bsystype = SYSTYPE_AVR;
 const char bsystype = SYSTYPE_ESP8266;
 #elif defined(ARDUINO_ARCH_ESP32)
 const char bsystype = SYSTYPE_ESP32;
-#elif defined(ARDUINO_ARCH_RP2040)
+#elif defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040)
 const char bsystype = SYSTYPE_RP2040;
 #elif defined(ARDUINO_ARCH_SAM) && defined(ARDUINO_ARCH_SAMD)
 const char bsystype = SYSTYPE_SAM;
@@ -413,7 +441,7 @@ const char bsystype = SYSTYPE_UNKNOWN;
  * the ARDUINO 100 definition is probably not needed anymore
  */
 
-#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040)
+#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040)
 #include <avr/dtostrf.h>
 #define ARDUINO 100
 #endif
@@ -773,7 +801,7 @@ long freememorysize() {
 #endif
   return freeRam() - overhead;
 #endif
-#ifdef ARDUINO_NANO_RP2040_CONNECT
+#if defined(ARDUINO_NANO_RP2040_CONNECT) || defined(ARDUINO_RASPBERRY_PI_PICO)
   return 65536;
 #endif
   return 0;
@@ -2872,7 +2900,7 @@ void consins(char *b, short nb) {
  * instance
  */
 #ifdef ARDUINOPRT
-#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE) && !defined(ARDUINO_AVR_NANO_EVERY) && !defined(ARDUINO_NANO_RP2040_CONNECT)
+#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE) && !defined(ARDUINO_AVR_NANO_EVERY) && !defined(ARDUINO_NANO_RP2040_CONNECT) && !defined(ARDUINO_RASPBERRY_PI_PICO)
 #include <SoftwareSerial.h>
 /* definition of the serial port pins from "pretzel board"
 for UNO 11 is not good for rx */
