@@ -655,6 +655,8 @@ typedef short index_t;
 #define SYSTYPE_AVR 	1
 #define SYSTYPE_ESP8266 2
 #define SYSTYPE_ESP32	3
+#define SYSTYPE_RP2040	4
+#define SYSTYPE_SAM	5
 #define SYSTYPE_POSIX	32
 #define SYSTYPE_MSDOS	33
 
