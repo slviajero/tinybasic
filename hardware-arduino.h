@@ -2176,9 +2176,15 @@ void dwrite(number_t p, number_t v){
 	else error(EORANGE);
 }
 
+/* we normalize the pinMode as ESP32, ESP8266, and other boards behave rather
+ *  differently. Following Arduino conventions we map 0 always to INPUT  
+ *  and 1 always to OUTPUT, all the other numbers are passed through to the HAL 
+ *  layer of the platform.
+ *  Example: OUTPUT on ESP32 is 3 and 1 is assigned to INPUT.
+ */
 void pinm(number_t p, number_t m){
-	if (m>=0 && m<=2) pinMode(p, m);
-	else error(EORANGE); 
+  if (m == 0) m=INPUT; else if (m == 1) m=OUTPUT;
+	pinMode(p, m);
 }
 
 void bmillis() {
