@@ -44,8 +44,8 @@
  * BASICMINIMAL: minimal language
  */
 #undef	BASICFULL
-#define	BASICINTEGER
-#undef 	BASICSIMPLE
+#undef	BASICINTEGER
+#define BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICTINYWITHFLOAT
 
@@ -64,7 +64,7 @@
 #define HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
-#undef HASDARKARTS
+#define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
 #define HASSTRINGARRAYS
@@ -149,7 +149,7 @@
 #ifdef BASICTINYWITHFLOAT
 #undef HASAPPLE1
 #define HASARDUINOIO
-#define HASFILEIO
+#undef HASFILEIO
 #undef HASTONE
 #undef HASPULSE
 #define HASSTEFANSEXT

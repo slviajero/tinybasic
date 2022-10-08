@@ -132,7 +132,7 @@
 #define HASARDUINOIO
 #define HASFILEIO
 #define HASTONE
-#define HASPULS
+#define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
@@ -151,7 +151,7 @@
 #define HASARDUINOIO
 #undef HASFILEIO
 #undef HASTONE
-#undef HASPULS
+#undef HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #undef HASVT52

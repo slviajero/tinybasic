@@ -86,7 +86,6 @@
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
 
-
 /* 
  * Predefined hardware configurations, this assumes that all of the 
  *	above are undef
@@ -176,7 +175,7 @@
  */
 #define EEPROMI2CADDR 0x050
 #define RTCI2CADDR 0x068
-#define EFSEEPROMSIZE 32000
+#define EFSEEPROMSIZE 32768
 
 /*
  * Sensor library code - experimental
@@ -336,14 +335,25 @@
 #define SDPIN  49
 #endif
 
-/* an ESP01 board, using the internal flash */
+/* an ESP01 board, using the internal flash 
+ *  with the ESP01-8266 only pins 0 and 2 are usable freely
+ *  on ESP01-ESP32C3 this is 9 and 2 while 2 is an analog pin
+ *  9 cannot be pulled on low by any peripheral on boot because this 
+ *  brings the board to flash mode
+ */
 #if defined(ESP01BOARD)
 #define ARDUINOEEPROM
 #define ESPSPIFFS
 #define ARDUINOMQTT
-//#define ARDUINOWIRE
-//#define SDA_PIN 0
-//#define SCL_PIN 2
+#undef ARDUINOWIRE
+#if defined(ARDUINOWIRE) && defined(ARDUINO_ARCH_ESP8266)
+#define SDA_PIN 0
+#define SCL_PIN 2
+#endif
+#if defined(ARDUINOWIRE) && defined(ARDUINO_ARCH_ESP32)
+#define SDA_PIN 9
+#define SCL_PIN 2
+#endif
 #endif
 
 /* an RP2040 based board with an ILI9488 display */
@@ -1369,13 +1379,16 @@ char c;
 /*
  * only works with the patched library https://github.com/slviajero/PS2Keyboard
  */
+#ifdef PS2KEYBOARD_HASPEEK
  return keyboard.peek();
+#else 
 /*
- * for the original library  https://github.com/PaulStoffregen/PS2Keyboard use this code 
+ * for the original library  https://github.com/PaulStoffregen/PS2Keyboard 
  * GET does not work properly with it as there is no peek functionality which is needed
  * for non blocking IO and the ability to stop programs
  */
- /* if (kbdavailable()) return kbdread(); */
+  if (kbdavailable()) return kbdread();
+#endif
 #else
 #ifdef PS2FABLIB
   if (fabgllastchar) return fabgllastchar;
