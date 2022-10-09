@@ -193,7 +193,7 @@
 #undef ARDUINOLMS6
 #undef ARDUINOAHT
 #undef ARDUINOBMP280
-#define ARDUINOBME280
+#undef ARDUINOBME280
 #endif
 
 /*
@@ -1918,6 +1918,9 @@ void mqttsetname() {
  *	network begin method 
  *	needs the settings from wifisettings.h
  * 
+ * Default is right now that Wifi is started at boot
+ * This may change in the future.
+ * 
  * Ethernet begin has to be reviewed to avoid DHCP 
  * start timeout if network is not connected
  */
@@ -1940,6 +1943,43 @@ void netbegin() {
 }
 
 /*
+ * network stop methode, needed sometime to reinit networking
+ * completely or to save power
+ * 
+ */
+void netstop() {
+#ifdef ARDUINOETH
+/* to be done */
+#else  
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+  WiFi.mode(WIFI_OFF);
+#endif
+#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD)
+  WiFi.end();
+#endif
+#endif
+}
+
+/*
+ * network reconnect methode
+ * 
+ */
+void netreconnect() {
+#ifdef ARDUINOETH
+/* */
+#else 
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+    WiFi.reconnect(); 
+    delay(1000); 
+#elif defined(ARDUINO_ARCH_SAMD)
+    WiFi.end();
+    WiFi.begin(ssid, password);
+    delay(1000);
+#endif  
+#endif
+}
+
+/*
  * network connected method
  * on ESP Wifi try to reconnect, the delay is odd 
  * This is a partial reconnect, BASIC needs to handle 
@@ -1949,15 +1989,6 @@ char netconnected() {
 #ifdef ARDUINOETH
   return bethclient.connected();
 #else
-	if (WiFi.status() != WL_CONNECTED) {  
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
-	  WiFi.reconnect(); 
-	  delay(1000); 
-#elif defined(ARDUINO_ARCH_SAMD)
-    WiFi.begin(ssid, password);
-    delay(1000);
-#endif 	
-	};
 	return(WiFi.status() == WL_CONNECTED);
 #endif
 }
@@ -2009,7 +2040,7 @@ char mqttreconnect() {
 	if (bmqtt.connected()) return true;
 
 /* try to reconnect the network */
-  if (!netconnected()) delay(5000);
+  if (!netconnected()) { netreconnect(); delay(5000); }
   if (!netconnected()) return false;
 	
 /* create a new random name right now */

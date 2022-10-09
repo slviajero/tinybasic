@@ -4658,6 +4658,7 @@ void xlist(){
 	nexttoken();
  	parsearguments();
 	if (er != 0) return;
+
 	switch (args) {
 		case 0: 
 			b=0;
@@ -5411,12 +5412,41 @@ void xset(){
  *	NETSTAT - network status command, rudimentary
  */
 void xnetstat(){
-#ifdef ARDUINOMQTT
-	if (netconnected()) outsc("Network connected \n"); else outsc("Network not connected \n");
-	outsc("MQTT state "); outnumber(mqttstate()); outcr();
- 	outsc("MQTT out topic "); outsc(mqtt_otopic); outcr();
-	outsc("MQTT inp topic "); outsc(mqtt_itopic); outcr();
-	outsc("MQTT name "); outsc(mqttname); outcr();
+#if defined(ARDUINOMQTT)
+
+	nexttoken();
+ 	parsearguments();
+	if (er != 0) return;
+	
+	switch (args) {
+		case 0: 
+			if (netconnected()) outsc("Network connected \n"); else outsc("Network not connected \n");
+			outsc("MQTT state "); outnumber(mqttstate()); outcr();
+ 			outsc("MQTT out topic "); outsc(mqtt_otopic); outcr();
+			outsc("MQTT inp topic "); outsc(mqtt_itopic); outcr();
+			outsc("MQTT name "); outsc(mqttname); outcr();
+			break;
+		case 1: 
+			ax=pop();
+			switch (ax) {
+				case 0: 
+					netstop();
+					break;
+				case 1:
+					netbegin();
+					break;
+				case 2:
+					if (!mqttreconnect()) ert=1;
+					break;
+				default:
+					error(EARGS);
+					return;
+			}
+			break;
+		default:
+			error(EARGS);
+			return;
+	}
 #endif	
 	nexttoken();		
 }
