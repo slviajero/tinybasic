@@ -71,7 +71,8 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#undef ARDUINOEEPROM
+#define ARDUINOEEPROM
+#undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -173,9 +174,12 @@
  * 0x050 this is the default lowest adress of standard EEPROMs
  * default for the size is 4096, define your EFS EEPROM size here 
  */
-#define EEPROMI2CADDR 0x050
+#define EEPROMI2CADDR 0x057
 #define RTCI2CADDR 0x068
 #define EFSEEPROMSIZE 32768
+
+/* the size of the I2C EEPROM, typically a clock */
+#define I2CEEPROMSIZE 4096
 
 /*
  * Sensor library code - experimental
@@ -183,7 +187,7 @@
 #ifdef ARDUINOSENSORS
 #undef ARDUINODHT
 #define DHTTYPE DHT22
-#define DHTPIN 3
+#define DHTPIN 2
 #undef ARDUINOSHT
 #ifdef ARDUINOSHT
 #define ARDUINOWIRE
@@ -191,7 +195,7 @@
 #undef  ARDUINOMQ2
 #define MQ2PIN A0
 #undef ARDUINOLMS6
-#undef ARDUINOAHT
+#define ARDUINOAHT
 #undef ARDUINOBMP280
 #undef ARDUINOBME280
 #endif
@@ -342,18 +346,25 @@
  *  brings the board to flash mode
  */
 #if defined(ESP01BOARD)
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #define ESPSPIFFS
 #define ARDUINOMQTT
-#undef ARDUINOWIRE
+#define ARDUINOWIRE
 #if defined(ARDUINOWIRE) && defined(ARDUINO_ARCH_ESP8266)
 #define SDA_PIN 0
 #define SCL_PIN 2
 #endif
+/* see:  https://github.com/espressif/arduino-esp32/issues/6376 
+ *  nothing should block the port, e.g. DHT or anything
+ */
 #if defined(ARDUINOWIRE) && defined(ARDUINO_ARCH_ESP32)
 #define SDA_PIN 9
 #define SCL_PIN 2
 #endif
+/*
+ *
+ * Currently only 8=SDA and 9=SCL works / tested with AHT10
+ */
 #endif
 
 /* an RP2040 based board with an ILI9488 display */
@@ -477,6 +488,12 @@ const char bsystype = SYSTYPE_UNKNOWN;
 #if defined(ARDUINOEFS)
 #define ARDUINOWIRE
 #endif
+
+/* external EEPROMs also need wire */
+#if defined(ARDUINOI2CEEPROM)
+#define ARDUINOWIRE
+#endif
+
 
 /* radio needs SPI */
 #ifdef ARDUINORF24
@@ -723,6 +740,11 @@ const char bsystype = SYSTYPE_UNKNOWN;
 #include <EepromFS.h>
 #endif
 
+#ifdef ARDUINOI2CEEPROM
+#include <EepromFS.h>
+#endif
+
+
 /*
  * incompatibilities
  * Picoserial only tested on the small boards
@@ -865,16 +887,6 @@ void activatesleep(long t) {
  */
 void spibegin() {
 #ifdef ARDUINOSPI
-/*
-#ifdef SDPIN
-  pinMode(SDPIN, OUTPUT);
-  digitalWrite(SDPIN, HIGH);
-#endif
-#ifdef ILI_CS
-  pinMode(ILI_CS, OUTPUT);
-  digitalWrite(ILI_CS, HIGH);
-#endif
-*/
 #ifdef ARDUINO_TTGO_T7_V14_Mini32
 /* this fixes the wrong board definition in the ESP32 core for this board */
   SPI.begin(14, 2, 12, 13);
@@ -999,21 +1011,26 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
  */ 
 #ifdef ARDUINOSSD1306
 #define DISPLAYDRIVER
-#define SSD1306WIDTH 64
+#define SSD1306WIDTH 32
 #define SSD1306HEIGHT 128
 /* constructors may look like this, last argument is the reset pin
  * //U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
  * //U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0,  SCL, SDA, U8X8_PIN_NONE);  
  */
 #if SSD1306WIDTH == 32
-U8G2_SSD1306_128X32_UNIVISION_F_SW_I2C u8g2(U8G2_R0, SCL, SDA, U8X8_PIN_NONE);
+/* U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, SCL, SDA, U8X8_PIN_NONE); 
+ * use hardware I2C instead of software. Tested (only) on ESP32C3 and ESP8266 so far.
+ */
+U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0);
 #endif
 #if SSD1306WIDTH == 64
 /* the Heltec board has an internal software I2C on pins 4=SDA and 15=SCL */
 #ifdef ARDUINO_heltec_wifi_lora_32_V2
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, 15, 4, 16); 
 #else 
-U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, SCL, SDA, U8X8_PIN_NONE); 
+/* use hardware I2C instead of software. Tested (only) on ESP32C3 and ESP8266 so far.
+ */
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0); 
 #endif
 #endif
 const char dspfontsize = 8;
@@ -1851,8 +1868,9 @@ void rtcset(char i, short v) {
  * for details. Here the most common parameters are set as a default.
 */
 #ifdef ARDUINOEFS
+#undef ARDUINOI2CEEPROM
 #ifndef EFSEEPROMSIZE
-#define EFSEEPROMSIZE 4096
+#define EFSEEPROMSIZE 32768
 #endif
 #ifndef EEPROMI2CADDR
 #define EEPROMI2CADDR 0x50
@@ -1860,6 +1878,21 @@ void rtcset(char i, short v) {
 EepromFS EFS(EEPROMI2CADDR, EFSEEPROMSIZE);
 #endif
 
+/* 
+ * External EEPROM is handled through an EFS filesystem object in raw mode
+ * see https://github.com/slviajero/EepromFS 
+ * for details. Here the most common parameters are set as a default.
+*/
+
+#ifdef ARDUINOI2CEEPROM
+#ifndef I2CEEPROMSIZE
+#define I2CEEPROMSIZE 32768
+#endif
+#ifndef EEPROMI2CADDR
+#define EEPROMI2CADDR 0x50
+#endif
+EepromFS EFSRAW(EEPROMI2CADDR, EFSEEPROMSIZE);
+#endif
 
 /*
  * definitions for ESP Wifi and MQTT, super experimental.
@@ -2151,16 +2184,24 @@ char mqttinch() {return 0;};
  */ 
 void ebegin(){
 /* this is the EEPROM dummy */
-#if ( defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM)
+#if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM)
   EEPROM.begin(EEPROMSIZE);
+#endif
+/* there also can be a raw EFS object in parallel */
+#if defined(ARDUINOI2CEEPROM)
+  EFSRAW.begin();
 #endif
 }
 
 void eflush(){
 /* code for the EEPROM dummy */
-#if ( defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM) 
+#if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM) 
   EEPROM.commit();
 #endif 
+/* flushing the I2C EEPROM */
+#if defined(ARDUINOI2CEEPROM)
+  EFSRAW.rawflush();
+#endif
 }
 
 #if defined(ARDUINOEEPROM)
@@ -2186,14 +2227,29 @@ void eupdate(address_t a, short c) {
 #endif
 }
 
-short eread(address_t a) { return (signed char) EEPROM.read(a); }
-#endif
+short eread(address_t a) { 
+  return (signed char) EEPROM.read(a); 
+}
+#else 
+#if defined(ARDUINOI2CEEPROM)
 
+address_t elength() { 
+  return I2CEEPROMSIZE;
+}
+
+void eupdate(address_t a, short c) { 
+  EFSRAW.rawwrite(a, c);
+}
+
+short eread(address_t a) { 
+  return (signed char) EFSRAW.rawread(a); 
+}
+#else
 /* no EEPROM present */
-#if ! defined(ARDUINOEEPROM)
 address_t elength() { return 0; }
 void eupdate(address_t a, short c) { return; }
 short eread(address_t a) { return 0; }
+#endif
 #endif
 
 /* 
@@ -3016,7 +3072,11 @@ char wirerequestbuffer[ARDUINOWIREBUFFER];
 short wirerequestchars = 0;
 #endif
 
-/* default begin is as a master */
+/* default begin is as a master 
+ * This doesn't work properly on the ESP32C3 platform
+ * See  https://github.com/espressif/arduino-esp32/issues/6376 
+ * for more details
+ */
 void wirebegin() {
 #ifndef SDA_PIN   
 	Wire.begin();
