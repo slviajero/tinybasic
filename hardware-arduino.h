@@ -50,11 +50,12 @@
  *
  * input/output methods USERPICOSERIAL, ARDUINOPS2
  *	ARDUINOPRT, DISPLAYCANSCROLL, ARDUINOLCDI2C,
- *	ARDUINOTFT
- *	storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS
- *	sensors ARDUINORTC, ARDUINOWIRE, ARDUINOSENSORS
- *	network ARDUINORF24, ARDUNIOMQTT 
- *  memory ARDUINOSPIRAM
+ *	ARDUINOTFT, ARDUINONOKIA51, ARDUINOILI9488,
+ *  ARDUINOSSD1306, ARDUINOMCUFRIEND
+ * storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS
+ * sensors ARDUINORTC, ARDUINOWIRE, ARDUINOSENSORS
+ * network ARDUINORF24, ARDUNIOMQTT 
+ * memory ARDUINOSPIRAM
  *
  *	leave this unset if you use the definitions below
  */
@@ -68,6 +69,8 @@
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
+#undef ARDUINOMCUFRIEND
+#undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
@@ -195,7 +198,7 @@
 #undef  ARDUINOMQ2
 #define MQ2PIN A0
 #undef ARDUINOLMS6
-#define ARDUINOAHT
+#undef ARDUINOAHT
 #undef ARDUINOBMP280
 #undef ARDUINOBME280
 #endif
@@ -531,7 +534,7 @@ const char bsystype = SYSTYPE_UNKNOWN;
  * language setting 
  * this is odd and can be removed later on
  */
-#if !defined(ARDUINOTFT) && !defined(ARDUINOVGA) && !defined(ARDUINOILI9488) && !defined(ARDUINONOKIA51) && !defined(ARDUINOSSD1306)
+#if !defined(ARDUINOTFT) && !defined(ARDUINOVGA) && !defined(ARDUINOILI9488) && !defined(ARDUINONOKIA51) && !defined(ARDUINOSSD1306) && !defined(ARDUINOMCUFRIEND) && !defined(ARDUINOGRAPHDUMMY)
 #undef HASGRAPH
 #endif
 
@@ -612,12 +615,23 @@ const char bsystype = SYSTYPE_UNKNOWN;
 /*
  * This is the (old) ILI9488 library originally created by Jarett Burket
  * https://github.com/slviajero/ILI9488
- * It can harware scroll.
+ * It can hardware scroll (not yet used)
  */
 #ifdef ARDUINOILI9488
 #include <Adafruit_GFX.h>
 #include <ILI9488.h>
 #endif
+
+/*
+ * This is the MCUFRIED library originally for parallel TFTs
+ * https://github.com/prenticedavid/MCUFRIEND_kbv
+ * 
+ */
+#ifdef ARDUINOMCUFRIEND
+#include <Adafruit_GFX.h>
+#include <MCUFRIEND_kbv.h>
+#endif
+
 
 /*
  * For TFT we use the UTFT library
@@ -831,6 +845,9 @@ long freememorysize() {
 #ifdef ARDUINOETH
   overhead+=256;
 #endif
+#ifdef HASGRAPH
+  overhead+=256; /* a bit on the safe side */
+#endif
   return freeRam() - overhead;
 #endif
 #if defined(ARDUINO_NANO_RP2040_CONNECT) || defined(ARDUINO_RASPBERRY_PI_PICO)
@@ -847,6 +864,7 @@ void(* callzero)() = 0;
 #endif
 
 void restartsystem() {
+    eflush(); /* if there is a I2C eeprom dummy, flush the buffer */
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   ESP.restart();
 #endif
@@ -868,6 +886,7 @@ void restartsystem() {
 #endif
 
 void activatesleep(long t) {
+  eflush(); /* if there is a I2C eeprom dummy, flush the buffer */
 #if defined(ARDUINO_ARCH_ESP8266)
   ESP.deepSleep(t*1000);
 #endif
@@ -1053,10 +1072,11 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
 #endif
 
 /* 
- * A ILI9488 with Jarett Burkets version of Adafruit GFX
+ * A ILI9488 with Jarett Burkets version of Adafruit GFX and patches
+ * by Stefan Lenz
  * currently only slow software scrolling implemented in BASIC
- * although the library can do more
- * https://github.com/jaretburkett/ILI9488
+ * 
+ * https://github.com/slviajero/ILI9488
  * 
  * we use 9, 8, 7 as CS, CE, RST by default and A7 for the led brightness control
  */ 
@@ -1109,6 +1129,98 @@ void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, x0, x1, y1, dspfg
 void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r, dspfgcolor); }
 void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
 #endif
+
+/* 
+ * A MCUFRIEND parallel port display for the various tft shields 
+ * This implementation is mainly for Arduino MEGA
+ * 
+ * currently only slow software scrolling implemented in BASIC
+ * 
+ */ 
+
+#ifdef ARDUINOMCUFRIEND
+#define DISPLAYDRIVER
+#ifndef LCD_CS
+#define LCD_CS  A3
+#endif
+#ifndef LCD_CD
+#define LCD_CD  A2
+#endif
+#ifndef LCD_WR
+#define LCD_WR  A1
+#endif
+#ifndef LCD_RD
+#define LCD_RD  A0
+#endif
+#ifndef LCD_RESET
+#define LCD_RESET A4
+#endif
+MCUFRIEND_kbv tft;
+/* ILI in landscape */
+const int dsp_rows=20;
+const int dsp_columns=30;
+char dspfontsize = 16;
+uint16_t dspfgcolor = 0xFFFF;
+uint16_t dspbgcolor = 0x0000;
+void dspbegin() { 
+  uint16_t ID = tft.readID();
+  if (ID == 0xD3D3) ID = 0x9481; /* write-only shield - taken from the MCDFRIEND demo */
+  tft.begin(ID); 
+  tft.setRotation(3); /* ILI in landscape, SD slot on the side */
+  tft.setTextColor(dspfgcolor);
+  tft.setTextSize(2);
+  tft.fillScreen(dspbgcolor); 
+  dspsetscrollmode(1, 4);
+ }
+void dspprintchar(char c, short col, short row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
+void dspclear() { tft.fillScreen(dspbgcolor); }
+void dspupdate() {}
+void rgbcolor(int r, int g, int b) { dspfgcolor=tft.color565(r, g, b);}
+void vgacolor(short c) {  
+  short base=128;
+  if (c==8) { rgbcolor(64, 64, 64); return; }
+  if (c>8) base=255;
+  rgbcolor(base*(c&1), base*((c&2)/2), base*((c&4)/4)); 
+}
+void plot(int x, int y) { tft.drawPixel(x, y, dspfgcolor); }
+void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1, dspfgcolor); }
+void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, x0, x1, y1, dspfgcolor);}
+void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, x0, x1, y1, dspfgcolor); }
+void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r, dspfgcolor); }
+void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
+#endif
+
+/* 
+ * A no operations graphics dummy  
+ * Tests the BASIC side of the graphics code without triggering 
+ * any output
+ */ 
+#ifdef ARDUINOGRAPHDUMMY
+#define DISPLAYDRIVER
+const int dsp_rows=20;
+const int dsp_columns=30;
+char dspfontsize = 16;
+uint16_t dspfgcolor = 0xFFFF;
+uint16_t dspbgcolor = 0x0000;
+void dspbegin() { dspsetscrollmode(1, 4); }
+void dspprintchar(char c, short col, short row) { }
+void dspclear() { }
+void dspupdate() {}
+void rgbcolor(int r, int g, int b) { dspfgcolor=0; }
+void vgacolor(short c) {  
+  short base=128;
+  if (c==8) { rgbcolor(64, 64, 64); return; }
+  if (c>8) base=255;
+  rgbcolor(base*(c&1), base*((c&2)/2), base*((c&4)/4)); 
+}
+void plot(int x, int y) { }
+void line(int x0, int y0, int x1, int y1)   { }
+void rect(int x0, int y0, int x1, int y1)   { }
+void frect(int x0, int y0, int x1, int y1)  {  }
+void circle(int x0, int y0, int r) {  }
+void fcircle(int x0, int y0, int r) {  }
+#endif
+
 
 /*
  * SD1963 TFT display code with UTFT.

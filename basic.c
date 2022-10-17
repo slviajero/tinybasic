@@ -325,6 +325,8 @@ void esave() {
 		error(EOUTOFMEMORY);
 		er=0; //oh oh! check this.
 	}
+/* needed on I2C EEPROM and other platforms where we buffer */
+  eflush();
 }
 
 /* load a file from EEPROM */
@@ -3419,7 +3421,7 @@ void factor(){
 			nexttoken();
 			expression();
 			if (er != 0 ) return;
-			if (token != ')') { error(EARGS); return; }
+			if (token != ')') { error(EARGS); return; } 
 			break;
 /* Palo Alto BASIC functions */
 		case TABS: 
@@ -4725,7 +4727,6 @@ void xrun(){
 		is exhausted. Then we return to interactive mode. */
 	statement();
 	st=SINT;
-
 /* flush the EEPROM when changing to interactive mode */
 	eflush();
 
@@ -6805,11 +6806,23 @@ void statement(){
 		}
 /* after each statement we check on a break character 
 		on an Arduino entering "#" at runtime stops the program */
-		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;}; 
+		if (checkch() == BREAKCHAR) {
+			st=SINT; 
+			xc=inch(); 
+			return;
+		}; 
 
 /* yield after each statement which is a 30-100 microsecond cycle 
 		ALL backgriund tasks are handled in byield */
 		byield();
+
+/* interrupt handling - not yet implemented, only stubs*/
+#ifdef HASINTERRUPTS
+    if (interruptvector) {
+      handleinterrupt();
+      interruptvector=0;
+    }
+#endif
 
 /* when an error is encountred the statement loop is ended */
 		if (er) return;

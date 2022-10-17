@@ -43,9 +43,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define	BASICFULL
+#undef	BASICFULL
 #undef	BASICINTEGER
-#undef	BASICSIMPLE
+#define	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICTINYWITHFLOAT
 
@@ -325,6 +325,8 @@ void esave() {
 		error(EOUTOFMEMORY);
 		er=0; //oh oh! check this.
 	}
+/* needed on I2C EEPROM and other platforms where we buffer */
+  eflush();
 }
 
 /* load a file from EEPROM */
@@ -332,6 +334,7 @@ void eload() {
 	address_t a=0;
 	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
 		a++;
+
 
 		/* how long is it? */
 		egetnumber(a, addrsize);
@@ -478,6 +481,7 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 		return bfinda;
 	}
 
+
 	while (i < nvars) { 
 
 /*
@@ -513,6 +517,7 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 			bfinda=b+1;
 			return b+1;
 		}
+      
 		i++;
 	}
 
@@ -5435,9 +5440,9 @@ void xnetstat(){
 				case 1:
 					netbegin();
 					break;
-        case 2:
-          if (!mqttreconnect()) ert=1;
-          break;
+				case 2:
+					if (!mqttreconnect()) ert=1;
+					break;
 				default:
 					error(EARGS);
 					return;
@@ -6805,11 +6810,23 @@ void statement(){
 		}
 /* after each statement we check on a break character 
 		on an Arduino entering "#" at runtime stops the program */
-		if (checkch() == BREAKCHAR) {st=SINT; xc=inch(); return;}; 
+		if (checkch() == BREAKCHAR) {
+			st=SINT; 
+			xc=inch(); 
+			return;
+		}; 
 
 /* yield after each statement which is a 30-100 microsecond cycle 
 		ALL backgriund tasks are handled in byield */
 		byield();
+
+/* interrupt handling - not yet implemented, only stubs*/
+#ifdef HASINTERRUPTS
+    if (interruptvector) {
+      handleinterrupt();
+      interruptvector=0;
+    }
+#endif
 
 /* when an error is encountred the statement loop is ended */
 		if (er) return;
