@@ -823,6 +823,11 @@ static mem_t bfindc, bfindd, bfindt;
 static address_t bfinda, bfindz;
 #endif
 
+/* the interrupt vector - not yet implemented */
+#ifdef HASINTERRUPTS
+static short interruptvector;
+#endif
+
 /* 
  * Function prototypes, ordered by layers
  * HAL - hardware abstraction
@@ -1277,3 +1282,6 @@ void xon();
 
 /* the statement loop */
 void statement();
+
+/* stub for the interrupt code */
+void handleinterrupt();

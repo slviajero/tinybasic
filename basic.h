@@ -655,8 +655,8 @@ typedef short index_t;
 #define SYSTYPE_AVR 	1
 #define SYSTYPE_ESP8266 2
 #define SYSTYPE_ESP32	3
-#define SYSTYPE_RP2040	4
-#define SYSTYPE_SAM	5
+#define SYSTYPE_RP2040 4
+#define SYSTYPE_SAM 5
 #define SYSTYPE_POSIX	32
 #define SYSTYPE_MSDOS	33
 
@@ -821,6 +821,11 @@ static mem_t spaceafterkeyword;
 #ifdef HASAPPLE1
 static mem_t bfindc, bfindd, bfindt;
 static address_t bfinda, bfindz;
+#endif
+
+/* the interrupt vector - not yet implemented */
+#ifdef HASINTERRUPTS
+static short interruptvector;
 #endif
 
 /* 
@@ -1277,3 +1282,6 @@ void xon();
 
 /* the statement loop */
 void statement();
+
+/* stub for the interrupt code */
+void handleinterrupt();
