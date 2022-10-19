@@ -69,7 +69,7 @@
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
-#undef ARDUINOMCUFRIEND
+#define ARDUINOMCUFRIEND
 #undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
@@ -123,6 +123,10 @@
  *    A ILI9488 hardware design based on an Arduino connect RP2040.
  * RP2040BOARD2:
  *  like the one above but based on the Pi Pico core
+ * ESP32BOARD:
+ *  same like above with an ESP32 core
+ * MKRBOARD:
+ *   a digital signage and low energy board
  */
 
 #undef UNOPLAIN
@@ -169,6 +173,14 @@
 /* use standard I2C pins almost always */
 #undef SDA_PIN
 #undef SCL_PIN
+
+/* 
+ *  this is soft SPI for SD cards on MEGAs using 
+ *  pins 10-13, a patched SD library is needed 
+ *  for this: https://github.com/slviajero/SoftSD
+ *  only needed for MEGA boards with a UNO shield
+ */
+#undef SOFTWARE_SPI_FOR_SD
 
 /* 
  *  list of default i2c addresses
@@ -692,12 +704,18 @@ const char bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 /*
- * SD filesystems with the standard SD driver, tested 
- * on AVR and ESP
+ * SD filesystems with the standard SD driver
+ * for MEGA 256 a soft SPI solution is needed 
+ * if standard shields are used, this is a patched
+ * SD library https://github.com/slviajero/SoftSD
  */
 #ifdef ARDUINOSD
 #define FILESYSTEMDRIVER
+#if defined(SOFTWARE_SPI_FOR_SD)
+#include <SoftSD.h>
+#else
 #include <SD.h>
+#endif
 #endif
 
 /*
@@ -3609,8 +3627,12 @@ number_t sensorread(short s, short v) {return 0;};
 #ifdef ARDUINOSPIRAM
 #define USEMEMINTERFACE
 
+/* 
+ *  we use the standard slave select pin as default 
+ *  RAMPIN
+ */
 #ifndef RAMPIN
-#define RAMPIN 10
+#define RAMPIN SS
 #endif
 
 #define SPIRAMWRMR  1 
