@@ -33,7 +33,7 @@
  *  ARDUINO_AVR_MEGA2560, ARDUARDUINO_SAM_DUE: second serial port is Serial1 - no software serial
  *  ARDUINO_SAM_DUE: hardware heuristics
  *  ARDUINO_ARCH_AVR: nothing
- *  ARDUINO_AVR_LARDU_328E: odd EEPROM code, seems to work, somehow
+ *  ARDUINO_ARCH_LGT8F: EEPROM code for flash EEPROM - platform fully supported now, yet no call 0
  *  ARDUINO_ARCH_ESP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
  *
  * The code still contains hardware heuristics from my own projects, 
@@ -69,7 +69,7 @@
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
-#define ARDUINOMCUFRIEND
+#undef ARDUINOMCUFRIEND
 #undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
@@ -189,7 +189,7 @@
  * 0x050 this is the default lowest adress of standard EEPROMs
  * default for the size is 4096, define your EFS EEPROM size here 
  */
-#define EEPROMI2CADDR 0x057
+#define EEPROMI2CADDR 0x050
 #define RTCI2CADDR 0x068
 #define EFSEEPROMSIZE 32768
 
@@ -824,7 +824,7 @@ long freeRam() {
   char top;
   return &top - reinterpret_cast<char*>(sbrk(0));
 }
-#elif defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
+#elif defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_LGT8F)
 long freeRam() {
   extern int __heap_start,*__brkval;
   int v;
@@ -849,7 +849,7 @@ long freememorysize() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
   return freeRam() - 4000;
 #endif
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM)
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_LGT8F)
   int overhead=192;
 #ifdef ARDUINOWIRE
   overhead+=128;
@@ -877,7 +877,7 @@ long freememorysize() {
 /* 
  * the sleep and restart functions - only implemented for some controllers
  */
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) 
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
 void(* callzero)() = 0;
 #endif
 
@@ -886,8 +886,10 @@ void restartsystem() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   ESP.restart();
 #endif
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) 
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
   callzero();
+#endif
+#if defined(ARDUINO_ARCH_LGT8F)
 #endif
 }
 
@@ -2340,17 +2342,17 @@ address_t elength() {
   return EEPROMSIZE;
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
-#ifndef ARDUINO_AVR_LARDU_328E
   return EEPROM.length(); 
-#else 
-  return 512;
 #endif
+#ifdef ARDUINO_ARCH_LGT8F 
+  return EEPROM.length(); 
+  //return 512;
 #endif
   return 0;
 }
 
 void eupdate(address_t a, short c) { 
-#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)|| defined(ARDUINO_AVR_LARDU_328E)
+#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F)
   EEPROM.write(a, c);
 #else
   EEPROM.update(a, c); 
