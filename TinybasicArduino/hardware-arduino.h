@@ -63,6 +63,7 @@
 #undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOUSBKBD
+#define ARDUINOZX81KBD
 #undef ARDUINOPRT
 #undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
@@ -173,6 +174,14 @@
 /* use standard I2C pins almost always */
 #undef SDA_PIN
 #undef SCL_PIN
+
+/* 
+ *  Pin settings for the ZX81 Keyboard
+ *  first the 8 rows, then the 5 columns or the keyboard
+ */
+#ifdef ARDUINOZX81KBD
+const char zx81pins[] = {7, 8, 9, 10, 11, 12, 13, A0, 2, 3, 4, 5, 6 };
+#endif
 
 /* 
  *  this is soft SPI for SD cards on MEGAs using 
@@ -561,9 +570,17 @@ const char bsystype = SYSTYPE_UNKNOWN;
 
 /*
  * The USB keyboard code - tested only on DUE and the like
+ * not really good 
  */
 #ifdef ARDUINOUSBKBD
 #include <KeyboardController.h>
+#endif
+
+/*
+ * The ZX81 keyboard code - tested on AVR 
+ */
+#ifdef ARDUINOZX81KBD
+#include <ZX81Keyboard.h>
 #endif
 
 /*
@@ -602,7 +619,6 @@ const char bsystype = SYSTYPE_UNKNOWN;
 #ifdef ARDUINOWIRE
 #include <Wire.h>
 #endif
-
 
 /* 
  * the display library includes for LCD
@@ -859,6 +875,9 @@ long freememorysize() {
 #endif
 #ifdef ARDUINOSD
   overhead+=512;
+#endif
+#ifdef ARDUINOZX81KBD
+  overhead+=64;
 #endif
 #ifdef ARDUINOETH
   overhead+=256;
@@ -1433,10 +1452,19 @@ PS2Keyboard keyboard;
 USBHost usb;
 KeyboardController keyboard(usb);
 char usbkey=0;
+#else 
+#if defined(ARDUINOZX81KBD)
+#define HASKEYBOARD
+#define ZX81KEYBOARD
+ZX81Keyboard keyboard;
+#endif
 #endif
 #endif
 #endif
 
+/*
+ * Experimental, unfinished, don't use 
+ */
 #if defined(ARDUINOUSBKBD)
 void keyPressed() {}
 void keyReleased() {
@@ -1468,6 +1496,10 @@ void kbdbegin() {
 #else 
 #ifdef USBKEYBOARD
 /* nothing to be done here */
+#else
+#ifdef ZX81KEYBOARD
+  keyboard.begin(zx81pins);
+#endif
 #endif
 #endif
 #endif
@@ -1487,6 +1519,10 @@ char kbdavailable(){
   if (usbkey) return 1; 
 /* if not, look it up */
   if (usbkey) return 1; else return 0;
+#else
+#ifdef ZX81KEYBOARD
+  return keyboard.available();
+#endif
 #endif
 #endif
 #endif
@@ -1497,9 +1533,9 @@ char kbdavailable(){
 }
 
 char kbdread() {
-	char c;
-	while(!kbdavailable()) byield();
-#ifdef PS2KEYBOARD	
+  char c;
+  while(!kbdavailable()) byield();
+#ifdef PS2KEYBOARD  
 	c=keyboard.read();
 #endif
 #ifdef PS2FABLIB
@@ -1510,6 +1546,10 @@ char kbdread() {
 /* if we have read a key before, return it else look it up */
   c=usbkey; 
   usbkey=0; 
+#else
+#ifdef ZX81KEYBOARD
+  c=keyboard.read();
+#endif
 #endif
 #endif
 #ifdef HASKEYPAD
@@ -1545,6 +1585,10 @@ char c;
 #else 
 #ifdef USBKEYBOARD
   return usbkey;
+#else 
+#ifdef ZX81KEYBOARD
+  if (kbdavailable()) return keyboard.lastKey; else return 0;
+#endif
 #endif
 #endif
 #endif
@@ -2443,7 +2487,7 @@ void btone(short a) {
 	x=pop();
 	y=pop();
 #if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_ESP32)
-#if defined(ARDUINO_TTGO_T7_V14_Mini32) 
+#if defined(ARDUINO_TTGO_T7_V14_Mini32) && defined(HASTONE)
 /* fabGL soundgenerator code of suggestes by testerrossa
  * pin numbers below 128 are real arduino pins while 
  * pin numvers from 128 onwards are sound generator capabilities
