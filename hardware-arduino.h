@@ -180,7 +180,8 @@
  *  first the 8 rows, then the 5 columns or the keyboard
  */
 #ifdef ARDUINOZX81KBD
-const char zx81pins[] = {7, 8, 9, 10, 11, 12, 13, A0, 2, 3, 4, 5, 6 };
+  const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
+  //const byte zx81pins[] = {37, 35, 33, 31, 29, 27, 25, 23, 47, 45, 43, 41, 39};
 #endif
 
 /* 
@@ -310,8 +311,8 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, 13, A0, 2, 3, 4, 5, 6 };
  */
 #if defined(DUETFT)
 #undef  ARDUINOEEPROM
-#define ARDUINOPS2
-#undef ARDUINOUSBKBD
+#undef ARDUINOPS2
+#define ARDUINOUSBKBD
 #define DISPLAYCANSCROLL
 #define ARDUINOTFT
 #define ARDUINOSD
@@ -1205,7 +1206,7 @@ void dspbegin() {
   uint16_t ID = tft.readID();
   if (ID == 0xD3D3) ID = 0x9481; /* write-only shield - taken from the MCDFRIEND demo */
   tft.begin(ID); 
-  tft.setRotation(3); /* ILI in landscape, SD slot on the side */
+  tft.setRotation(1); /* ILI in landscape, 3: SD slot on right the side */
   tft.setTextColor(dspfgcolor);
   tft.setTextSize(2);
   tft.fillScreen(dspbgcolor); 
@@ -1463,9 +1464,35 @@ ZX81Keyboard keyboard;
 #endif
 
 /*
- * Experimental, unfinished, don't use 
+ * Experimental, unfinished, rudimentary
  */
 #if defined(ARDUINOUSBKBD)
+/* not really needed, only here for reference */
+char usbkeymapUS[] = 
+{' ', '"', '!', '#', '$', '%', '&', '\'', '(', ')', '*', '+', 
+ ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', 
+ '8', '9', ':', ';', '<', '=', '>', '?', '@', 'A', 'B', 'C', 
+ 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 
+ 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', 
+ '\\', ']', '^', '_', '`', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 
+ 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+ 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', 0, 0};
+/* map the ASCII codes of the essential keys for BASIC of a
+ *  German keyboard, most notable is < and > which is ö/a
+ */
+char usbkeymapGerman[] = 
+{' ', '!',  '!', '#', '$', '%', '/', '>', ')', '=', '(', '+', 
+ ',', '-', '.', '-', '0', '1', '2', '3', '4', '5', '6', '7', 
+ '8', '9', ':', '<', ';', '=', ':', '_', '"', 'A', 'B', 'C', 
+ 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 
+ 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Z', 'Y', '[', 
+ '#', '+', '&', '?', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 
+ 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+ 't', 'u', 'v', 'w', 'x', 'z', 'y', '{', '\'', '*', 0, 0};
+
+/*
+ * he weak functions from the keyboard controller class implemented
+ */
 void keyPressed() {}
 void keyReleased() {
   switch (keyboard.getOemKey()) {
@@ -1481,6 +1508,7 @@ void keyReleased() {
       break;
     default:
       usbkey=keyboard.getKey(); 
+      if (usbkey>31 && usbkey<128) usbkey=usbkeymapGerman[usbkey-32]; 
   }
 }
 #endif
