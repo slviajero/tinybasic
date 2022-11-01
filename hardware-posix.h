@@ -25,6 +25,9 @@
 /* simulates SPI RAM, only test code, keep undefed if you don't want to do something special */
 #undef SPIRAMSIMULATOR
 
+/* use a serial port as printer interface */
+#define ARDUINOPRT
+
 
 #if ! defined(ARDUINO) && ! defined(__HARDWAREH__)
 #define __HARDWAREH__ 
@@ -475,14 +478,108 @@ void consins(char *b, short nb) {
 	b[0]=(unsigned char)z.a;
 }
 
-/* handling the second serial interface */
+/* 
+ * handling the second serial interface - only done on Mac so far 
+ * 
+ * Tried to learn from https://www.pololu.com/docs/0J73/15.5
+ *
+ */
+#ifdef ARDUINOPRT
+#include <fcntl.h>
+#include <termios.h>
+
+int prtfile;
+
+/* hardware related settings */
+const char prtport[] = "/dev/cu.wchusbserial1420";
+
+/* the buffer to read one character */
+char prtbuf = 0;
+
+void prtbegin() {
+
+/* try to open the device file */
+	prtfile=open(prtport, O_RDWR | O_NOCTTY);
+	if (prtfile == -1) {
+		perror(prtport);
+		return;
+	} 
+
+/* configure the device */
+	struct termios opt;
+	(void) tcgetattr(prtfile, &opt);
+
+
+/* raw terminal settings
+  opt.c_iflag &= ~(INLCR | IGNCR | ICRNL | IXON | IXOFF);
+  opt.c_oflag &= ~(ONLCR | OCRNL);
+  opt.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+*/
+
+/* timeout settings on read 100ms, read every character */
+  opt.c_cc[VTIME] = 1;
+  opt.c_cc[VMIN] = 0;
+
+/* set the baudrate */
+  cfsetospeed(&opt, B9600);
+  cfsetispeed(&opt, cfgetospeed(&opt));
+
+/* set the termin attributes */
+  tcsetattr(prtfile, TCSANOW, &opt);
+}
+
+int prtstat(char c) {return 1; }
+void prtset(int s) {}
+
+/* write the characters byte by byte */
+void prtwrite(char c) {
+	int i=write(prtfile, &c, 1);
+	if (i != 1) ert=1;
+}
+
+/* read just one byte, map no bytes to EOF = -1 */
+char prtread() {
+	char c;
+
+/* something in the buffer? return it! */
+	if (prtbuf) {
+		c=prtbuf;
+		prtbuf=0;
+	} else {
+/* try to read */
+		int i=read(prtfile, &c, 1);
+		if (i < 0) {
+			ert=1;
+			return 0;
+		} 
+		if (i == 0) return -1;
+	}
+	return c;
+}
+
+/* not yet implemented */
+short prtcheckch(){ 
+	if (!prtbuf) { /* try to read */
+		int i=read(prtfile, &prtbuf, 1);
+		if (i <= 0) prtbuf=0;
+	}
+	return prtbuf; 
+}
+
+short prtavailable(){ 
+	return prtcheckch()!=0; 
+}
+
+#else
 void prtbegin() {}
 int prtstat(char c) {return 0; }
 void prtset(int s) {}
 void prtwrite(char c) {}
 char prtread() {return 0;}
-short prtcheckch(){ return FALSE; }
+short prtcheckch(){ return 0; }
 short prtavailable(){ return 0; }
+#endif
+
 
 /* 
  * The wire code 
