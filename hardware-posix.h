@@ -25,8 +25,8 @@
 /* simulates SPI RAM, only test code, keep undefed if you don't want to do something special */
 #undef SPIRAMSIMULATOR
 
-/* use a serial port as printer interface */
-#define ARDUINOPRT
+/* use a serial port as printer interface - unfinished */
+#undef ARDUINOPRT
 
 
 #if ! defined(ARDUINO) && ! defined(__HARDWAREH__)
