@@ -26,7 +26,7 @@
 #undef SPIRAMSIMULATOR
 
 /* use a serial port as printer interface - unfinished */
-#undef ARDUINOPRT
+#define ARDUINOPRT
 
 
 #if ! defined(ARDUINO) && ! defined(__HARDWAREH__)
@@ -480,6 +480,7 @@ void consins(char *b, short nb) {
 
 /* 
  * handling the second serial interface - only done on Mac so far 
+ * test code
  * 
  * Tried to learn from https://www.pololu.com/docs/0J73/15.5
  *
@@ -488,22 +489,26 @@ void consins(char *b, short nb) {
 #include <fcntl.h>
 #include <termios.h>
 
+/* the file name of the printer port */
 int prtfile;
-
-/* hardware related settings */
-const char prtport[] = "/dev/cu.wchusbserial1420";
 
 /* the buffer to read one character */
 char prtbuf = 0;
 
-void prtbegin() {
+
+void prtbegin() {}
+
+char prtopen(char* filename, int mode) {
 
 /* try to open the device file */
-	prtfile=open(prtport, O_RDWR | O_NOCTTY);
+	prtfile=open(filename, O_RDWR | O_NOCTTY);
 	if (prtfile == -1) {
-		perror(prtport);
-		return;
+		perror(filename);
+		return 0;
 	} 
+
+/* get rid of garbage */
+	tcflush(prtfile, TCIOFLUSH);
 
 /* configure the device */
 	struct termios opt;
@@ -521,11 +526,24 @@ void prtbegin() {
   opt.c_cc[VMIN] = 0;
 
 /* set the baudrate */
-  cfsetospeed(&opt, B9600);
+  switch (mode) {
+  	case 9600: 
+			cfsetospeed(&opt, B9600);
+			break;
+		default:
+			cfsetospeed(&opt, B9600);
+			break;
+  }
   cfsetispeed(&opt, cfgetospeed(&opt));
 
 /* set the termin attributes */
   tcsetattr(prtfile, TCSANOW, &opt);
+
+	return 1;
+}
+
+void prtclose() {
+	if (prtfile) close(prtfile);
 }
 
 int prtstat(char c) {return 1; }

@@ -3224,6 +3224,10 @@ void prtbegin() {
 	Serial1.begin(serial1_baudrate);
 }
 
+/* the open functions are not needed here */
+char prtopen(char* filename, int mode) {}
+void prtclose() {}
+
 int prtstat(char c) {
   if (c == 0) return 1;
   if (c == 1) return serial1_baudrate;

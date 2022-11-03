@@ -5867,7 +5867,7 @@ void xopen() {
 #if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE) 
 	char stream = IFILE; // default is file operation
 	char filename[SBUFSIZE];
-	char mode;
+	int mode;
 
 /* which stream do we open? default is FILE */
 	nexttoken();
@@ -5890,6 +5890,7 @@ void xopen() {
 		parsearguments();
 	}
 
+/* getting an argument, no argument is read, i.e. mode 0 */
 	if (args == 0 ) { 
 		mode=0; 
 	} else if (args == 1) {
@@ -5899,6 +5900,13 @@ void xopen() {
 		return;
 	}
 	switch(stream) {
+#ifdef ARDUINOPRT
+		case ISERIAL1:
+			prtclose();
+			if (mode == 0) mode=9600;
+			if (prtopen(filename, mode)) ert=0; else ert=1;
+			break;
+#endif
 #ifdef FILESYSTEMDRIVER
 		case IFILE:
 			switch (mode) {
