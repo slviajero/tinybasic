@@ -64,7 +64,7 @@
 #undef ARDUINOPS2
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
-#undef ARDUINOPRT
+#define ARDUINOPRT
 #undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
@@ -3223,6 +3223,10 @@ SoftwareSerial Serial1(software_serial_rx, software_serial_tx);
 void prtbegin() {
 	Serial1.begin(serial1_baudrate);
 }
+
+/* the open functions are not needed here */
+char prtopen(char* filename, int mode) {}
+void prtclose() {}
 
 int prtstat(char c) {
   if (c == 0) return 1;

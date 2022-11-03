@@ -975,6 +975,8 @@ void consins(char*, short);
 void prtbegin();
 int prtstat(char);
 void prtset(int);
+char prtopen(char *, int);
+void prtclose();
 char prtread();
 void prtwrite(char);
 short prtcheckch();
