@@ -133,6 +133,8 @@ void dspgraphupdate();
 
 /* vt52 state engine */
 void dspvt52(char*);
+void vt52debug(char);
+void vt52error(char);
 
 /* 0 normal scroll, 1 enable waitonscroll function */
 void dspsetscrollmode(char, short);

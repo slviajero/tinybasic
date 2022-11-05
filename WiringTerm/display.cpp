@@ -567,6 +567,7 @@ void dspgraphupdate() {
  * It is planned to implement an interface to the wiring, graphics,
  * and print library here.
  */
+#define VT52DEBUG 1
 
 #ifdef HASVT52
 /* the state variables, and modes */
@@ -585,22 +586,23 @@ char vt52pop() {
   if (vt52sp > 0) return vt52stack[--vt52sp];
 }
 
-char vt52error(char e) {
+void vt52error(char e) {
   vt52state=0;
   vt52esc=0;
   vt52sp=0;
   /* handle error messages here */
-  dspprintchar(e, 0, 10);
+  dspprintchar(e, 10, 0);
+  if (VT52DEBUG) vt52debug(' ');
 }
 
-char vt52debug(char c) {
+void vt52debug(char c) {
   if (vt52state>0) dspprintchar(vt52state,0, dsp_rows-1); else dspprintchar('0' ,0, dsp_rows-1);
   dspprintchar(' ', 1, dsp_rows-1); 
   dspprintchar(vt52esc+48, 2, dsp_rows-1);
   dspprintchar(vt52sp+48, 3, dsp_rows-1);
   dspprintchar(c, 4, dsp_rows-1);
 }
- 
+
 /* vt52 state engine */
 void dspvt52(char* c){
 
@@ -612,7 +614,7 @@ void dspvt52(char* c){
   int ic=*c;
   int mode, pin;
 
-  vt52debug(ic);
+  /* vt52debug(ic); */
  
 	switch (vt52state) {
 		case 'Y': /* cursor address mode */
@@ -640,30 +642,27 @@ void dspvt52(char* c){
         if (vt52sp == vt52stacksize) { vt52error('s'); return; }
         vt52push(ic); 
       } else {
-        dspprintchar(ic, 8, dsp_rows-1);
         switch(ic) {
           case 'a': 
             if (vt52sp != 2) { vt52error('a'); return; }
             mode=vt52pop();
             pin=vt52pop();
-            dspprintchar(ic, 9, dsp_rows-1);
             pinMode(pin, mode);
             break;   
           case 'b': 
             if (vt52sp != 2) { vt52error('a'); return; }
             mode=vt52pop();
             pin=vt52pop();
-            dspprintchar(ic, 9, dsp_rows-1);
             digitalWrite(pin, mode);
-            break; 
-          default: /* any other command exits wiring mode */
-            dspprintchar(ic, ' ', dsp_rows-1);
+            break;
+          case 'x': /* exit wiring mode */
+          default:
             vt52sp=0;
             vt52state=0;
             vt52esc=0;
         }    
       }
-      vt52debug(*c);
+      if (VT52DEBUG) vt52debug(*c);
       *c=0;
       return;
 	}
@@ -745,7 +744,7 @@ void dspvt52(char* c){
       return;
     case 'y':
       vt52state='w';
-      vt52debug(*c);
+      if (VT52DEBUG) vt52debug(*c); 
       *c=0;
       return;
 	}

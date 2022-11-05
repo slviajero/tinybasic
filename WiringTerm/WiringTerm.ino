@@ -6,9 +6,12 @@ void setup(){
 }
 
 void loop() {
-  char ch=Serial.read();
-  if (ch !=0 && ch != -1) {
+  char ch;
+  
+  if (Serial.available()) {
+    ch=Serial.read();
     dspwrite(ch);
     Serial.write(ch);
   }
+  delay(0); /* this is yield on some platforms */
 }
