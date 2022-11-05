@@ -578,6 +578,11 @@ const char vt52stacksize = 16;
 char vt52stack[vt52stacksize];
 char vt52sp = 0;
 
+/* the output buffer */
+const char vt52buffersize = 16;
+char vt52buffer[vt52buffersize];
+char vt52bindex = 0;
+
 void vt52push(char c) {
   if (vt52sp < vt52stacksize) vt52stack[vt52sp++]=c-32;
 }
@@ -603,6 +608,18 @@ void vt52debug(char c) {
   dspprintchar(c, 4, dsp_rows-1);
 }
 
+void vt52out(char c) {
+  if (vt52bindex < vt52buffersize) vt52buffer[vt52bindex++]=c;
+}
+
+int vt52avail() {
+  return vt52bindex;
+}
+
+int vt52read() {
+  if (vt52bindex > 0) return vt52buffer[--vt52bindex]; else return 0;
+}
+
 /* vt52 state engine */
 void dspvt52(char* c){
 
@@ -612,7 +629,7 @@ void dspvt52(char* c){
  * vt52esc tells us how many arguments we still expect
  */
   int ic=*c;
-  int mode, pin;
+  int mode, pin, val;
 
   /* vt52debug(ic); */
  
@@ -643,17 +660,23 @@ void dspvt52(char* c){
         vt52push(ic); 
       } else {
         switch(ic) {
-          case 'a': 
+          case 'a': /* pinMode */
             if (vt52sp != 2) { vt52error('a'); return; }
             mode=vt52pop();
             pin=vt52pop();
             pinMode(pin, mode);
             break;   
-          case 'b': 
+          case 'b': /* digitalWrite */
             if (vt52sp != 2) { vt52error('a'); return; }
             mode=vt52pop();
             pin=vt52pop();
             digitalWrite(pin, mode);
+            break;
+          case 'c': /* digitalRead */
+            if (vt52sp != 1) { vt52error('a'); return; }
+            pin=vt52pop();
+            val=digitalRead(pin);
+            vt52out(32+val);
             break;
           case 'x': /* exit wiring mode */
           default:
@@ -756,6 +779,16 @@ void dspvt52(char* c){
   *c=0;
 }
 #endif
+
+/* VT52 display can give stuff back if the advanced functions are implemented */
+#ifdef HASVT52
+int dspavail() {return vt52avail(); }
+char dspread() {return vt52read(); }
+#else 
+int dspavail() {return 0; }
+char dspread() {return 0; }
+#endif
+
 
 
 /* scrollable displays need a character buffer */
@@ -930,4 +963,6 @@ char dspwaitonscroll() { return 0; };
 char dspactive() {return 0; }
 void dspsetscrollmode(char c, short l) {}
 void dspsetcursor(short c, short r) {}
+int dspavail() {return 0;}
+char dspread() {return 0;}
 #endif

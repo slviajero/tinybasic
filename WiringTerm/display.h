@@ -151,5 +151,9 @@ void dspwrite(char);
 /* wait function on scroll */
 char dspwaitonscroll();
 
+/* some display give stuff back */
+int dspavail();
+char dspread();
+
 // defined _DISPLAYH_
 #endif
