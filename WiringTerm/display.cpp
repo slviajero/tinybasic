@@ -42,6 +42,7 @@
  */
 
 #include "display.h"
+#include "Arduino.h"
 
 /*
  * Some settings, defaults, and dependencies
@@ -527,7 +528,7 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
 #ifdef DISPLAYDRIVER
 short dspmycol = 0;
 short dspmyrow = 0;
-char esc = 0;
+char vt52esc = 0;
 char dspupdatemode = 0;
 
 int dspstat(char c) {return 0; }
@@ -569,49 +570,118 @@ void dspgraphupdate() {
 
 #ifdef HASVT52
 /* the state variables, and modes */
-char vt52s = 0;
-enum vt52modes {vt52text, vt52graph, vt52print, vt52wiring} vt52mode = vt52text;
+char vt52state = 0;
 
+/* the stack */
+const char vt52stacksize = 16;
+char vt52stack[vt52stacksize];
+char vt52sp = 0;
+
+void vt52push(char c) {
+  if (vt52sp < vt52stacksize) vt52stack[vt52sp++]=c-32;
+}
+
+char vt52pop() {
+  if (vt52sp > 0) return vt52stack[--vt52sp];
+}
+
+char vt52error(char e) {
+  vt52state=0;
+  vt52esc=0;
+  vt52sp=0;
+  /* handle error messages here */
+  dspprintchar(e, 0, 10);
+}
+
+char vt52debug(char c) {
+  if (vt52state>0) dspprintchar(vt52state,0, dsp_rows-1); else dspprintchar('0' ,0, dsp_rows-1);
+  dspprintchar(' ', 1, dsp_rows-1); 
+  dspprintchar(vt52esc+48, 2, dsp_rows-1);
+  dspprintchar(vt52sp+48, 3, dsp_rows-1);
+  dspprintchar(c, 4, dsp_rows-1);
+}
+ 
 /* vt52 state engine */
 void dspvt52(char* c){
 
-/* reading and processing multi byte commands */
-	switch (vt52s) {
-		case 'Y':
-			if (esc == 2) { dspmyrow=(*c-31)%dsp_rows; esc=1; return;}
-			if (esc == 1) { dspmycol=(*c-31)%dsp_columns; *c=0; }
-      vt52s=0; 
-			break;
-		case 'x':
-			switch(*c) {
-				case 'p':
-					vt52mode=vt52print;
-					break;
-				case 'w':
-					vt52mode=vt52wiring;
-					break;
-				case 'g':
-					vt52mode=vt52graph;
-				case 't':
-				default:
-					vt52mode=vt52text;
-					break;
-			}
-			*c=0;
-			vt52s=0;
-			break;
+/* 
+ * reading and processing multi byte commands
+ * vt52state tells us which multibyte command we deal with
+ * vt52esc tells us how many arguments we still expect
+ */
+  int ic=*c;
+  int mode, pin;
+
+  vt52debug(ic);
+ 
+	switch (vt52state) {
+		case 'Y': /* cursor address mode */
+      switch(vt52esc) {
+        case 1: 
+          dspmycol=(*c-32)%dsp_columns;
+          vt52state=0; /* last argument processed - we are done */
+          break;
+        case 2: 
+          dspmyrow=(*c-32)%dsp_rows;
+          break;
+      }
+      if (vt52esc > 0) vt52esc--; /* received one character */
+      *c=0;
+			return;
+    case 'w': /* process wiring commands */
+      /* 
+       * stuff happens here until no more bytes are expected 
+       * we use numbers base 64 here. One argument addresses numbers from 0-63 
+       * two arguments numbers from 0 to 4095, least significant byte first
+       * numbers between 32 and 96 are arguments base 64, 96 and above are commands, a 
+       * commands used the arguments in the stack and exits 
+       */
+      if (ic < 96) {
+        if (vt52sp == vt52stacksize) { vt52error('s'); return; }
+        vt52push(ic); 
+      } else {
+        dspprintchar(ic, 8, dsp_rows-1);
+        switch(ic) {
+          case 'a': 
+            if (vt52sp != 2) { vt52error('a'); return; }
+            mode=vt52pop();
+            pin=vt52pop();
+            dspprintchar(ic, 9, dsp_rows-1);
+            pinMode(pin, mode);
+            break;   
+          case 'b': 
+            if (vt52sp != 2) { vt52error('a'); return; }
+            mode=vt52pop();
+            pin=vt52pop();
+            dspprintchar(ic, 9, dsp_rows-1);
+            digitalWrite(pin, mode);
+            break; 
+          default: /* any other command exits wiring mode */
+            dspprintchar(ic, ' ', dsp_rows-1);
+            vt52sp=0;
+            vt52state=0;
+            vt52esc=0;
+        }    
+      }
+      vt52debug(*c);
+      *c=0;
+      return;
 	}
  
-/* commands of the terminal in text mode */
+/* 
+ * commands of the terminal in text mode, single byte escape sequences 
+ * do their job here and break
+ * multi byte and state changes need to set c accordingly and return (!)
+ */
 	switch (*c) {
 		case 'A': /* cursor up */
-			if (dspmyrow>0) dspmyrow--;
+			if (dspmyrow > 0) dspmyrow--;
 			break;
 		case 'B': /* cursor down */
-			dspmyrow=(dspmyrow++) % dsp_rows;
+			if (dspmyrow < dsp_rows) dspmyrow++;
 			break;
 		case 'C': /* cursor right */
-			dspmycol=(dspmycol++) % dsp_columns;
+			if (dspmycol < dsp_columns) dspmycol++;
 			break; 
 		case 'D': /* cursor left */
 			if (dspmycol>0) dspmycol--;
@@ -624,16 +694,18 @@ void dspvt52(char* c){
 			dspmyrow=0;
    		dspmycol=0;
 			break;	
-		case 'Y': /* Set cursor position */
-			vt52s='Y';
-			esc=2;
+		case 'Y': /* Set cursor position - expect two arguments, delete the char*/
+			vt52state='Y';
+			vt52esc=2;
   		*c=0;
 			return;
 
-/* these standard VT52 function and their GEMDOS extensions are
-		not implemented. */ 
-		case 'F': // enter graphics mode
-		case 'G': // exit graphics mode
+/* 
+ *  these are some (standard) VT52 functions and GEMDOS extensions reinterpreted 
+ *  
+ */ 
+    case 'F': // enter graphics mode
+    case 'G': // exit graphics mode
 		case 'I': // reverse line feed
 		case 'J': // clear to end of screen
 		case 'K': // clear to end of line
@@ -660,17 +732,29 @@ void dspvt52(char* c){
 		case 'W': // Printer extensions - print without display on
 		case 'X': // Printer extensions - print without display off
 		case 'V': // Printer extensions - print cursor line
-		case ']': // Printer extension - print screen 
+		case ']': // Printer extension  - print screen 
 			break;
-/* the Arduino interface extensions defined in IoT BASIC
-		access to some functions of BASIC through escape sequences */
-		case 'x':
-			vt52s='x';
-			*c=0; 
-			break;
+/* 
+ *  the Arduino interface extensions defined in IoT BASIC
+ *  access to some functions of BASIC through escape sequences 
+ *  x is graphics mode, y is the wiring mode
+ */
+    case 'x':
+      vt52state='g';
+      *c=0;
+      return;
+    case 'y':
+      vt52state='w';
+      vt52debug(*c);
+      *c=0;
+      return;
 	}
-	esc=0;
-	*c=0;
+/* 
+ *  forget the character and leave escape mode, this is the fate of all single 
+ *  character escape sequences
+ */
+  vt52esc=0;
+  *c=0;
 }
 #endif
 
@@ -732,7 +816,7 @@ void dspwrite(char c){
 
 /* on escape call the vt52 state engine */
 #ifdef HASVT52
-	if (esc) dspvt52(&c);
+	if (vt52esc) dspvt52(&c);
 #endif
 
 /* the minimal cursor control functions of BASIC */
@@ -751,7 +835,7 @@ void dspwrite(char c){
       dspmycol=0;
       return;
   	case 27: // escape - initiate vtxxx mode
-			esc=1;
+			vt52esc=1;
 			return;
     case 127: // delete
     	if (dspmycol > 0) {
@@ -792,7 +876,7 @@ void dspwrite(char c){
 
 /* on escape call the vt52 state engine */
 #ifdef HASVT52
-	if (esc) { dspvt52(&c); }
+	if (vt52esc) { dspvt52(&c); }
 #endif
 
 	switch(c) {
@@ -813,7 +897,7 @@ void dspwrite(char c){
     	dspmycol=0;
     	return;
 		case 27: // escape - initiate vtxxx mode
-			esc=1;
+			vt52esc=1;
 			return;
    	case 127: // delete
     	if (dspmycol > 0) {
