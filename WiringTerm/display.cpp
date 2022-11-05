@@ -660,23 +660,36 @@ void dspvt52(char* c){
         vt52push(ic); 
       } else {
         switch(ic) {
-          case 'a': /* pinMode */
+          case 97: /* 'a' pinMode */
             if (vt52sp != 2) { vt52error('a'); return; }
             mode=vt52pop();
             pin=vt52pop();
             pinMode(pin, mode);
             break;   
-          case 'b': /* digitalWrite */
+          case 98: /* 'b' digitalWrite */
             if (vt52sp != 2) { vt52error('a'); return; }
-            mode=vt52pop();
+            val=vt52pop();
             pin=vt52pop();
-            digitalWrite(pin, mode);
+            digitalWrite(pin, val);
             break;
-          case 'c': /* digitalRead */
+          case 99: /* 'c' digitalRead */
             if (vt52sp != 1) { vt52error('a'); return; }
             pin=vt52pop();
             val=digitalRead(pin);
             vt52out(32+val);
+            break;
+          case 100: /* 'd' analogWrite */
+            if (vt52sp != 3) { vt52error('a'); return; }
+            val=64*vt52pop()+vt52pop();
+            pin=vt52pop();
+            analogWrite(pin, val);
+            break;
+          case 101: /* 'e' analogRead */
+            if (vt52sp != 1) { vt52error('a'); return; }
+            pin=vt52pop();
+            val=analogRead(pin);
+            vt52out(val%64+32);
+            vt52out(val/64+32); 
             break;
           case 'x': /* exit wiring mode */
           default:
@@ -788,8 +801,6 @@ char dspread() {return vt52read(); }
 int dspavail() {return 0; }
 char dspread() {return 0; }
 #endif
-
-
 
 /* scrollable displays need a character buffer */
 #ifdef DISPLAYCANSCROLL
