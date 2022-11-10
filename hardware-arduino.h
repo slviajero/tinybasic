@@ -311,8 +311,8 @@
  */
 #if defined(DUETFT)
 #undef  ARDUINOEEPROM
-#undef ARDUINOPS2
-#define ARDUINOUSBKBD
+#define ARDUINOPS2
+#undef ARDUINOUSBKBD
 #define DISPLAYCANSCROLL
 #define ARDUINOTFT
 #define ARDUINOSD
@@ -1873,6 +1873,9 @@ void dspwrite(char c){
     case 12: // form feed is clear screen 
     	dspbufferclear();
     	dspclear();
+#ifdef HASGRAPH
+      vgacolor(15);
+#endif
     	return;
     case 13: // classical carriage return 
       dspmycol=0;
@@ -1936,6 +1939,9 @@ void dspwrite(char c){
     	dspclear();
     	dspmyrow=0;
       dspmycol=0;
+#ifdef HASGRAPH
+      vgacolor(15);
+#endif
     	return;
   	case 10: // this is LF Unix style doing also a CR
     	dspmyrow=(dspmyrow + 1)%dsp_rows;
@@ -2770,17 +2776,17 @@ char fileread(){
 	char c;
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)
 	if (ifile) c=ifile.read(); else { ert=1; return 0; }
-	if (c == -1 ) ert=-1;
+	if (c == -1 || c == 255) ert=-1;
 	return c;
 #endif
 #ifdef RP2040LITTLEFS
 	if (ifile) c=fgetc(ifile); else { ert=1; return 0; }
-	if (c == -1 ) ert=-1;
+	if (c == -1 || c == 255) ert=-1;
 	return c;
 #endif
 #ifdef ARDUINOEFS
 	if (ifile) c=EFS.fgetc(ifile); else { ert=1; return 0; }
-	if (c == -1 ) ert=-1;
+	if (c == -1|| c == 255) ert=-1;
 	return c;
 #endif
 	return 0;
@@ -3191,7 +3197,7 @@ void consins(char *b, short nb) {
   		c=inch();
   		if (id == ISERIAL || id == IKEYBOARD) outch(c);
   		if (c == '\r') c=inch(); 			/* skip carriage return */
-  		if (c == '\n' || c == -1) { 	/* terminal character is either newline or EOF */
+  		if (c == '\n' || c == -1 || c == 255) { 	/* terminal character is either newline or EOF */
     		break;
   		} else if ( (c == 127 || c == 8) && z.a>1) {
    			z.a--;
