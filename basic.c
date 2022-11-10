@@ -4352,6 +4352,7 @@ void xgoto() {
 	if (DEBUG) { outsc("** goto/gosub evaluated line number "); outnumber(x); outcr(); }
 	findline((address_t) x);
 	if (er != 0) return;
+	if (DEBUG) { outsc("** goto/gosub branches to "); outnumber(here); outcr(); }
 
 /* goto in interactive mode switched to RUN mode
 		no clearing of variables and stacks */
@@ -4714,13 +4715,21 @@ void xrun(){
 		parsearguments();
 		if (er != 0 ) return;
 		if (args > 1) { error(EARGS); return; }
-		if (args == 0) 
+		if (args == 0) {
 			here=0;
-		else
+		}
+		else {
 			findline(pop());
+		}
 		if (er != 0) return;
 		if (st == SINT) st=SRUN;
-		xclr();
+		clrvars();
+		clrgosubstack();
+		clrforstack();
+		clrdata();
+		clrlinecache();
+		ert=0;
+		nexttoken();
 	}
 
 /* once statement is called it stays into a loop until the token stream 

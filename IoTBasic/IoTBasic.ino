@@ -43,9 +43,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define	BASICFULL
+#undef  BASICFULL
 #undef	BASICINTEGER
-#undef  BASICSIMPLE
+#define	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICTINYWITHFLOAT
 
@@ -113,7 +113,7 @@
 #define HASARDUINOIO
 #define HASFILEIO
 #undef 	HASTONE
-#undef HASPULSE
+#define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
 #define HASVT52
@@ -335,7 +335,6 @@ void eload() {
 	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
 		a++;
 
-
 		/* how long is it? */
 		egetnumber(a, addrsize);
 		top=z.a;
@@ -481,7 +480,6 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 		return bfinda;
 	}
 
-
 	while (i < nvars) { 
 
 /*
@@ -517,7 +515,6 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 			bfinda=b+1;
 			return b+1;
 		}
-      
 		i++;
 	}
 
@@ -3424,7 +3421,7 @@ void factor(){
 			nexttoken();
 			expression();
 			if (er != 0 ) return;
-			if (token != ')') { error(EARGS); return; }
+			if (token != ')') { error(EARGS); return; } 
 			break;
 /* Palo Alto BASIC functions */
 		case TABS: 
@@ -4355,6 +4352,7 @@ void xgoto() {
 	if (DEBUG) { outsc("** goto/gosub evaluated line number "); outnumber(x); outcr(); }
 	findline((address_t) x);
 	if (er != 0) return;
+	if (DEBUG) { outsc("** goto/gosub branches to "); outnumber(here); outcr(); }
 
 /* goto in interactive mode switched to RUN mode
 		no clearing of variables and stacks */
@@ -4717,20 +4715,27 @@ void xrun(){
 		parsearguments();
 		if (er != 0 ) return;
 		if (args > 1) { error(EARGS); return; }
-		if (args == 0) 
+		if (args == 0) {
 			here=0;
-		else
+		}
+		else {
 			findline(pop());
+		}
 		if (er != 0) return;
 		if (st == SINT) st=SRUN;
-		xclr();
+		clrvars();
+		clrgosubstack();
+		clrforstack();
+		clrdata();
+		clrlinecache();
+		ert=0;
+		nexttoken();
 	}
 
 /* once statement is called it stays into a loop until the token stream 
 		is exhausted. Then we return to interactive mode. */
 	statement();
 	st=SINT;
-
 /* flush the EEPROM when changing to interactive mode */
 	eflush();
 
@@ -5871,7 +5876,7 @@ void xopen() {
 #if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE) 
 	char stream = IFILE; // default is file operation
 	char filename[SBUFSIZE];
-	char mode;
+	int mode;
 
 /* which stream do we open? default is FILE */
 	nexttoken();
@@ -5894,6 +5899,7 @@ void xopen() {
 		parsearguments();
 	}
 
+/* getting an argument, no argument is read, i.e. mode 0 */
 	if (args == 0 ) { 
 		mode=0; 
 	} else if (args == 1) {
@@ -5903,6 +5909,13 @@ void xopen() {
 		return;
 	}
 	switch(stream) {
+#ifdef ARDUINOPRT
+		case ISERIAL1:
+			prtclose();
+			if (mode == 0) mode=9600;
+			if (prtopen(filename, mode)) ert=0; else ert=1;
+			break;
+#endif
 #ifdef FILESYSTEMDRIVER
 		case IFILE:
 			switch (mode) {
