@@ -1,6 +1,6 @@
 /*
  *
- * $Id: hardware-arduino.h,v 1.4 2022/08/15 18:08:56 stefan Exp stefan $
+ * $Id: hardware-arduino.h,v 1.4 2022/11/12 16:24:49 stefan Exp stefan $
  *
  * Stefan's basic interpreter 
  *
@@ -2857,7 +2857,12 @@ void ifileclose(){
 char ofileopen(char* filename, const char* m){
 #ifdef ARDUINOSD
 	if (*m == 'w') ofile=SD.open(mkfilename(filename), FILE_OWRITE);
+/* ESP32 has FILE_APPEND defined */
+#ifdef FILE_APPEND
+  if (*m == 'a') ofile=SD.open(mkfilename(filename), FILE_APPEND);
+#else
 	if (*m == 'a') ofile=SD.open(mkfilename(filename), FILE_WRITE);
+#endif
 	return (int) ofile;
 #endif
 #ifdef ESPSPIFFS
@@ -3041,7 +3046,7 @@ void rootclose(){
  */
 void removefile(char *filename) {
 #ifdef ARDUINOSD	
-	SD.remove(filename);
+	SD.remove(mkfilename(filename));
 	return;
 #endif
 #ifdef ESPSPIFFS
