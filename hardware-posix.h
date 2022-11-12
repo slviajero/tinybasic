@@ -150,7 +150,7 @@ char kbdcheckch() { return 0;}
 /* 
  * Real Time clock code 
  */
-char rtcstring[18] = { 0 };
+char rtcstring[20] = { 0 };
 
 /* identical to arduino code -> isolate */
 char* rtcmkstr() {
@@ -180,10 +180,10 @@ char* rtcmkstr() {
 	t=rtcread(5);
 	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
 	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc]=0;
-	rtcstring[0]=cc-1;
-
-	return rtcstring;
+/* needed for BASIC strings, reserve the first byte for two byte length handling in the upstream code */
+	rtcstring[1]=cc-1;
+	rtcstring[0]=0;
+	return rtcstring+1;
 }
 
 short rtcread(char i) {

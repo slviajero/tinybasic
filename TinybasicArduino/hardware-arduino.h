@@ -198,10 +198,12 @@
  * some clock modules do this: #define EEPROMI2CADDR 0x057
  * 0x050 this is the default lowest adress of standard EEPROMs
  * default for the size is 4096, define your EFS EEPROM size here 
+ * RTCTYPE is the real time clock type
  */
 #define EEPROMI2CADDR 0x050
 #define RTCI2CADDR 0x068
 #define EFSEEPROMSIZE 32768
+#define RTCTYPE DS1307
 
 /* the size of the I2C EEPROM, typically a clock */
 #define I2CEEPROMSIZE 4096
@@ -718,6 +720,11 @@ const char bsystype = SYSTYPE_UNKNOWN;
  */
 #ifdef ARDUINORTC
 #include <uRTCLib.h>
+#ifdef RTCTYPE
+#if RTCTYPE == DS1307
+#define RTCTYPE URTCLIB_MODEL_DS1307
+#endif
+#endif
 #endif
 
 /*
@@ -1998,13 +2005,18 @@ void dspsetcursor(short c, short r) {}
  * combining all values. 
  */
 #ifdef ARDUINORTC
+#ifdef RTCTYPE
+uRTCLib rtc(RTCI2CADDR, RTCTYPE);
+#else
 uRTCLib rtc(RTCI2CADDR);
-char rtcstring[18] = { 0 }; 
+#endif
+char rtcstring[20] = { 0 }; 
 
 char* rtcmkstr() {
-	int cc = 1;
+	int cc = 2;
 	short t;
 	char ch;
+  /* the first read refreshes */  
 	t=rtcget(2);
 	rtcstring[cc++]=t/10+'0';
 	rtcstring[cc++]=t%10+'0';
@@ -2029,9 +2041,10 @@ char* rtcmkstr() {
 	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
 	rtcstring[cc++]=t%10+'0';
 	rtcstring[cc]=0;
-	rtcstring[0]=cc-1;
-
-	return rtcstring;
+  /* needed for BASIC strings, reserve the first byte for two byte length handling in the upstream code */
+	rtcstring[1]=cc-1;
+  rtcstring[0]=0;
+	return rtcstring+1;
 }
 
 short rtcread(char i) {
@@ -2066,7 +2079,9 @@ void rtcset(char i, short v) {
 	uint8_t tv[7];
 	char j;
 	rtc.refresh();
-	for (j=0; j<7; j++) tv[j]=rtcread(j);
+	for (j=0; j<7; j++) {
+	  tv[j]=rtcread(j);
+	}
 	tv[i]=v;
 	rtc.set(tv[0], tv[1], tv[2], tv[6], tv[3], tv[4], tv[5]);
 }

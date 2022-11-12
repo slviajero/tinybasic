@@ -67,7 +67,7 @@
 #define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
-#define HASSTRINGARRAYS
+#define  HASSTRINGARRAYS
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -1055,7 +1055,7 @@ char* getstring(char c, char d, address_t b, address_t j) {
 #if !defined(ARDUINO) || defined(ARDUINORTC)
 	if ( c == '@' && d == 'T') {
 		rtcmkstr();
-		return rtcstring+b;
+		return rtcstring+1+b;
 	}
 #endif
 
@@ -1198,7 +1198,7 @@ address_t lenstring(char c, char d, address_t j){
 #if !defined(ARDUINO) || defined(ARDUINORTC) 
 	if (c == '@' && d == 'T') {
 		rtcmkstr();
-		return rtcstring[0];
+		return rtcstring[1];
 	}
 #endif
 
@@ -3563,7 +3563,7 @@ void factor(){
 			break;
 #endif
 		case TAZERO:
-#ifdef ARDUINO
+#if defined(ARDUINO) && defined(A0)
 			push(A0);
 #else 
 			push(0);
