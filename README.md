@@ -12,11 +12,11 @@ Arithmetic is 16 bit, 32bit or float depending on the compiler settings and the 
 Filesystems like Arduino SD, SPIFFS and LittleFS are supported on microcontrollers. EEPROMS can be used
 as BASIC filesystem using the EepromFS library.
 
-Small LCD displays, OLEDs, Nokia5110m TFT and VGA monitors are supported. Graphics is supported on all graphic capable displays.
+Small LCD displays, OLEDs, Nokia5110, TFT and VGA monitors are supported. Graphics is supported on all graphic capable displays.
 
-PS2 keyboard support and keypads are added for standalone computer projects.
+PS2 keyboard support and keypads are added for standalone computer projects. A ZX81 keyboard can be used as well. USB keyboard support is added as an experimental feature.
 
-Microcontroller specific features are EEPROM access, EEPROM program storage and autorun, control of digital and analog I/O as well as the delay function, Wire library support, RF2401 support and very simple MQTT / Wifi support on ESP.
+Microcontroller specific features are EEPROM access, EEPROM program storage and autorun, control of digital and analog I/O as well as the delay function, Wire library support, RF2401 support andsimple MQTT / Wifi support on ESP.
 
 Most of the builtin Arduino demos are ported to BASIC and published here https://github.com/slviajero/tinybasic/tree/main/examples. These programs are the BASIC versions of the C++ programs in https://docs.arduino.cc/built-in-examples/. Please look at this original Arduino website for wiring and project information.
 
@@ -35,9 +35,10 @@ The intepreter is compatible with two of the 1976 early basic dialects. It imple
 
 The interpreter also implements the specification of Apple Integer BASIC sold for the Apple 1 and 2 computers (https://github.com/slviajero/tinybasic/wiki/The-original-Apple-1-BASIC-manual).
 
-I/O handling and some of the microcontroller BASIC features are new and are not compatible to the BASIC dialects above.
+These two languages are the core of the BASIC interpreter. Additional feature can be added at compile time.
 
-The interpreter is not meant to be compatible to any BASIC dialect. I ported most of the games of 101 BASIC games from 1977 as test programs to test and check compatibility. T
+I/O handling and some of the microcontroller BASIC features are new and are not compatible to the BASIC dialects above. They resemble the iostream library of Arduinos. Enterprise BASIC had something similar.
+
 
 The main difference to the old BASIC interpreters is that data objects remain in the same memory location once they are defined. There is no garbage collection. This makes the behaviour of the BASIC interpreter deterministic, real time capable and fast. 
 
@@ -53,11 +54,13 @@ For more information on the language, please look in the manual at: https://gith
 
 ## Files in this archive 
 
-basic.c is the program source. basic.h is the header file. TinybasicArduino/TinybasicArduino.ino is a copy of basic.c. The Arduino and POSIX source code is the same.
+basic.c is the program source. basic.h is the header file. 
+
+IoTBasic/IoTBasic.ino is a copy of basic.c. The Arduino and POSIX source code is the same.
 
 In addition to this file and basic.h you need a hardware definition file.
 
-For the Arduino IDE place hardware-arduino.h in your Arduino sketch directory. These are the platform specific definitions and a thin OS like layer for hardware abstraction. All platforms from tiny AVR168 up to the powerful ESP32 and RP2040 are covered by this one file. 
+For the Arduino IDE place hardware-arduino.h in your Arduino sketch directory. These are the platform specific definitions and a thin OS like layer for hardware abstraction. All platforms from tiny AVR168 up to the powerful ESP32 and RP2040 are covered by this one file. Actually this is not only a header but really a complete library. I will rewrite this code in the future and make it a library.
 
 For POSIX OSes you need hardware-posix.h in your working directory. GCC compiles BASIC for Linux, Mac (primary dev platform), Windows (with MINGW), and MSDOS (Turbo C 2).
 
@@ -71,5 +74,5 @@ MANUAL.md is the BASIC manual.
 
 ## What's next
 
-More IoT functionality. More devices.
+More IoT functionality. More devices. Code cleanup.
 
