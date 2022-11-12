@@ -259,7 +259,7 @@ The program area is protected by BASIC. The maximum index prevents a program to 
 
 The variables @O, @I, @C, and @A can be used for byte I/O on any stream. 
 
-The array @t() is the real time clock array. See the hardware drivers section for more information.
+The array @T() is the real time clock array. @T$ is a string containing date and time. See the hardware drivers section for more information.
 
 ## Apple 1 language set
 
@@ -1173,7 +1173,7 @@ Buffered displays add scrolling. Once the cursor goes beyond the last line, the 
 
 Each character in the display is buffered a display buffer. This buffer can be accessed through the special array D(). Writing to the array immediately display the character on the display. Reading from it gives the displayed character at the index position. The array starts from 1. The index advances by column and then by row. 
 
-Currently LCD displays 16x2 and 20x4, Nokia 5110, ILI9488, SSD1306, and SD1963 are supported. All displays use 8x8 fonts. Nokia has 10 columns and 6 rows. SSD1306 character buffer dimension depend on the display size. 16x8 is the most common size. ILI9488 has 20 columns and 30 rows. It is portrait mode by default. A 7 inch SD1963 has 50 columns and 30 rows. 
+Currently LCD displays 16x2 and 20x4, Nokia 5110, ILI9486, ILI9488, SSD1306, and SD1963 are supported. All displays use 8x8 fonts. Nokia has 10 columns and 6 rows. SSD1306 character buffer dimension depend on the display size. 16x8 is the most common size. ILI9488 has 20 columns and 30 rows. It is portrait mode by default. A 7 inch SD1963 has 50 columns and 30 rows. ILI9486 displays are based on the MCUFRIEND library with parallel access.
 
 Some displays use page based low level graphics drivers. These displays mirror the entire canvas in memory on a pixel basis. When one draws to the canvas, nothing is shown until an update command transfers the buffer to the display. SPI bus based monochrome display use this technique. The ILI9488 and SSD1306 Oled driver use this mechanism. By default these displays behave like the other displays and page mode is of. Drawing of graphics and text appears slow.
 
@@ -1393,6 +1393,31 @@ would partition the EEPROM to 4 equal slot. For the very common 32kB serial EEPR
 
 On POSIX and SD no formating is supported. 
 
+### Real time clock support
+
+Currently DS1307, DS3231 and DS3232 clocks are supported and can be accessed through the special array @T() and the special string @T$. The array elements are 
+
+@T(0): seconds
+
+@T(1): minutes
+
+@T(2): hours
+
+@T(3): days
+
+@T(4): month
+
+@T(5): year (0-99)
+
+@T(6): day of week (0-6)
+
+@T(7): temperature (DS1307 only)
+
+@T(8)-T(15): reserved, will access clock status in future
+
+T(16)-T(255): reserved, will access clock NVRAM in future
+
+
 ## Special systems and hardware components
 
 ### Introduction
@@ -1551,6 +1576,6 @@ CALL parameters 0 to 31 are reserved. Values from 32 on can be used for implemen
 
 ### SLEEP 
 
-SLEEP n enters sleep mode. This is only implemented on ESP right now. n is the time in milliseconds. For ESP8266 the wiring for sleep mode has to be right. ESP32 can awake from SLEEP without additional wiring.
+SLEEP n enters sleep mode. This is only implemented on ESPs and SAMD right now. n is the time in milliseconds. For ESP8266 the wiring for sleep mode has to be right. ESP32 can awake from SLEEP without additional wiring. ESPs restart after wakeup. An autorun program is needed for this. Once the restart happens, the program starts from the beginning. Reentry has to be handled in the program. On Arduino SAMD the interpreter uses the low power library. The program resumes after the sleep command. Sleep is experimental right now. 
 
 
