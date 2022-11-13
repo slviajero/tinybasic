@@ -178,34 +178,50 @@
 /* 
  *  Pin settings for the ZX81 Keyboard
  *  first the 8 rows, then the 5 columns or the keyboard
+ * 
+ * MEGAs have many pins and default is to use the odd pins on the side
+ * UNOs, NANOs, and others use the lower pins by default avoiding the 
+ * pin 13 which is LED and doesn't work with standard schematics 
  */
 #ifdef ARDUINOZX81KBD
-  const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
-  //const byte zx81pins[] = {37, 35, 33, 31, 29, 27, 25, 23, 47, 45, 43, 41, 39};
+#ifdef ARDUINO_AVR_MEGA2560
+const byte zx81pins[] = {37, 35, 33, 31, 29, 27, 25, 23, 47, 45, 43, 41, 39};
+#else
+const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
+#endif
 #endif
 
 /* 
  *  this is soft SPI for SD cards on MEGAs using 
  *  pins 10-13, a patched SD library is needed 
  *  for this: https://github.com/slviajero/SoftSD
- *  only needed for MEGA boards with a UNO shield
+ *  only needed for MEGA boards with an UNO shield
  */
 #undef SOFTWARE_SPI_FOR_SD
 
 /* 
  *  list of default i2c addresses
  *
- * some clock modules do this: #define EEPROMI2CADDR 0x057
+ * some clock modules do have their EEPROM at 0x57. 
  * 0x050 this is the default lowest adress of standard EEPROMs
- * default for the size is 4096, define your EFS EEPROM size here 
- * RTCTYPE is the real time clock type
+ * Configurable range is between 0x50 and 0x57 for modules with jumpers. 
+ * Some clock modules do have their EEPROM at 0x57. 
+ * 
+ * Clock default for the size is 4096. Define your EFS EEPROM and I2C EEPROM
+ * size here. One parameter set is for EFS and one parameter set is for 
+ * plain serial EEPROMs.
+ * 
+ * RTCs are often at 0x68 
+ * RTCTYPE is the real time clock type, DS3231/DS3232 is default
  */
-#define EEPROMI2CADDR 0x050
-#define RTCI2CADDR 0x068
+#define EFSEEPROMADDR 0x050
 #define EFSEEPROMSIZE 32768
+
+#define RTCI2CADDR 0x068
 #define RTCTYPE DS1307
 
-/* the size of the I2C EEPROM, typically a clock */
+/* the size of the plain I2C EEPROM, typically a clock */
+#define I2CEEPROMADDR 0x050
 #define I2CEEPROMSIZE 4096
 
 /*
@@ -337,7 +353,7 @@
 #define ARDUINOEFS
 #define ARDUINORTC
 #define ARDUINOWIRE
-#define EEPROMI2CADDR 0x050 /* use clock EEPROM 0x057, set to 0x050 for external EEPROM */
+#define EFSEEPROMADDR 0x050 /* use clock EEPROM 0x057, set to 0x050 for external EEPROM */
 #define STANDALONE
 #endif
 
@@ -347,7 +363,7 @@
 #define ARDUINOSPIRAM
 #define ARDUINOEFS
 #define ARDUINOWIRE
-#define EEPROMI2CADDR 0x050
+#define EFSEEPROMADDR 0x050
 #define EFSEEPROMSIZE 65534
 #endif
 
@@ -793,13 +809,11 @@ const char bsystype = SYSTYPE_UNKNOWN;
 #undef RP2040LITTLEFS
 #undef ARDUINOSD
 #define FILESYSTEMDRIVER
-#include <EepromFS.h>
 #endif
 
-#ifdef ARDUINOI2CEEPROM
+#if defined(ARDUINOI2CEEPROM) || defined(ARDUINOEFS)
 #include <EepromFS.h>
 #endif
-
 
 /*
  * incompatibilities
@@ -1251,7 +1265,7 @@ uint16_t dspfgcolor = 0xFFFF;
 uint16_t dspbgcolor = 0x0000;
 void dspbegin() { dspsetscrollmode(1, 4); }
 void dspprintchar(char c, short col, short row) { }
-void dspclear() { }
+void dspclear() {}
 void dspupdate() {}
 void rgbcolor(int r, int g, int b) { dspfgcolor=0; }
 void vgacolor(short c) {  
@@ -1520,6 +1534,9 @@ void keyReleased() {
 }
 #endif
 
+/* 
+ * keyboard controller code 
+ */
 
 void kbdbegin() {
 #ifdef PS2KEYBOARD
@@ -1640,7 +1657,7 @@ char c;
  *
  * dspprintchar(char c, short col, short row)
  * dspclear()
- * spbegin()
+ * spibegin()
  *
  * have to be defined before in a hardware dependent section.
  *
@@ -1653,7 +1670,7 @@ char c;
  * dspupdatemode controls the page update behaviour 
  *    0: character mode, display each character separately
  *    1: line mode, update the display after each line
- *    2: page mode, update the display after a ETX
+ *    2: page mode, update the display after an ETX
  * ignored if the display has no update function
  *
  */
@@ -2097,10 +2114,10 @@ void rtcset(char i, short v) {
 #ifndef EFSEEPROMSIZE
 #define EFSEEPROMSIZE 32768
 #endif
-#ifndef EEPROMI2CADDR
-#define EEPROMI2CADDR 0x50
+#ifndef EFSEEPROMADDR
+#define EFSEEPROMADDR 0x50
 #endif
-EepromFS EFS(EEPROMI2CADDR, EFSEEPROMSIZE);
+EepromFS EFS(EFSEEPROMADDR, EFSEEPROMSIZE);
 #endif
 
 /* 
@@ -2113,10 +2130,10 @@ EepromFS EFS(EEPROMI2CADDR, EFSEEPROMSIZE);
 #ifndef I2CEEPROMSIZE
 #define I2CEEPROMSIZE 32768
 #endif
-#ifndef EEPROMI2CADDR
-#define EEPROMI2CADDR 0x50
+#ifndef I2CEEPROMADDR
+#define I2CEEPROMADDR 0x50
 #endif
-EepromFS EFSRAW(EEPROMI2CADDR, EFSEEPROMSIZE);
+EepromFS EFSRAW(I2CEEPROMADDR, EFSEEPROMSIZE);
 #endif
 
 /*
@@ -2429,23 +2446,24 @@ void eflush(){
 #endif
 }
 
-#if defined(ARDUINOEEPROM)
+/* 
+ * if an I2C EEPROM is defined if overlays the build in EEPROM completely 
+ * this is needed to avoid inconsistencies of stored programs
+ */
+#if defined(ARDUINOEEPROM) && !defined(ARDUINOI2CEEPROM)
 address_t elength() { 
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
   return EEPROMSIZE;
 #endif
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
+  /* classical AVR and the LGT8 with the new interface */
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_LGT8F)
   return EEPROM.length(); 
-#endif
-#ifdef ARDUINO_ARCH_LGT8F 
-  return EEPROM.length(); 
-  //return 512;
 #endif
   return 0;
 }
 
 void eupdate(address_t a, short c) { 
-#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F)
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F)
   EEPROM.write(a, c);
 #else
   EEPROM.update(a, c); 
@@ -2480,11 +2498,6 @@ short eread(address_t a) { return 0; }
 /* 
  *	the wrappers of the arduino io functions, to avoid 
  */	
-/* not needed in ESP32 2.0.2 core any more 
-#ifdef ARDUINO_ARCH_ESP32
-void analogWrite(int a, int b){}
-#endif
-*/
 
 void aread(){ push(analogRead(pop())); }
 
