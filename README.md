@@ -9,14 +9,23 @@ useable on a number of architectures like Arduino AVR, ESP8266, ESP32, SAMD, RP2
 
 Arithmetic is 16 bit, 32bit or float depending on the compiler settings and the platform. The full set of Dartmouth language features like ON GOSUB and DEF FN is implemented. Strings are Apple 1 style. They are essentially integer arrays like in C. Conditions are also C style meaning part of the arithmetic.
 
-Filesystems like Arduino SD, SPIFFS and LittleFS are supported on microcontrollers. EEPROMS can be used
-as BASIC filesystem using the EepromFS library.
 
-Small LCD displays, OLEDs, Nokia5110, TFT and VGA monitors are supported. Graphics is supported on all graphic capable displays.
+## What is special - peripheral and Arduino I/O support
+
+Just like the home computer BASICs of the old times, IoTBasic is a small standalone operating system. It supports a number of peripherals and can be extended to new peripherals fast as there are generic device driver stubbs in the code.
+
+Filesystems like Arduino SD, SPIFFS and LittleFS are supported on microcontrollers. EEPROMS can be used
+as BASIC filesystem using the EepromFS library. This includes I2C external EEPROMS.
+
+Memory extension with SPI SRAM modules is possible.
+
+LCD displays, OLEDs, Nokia5110, TFT and VGA monitors are supported. Graphics is supported on all graphic capable displays.
 
 PS2 keyboard support and keypads are added for standalone computer projects. A ZX81 keyboard can be used as well. USB keyboard support is added as an experimental feature.
 
 Microcontroller specific features are EEPROM access, EEPROM program storage and autorun, control of digital and analog I/O as well as the delay function, Wire library support, RF2401 support andsimple MQTT / Wifi support on ESP.
+
+## Software and documentation
 
 Most of the builtin Arduino demos are ported to BASIC and published here https://github.com/slviajero/tinybasic/tree/main/examples. These programs are the BASIC versions of the C++ programs in https://docs.arduino.cc/built-in-examples/. Please look at this original Arduino website for wiring and project information.
 
