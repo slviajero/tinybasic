@@ -63,14 +63,14 @@
 #undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOUSBKBD
-#undef ARDUINOZX81KBD
+#define ARDUINOZX81KBD
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
+#define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
-#undef ARDUINOMCUFRIEND
+#define ARDUINOMCUFRIEND
 #undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
@@ -78,7 +78,7 @@
 #define ARDUINOEEPROM
 #undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
-#undef ARDUINOSD
+#define ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ARDUINORTC
@@ -88,8 +88,8 @@
 #undef ARDUINOETH
 #undef ARDUINOMQTT
 #undef ARDUINOSENSORS
-#undef ARDUINOSPIRAM 
-#undef STANDALONE
+#define ARDUINOSPIRAM 
+#define STANDALONE
 
 /* 
  * Predefined hardware configurations, this assumes that all of the 
@@ -197,7 +197,7 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
  *  for this: https://github.com/slviajero/SoftSD
  *  only needed for MEGA boards with an UNO shield
  */
-#define SOFTWARE_SPI_FOR_SD
+#undef SOFTWARE_SPI_FOR_SD
 
 /* 
  *  list of default i2c addresses

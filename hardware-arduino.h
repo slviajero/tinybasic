@@ -197,7 +197,7 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
  *  for this: https://github.com/slviajero/SoftSD
  *  only needed for MEGA boards with an UNO shield
  */
-#define SOFTWARE_SPI_FOR_SD
+#undef SOFTWARE_SPI_FOR_SD
 
 /* 
  *  list of default i2c addresses
