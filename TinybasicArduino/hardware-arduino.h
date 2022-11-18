@@ -1,6 +1,6 @@
 /*
  *
- * $Id: hardware-arduino.h,v 1.4 2022/11/12 16:24:49 stefan Exp stefan $
+ * $Id: hardware-arduino.h,v 1.5 2022/11/18 18:17:46 stefan Exp stefan $
  *
  * Stefan's basic interpreter 
  *
@@ -63,22 +63,22 @@
 #undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOUSBKBD
-#undef ARDUINOZX81KBD
+#define ARDUINOZX81KBD
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
+#define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
-#undef ARDUINOMCUFRIEND
+#define ARDUINOMCUFRIEND
 #undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#undef ARDUINOEEPROM
-#define ARDUINOI2CEEPROM
+#define ARDUINOEEPROM
+#undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
-#undef ARDUINOSD
+#define ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ARDUINORTC
@@ -89,7 +89,7 @@
 #undef ARDUINOMQTT
 #undef ARDUINOSENSORS
 #undef ARDUINOSPIRAM 
-#undef STANDALONE
+#define STANDALONE
 
 /* 
  * Predefined hardware configurations, this assumes that all of the 
@@ -197,7 +197,7 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
  *  for this: https://github.com/slviajero/SoftSD
  *  only needed for MEGA boards with an UNO shield
  */
-#undef SOFTWARE_SPI_FOR_SD
+#define SOFTWARE_SPI_FOR_SD
 
 /* 
  *  list of default i2c addresses
@@ -564,8 +564,8 @@ const char bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 
-/* Networking needs the background task capability */
-#if defined(ARDUINOMQTT) || defined(ARDUINOETH) || defined(ARDUINOUSBKBD)
+/* Networking and keyboards need the background task capability */
+#if defined(ARDUINOMQTT) || defined(ARDUINOETH) || defined(ARDUINOUSBKBD) || defined(ARDUINOZX81KBD)
 #define ARDUINOBGTASK
 #endif
 
@@ -946,6 +946,12 @@ void restartsystem() {
 #include "ArduinoLowPower.h"
 #endif
 
+/* this is unfinished, don't use */ 
+void rtcsqw();
+
+#define LOWPOWERINTPIN 2
+void aftersleepinterrupt(void) { }
+
 void activatesleep(long t) {
   eflush(); /* if there is a I2C eeprom dummy, flush the buffer */
 #if defined(ARDUINO_ARCH_ESP8266)
@@ -957,6 +963,17 @@ void activatesleep(long t) {
 #endif
 #if defined(ARDUINO_ARCH_SAMD)
   LowPower.sleep((int) t);
+#endif
+#if defined(ARDUINO_AVR_ATmega644)
+/*
+  rtcsqw();
+  pinMode(LOWPOWERINTPIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(LOWPOWERINTPIN), aftersleepinterrupt, CHANGE);
+  sleepMode(SLEEP_POWER_SAVE);
+  sleep();
+  detachInterrupt(digitalPinToInterrupt(LOWPOWERINTPIN));
+  noSleep();
+*/
 #endif
 }
 
@@ -1039,7 +1056,6 @@ void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.w
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
 #endif
-
 
 /* 
  * A Nokia 5110 with ug8lib2 - can scroll quite well
@@ -1639,7 +1655,7 @@ char c;
   return usbkey;
 #else 
 #ifdef ZX81KEYBOARD
-  if (kbdavailable()) return keyboard.lastKey; else return 0;
+  return keyboard.lastKey; /* dont peek here as checkch called in a fast loop in statement(), peek done in byield*/
 #endif
 #endif
 #endif
@@ -2028,6 +2044,11 @@ uRTCLib rtc(RTCI2CADDR, RTCTYPE);
 uRTCLib rtc(RTCI2CADDR);
 #endif
 char rtcstring[20] = { 0 }; 
+
+void rtcsqw() {
+  rtc.sqwgSetMode(URTCLIB_SQWG_OFF_0); 
+  /* rtc.sqwgSetMode(URTCLIB_SQWG_1H); */
+}
 
 char* rtcmkstr() {
 	int cc = 2;
@@ -2626,7 +2647,6 @@ void byield() {
 	if (millis()-lastyield > YIELDINTERVAL-1) {
 		yieldfunction();
 		lastyield=millis();
-		delay(YIELDTIME);
   }
   if (millis()-lastlongyield > LONGYIELDINTERVAL-1) {
   	longyieldfunction();
@@ -2643,6 +2663,12 @@ void yieldfunction() {
 #endif
 #ifdef ARDUINOUSBKBD
   usb.Task();
+#endif
+#ifdef ARDUINOZX81KBD
+  (void) keyboard.peek(); /* scan once and set lastkey properly every 32 ms */
+#endif
+#ifdef ARDUINOMQTT
+  delay(YIELDTIME); /* ESP8266 heuristics, needed for Wifi stability */
 #endif
 }
 
