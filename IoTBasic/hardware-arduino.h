@@ -1,6 +1,6 @@
 /*
  *
- * $Id: hardware-arduino.h,v 1.4 2022/11/12 16:24:49 stefan Exp stefan $
+ * $Id: hardware-arduino.h,v 1.5 2022/11/18 18:17:46 stefan Exp stefan $
  *
  * Stefan's basic interpreter 
  *
@@ -564,8 +564,8 @@ const char bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 
-/* Networking needs the background task capability */
-#if defined(ARDUINOMQTT) || defined(ARDUINOETH) || defined(ARDUINOUSBKBD)
+/* Networking and keyboards need the background task capability */
+#if defined(ARDUINOMQTT) || defined(ARDUINOETH) || defined(ARDUINOUSBKBD) || defined(ARDUINOZX81KBD)
 #define ARDUINOBGTASK
 #endif
 
@@ -946,6 +946,12 @@ void restartsystem() {
 #include "ArduinoLowPower.h"
 #endif
 
+/* this is unfinished, don't use */ 
+void rtcsqw();
+
+#define LOWPOWERINTPIN 2
+void aftersleepinterrupt(void) { }
+
 void activatesleep(long t) {
   eflush(); /* if there is a I2C eeprom dummy, flush the buffer */
 #if defined(ARDUINO_ARCH_ESP8266)
@@ -957,6 +963,17 @@ void activatesleep(long t) {
 #endif
 #if defined(ARDUINO_ARCH_SAMD)
   LowPower.sleep((int) t);
+#endif
+#if defined(ARDUINO_AVR_ATmega644)
+/*
+  rtcsqw();
+  pinMode(LOWPOWERINTPIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(LOWPOWERINTPIN), aftersleepinterrupt, CHANGE);
+  sleepMode(SLEEP_POWER_SAVE);
+  sleep();
+  detachInterrupt(digitalPinToInterrupt(LOWPOWERINTPIN));
+  noSleep();
+*/
 #endif
 }
 
@@ -1039,7 +1056,6 @@ void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.w
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
 #endif
-
 
 /* 
  * A Nokia 5110 with ug8lib2 - can scroll quite well
@@ -1639,7 +1655,7 @@ char c;
   return usbkey;
 #else 
 #ifdef ZX81KEYBOARD
-  if (kbdavailable()) return keyboard.lastKey; else return 0;
+  return keyboard.lastKey; /* dont peek here as checkch called in a fast loop in statement(), peek done in byield*/
 #endif
 #endif
 #endif
@@ -2028,6 +2044,11 @@ uRTCLib rtc(RTCI2CADDR, RTCTYPE);
 uRTCLib rtc(RTCI2CADDR);
 #endif
 char rtcstring[20] = { 0 }; 
+
+void rtcsqw() {
+  rtc.sqwgSetMode(URTCLIB_SQWG_OFF_0); 
+  /* rtc.sqwgSetMode(URTCLIB_SQWG_1H); */
+}
 
 char* rtcmkstr() {
 	int cc = 2;
@@ -2446,24 +2467,23 @@ void eflush(){
 #endif
 }
 
-/* 
- * if an I2C EEPROM is defined if overlays the build in EEPROM completely 
- * this is needed to avoid inconsistencies of stored programs
- */
 #if defined(ARDUINOEEPROM) && !defined(ARDUINOI2CEEPROM)
 address_t elength() { 
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
   return EEPROMSIZE;
 #endif
-  /* classical AVR and the LGT8 with the new interface */
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_LGT8F)
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
   return EEPROM.length(); 
+#endif
+#ifdef ARDUINO_ARCH_LGT8F 
+  return EEPROM.length(); 
+  //return 512;
 #endif
   return 0;
 }
 
 void eupdate(address_t a, short c) { 
-#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F)
+#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F)
   EEPROM.write(a, c);
 #else
   EEPROM.update(a, c); 
@@ -2498,6 +2518,11 @@ short eread(address_t a) { return 0; }
 /* 
  *	the wrappers of the arduino io functions, to avoid 
  */	
+/* not needed in ESP32 2.0.2 core any more 
+#ifdef ARDUINO_ARCH_ESP32
+void analogWrite(int a, int b){}
+#endif
+*/
 
 void aread(){ push(analogRead(pop())); }
 
@@ -2622,7 +2647,6 @@ void byield() {
 	if (millis()-lastyield > YIELDINTERVAL-1) {
 		yieldfunction();
 		lastyield=millis();
-		delay(YIELDTIME);
   }
   if (millis()-lastlongyield > LONGYIELDINTERVAL-1) {
   	longyieldfunction();
@@ -2639,6 +2663,12 @@ void yieldfunction() {
 #endif
 #ifdef ARDUINOUSBKBD
   usb.Task();
+#endif
+#ifdef ARDUINOZX81KBD
+  (void) keyboard.peek(); /* scan once and set lastkey properly every 32 ms */
+#endif
+#ifdef ARDUINOMQTT
+  delay(YIELDTIME); /* ESP8266 heuristics, needed for Wifi stability */
 #endif
 }
 

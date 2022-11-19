@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.c,v 1.138 2022/08/15 18:08:56 stefan Exp stefan $ 
+ *	$Id: basic.c,v 1.138 2022/11/18 18:17:46 stefan Exp stefan $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -43,9 +43,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef	BASICFULL
+#define	BASICFULL
 #undef	BASICINTEGER
-#define	BASICSIMPLE
+#undef	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICTINYWITHFLOAT
 
@@ -6856,6 +6856,9 @@ void setup() {
 
 /* init all io functions */
 	ioinit();
+
+/* timer stuff - experimental */
+/* rtcsqw(); */
 
 /* get the BASIC memory, either as memory array with
 	ballocmem() or as an SPI serical memory */
