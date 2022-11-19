@@ -4790,6 +4790,10 @@ void xnew(){
   himem=memsize;
 	zeroblock(0, memsize);
 	top=0;
+#ifdef EEPROMMEMINTERFACE
+  z.a=top;
+  esetnumber(1, top);
+#endif
 	clrlinecache();
 
 /* error status reset */
