@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.c,v 1.138 2022/11/18 18:17:46 stefan Exp stefan $ 
+ *	$Id: basic.c,v 1.139 2022/11/19 16:43:24 stefan Exp stefan $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -43,9 +43,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef BASICFULL
-#define	BASICINTEGER
-#undef	BASICSIMPLE
+#undef	BASICFULL
+#undef	BASICINTEGER
+#define	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICTINYWITHFLOAT
 
@@ -225,9 +225,12 @@
  *	using malloc causes some overhead which can be relevant on the smaller  
  *	boards. set MEMSIZE instead to a static value. In this case ballocmem 
  *	just returns the static MEMSIZE.
+ * 
+ * if SPIRAMINTERFACE is defined, we use the memory from a serial RAM and dont allocate 
+ * it here.
  *
  */
-#if MEMSIZE == 0 && !defined(USEMEMINTERFACE)
+#if MEMSIZE == 0 && !defined(SPIRAMINTERFACE)
 address_t ballocmem() { 
 	mem_t i = 0;
 
@@ -302,8 +305,9 @@ address_t ballocmem(){ return MEMSIZE-1; };
  * autorun is generic
  */
 
-/* save a file to EEPROM */
+/* save a file to EEPROM, disabled if we use the EEPROM directly */
 void esave() {
+#ifndef EEPROMMEMINTERFACE
 	address_t a=0;
 	if (top+eheadersize < elength()) {
 		a=0;
@@ -327,10 +331,12 @@ void esave() {
 	}
 /* needed on I2C EEPROM and other platforms where we buffer */
   eflush();
+#endif
 }
 
-/* load a file from EEPROM */
+/* load a file from EEPROM, disabled if the use the EEPROM directly */
 void eload() {
+#ifndef EEPROMMEMINTERFACE
 	address_t a=0;
 	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
 		a++;
@@ -349,6 +355,7 @@ void eload() {
 		/* no valid program data is stored */
 		error(EEEPROM);
 	}
+#endif
 }
 
 /* autorun something from EEPROM or a filesystem */
@@ -358,7 +365,7 @@ char autorun() {
   		egetnumber(1, addrsize);
   		top=z.a;
   		st=SERUN;
-  		return TRUE; /* EEPROM autorun overrules filesystem autorun */
+  		return 1; /* EEPROM autorun overrules filesystem autorun */
 	} 
 #endif
 #if defined(FILESYSTEMDRIVER) || ! defined(ARDUINO)
@@ -370,7 +377,7 @@ char autorun() {
   		    st=SRUN;
             ifileclose();
             bnointafterrun=1;
-            return TRUE;
+            return 1;
         }
     }
 #endif
@@ -378,10 +385,10 @@ char autorun() {
   		xload("autoexec.bas");
   		st=SRUN;
 		ifileclose();
-		return TRUE;
+		return 1;
 	}
 #endif
-	return FALSE;
+	return 0;
 }
 
 #ifdef HASAPPLE1
@@ -426,8 +433,12 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 				vsize=l+addrsize+3;
 	}
 	
-/* enough memory ? */ 
+/* enough memory ?, on an EEPROM system we limit the heap to the RAM */ 
+#ifndef EEPROMMEMINTERFACE
 	if ((himem-top) < vsize) { error(EOUTOFMEMORY); return 0;}
+#else
+  if (himem-(elength()-eheadersize) < vsize) { error(EOUTOFMEMORY); return 0;}
+#endif 
 
 /* here we could create a hash, currently simplified
 	 the hash is the first digit of the variable plus the token */
@@ -441,6 +452,7 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 	memwrite2(b--, c);
 	memwrite2(b--, d);
 	memwrite2(b--, t);
+
 
 /* for strings, arrays and buffers write the (maximum) length 
 	  directly after the header */
@@ -741,7 +753,7 @@ void getnumber(address_t m, mem_t n){
 }
 
 /* test code only for the SPI RAM code, this function goes through the 
-  ro buffer to avoit rw buffer page faults*/
+  ro buffer to avoit rw buffer page faults */
 void pgetnumber(address_t m, mem_t n){
   mem_t i;
 
@@ -873,7 +885,7 @@ address_t getarrayseconddim(address_t a, address_t za) {
 void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 	address_t a;
 	address_t h;
-	char e = FALSE;
+	char e = 0;
 #ifdef HASMULTIDIM
 	address_t dim=1, zat;
 #endif
@@ -886,7 +898,7 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 			case 'E': 
 				h=elength()/numsize;
 				a=elength()-numsize*i;
-				e=TRUE;
+				e=1;
 				break;
 			case 'D': 
 #if defined(DISPLAYDRIVER) && defined(DISPLAYCANSCROLL)
@@ -1574,7 +1586,7 @@ void ioinit() {
 #endif
 
 /* filesystems and networks */
-  fsbegin(TRUE);
+  fsbegin(1);
 #ifdef ARDUINOMQTT
 	netbegin();  
 	mqttbegin();
@@ -1931,7 +1943,7 @@ address_t parsenumber2(char *c, number_t *r) {
 	index_t i;
 	number_t fraction = 0;
 	number_t exponent = 0;
-	char nexp = FALSE;
+	char nexp = 0;
 
 	*r=0;
 
@@ -1956,7 +1968,7 @@ address_t parsenumber2(char *c, number_t *r) {
 	if (*c == 'E' || *c == 'e') {
 		c++;
 		nd++;
-		if (*c == '-') {c++; nd++; nexp=TRUE;};
+		if (*c == '-') {c++; nd++; nexp=1;};
 		i=parsenumber(c, &exponent);
 		nd+=i;
 		while ((--exponent)>=0) if (nexp) *r=*r/10; else *r=*r*10;		
@@ -2038,7 +2050,7 @@ address_t writenumber2(char *c, number_t vi) {
 		dtostrf(vi, 0, 5, c);
 	} else {
 		dtostrf(f, 0, 5, c);
-		eflag=TRUE;
+		eflag=1;
 	}
 	
 /* remove trailing zeros */
@@ -2385,9 +2397,17 @@ void nexttoken() {
  *	the relevant global variable to the stack.
  */
 
-/* check if we still have memory left */
+/* 
+ *  check if we still have memory left, on RAM only systems we make
+ *  sure that we don't hit himem. On systems with EEPROM program storage we make
+ *  sure that we stay within the EEPROM range.
+ */
 char nomemory(number_t b){
-	if (top >= himem-b) return TRUE; else return FALSE;
+#ifndef EEPROMMEMINTERFACE
+	if (top >= himem-b) return 1; else return 0;
+#else
+  if (top >= elength()-eheadersize-b) return 1; else return 0;
+#endif
 }
 
 /* store a token - check free memory before changing anything */
@@ -2475,15 +2495,11 @@ mem_t memread(address_t a) {
 	}
 }
 
-mem_t memread2(address_t a) {
-	return mem[a];
-}
+mem_t memread2(address_t a) { return mem[a]; }
 
-void memwrite2(address_t a, mem_t c) {
-  if (a<0 || a>memsize) { outsc("Mem overflow error\n"); };
-	mem[a]=c;
-}
+void memwrite2(address_t a, mem_t c) { mem[a]=c; }
 #else 
+#ifdef SPIRAMINTERFACE
 mem_t memread(address_t a) {
 	if (st != SERUN) {
 		/* return spiramrawread(a); */
@@ -2502,6 +2518,19 @@ void memwrite2(address_t a, mem_t c) {
 	/* spiramrawwrite(a, c); */
   spiram_rwbufferwrite(a, c);
 }
+#else
+#ifdef EEPROMMEMINTERFACE
+mem_t memread(address_t a) {
+  if (a < elength()-eheadersize) return eread(a+eheadersize); else return mem[a-(elength()-eheadersize)];
+}
+
+mem_t memread2(address_t a) { return memread(a); }
+
+void memwrite2(address_t a, mem_t c) { 
+   if (a < elength()-eheadersize) eupdate(a+eheadersize, c); else mem[a-(elength()-eheadersize)]=c;
+}
+#endif
+#endif
 #endif
 
 
@@ -2692,7 +2721,7 @@ void moveblock(address_t b, address_t l, address_t d){
 
 	if (b < d)
 		for (i=l; i>0; i--)
-	/*		mem[d+i-1]=mem[b+i-1]; */
+      /* mem[d+i-1]=mem[b+i-1]; */
 			memwrite2(d+i-1, memread2(b+i-1));
 	else 
 		for (i=0; i<l; i++) 
@@ -2890,14 +2919,14 @@ char termsymbol() {
 /* a little helpers - one token expect */ 
 char expect(mem_t t, mem_t e) {
 	nexttoken();
-	if (token != t) {error(e); return FALSE; } else return TRUE;
+	if (token != t) {error(e); return 0; } else return 1;
 }
 
 /* a little helpers - expression expect */
 char expectexpr() {
 	nexttoken();
 	expression();
-	if (er != 0) return FALSE; else return TRUE;
+	if (er != 0) return 0; else return 1;
 }
 
 /* parses a list of expression, this may be recursive! */
@@ -2917,7 +2946,7 @@ void parsearguments() {
 			argsl++;
 			if (token != ',') break;
 			nexttoken();
-		} while (TRUE);
+		} while (1);
 	}
 
 /* because of the recursion ... */
@@ -3200,7 +3229,7 @@ void xpow(){
 #endif
 
 /* 
- * stringvalue() evaluates a string value, FALSE if there is no string
+ * stringvalue() evaluates a string value, 0 if there is no string
  * ir2 has the string location, the stack has the length
  * ax the memory byte address, x is set to the lower index which is a nasty
  * side effect
@@ -3224,7 +3253,7 @@ char stringvalue() {
 		xcl=xc;
 		ycl=yc;
 		parsesubstring();
-		if (er != 0) return FALSE;
+		if (er != 0) return 0;
 #ifdef HASSTRINGARRAYS
 		k=pop();
 #else 
@@ -3248,10 +3277,10 @@ char stringvalue() {
 		yc=ycl;
 	} else if (token == TSTR) {	
 		nexttoken();
-		if ( token != '(') { error(EARGS); return FALSE; }
+		if ( token != '(') { error(EARGS); return 0; }
 		nexttoken();
 		expression();
-		if (er != 0) return FALSE;
+		if (er != 0) return 0;
 #ifdef HASFLOAT
 		push(writenumber2(sbuffer, pop()));
 #else
@@ -3259,13 +3288,13 @@ char stringvalue() {
 #endif
 		ir2=sbuffer;
 		x=1;
-		if (er != 0) return FALSE;
-		if (token != ')') {error(EARGS);return FALSE;	}
+		if (er != 0) return 0;
+		if (token != ')') {error(EARGS);return 0;	}
 #endif
 	} else {
-		return FALSE;
+		return 0;
 	}
-	return TRUE;
+	return 1;
 }
 
 
@@ -3808,7 +3837,7 @@ void expression(){
  *	PRINT command 
  */
 void xprint(){
-	char semicolon = FALSE;
+	char semicolon = 0;
 	char oldod;
 	char modifier = 0;
 
@@ -3826,7 +3855,7 @@ processsymbol:
 		form=0;
 		return;
 	}
-	semicolon=FALSE;
+	semicolon=0;
 
 	if (stringvalue()) {
 		if (er != 0) return;
@@ -3865,7 +3894,7 @@ separators:
 		nexttoken();	
 	}
 	if (token == ';') {
-		semicolon=TRUE;
+		semicolon=1;
 		nexttoken();
 	}
 	modifier=0;
@@ -3928,15 +3957,15 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 			switch(args) {
 				case 0:
 					*i=1;
-					*ps=TRUE;
+					*ps=1;
 					break;
 				case 1:
-					*ps=FALSE;
+					*ps=0;
 					nexttoken();
 					*i=pop();
 					break;
 				case 2:
-					*ps=FALSE;
+					*ps=0;
 					nexttoken();
 					*i2=pop();
 					*i=pop();
@@ -3955,15 +3984,15 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 					nexttoken();
 				case 0:
 					*i=1;
-					*ps=TRUE;
+					*ps=1;
 					break;
 				case 1:
-					*ps=FALSE;
+					*ps=0;
 					nexttoken();
 					*i=pop();
 					break;
 				case 2:
-					*ps=FALSE;
+					*ps=0;
 					nexttoken();
 					*i2=pop();
 					*i=pop();
@@ -4029,7 +4058,7 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
  */
 void assignment() {
 	mem_t t;  /* remember the left hand side token until the end of the statement, type of the lhs */
-	mem_t ps=TRUE;  /* also remember if the left hand side is a pure string of something with an index */
+	mem_t ps=1;  /* also remember if the left hand side is a pure string of something with an index */
 	mem_t xcl, ycl; /* to preserve the left hand side variable names */
 	address_t i=1; /* and the beginning of the destination string */
 	address_t i2=0; /* and the end of the destination string */  
@@ -4171,7 +4200,7 @@ void showprompt() {
 
 void xinput(){
 	mem_t oldid = id;
-	mem_t prompt = TRUE;
+	mem_t prompt = 1;
 	address_t l;
 	number_t xv;
 	mem_t xcl, ycl;
@@ -4184,7 +4213,7 @@ void xinput(){
 		if(!expectexpr()) return;
 		oldid=id;
 		id=pop();
-		if (id != ISERIAL || id !=IKEYBOARD) prompt=FALSE;
+		if (id != ISERIAL || id !=IKEYBOARD) prompt=0;
 		if (token != ',') {
 			error(EUNKNOWN);
 			return;
@@ -4207,7 +4236,7 @@ void xinput(){
 
 nextstring:
 	if (token == STRING && id != IFILE) {
-		prompt=FALSE;   
+		prompt=0;   
 		outs(ir, x);
 		nexttoken();
 		if (token != ',' && token != ';') {
@@ -4426,7 +4455,7 @@ void xelse() {
  * find the NEXT token or the end of the program
  */ 
 void findnextcmd(){
-	while (TRUE) {			
+	while (1) {			
 		if (token == TNEXT) {
 	    if (fnc == 0) return;
 	    else fnc--;
@@ -4599,7 +4628,7 @@ void outputtoken() {
 
 	if (spaceafterkeyword) {
 		if (token != '(' && token != LINENUMBER && token !=':' ) outspc();
-		spaceafterkeyword=FALSE;
+		spaceafterkeyword=0;
 	}
 
 	switch (token) {
@@ -4634,7 +4663,7 @@ void outputtoken() {
 						token == TAND ) && lastouttoken != LINENUMBER) outspc(); 
 				for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 				outsc(getkeyword(i)); 
-				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) spaceafterkeyword=TRUE;
+				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) spaceafterkeyword=1;
 				break;
 			}	
 			if (token >= 32) {
@@ -4653,7 +4682,7 @@ void outputtoken() {
  */
 void xlist(){
 	number_t b, e;
-	mem_t oflag = FALSE;
+	mem_t oflag = 0;
 
 	lastouttoken=0;
 	spaceafterkeyword=0;
@@ -4685,8 +4714,8 @@ void xlist(){
 	here=0;
 	gettoken();
 	while (here < top) {
-		if (token == LINENUMBER && x >= b) oflag=TRUE;
-		if (token == LINENUMBER && x >  e) oflag=FALSE;
+		if (token == LINENUMBER && x >= b) oflag=1;
+		if (token == LINENUMBER && x >  e) oflag=0;
 		if (oflag) outputtoken();
 		gettoken();
 		if (token == LINENUMBER && oflag) {
@@ -5153,7 +5182,7 @@ void xload(const char* f) {
 	char filename[SBUFSIZE];
 	address_t ch;
 	address_t here2;
-	mem_t chain = FALSE;
+	mem_t chain = 0;
 
 	if (f == 0) {
 		nexttoken();
@@ -5174,7 +5203,7 @@ void xload(const char* f) {
  *	gosub and for stacks are cleared 
  */
 		if (st == SRUN) { 
-			chain=TRUE; 
+			chain=1; 
 			st=SINT; 
 			top=0;
 			clrgosubstack();
@@ -5208,6 +5237,11 @@ void xload(const char* f) {
       		}
 		}   	
 		ifileclose();
+/* after a successful load we save top to the EEPROM header */
+#ifdef EEPROMMEMINTERFACE
+    z.a=top;
+    esetnumber(1, addrsize);
+#endif
 
 /* go back to run mode and start from the first line */
 		if (chain) {
@@ -5240,7 +5274,7 @@ void xload(const char* f) {
  */
 void xget(){
 	mem_t t;		/* remember the left hand side token until the end of the statement, type of the lhs */
-	mem_t ps=TRUE;	/* also remember if the left hand side is a pure string of something with an index */
+	mem_t ps=1;	/* also remember if the left hand side is a pure string of something with an index */
 	mem_t xcl, ycl;	/* to preserve the left hand side variable names	*/
 	address_t i=1;	/* and the beginning of the destination string  	*/
  	address_t i2=1; /* and the end of the destination string    */
@@ -6289,7 +6323,7 @@ enddatarecord:
  */
 void xread(){
 	mem_t t, t0;	/* remember the left hand side token until the end of the statement, type of the lhs */
-	mem_t ps=TRUE;	/* also remember if the left hand side is a pure string of something with an index 	*/
+	mem_t ps=1;	/* also remember if the left hand side is a pure string of something with an index 	*/
 	mem_t xcl, ycl; /* to preserve the left hand side variable names	*/
 	address_t i=1;  /* and the beginning of the destination string */
     address_t i2=0;  /* and the end of the destination string */
@@ -6862,14 +6896,35 @@ void setup() {
 
 /* get the BASIC memory, either as memory array with
 	ballocmem() or as an SPI serical memory */
-#if defined(USEMEMINTERFACE) && MEMSIZE == 0
+#if defined(SPIRAMINTERFACE) && MEMSIZE == 0
 	himem=memsize=spirambegin();
 #else 
+#if defined(EEPROMMEMINTERFACE)
+/* 
+ *  for an EEPROMMEM system, the memory consists of the 
+ *  EEPROM from 0 to elength()-eheadersize and then the RAM.
+ */
+  himem=memsize=ballocmem()+(elength()-eheadersize);
+#else
 	himem=memsize=ballocmem();
 #endif
+#endif
 
-/* be ready for a new program */
+#ifndef EEPROMMEMINTERFACE
+/* be ready for a new program if we run on RAM*/
  	xnew();	
+#else
+/* if we run on an EEPROM system, more work is needed */
+  if (eread(0) == 0 || eread(0) == 1) { /* have we stored a program and don't do new, god help us*/
+    egetnumber(1, addrsize);
+    top=z.a;
+  } else {
+    eupdate(0, 0); /* now we have stored a program of length 0 */
+    z.a=0;
+    esetnumber(1, 0);
+    xnew();
+  }
+#endif
 
 /* check if there is something to autorun and prepare 
 		the interpreter to got into autorun once loop is reached */
@@ -6893,7 +6948,10 @@ void loop() {
  */
 	if (st == SERUN) {
 		xrun();
+ /* on an EEPROM system we don't set top to 0 here */
+ #ifndef EEPROMMEMINTERFACE
 		top=0;
+ #endif
 		st=SINT;
 	} else if (st == SRUN) {
 		here=0;
@@ -6914,7 +6972,12 @@ void loop() {
 
 /* a number triggers the line storage, anything else is executed */
 	if (token == NUMBER) {
-		storeline();		
+		storeline();	
+/* on an EEPROM system we store top after each succesful line insert */
+#ifdef EEPROMMEMINTERFACE
+    z.a=top;
+    esetnumber(1, addrsize);
+#endif
 	} else {
  		/* st=SINT; */
 		statement();   
@@ -6935,7 +6998,7 @@ int main(int argc, char* argv[]){
   
 /* do what an Arduino would do, this loops for every interactive input */
 	setup();
-	while (TRUE)
+	while (1)
 		loop();
 }
 #endif
