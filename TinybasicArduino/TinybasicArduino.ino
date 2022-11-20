@@ -4811,7 +4811,7 @@ void xnew(){
 #ifdef EEPROMMEMINTERFACE
   eupdate(0, 0);
   z.a=top;
-  esetnumber(1, top);
+  esetnumber(1, addrsize);
 #endif
 }
 
@@ -5062,7 +5062,7 @@ void dumpmem(address_t r, address_t b) {
 		i--;
 		if (k > memsize) break;
 	}
-#if defined(ARDUINOEEPROM) || ( !defined(ARDUINO) && EEPROMSIZE>0)
+#if defined(ARDUINOEEPROM) || defined(ARDUINOI2CEEPROM) || ( !defined(ARDUINO) && EEPROMSIZE>0)
 	printmessage(EEEPROM); outcr();
 	i=r;
 	k=0;
@@ -6934,12 +6934,15 @@ void setup() {
   if (eread(0) == 0 || eread(0) == 1) { /* have we stored a program and don't do new, god help us*/
     egetnumber(1, addrsize);
     top=z.a;
+
+    outsc("Read top from EEPROM"); outnumber(top); outcr();
+    
     resetbasicstate(); /* the little brother of new, reset the state but let the program memory be */
-    for (address_t a=elength(); a<himem; a++) memwrite2(a, 0); /* clear the heap i.e. the basic RAM*/
+    for (address_t a=elength(); a<memsize; a++) memwrite2(a, 0); /* clear the heap i.e. the basic RAM*/
   } else {
     eupdate(0, 0); /* now we have stored a program of length 0 */
     z.a=0;
-    esetnumber(1, 0);
+    esetnumber(1, addrsize);
     xnew();
   }
 #endif

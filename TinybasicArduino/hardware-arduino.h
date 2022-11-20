@@ -75,8 +75,8 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#undef ARDUINOEEPROM
-#define ARDUINOI2CEEPROM
+#define ARDUINOEEPROM
+#undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -2527,7 +2527,7 @@ address_t elength() {
 
 void eupdate(address_t a, short c) { 
   EFSRAW.rawwrite(a, c);
-  EFSRAW.rawflush(); /* evil code, we disable buffering -> check the EFS raw object, suspected mishandling of binary data */ 
+  /* EFSRAW.rawflush(); // evil code, we disable buffering -> check the EFS raw object, suspected mishandling of binary data */ 
 }
 
 short eread(address_t a) { 
