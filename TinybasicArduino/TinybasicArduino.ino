@@ -360,7 +360,7 @@ void eload() {
 
 /* autorun something from EEPROM or a filesystem */
 char autorun() {
-#if defined(ARDUINOEEPROM) || ! defined(ARDUINO) 
+#if defined(ARDUINOEEPROM) || defined(ARDUINOI2CEEPROM) || ! defined(ARDUINO) 
 	if (eread(0) == 1){ /* autorun from the EEPROM */
   		egetnumber(1, addrsize);
   		top=z.a;
@@ -6933,10 +6933,7 @@ void setup() {
 /* if we run on an EEPROM system, more work is needed */
   if (eread(0) == 0 || eread(0) == 1) { /* have we stored a program and don't do new, god help us*/
     egetnumber(1, addrsize);
-    top=z.a;
-
-    outsc("Read top from EEPROM"); outnumber(top); outcr();
-    
+    top=z.a;    
     resetbasicstate(); /* the little brother of new, reset the state but let the program memory be */
     for (address_t a=elength(); a<memsize; a++) memwrite2(a, 0); /* clear the heap i.e. the basic RAM*/
   } else {
