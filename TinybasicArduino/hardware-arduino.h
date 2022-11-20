@@ -98,7 +98,7 @@
  * from elength() and then adding the BASIC RAM to it. himem and top need to be 
  * handled carefully. 
  */
-#define ARDUINOPGMEEPROM
+#undef ARDUINOPGMEEPROM
 
 /* 
  * Predefined hardware configurations, this assumes that all of the 
