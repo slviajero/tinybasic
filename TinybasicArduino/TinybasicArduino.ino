@@ -4777,30 +4777,42 @@ void xrun(){
 /*
  * NEW the general cleanup function - new deletes everything
  */
-void xnew(){ 
+void resetbasicstate() {
+ 
+ /* all stacks are purged */
+  clearst();
+  clrgosubstack();
+  clrforstack();
+  clrdata();
+  clrvars();
+  clrlinecache();
+  
+/* error status reset */
+  reseterror();
 
-/* all stacks are purged */
-	clearst();
-	clrgosubstack();
-	clrforstack();
-	clrdata();
-	clrvars();
+/* let here point to the beginning of the program */
+  here=0;
+
+/* interactive mode */
+  st=SINT;
+  
+}
+ 
+void xnew(){ 
+/* reset the state of the interpreter */
+  resetbasicstate();
 
 /* program memory back to zero and variable heap cleared */
   himem=memsize;
 	zeroblock(0, memsize);
 	top=0;
+
+/* on EEPROM systems also clear the stored state and top */
 #ifdef EEPROMMEMINTERFACE
+  eupdate(0, 0);
   z.a=top;
   esetnumber(1, top);
 #endif
-	clrlinecache();
-
-/* error status reset */
-	reseterror();
-
-/* interactive mode */
-	st=SINT;
 }
 
 /* 
@@ -6922,6 +6934,8 @@ void setup() {
   if (eread(0) == 0 || eread(0) == 1) { /* have we stored a program and don't do new, god help us*/
     egetnumber(1, addrsize);
     top=z.a;
+    resetbasicstate(); /* the little brother of new, reset the state but let the program memory be */
+    for (address_t a=elength(); a<himem; a++) memwrite2(a, 0); /* clear the heap i.e. the basic RAM*/
   } else {
     eupdate(0, 0); /* now we have stored a program of length 0 */
     z.a=0;

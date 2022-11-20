@@ -98,7 +98,7 @@
  * from elength() and then adding the BASIC RAM to it. himem and top need to be 
  * handled carefully. 
  */
-#undef ARDUINOPGMEEPROM
+#define ARDUINOPGMEEPROM
 
 /* 
  * Predefined hardware configurations, this assumes that all of the 
@@ -3973,8 +3973,8 @@ void spiramrawwrite(address_t a, mem_t c) {
 #endif
 
 /* the string buffers of the memory interface */
-signed char spistrbuf1[SPIRAMSBSIZE];
-signed char spistrbuf2[SPIRAMSBSIZE];
+char spistrbuf1[SPIRAMSBSIZE];
+char spistrbuf2[SPIRAMSBSIZE];
 #endif
 
 // defined HARDWARE_H
