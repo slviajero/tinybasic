@@ -75,8 +75,8 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#define ARDUINOEEPROM
-#undef ARDUINOI2CEEPROM
+#undef ARDUINOEEPROM
+#define ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -98,7 +98,7 @@
  * from elength() and then adding the BASIC RAM to it. himem and top need to be 
  * handled carefully. 
  */
-#undef ARDUINOPGMEEPROM
+#define ARDUINOPGMEEPROM
 
 /* 
  * Predefined hardware configurations, this assumes that all of the 
@@ -2527,6 +2527,7 @@ address_t elength() {
 
 void eupdate(address_t a, short c) { 
   EFSRAW.rawwrite(a, c);
+  EFSRAW.rawflush(); /* evil code, we disable buffering -> check the EFS raw object, suspected mishandling of binary data */ 
 }
 
 short eread(address_t a) { 
