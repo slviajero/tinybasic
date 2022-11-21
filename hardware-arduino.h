@@ -91,6 +91,15 @@
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
 
+/* experimental features, don't use unless you know the code */
+/* 
+ * this setting uses the EEPROM as program storage 
+ * The idea is to create a virtual memory layout starting from 0 with the EEPROM
+ * from elength() and then adding the BASIC RAM to it. himem and top need to be 
+ * handled carefully. 
+ */
+#undef ARDUINOPGMEEPROM
+
 /* 
  * Predefined hardware configurations, this assumes that all of the 
  *	above are undef
@@ -487,17 +496,17 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
  */
 
 #if defined(ARDUINO_ARCH_AVR)
-const char bsystype = SYSTYPE_AVR;
+const mem_t bsystype = SYSTYPE_AVR;
 #elif defined(ARDUINO_ARCH_ESP8266)
-const char bsystype = SYSTYPE_ESP8266;
+const mem_t bsystype = SYSTYPE_ESP8266;
 #elif defined(ARDUINO_ARCH_ESP32)
-const char bsystype = SYSTYPE_ESP32;
+const mem_t bsystype = SYSTYPE_ESP32;
 #elif defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040)
-const char bsystype = SYSTYPE_RP2040;
+const mem_t bsystype = SYSTYPE_RP2040;
 #elif defined(ARDUINO_ARCH_SAM) && defined(ARDUINO_ARCH_SAMD)
-const char bsystype = SYSTYPE_SAM;
+const mem_t bsystype = SYSTYPE_SAM;
 #else
-const char bsystype = SYSTYPE_UNKNOWN;
+const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif 
 
 /* 
@@ -580,8 +589,10 @@ const char bsystype = SYSTYPE_UNKNOWN;
 
 /* 
  * Keyboard library, on AVR systems Paul Stoffregens original 
- * PS2 library works. For ESP use my patched version from 
+ * PS2 library works.
+ * I recommend to use my patched version from 
  * https://github.com/slviajero/PS2Keyboard
+ * works with ESP, has keyboard.peek()
  */
 #ifdef ARDUINOPS2
 #include <PS2Keyboard.h>
@@ -596,7 +607,7 @@ const char bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 /*
- * The ZX81 keyboard code - tested on AVR 
+ * The ZX81 keyboard code - tested on AVR MEGA256
  */
 #ifdef ARDUINOZX81KBD
 #include <ZX81Keyboard.h>
@@ -646,6 +657,10 @@ const char bsystype = SYSTYPE_UNKNOWN;
 #include <LiquidCrystal.h>
 #endif
 
+/*
+ * I2C displays 
+ */
+
 #ifdef ARDUINOLCDI2C
 #include <LiquidCrystal_I2C.h>
 #endif
@@ -653,7 +668,7 @@ const char bsystype = SYSTYPE_UNKNOWN;
 /*
  * This is the monochrome library of Oli Kraus
  * https://github.com/olikraus/u8g2/wiki/u8g2reference
- * It can harware scroll.
+ * It can harware scroll, but this is not yet implemented 
  */
 #if defined(ARDUINONOKIA51) || defined(ARDUINOSSD1306)
 #include <U8g2lib.h>
@@ -679,7 +694,6 @@ const char bsystype = SYSTYPE_UNKNOWN;
 #include <MCUFRIEND_kbv.h>
 #endif
 
-
 /*
  * For TFT we use the UTFT library
  * http://www.rinkydinkelectronics.com/library.php?id=51
@@ -694,8 +708,9 @@ const char bsystype = SYSTYPE_UNKNOWN;
 /* 
  * experimental networking code 
  * currently the standard Ethernet shield, ESP Wifi 
- * and RP2040 Wifi is supported. All of them with 
- * the standard library.
+ * MKW Wifi, and RP2040 Wifi is supported. All of them 
+ * with the standard library.
+ *
  * In addition to this Pubsub is used
  * https://github.com/slviajero/pubsubclient
  * for MQTT
@@ -719,10 +734,7 @@ const char bsystype = SYSTYPE_UNKNOWN;
 
 /*
  * VGA is only implemented on one platform - TTGO VGA 1.4
- * This does currently not compile with the newest ESP32 
- * Tested with 
- * https://github.com/slviajero/FabGL
- * Newer versions not yet tested
+ * Needs https://github.com/slviajero/FabGL
  */
 #if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32)
 #include <WiFi.h> 
@@ -792,7 +804,7 @@ const char bsystype = SYSTYPE_UNKNOWN;
  * external flash file systems override internal filesystems
  * currently BASIC can only have one filesystem
  */ 
-#if defined(ARDUINOSD)
+#ifdef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #endif
@@ -811,16 +823,24 @@ const char bsystype = SYSTYPE_UNKNOWN;
 #define FILESYSTEMDRIVER
 #endif
 
+/* the EFS object is used for filesystems and raw EEPROM access */
 #if defined(ARDUINOI2CEEPROM) || defined(ARDUINOEFS)
 #include <EepromFS.h>
 #endif
 
 /*
  * incompatibilities
+ *
  * Picoserial only tested on the small boards
+ *
+ * Software SPI only on Mega2560
  */
 #if ! defined(ARDUINO_AVR_UNO) && ! defined(ARDUINO_AVR_DUEMILANOVE) 
 #undef USESPICOSERIAL
+#endif
+
+#ifndef ARDUINO_AVR_MEGA2560
+#undef SOFTWARE_SPI_FOR_SD
 #endif
 
 /* 
@@ -833,14 +853,14 @@ const char bsystype = SYSTYPE_UNKNOWN;
  * available characters are always loaded to a string -> inb()
  */
 const int serial_baudrate = 9600;
-char sendcr = 0;
+mem_t sendcr = 0;
 
 #ifdef ARDUINOPRT
 int serial1_baudrate = 9600;
-short blockmode = 1;
+mem_t blockmode = 1;
 #else 
 const int serial1_baudrate = 0;
-short blockmode = 0;
+mem_t blockmode = 0;
 #endif
 
 /*  handling time - part of the Arduino core - only needed on POSIX OSes */
@@ -855,7 +875,6 @@ void wiringbegin() {}
  * Arduino information from
  * data from https://docs.arduino.cc/learn/programming/memory-guide
  */
-
 #if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM)
 extern "C" char* sbrk(int incr);
 long freeRam() {
@@ -965,7 +984,7 @@ void activatesleep(long t) {
   LowPower.sleep((int) t);
 #endif
 #if defined(ARDUINO_AVR_ATmega644)
-/*
+/* unfinished, don't use, just test code
   rtcsqw();
   pinMode(LOWPOWERINTPIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(LOWPOWERINTPIN), aftersleepinterrupt, CHANGE);
@@ -1376,7 +1395,7 @@ void vgabegin() {
 	Terminal.setForegroundColor(vga_txt_pen);
   Terminal.connectLocally();
   Terminal.clear();
-  Terminal.enableCursor(true); 
+  Terminal.enableCursor(1); 
   Terminal.setTerminalType(TermType::VT52);
 }
 
@@ -2026,7 +2045,7 @@ void dspwrite(char c){};
 void dspbegin() {};
 int dspstat(char c) {return 0; }
 char dspwaitonscroll() { return 0; };
-char dspactive() {return FALSE; }
+char dspactive() {return 0; }
 void dspsetscrollmode(char c, short l) {}
 void dspsetcursor(short c, short r) {}
 #endif
@@ -2036,6 +2055,9 @@ void dspsetcursor(short c, short r) {}
  * this is a minimalistic library. The interface here 
  * offers the values as number_t plus a string, 
  * combining all values. 
+ * 
+ * Default here is DS3231 or DS3232, DS1307 can be set (
+ * but not yet relevant)
  */
 #ifdef ARDUINORTC
 #ifdef RTCTYPE
@@ -2045,6 +2067,7 @@ uRTCLib rtc(RTCI2CADDR);
 #endif
 char rtcstring[20] = { 0 }; 
 
+/* this code is currently not used, controls advanced features of the clock */
 void rtcsqw() {
   rtc.sqwgSetMode(URTCLIB_SQWG_OFF_0); 
   /* rtc.sqwgSetMode(URTCLIB_SQWG_1H); */
@@ -2230,7 +2253,7 @@ void netbegin() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(ssid, password);
-	WiFi.setAutoReconnect(true);
+	WiFi.setAutoReconnect(1);
 #endif
 #if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD)
 	WiFi.begin(ssid, password);
@@ -2265,12 +2288,12 @@ void netreconnect() {
 /* */
 #else 
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
-    WiFi.reconnect(); 
-    delay(1000); 
+  WiFi.reconnect(); 
+  delay(1000); 
 #elif defined(ARDUINO_ARCH_SAMD)
-    WiFi.end();
-    WiFi.begin(ssid, password);
-    delay(1000);
+  WiFi.end();
+  WiFi.begin(ssid, password);
+  delay(1000);
 #endif  
 #endif
 }
@@ -2333,11 +2356,11 @@ char mqttreconnect() {
 	char reconnect=0;
 
 /* all good and nothing to be done, we are connected */
-	if (bmqtt.connected()) return true;
+	if (bmqtt.connected()) return 1;
 
 /* try to reconnect the network */
   if (!netconnected()) { netreconnect(); delay(5000); }
-  if (!netconnected()) return false;
+  if (!netconnected()) return 0;
 	
 /* create a new random name right now */
 	mqttsetname();
@@ -2384,7 +2407,7 @@ void mqttunsubscribe() {
  * 
  */
 void mqttsettopic(char *t) {
-	int i;
+	short i;
 
 	for (i=0; i<MQTTLENGTH; i++) {
 		if ((mqtt_otopic[i]=t[i]) == 0 ) break;
@@ -2397,7 +2420,7 @@ void mqttsettopic(char *t) {
  *	this is needed to do things like PRINT A,B,C as one message
  */
 void mqttouts(char *m, short l) {
-	int i=0;
+	short i=0;
 
 	while(mqtt_charsforsend < MQTTBLENGTH && i<l) mqtt_obuffer[mqtt_charsforsend++]=m[i++];
 	if (mqtt_obuffer[mqtt_charsforsend-1] == '\n' || mqtt_charsforsend > MQTTBLENGTH) {
@@ -2407,8 +2430,11 @@ void mqttouts(char *m, short l) {
 	}
 } 
 
-/* ins copies the buffer into a basic string 
-	- behold the jabberwock - length gynmastics */
+/* 
+ * ins copies the buffer into a basic string 
+ *  - behold the jabberwock - length gynmastics 
+ * z.a has to be the loop variable and contain the length after this -> intended side effect
+ */
 void mqttins(char *b, short nb) {
 	for (z.a=0; z.a<nb && z.a<mqtt_messagelength; z.a++) b[z.a+1]=mqtt_buffer[z.a];
  	b[0]=z.a;
@@ -2476,8 +2502,7 @@ address_t elength() {
   return EEPROM.length(); 
 #endif
 #ifdef ARDUINO_ARCH_LGT8F 
-  return EEPROM.length(); 
-  //return 512;
+  return EEPROM.length(); /* on newer LGT8 cores, older ones don't have this, set 512 instead */
 #endif
   return 0;
 }
@@ -2502,6 +2527,7 @@ address_t elength() {
 
 void eupdate(address_t a, short c) { 
   EFSRAW.rawwrite(a, c);
+  /* EFSRAW.rawflush(); // evil code, we disable buffering -> check the EFS raw object, suspected mishandling of binary data */ 
 }
 
 short eread(address_t a) { 
@@ -2516,13 +2542,9 @@ short eread(address_t a) { return 0; }
 #endif
 
 /* 
- *	the wrappers of the arduino io functions, to avoid 
- */	
-/* not needed in ESP32 2.0.2 core any more 
-#ifdef ARDUINO_ARCH_ESP32
-void analogWrite(int a, int b){}
-#endif
-*/
+ *	the wrappers of the arduino io functions
+ *  awrite requires ESP32 2.0.2 core, else disable awrite() 
+ */ 
 
 void aread(){ push(analogRead(pop())); }
 
@@ -2993,7 +3015,7 @@ int rootnextfile() {
 	file = EFS.readdir();
 	return (file != 0);
 #endif
-  return FALSE;
+  return 0;
 }
 
 int rootisfile() {
@@ -3002,7 +3024,7 @@ int rootisfile() {
 #endif
 #ifdef ESPSPIFFS
 #ifdef ARDUINO_ARCH_ESP8266
-	return TRUE;
+	return 1;
 #endif
 #ifdef ARDUINO_ARCH_ESP32
 	return (! file.isDirectory());
@@ -3012,9 +3034,9 @@ int rootisfile() {
 	return (file->d_type == DT_REG);
 #endif
 #ifdef ARDUINOEFS
-	return true;
+	return 1;
 #endif	
-	return FALSE;
+	return 0;
 }
 
 const char* rootfilename() {
@@ -3041,7 +3063,7 @@ const char* rootfilename() {
 #ifdef ARDUINOEFS
 	return EFS.filename(file);
 #endif
-	return FALSE; 
+	return 0; 
 }
 
 int rootfilesize() {
@@ -3138,7 +3160,7 @@ void formatdisk(short i) {
  */
 #ifdef USESPICOSERIAL
 volatile static char picochar;
-volatile static char picoa = FALSE;
+volatile static char picoa = 0;
 volatile static char* picob = NULL;
 static short picobsize = 0;
 volatile static short picoi = 1;
@@ -3151,7 +3173,7 @@ void picogetchar(int c){
 			picob[picoi++]=picochar;
 			outch(picochar);
 		} else {
-			picoa = TRUE;
+			picoa = 1;
 			picob[picoi]=0;
 			picob[0]=picoi;
 			z.a=picoi;
@@ -3249,7 +3271,7 @@ void consins(char *b, short nb) {
 	if (id == ISERIAL) {
 		picob=b;
 		picobsize=nb;
-		picoa=FALSE;
+		picoa=0;
 		while (! picoa);
 		//outsc(b+1); 
 		outcr();
@@ -3773,6 +3795,7 @@ number_t sensorread(short s, short v) {return 0;};
 
 #ifdef ARDUINOSPIRAM
 #define USEMEMINTERFACE
+#define SPIRAMINTERFACE
 
 /* 
  *  we use the standard slave select pin as default 
@@ -3926,10 +3949,20 @@ void spiramrawwrite(address_t a, mem_t c) {
   if (a >= spiram_rwbufferaddr && a < spiram_rwbufferaddr + spiram_rwbuffersize && spiram_rwbufferaddr > 0) 
     spiram_rwbuffer[a-spiram_rwbufferaddr]=c;
 }
+#endif
 
 
-/* to handle strings in SPIRAM situations two more buffers are needed 
- * they store intermediate results of string operations. The buffersize 
+/* the code to address EEPROMs directly */
+#ifdef ARDUINOPGMEEPROM
+#define USEMEMINTERFACE
+#define EEPROMMEMINTERFACE
+#endif
+
+
+#if defined(USEMEMINTERFACE)
+/* 
+ * to handle strings in situations with a memory interface two more buffers are 
+ * needed they store intermediate results of string operations. The buffersize 
  * limits the maximum string length indepents of how big strings are set
  * 
  * default is 128, on an MEGA 512 is possible
@@ -3939,10 +3972,11 @@ void spiramrawwrite(address_t a, mem_t c) {
 #else
 #define SPIRAMSBSIZE 128
 #endif
-signed char spistrbuf1[SPIRAMSBSIZE];
-signed char spistrbuf2[SPIRAMSBSIZE];
-#endif
 
+/* the string buffers of the memory interface */
+char spistrbuf1[SPIRAMSBSIZE];
+char spistrbuf2[SPIRAMSBSIZE];
+#endif
 
 // defined HARDWARE_H
 #endif
