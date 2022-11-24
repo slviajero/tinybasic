@@ -90,6 +90,7 @@
 #undef ARDUINOSENSORS
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
+#undef STANDALONESECONDSERIAL
 
 /* experimental features, don't use unless you know the code */
 /* 
@@ -3301,7 +3302,7 @@ void consins(char *b, short nb) {
  * instance
  */
 #ifdef ARDUINOPRT
-#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE) && !defined(ARDUINO_AVR_NANO_EVERY) && !defined(ARDUINO_NANO_RP2040_CONNECT) && !defined(ARDUINO_RASPBERRY_PI_PICO)
+#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE) && !defined(ARDUINO_AVR_NANO_EVERY) && !defined(ARDUINO_NANO_RP2040_CONNECT) && !defined(ARDUINO_RASPBERRY_PI_PICO) && !defined(ARDUINO_SEEED_XIAO_M0)
 #include <SoftwareSerial.h>
 /* definition of the serial port pins from "pretzel board"
 for UNO 11 is not good for rx */
