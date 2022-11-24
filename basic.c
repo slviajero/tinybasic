@@ -1570,6 +1570,13 @@ void ioinit() {
 	odd = ODSP;
 #endif
 
+#ifdef STANDALONESECONDSERIAL
+  idd = ISERIAL1;
+  odd = OPRT;
+  blockmode = 0;
+  sendcr = 0;
+#endif
+
 /* this is only for RASPBERRY - wiring has to be started explicitly */
 	wiringbegin();
 
