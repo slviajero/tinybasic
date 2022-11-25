@@ -112,7 +112,7 @@
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
-#undef 	HASTONE
+#define	HASTONE
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
