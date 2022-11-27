@@ -655,7 +655,7 @@ A contains the time since start in milliseconds. B is the time since start in se
 
 Two more compley Arduino I/O function are available from BASIC. 
 
-PULSEIN reads a pulse on a pin. The first argument is the pin number, the second whether a LOW=0 or HIGH=1 state is expected. The third argument is the timeout in milliseconds. Note the difference to the original Arduino pulseIN(). The low level Arduino commands expects the pulse length in microseconds. 
+PULSEIN reads a pulse on a pin. The first argument is the pin number, the second whether a LOW=0 or HIGH=1 state is expected. The third argument is the timeout in milliseconds. Note the difference to the original Arduino pulseIN(). The low level Arduino commands delivers the pulse length in microseconds. PULSEIN delivers the pulse length in 10 microsecond units to be compatible with integer BASIC number ranges.
 
 PLAY is a wrapper around the Arduino tone() function for Arduino systems. For ESP32 VGA systems it is mapped to the sound generator function of the FabGL library. More information on this can be found in the hardware section. 
 
@@ -955,15 +955,17 @@ INSTR finds a character in a string and returns the index. Example:
 
 A\$="1, 2, 3"
 
-A=INST(",", A\$)
+A=INSTR(",", A\$)
 
 finds the first comma in the string. INSTR can be used to split strings. See splitstr.bas in the tutorial for more information.
 
-VAL scans a string for a number and returns the value. If no number is found the return value is 0 and the error status @S is set to 1. Example: 
+VAL scans a string for a number and returns the value. If no number is found the return value is 0. Example: 
 
 A\$="125"
 
 A=VAL(A$)
+
+VAL uses the error status to report back the number of characters in the number. If @S is 0 after a conversion, 0 characters have been handled which means no number was found. Error checks after VAL need to test if @S>0.
 
 STR converts a number to a string. Example: 
 
