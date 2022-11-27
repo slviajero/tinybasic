@@ -3526,7 +3526,7 @@ void factor(){
       x=0;
 #ifdef HASFLOAT
 			/* if (parsenumber2(ir2, &x) == 0) ert=1;	*/
-      ert=parsenumber2(ir2, &x)
+      ert=parsenumber2(ir2, &x);
 #else 
 			/* if (parsenumber(ir2, &x) == 0) ert=1; */
       ert=parsenumber(ir2, &x);
