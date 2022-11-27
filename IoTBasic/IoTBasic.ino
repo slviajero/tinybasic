@@ -112,7 +112,7 @@
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
-#define	HASTONE
+#define HASTONE
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
@@ -1568,6 +1568,13 @@ void ioinit() {
 #ifdef STANDALONE
 	idd = IKEYBOARD;
 	odd = ODSP;
+#endif
+
+#ifdef STANDALONESECONDSERIAL
+  idd = ISERIAL1;
+  odd = OPRT;
+  blockmode = 0;
+  sendcr = 0;
 #endif
 
 /* this is only for RASPBERRY - wiring has to be started explicitly */
@@ -3516,10 +3523,13 @@ void factor(){
 		stringtobuffer needed !! */
 			while(*ir2==' ' || *ir2=='\t') ir2++;
 			if(*ir2=='-') { y=-1; ir2++;} else y=1;
+      x=0;
 #ifdef HASFLOAT
-			if (parsenumber2(ir2, &x) == 0) ert=1;	
+			/* if (parsenumber2(ir2, &x) == 0) ert=1;	*/
+      ert=parsenumber2(ir2, &x)
 #else 
-			if (parsenumber(ir2, &x) == 0) ert=1;
+			/* if (parsenumber(ir2, &x) == 0) ert=1; */
+      ert=parsenumber(ir2, &x);
 #endif			
 			(void) pop();
 			push(x*y);

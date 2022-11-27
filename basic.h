@@ -64,10 +64,6 @@ typedef unsigned char uint8_t;
 #endif
 #endif
 
-/* general definitions, needed on some old compilers */
-#define TRUE  1
-#define FALSE 0
-
 
 #if defined(ARDUINO_ARCH_AVR)
 /* the small memory model with shallow stacks and small buffers */
@@ -642,7 +638,7 @@ typedef unsigned short address_t;
 const int numsize=sizeof(number_t);
 const int addrsize=sizeof(address_t);
 const int eheadersize=sizeof(address_t)+1;
-const int strindexsize=2; // 
+const int strindexsize=2; /* default in the meantime, strings up to unsigned 16 bit length */
 const address_t maxaddr=(address_t)(~0); 
 typedef signed char mem_t;
 typedef short index_t;
@@ -655,8 +651,8 @@ typedef short index_t;
 #define SYSTYPE_AVR 	1
 #define SYSTYPE_ESP8266 2
 #define SYSTYPE_ESP32	3
-#define SYSTYPE_RP2040 4
-#define SYSTYPE_SAM 5
+#define SYSTYPE_RP2040  4
+#define SYSTYPE_SAM     5
 #define SYSTYPE_POSIX	32
 #define SYSTYPE_MSDOS	33
 
@@ -714,6 +710,8 @@ typedef short index_t;
  *
  *	data is the data pointer of the READ/DATA mechanism
  *
+ * static keyword here is obsolete on most platforms
+ *
  */
 
 static number_t stack[STACKSIZE];
@@ -745,6 +743,7 @@ static mem_t xc, yc;
 
 static address_t ax, ay;
 
+/* this union is used to store larger objects into byte oriented memory */
 struct twobytes {mem_t l; mem_t h;};
 static union accunumber { number_t i; address_t a; struct twobytes b; mem_t c[sizeof(number_t)]; } z;
 
@@ -794,9 +793,11 @@ static mem_t debuglevel = 0;
 static address_t data = 0;
 #endif
     
-/* process command line arguments in the POSIX world 
-    bnointafterrun is a flag to remember if called as command
-    line argument, in this case we don't return to interactive*/
+/* 
+ * process command line arguments in the POSIX world 
+ * bnointafterrun is a flag to remember if called as command
+ * line argument, in this case we don't return to interactive 
+ */
 #ifndef ARDUINO
 int bargc;
 char** bargv;
@@ -804,11 +805,15 @@ mem_t bnointafterrun = 0;
 #endif
 
 /*
- * IoT yield counter, we count when we did yield the last time
+ * Yield counter, we count when we did yield the last time
  *	lastyield controlls the client loops of network functions 
- *	like mqtt
+ *	like mqtt, scanned keyboard, and USB.
+ *
  *	lastlongyield controls longterm functions like DHCP lease 
  *	renewal in Ethernet 
+ * 
+ * there variables are only needed if the platform has background 
+ *  tasks
  */
 static long lastyield=0;
 static long lastlongyield=0;
@@ -817,7 +822,12 @@ static long lastlongyield=0;
 static mem_t lastouttoken;
 static mem_t spaceafterkeyword;
 
-/* the cache for the heap search - helps the string code */
+/* 
+ * the cache for the heap search - helps the string code 
+ * the last found object on the heap is remembered. This is needed
+ * because the string code sometime searches the heap twice during the 
+ * same operation. 
+ */
 #ifdef HASAPPLE1
 static mem_t bfindc, bfindd, bfindt;
 static address_t bfinda, bfindz;
