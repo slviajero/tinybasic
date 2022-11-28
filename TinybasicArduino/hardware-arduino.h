@@ -523,30 +523,36 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 /*
  * Some settings, defaults, and dependencies
  * 
+ * NEEDSWIRE is set to start wire. Some libraries do this again.
+ * 
  * Handling Wire and SPI is tricky as some of the libraries 
  * also include and start SPI and Wire code. 
  */
 
 /* a clock needs wire */
 #ifdef ARDUINORTC
-#define ARDUINOWIRE
+#define NEEDSWIRE
 #endif
 
 /* a display needs wire */
 #if defined(ARDUINOLCDI2C) || defined(ARDUINOSSD1306) 
-#define ARDUINOWIRE
+#define NEEDSWIRE
 #endif
 
 /* EEPROM storage needs wire */
 #if defined(ARDUINOEFS)
-#define ARDUINOWIRE
+#define NEEDSWIRE
 #endif
 
 /* external EEPROMs also need wire */
 #if defined(ARDUINOI2CEEPROM)
-#define ARDUINOWIRE
+#define NEEDSWIRE
 #endif
 
+/* plain Wire support also needs wire ;-) */
+#if defined(ARDUINOWIRE)
+#define NEEDSWIRE
+#endif
 
 /* radio needs SPI */
 #ifdef ARDUINORF24
@@ -646,8 +652,8 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #include <SPI.h>
 #endif
 
-/* Standard wire */
-#ifdef ARDUINOWIRE
+/* Standard wire - triggered by the NEEDSWIRE macro now */
+#ifdef NEEDSWIRE
 #include <Wire.h>
 #endif
 
@@ -749,11 +755,6 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
  */
 #ifdef ARDUINORTC
 #include <uRTCLib.h>
-#ifdef RTCTYPE
-#if RTCTYPE == DS1307
-#define RTCTYPE URTCLIB_MODEL_DS1307
-#endif
-#endif
 #endif
 
 /*
@@ -1052,13 +1053,12 @@ void dspupdate() {}
 /* elementary keypad reader left=1, right=2, up=3, down=4, select=<lf> */
 short keypadread(){
 	short a=analogRead(A0);
-	if (a > 850) return 0;
-	else if (a>600 && a<800) return 10;
-	else if (a>400 && a<600) return '1'; 
-	else if (a>200 && a<400) return '3';
-	else if (a>60  && a<200) return '4';
-	else if (a<60)           return '2';
-	return 0;
+	if (a >= 850) return 0;
+	else if (a>=600 && a<850) return 10;
+	else if (a>=400 && a<600) return '1'; 
+	else if (a>=200 && a<400) return '3';
+	else if (a>=60  && a<200) return '4';
+	else return '2';
 }
 #endif
 
@@ -1090,6 +1090,7 @@ void dspupdate() {}
  */ 
 #ifdef ARDUINONOKIA51
 #define DISPLAYDRIVER
+#define DISPLAYPAGEMODE
 #ifndef NOKIA_CS
 #define NOKIA_CS 15
 #endif
@@ -1127,6 +1128,7 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
  */ 
 #ifdef ARDUINOSSD1306
 #define DISPLAYDRIVER
+#define DISPLAYPAGEMODE
 #define SSD1306WIDTH 32
 #define SSD1306HEIGHT 128
 /* constructors may look like this, last argument is the reset pin
@@ -1615,7 +1617,11 @@ char kbdavailable(){
 #endif
 #endif
 #ifdef HASKEYPAD
-	return keypadread()!=0;
+/* a poor man's debouncer, unstable state returns 0 */
+  char c=keypadread();
+  if (c) delay(2); else return 0;
+  if (c == keypadread()) return 1; else return 0;
+	/* return keypadread()!=0; */
 #endif	
 	return 0;
 }
@@ -1642,9 +1648,8 @@ char kbdread() {
 #endif
 #ifdef HASKEYPAD
 	c=keypadread();
-/* on a keypad wait for key release and then some more */
+/* if you uncommend this we wait for key release on a keypad */
 	while(kbdavailable()) byield();
-  delay(100);
 #endif	
 	if (c == 13) c=10;
 	return c;
@@ -1717,7 +1722,7 @@ short dspmyrow = 0;
 char esc = 0;
 char dspupdatemode = 0;
 
-int dspstat(char c) {return 0; }
+int dspstat(char c) { return 0; }
 
 void dspsetcursor(short c, short r) {
 	dspmyrow=r;
@@ -1950,13 +1955,16 @@ void dspwrite(char c){
       	dspprintchar(' ', dspmycol, dspmyrow);
       	return;
     	}
-    case 3: // ETX = Update display for buffered display like Epaper
+#ifdef DISPLAYPAGEMODE
+    case 3: /* ETX = Update display for buffered display like Epaper */
       dspupdate();
       return;
+#endif
   }
 
-/* all other non printables ignored */ 
-	if (c < 32 ) return; 
+/* all other non printables ignored
+	if ( c < 32 ) return; 
+*/
 
 	dspprintchar(c, dspmycol, dspmyrow);
 	dspbuffer[dspmyrow][dspmycol++]=c;
@@ -2023,13 +2031,16 @@ void dspwrite(char c){
       	dspprintchar(' ', dspmycol, dspmyrow);
     	}
     	return;
-    case 3: // ETX = Update display for buffered display like Epaper
+#ifdef DISPLAYPAGEMODE
+    case 3: /*  ETX = Update display for buffered display like Epaper */
       dspupdate();
       return;
+#endif
   }
 
-/* all other non printables ignored */ 
+/* all other non printables ignored
 	if (c < 32 ) return; 
+*/
 
 	dspprintchar(c, dspmycol++, dspmyrow);
 	dspmycol=dspmycol%dsp_columns;
@@ -2060,9 +2071,14 @@ void dspsetcursor(short c, short r) {}
  * Default here is DS3231 or DS3232, DS1307 can be set (
  * but not yet relevant)
  */
+
+#define USEBUILDINRTC
+ 
 #ifdef ARDUINORTC
-#ifdef RTCTYPE
-uRTCLib rtc(RTCI2CADDR, RTCTYPE);
+#ifndef USEBUILDINRTC
+/* override the default DS3231 */
+#if defined(RTCTYPE) && RTCTYPE == DS1307
+uRTCLib rtc(RTCI2CADDR, URTCLIB_MODEL_DS1307);
 #else
 uRTCLib rtc(RTCI2CADDR);
 #endif
@@ -2091,15 +2107,15 @@ char* rtcmkstr() {
 	rtcstring[cc++]=t/10+'0';
 	rtcstring[cc++]=t%10+'0';
 	rtcstring[cc++]='-';
-	t=rtcread(3);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='/';
 	t=rtcread(4);
 	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
 	rtcstring[cc++]=t%10+'0';
 	rtcstring[cc++]='/';
 	t=rtcread(5);
+	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]='/';
+	t=rtcread(6);
 	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
 	rtcstring[cc++]=t%10+'0';
 	rtcstring[cc]=0;
@@ -2147,6 +2163,106 @@ void rtcset(char i, short v) {
 	tv[i]=v;
 	rtc.set(tv[0], tv[1], tv[2], tv[6], tv[3], tv[4], tv[5]);
 }
+#else
+/* experimental buildin RTC support */
+char rtcstring[20] = { 0 }; 
+short rtcread(char i) {
+  
+    /* set the address of the read */
+    Wire.beginTransmission(RTCI2CADDR);
+    Wire.write(i);
+    Wire.endTransmission();
+
+    /* now read */
+    Wire.requestFrom(RTCI2CADDR, 1);
+    uint8_t v=Wire.read();
+    
+    switch (i) {
+    case 0: 
+    case 1:
+      return (v & 0b00001111)+((v >> 4) & 0b00000111) * 10;      
+    case 2:
+      return (v & 0b00001111)+((v >> 4) & 0b00000011) * 10 ; /* only 24 hour support */
+    case 3:
+      return (v & 0b00001111);
+    case 4:
+      return (v & 0b00001111) + ((v >> 4) & 0b00000011) * 10;
+    case 5:
+      return (v & 0b00001111) + ((v >> 4) & 0b00000001) * 10;
+    case 6:
+      return (v & 0b00001111) + (v >> 4) * 10;
+    default:
+      return v;
+   }
+}
+
+void rtcset(char i, short v) { 
+  uint8_t b;
+
+  /* to bcd if we deal with a clock byte (0-6) */
+  if (i<7) b=(v%10 + ((v/10) << 4)); else b=v;
+   
+  switch (i) {
+    case 0: 
+    case 1:  
+      b = b & 0b01111111; 
+      break; 
+    case 2:
+    case 4:
+      b = b & 0b00111111; /* only 24 hour support */
+      break;
+    case 3:
+      b = b & 0b00000111;
+      break;
+    case 5:
+      b = b & 0b00011111;
+   }
+
+/* send the address and then the byte */
+   Wire.beginTransmission(RTCI2CADDR);
+   Wire.write(i);
+   Wire.write(b);
+   Wire.endTransmission(); 
+}
+
+char* rtcmkstr() {
+  int cc = 2;
+  short t;
+  char ch;
+  /* the first read refreshes - not needed here but still ... */  
+  t=rtcget(2);
+  rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]=':';
+  t=rtcread(1);
+  rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]=':';
+  t=rtcread(0);
+  rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]='-';
+  t=rtcread(4);
+  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]='/';
+  t=rtcread(5);
+  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]='/';
+  t=rtcread(6);
+  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc]=0;
+  /* needed for BASIC strings, reserve the first byte for two byte length handling in the upstream code */
+  rtcstring[1]=cc-1;
+  rtcstring[0]=0;
+  return rtcstring+1;
+}
+
+short rtcget(char i) { return rtcread(i); }
+
+#endif
 #endif
 
 /* 
@@ -2528,7 +2644,6 @@ address_t elength() {
 
 void eupdate(address_t a, short c) { 
   EFSRAW.rawwrite(a, c);
-  /* EFSRAW.rawflush(); // evil code, we disable buffering -> check the EFS raw object, suspected mishandling of binary data */ 
 }
 
 short eread(address_t a) { 
@@ -3361,6 +3476,25 @@ void prtset(int s) {
  * library
  */ 
 
+/* this is always here, if Wire is needed by a subsysem */
+#ifdef NEEDSWIRE
+/* default begin is as a master 
+ * This doesn't work properly on the ESP32C3 platform
+ * See  https://github.com/espressif/arduino-esp32/issues/6376 
+ * for more details
+ */
+void wirebegin() {
+#ifndef SDA_PIN   
+  Wire.begin();
+#else
+  Wire.begin(SDA_PIN, SCL_PIN);
+#endif
+}
+#else
+void wirebegin() {}
+#endif
+
+/* this is code needed for the OPEN/CLOSE and wireslave mechanisms */
 #ifdef ARDUINOWIRE
 uint8_t wire_slaveid = 0;
 uint8_t wire_myid = 0;
@@ -3371,19 +3505,6 @@ short wirereceivechars = 0;
 char wirerequestbuffer[ARDUINOWIREBUFFER];
 short wirerequestchars = 0;
 #endif
-
-/* default begin is as a master 
- * This doesn't work properly on the ESP32C3 platform
- * See  https://github.com/espressif/arduino-esp32/issues/6376 
- * for more details
- */
-void wirebegin() {
-#ifndef SDA_PIN   
-	Wire.begin();
-#else
-  Wire.begin(SDA_PIN, SCL_PIN);
-#endif
-}
 
 void wireslavebegin(char s) {
 #ifndef SDA_PIN
@@ -3490,7 +3611,6 @@ void wireouts(char *b, uint8_t l) {
   }
 }
 #else
-void wirebegin() {}
 int wirestat(char c) {return 0; }
 void wireopen(char s, char m) {}
 void wireins(char *b, uint8_t l) { b[0]=0; z.a=0; }

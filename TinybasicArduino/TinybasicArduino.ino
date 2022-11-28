@@ -1588,7 +1588,7 @@ void ioinit() {
 #ifdef ARDUINOSPI
 	spibegin();
 #endif
-#ifdef ARDUINOWIRE
+#ifdef NEEDSWIRE
 	wirebegin();
 #endif
 
