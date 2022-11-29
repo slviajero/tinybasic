@@ -913,9 +913,8 @@ void dspbufferclear();
 
 /* real time clock */
 char* rtcmkstr();
-void rtcset(char, short);
-short rtcget(char);
-short rtcread(char);
+void rtcset(uint8_t, short);
+short rtcget(short); 
 
 /* network and mqtt functions */
 void netbegin();

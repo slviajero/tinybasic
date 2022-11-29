@@ -222,17 +222,15 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
  * plain serial EEPROMs.
  * 
  * RTCs are often at 0x68 
- * RTCTYPE is the real time clock type, DS3231/DS3232 is default
  */
 #define EFSEEPROMADDR 0x050
 #define EFSEEPROMSIZE 32768
 
 #define RTCI2CADDR 0x068
-#define RTCTYPE DS1307
 
 /* the size of the plain I2C EEPROM, typically a clock */
 #define I2CEEPROMADDR 0x050
-#define I2CEEPROMSIZE 4096
+/* #define I2CEEPROMSIZE 4096 */
 
 /*
  * Sensor library code - experimental
@@ -749,15 +747,6 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 /*
- * real time clock support, with the very tiny 
- * uRTC library 
- * https://github.com/slviajero/uRTCLib
- */
-#ifdef ARDUINORTC
-#include <uRTCLib.h>
-#endif
-
-/*
  * SD filesystems with the standard SD driver
  * for MEGA 256 a soft SPI solution is needed 
  * if standard shields are used, this is a patched
@@ -826,8 +815,13 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 /* the EFS object is used for filesystems and raw EEPROM access */
-#if defined(ARDUINOI2CEEPROM) || defined(ARDUINOEFS)
+#if (defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)) || defined(ARDUINOEFS)
 #include <EepromFS.h>
+#endif
+
+/* if there is an unbuffered I2C EEPROM, use an autodetect mechanism */
+#if defined(ARDUINOI2CEEPROM) && !defined(ARDUINOI2CEEPROM_BUFFERED)
+unsigned int i2ceepromsize = 0;
 #endif
 
 /*
@@ -2063,110 +2057,25 @@ void dspsetcursor(short c, short r) {}
 #endif
 
 /* 
- * Arduino Real Time clock code based on uRTC 
- * this is a minimalistic library. The interface here 
+ * Arduino Real Time clock. The interface here 
  * offers the values as number_t plus a string, 
  * combining all values. 
  * 
- * Default here is DS3231 or DS3232, DS1307 can be set (
- * but not yet relevant)
+ * The code does not use an RTC library any more
+ * all the rtc support is builtin now. 
+ * 
+ * Supported clocks DS1307, DS3231, and DS3232 (not tested)
+ * 
+ * rtcget accesses the internal registers of the clock. 
+ * Registers 0-6 are bcd transformed to return 
+ * seconds, minutes, hours, day of week, day, month, year
+ * 
+ * Registers 7-255 are returned as 
  */
 
-#define USEBUILDINRTC
- 
 #ifdef ARDUINORTC
-#ifndef USEBUILDINRTC
-/* override the default DS3231 */
-#if defined(RTCTYPE) && RTCTYPE == DS1307
-uRTCLib rtc(RTCI2CADDR, URTCLIB_MODEL_DS1307);
-#else
-uRTCLib rtc(RTCI2CADDR);
-#endif
 char rtcstring[20] = { 0 }; 
-
-/* this code is currently not used, controls advanced features of the clock */
-void rtcsqw() {
-  rtc.sqwgSetMode(URTCLIB_SQWG_OFF_0); 
-  /* rtc.sqwgSetMode(URTCLIB_SQWG_1H); */
-}
-
-char* rtcmkstr() {
-	int cc = 2;
-	short t;
-	char ch;
-  /* the first read refreshes */  
-	t=rtcget(2);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]=':';
-	t=rtcread(1);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]=':';
-	t=rtcread(0);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='-';
-	t=rtcread(4);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='/';
-	t=rtcread(5);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='/';
-	t=rtcread(6);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc]=0;
-  /* needed for BASIC strings, reserve the first byte for two byte length handling in the upstream code */
-	rtcstring[1]=cc-1;
-  rtcstring[0]=0;
-	return rtcstring+1;
-}
-
-short rtcread(char i) {
-	switch (i) {
-		case 0: 
-			return rtc.second();
-		case 1:
-			return rtc.minute();
-		case 2:
-			return rtc.hour();
-		case 3:
-			return rtc.day();
-		case 4:
-			return rtc.month();
-		case 5:
-			return rtc.year();
-		case 6:
-			return rtc.dayOfWeek();
-		case 7:
-			return rtc.temp();
-		default:
-			return 0;
-	}
-}
-
-short rtcget(char i) {
-	rtc.refresh();
-	return rtcread(i);
-}
-
-void rtcset(char i, short v) {
-	uint8_t tv[7];
-	char j;
-	rtc.refresh();
-	for (j=0; j<7; j++) {
-	  tv[j]=rtcread(j);
-	}
-	tv[i]=v;
-	rtc.set(tv[0], tv[1], tv[2], tv[6], tv[3], tv[4], tv[5]);
-}
-#else
-/* experimental buildin RTC support */
-char rtcstring[20] = { 0 }; 
-short rtcread(char i) {
+short rtcget(short i) {
   
     /* set the address of the read */
     Wire.beginTransmission(RTCI2CADDR);
@@ -2196,7 +2105,7 @@ short rtcread(char i) {
    }
 }
 
-void rtcset(char i, short v) { 
+void rtcset(uint8_t i, short v) { 
   uint8_t b;
 
   /* to bcd if we deal with a clock byte (0-6) */
@@ -2234,35 +2143,31 @@ char* rtcmkstr() {
   rtcstring[cc++]=t/10+'0';
   rtcstring[cc++]=t%10+'0';
   rtcstring[cc++]=':';
-  t=rtcread(1);
+  t=rtcget(1);
   rtcstring[cc++]=t/10+'0';
   rtcstring[cc++]=t%10+'0';
   rtcstring[cc++]=':';
-  t=rtcread(0);
+  t=rtcget(0);
   rtcstring[cc++]=t/10+'0';
   rtcstring[cc++]=t%10+'0';
   rtcstring[cc++]='-';
-  t=rtcread(4);
+  t=rtcget(4);
   if (t/10 > 0) rtcstring[cc++]=t/10+'0';
   rtcstring[cc++]=t%10+'0';
   rtcstring[cc++]='/';
-  t=rtcread(5);
+  t=rtcget(5);
   if (t/10 > 0) rtcstring[cc++]=t/10+'0';
   rtcstring[cc++]=t%10+'0';
   rtcstring[cc++]='/';
-  t=rtcread(6);
+  t=rtcget(6);
   if (t/10 > 0) rtcstring[cc++]=t/10+'0';
   rtcstring[cc++]=t%10+'0';
   rtcstring[cc]=0;
   /* needed for BASIC strings, reserve the first byte for two byte length handling in the upstream code */
-  rtcstring[1]=cc-1;
+  rtcstring[1]=cc-2;
   rtcstring[0]=0;
   return rtcstring+1;
 }
-
-short rtcget(char i) { return rtcread(i); }
-
-#endif
 #endif
 
 /* 
@@ -2286,15 +2191,16 @@ EepromFS EFS(EFSEEPROMADDR, EFSEEPROMSIZE);
  * see https://github.com/slviajero/EepromFS 
  * for details. Here the most common parameters are set as a default.
 */
+#undef ARDUINOI2CEEPROM_BUFFERED
 
-#ifdef ARDUINOI2CEEPROM
+#if defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)
 #ifndef I2CEEPROMSIZE
 #define I2CEEPROMSIZE 32768
 #endif
 #ifndef I2CEEPROMADDR
 #define I2CEEPROMADDR 0x50
 #endif
-EepromFS EFSRAW(I2CEEPROMADDR, EFSEEPROMSIZE);
+EepromFS EFSRAW(I2CEEPROMADDR, I2CEEPROMSIZE);
 #endif
 
 /*
@@ -2593,8 +2499,29 @@ void ebegin(){
 #if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM)
   EEPROM.begin(EEPROMSIZE);
 #endif
-/* there also can be a raw EFS object in parallel */
-#if defined(ARDUINOI2CEEPROM)
+/* an unbuffered EEPROM, typically used to store a program */
+#if defined(ARDUINOI2CEEPROM) && !defined(ARDUINOI2CEEPROM_BUFFERED)
+/* 
+ * we test the size with a heuristic, but beware, EEPROM addressing
+ * is circular. We only consider the two most common sizes, 4096 and 32768.
+ * This is tricky.
+ */
+
+#ifndef I2CEEPROMSIZE
+  int c4=eread(4094);
+  int c20=eread(32766);
+  eupdate(4094, 42);
+  eupdate(32766, 84);
+  if (ert !=0 ) return;
+  if (eread(32766) == 84 && eread(4094) == 42) i2ceepromsize = 32767; else i2ceepromsize = 4096;
+  eupdate(4094, c4);
+  eupdate(32766, c20);  
+#else
+  i2ceepromsize = I2CEEPROMSIZE;
+#endif
+#endif
+/* there also can be a raw EFS object */
+#if defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)
   EFSRAW.begin();
 #endif
 }
@@ -2605,7 +2532,7 @@ void eflush(){
   EEPROM.commit();
 #endif 
 /* flushing the I2C EEPROM */
-#if defined(ARDUINOI2CEEPROM)
+#if defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)
   EFSRAW.rawflush();
 #endif
 }
@@ -2639,15 +2566,46 @@ short eread(address_t a) {
 #if defined(ARDUINOI2CEEPROM)
 
 address_t elength() { 
-  return I2CEEPROMSIZE;
+  return i2ceepromsize;
 }
 
 void eupdate(address_t a, short c) { 
+#if defined(ARDUINOI2CEEPROM_BUFFERED)
   EFSRAW.rawwrite(a, c);
+#else
+/* go directly into the EEPROM */
+  if (eread(a) != c) {
+  /* set the address and send the byte*/
+    Wire.beginTransmission(I2CEEPROMADDR);
+    Wire.write((int)a/256);
+    Wire.write((int)a%256);
+    Wire.write((int)c);
+    ert=Wire.endTransmission();
+  /* wait the max time */
+    delay(5);
+  }
+#endif
 }
 
 short eread(address_t a) { 
-  return (signed char) EFSRAW.rawread(a); 
+#ifdef ARDUINOI2CEEPROM_BUFFERED
+  return (mem_t) EFSRAW.rawread(a); 
+#else
+/* read directly from the EEPROM */
+
+/* set the address */
+  Wire.beginTransmission(I2CEEPROMADDR);
+  Wire.write((int)a/256);
+  Wire.write((int)a%256);
+  ert=Wire.endTransmission();
+
+/* read a byte */
+  if (ert == 0) {
+    Wire.requestFrom(I2CEEPROMADDR, 1);
+    return (mem_t) Wire.read();
+  } else return 0;
+ 
+#endif
 }
 #else
 /* no EEPROM present */
@@ -4077,6 +4035,8 @@ void spiramrawwrite(address_t a, mem_t c) {
 #ifdef ARDUINOPGMEEPROM
 #define USEMEMINTERFACE
 #define EEPROMMEMINTERFACE
+#else 
+#undef EEPROMMEMINTERFACE
 #endif
 
 
