@@ -224,13 +224,16 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
  * RTCs are often at 0x68 
  */
 #define EFSEEPROMADDR 0x050
-#define EFSEEPROMSIZE 32768
+/* #define EFSEEPROMSIZE 32768 */
 
 #define RTCI2CADDR 0x068
 
 /* the size of the plain I2C EEPROM, typically a clock */
 #define I2CEEPROMADDR 0x050
 /* #define I2CEEPROMSIZE 4096 */
+
+/* is the I2C EEPROM buffered */
+#define ARDUINOI2CEEPROM_BUFFERED
 
 /*
  * Sensor library code - experimental
@@ -820,7 +823,7 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 /* if there is an unbuffered I2C EEPROM, use an autodetect mechanism */
-#if defined(ARDUINOI2CEEPROM) && !defined(ARDUINOI2CEEPROM_BUFFERED)
+#if defined(ARDUINOI2CEEPROM) 
 unsigned int i2ceepromsize = 0;
 #endif
 
@@ -2177,13 +2180,14 @@ char* rtcmkstr() {
 */
 #ifdef ARDUINOEFS
 #undef ARDUINOI2CEEPROM
-#ifndef EFSEEPROMSIZE
-#define EFSEEPROMSIZE 32768
-#endif
 #ifndef EFSEEPROMADDR
 #define EFSEEPROMADDR 0x50
 #endif
+#ifdef EFSEEPROMSIZE
 EepromFS EFS(EFSEEPROMADDR, EFSEEPROMSIZE);
+#else
+EepromFS EFS(EFSEEPROMADDR);
+#endif
 #endif
 
 /* 
@@ -2191,16 +2195,16 @@ EepromFS EFS(EFSEEPROMADDR, EFSEEPROMSIZE);
  * see https://github.com/slviajero/EepromFS 
  * for details. Here the most common parameters are set as a default.
 */
-#undef ARDUINOI2CEEPROM_BUFFERED
 
 #if defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)
-#ifndef I2CEEPROMSIZE
-#define I2CEEPROMSIZE 32768
-#endif
 #ifndef I2CEEPROMADDR
 #define I2CEEPROMADDR 0x50
 #endif
+#ifdef I2CEEPROMSIZE
 EepromFS EFSRAW(I2CEEPROMADDR, I2CEEPROMSIZE);
+#else
+EepromFS EFSRAW(I2CEEPROMADDR);
+#endif
 #endif
 
 /*
@@ -2509,13 +2513,13 @@ void ebegin(){
 
 #ifndef I2CEEPROMSIZE
   int c4=eread(4094);
-  int c20=eread(32766);
+  int c32=eread(32766);
   eupdate(4094, 42);
   eupdate(32766, 84);
   if (ert !=0 ) return;
   if (eread(32766) == 84 && eread(4094) == 42) i2ceepromsize = 32767; else i2ceepromsize = 4096;
   eupdate(4094, c4);
-  eupdate(32766, c20);  
+  eupdate(32766, c32);  
 #else
   i2ceepromsize = I2CEEPROMSIZE;
 #endif
@@ -2523,6 +2527,11 @@ void ebegin(){
 /* there also can be a raw EFS object */
 #if defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)
   EFSRAW.begin();
+#ifndef I2CEEPROMSIZE
+  i2ceepromsize = EFSRAW.esize();
+#else
+  i2ceepromsize = I2CEEPROMSIZE;
+#endif
 #endif
 }
 
