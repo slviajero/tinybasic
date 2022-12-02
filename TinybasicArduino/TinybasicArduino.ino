@@ -885,7 +885,7 @@ address_t getarrayseconddim(address_t a, address_t za) {
 void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 	address_t a;
 	address_t h;
-	char e = 0;
+	mem_t e = 0;
 #ifdef HASMULTIDIM
 	address_t dim=1, zat;
 #endif
@@ -1027,7 +1027,7 @@ address_t createstring(char c, char d, address_t i, address_t j) {
 	operation in BASIC, it cannot be used as a trigger for an I/O operation*/
 
 void makemyxstring() {
-	int i;
+	mem_t i;
 	const char text[] = "hello world";
 	for(i=0; i<SBUFSIZE-1 && text[i]!=0 ; i++) sbuffer[i+1]=text[i];
 	sbuffer[0]=i;
@@ -1915,7 +1915,7 @@ void outsc(const char *c){
 /* output a zero terminated string in a formated box padding spaces 
 		needed for catalog output */
 void outscf(const char *c, short f){
-	short i = 0;
+	index_t i = 0;
   
 	while (*c != 0) { outch(*c++); i++; }
 	if (f > i) {
@@ -1950,7 +1950,7 @@ address_t parsenumber2(char *c, number_t *r) {
 	index_t i;
 	number_t fraction = 0;
 	number_t exponent = 0;
-	char nexp = 0;
+	mem_t nexp = 0;
 
 	*r=0;
 
@@ -6137,7 +6137,7 @@ void xusr() {
 					break;
 				case 2: push(0); /* reserved for system speed identifier */			 
 #ifdef HASFLOAT
-				case 3:	push(1); break;
+				case 3:	push(-1); break;
 #else 
 				case 3: push(0); break;
 #endif

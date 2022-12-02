@@ -6137,7 +6137,7 @@ void xusr() {
 					break;
 				case 2: push(0); /* reserved for system speed identifier */			 
 #ifdef HASFLOAT
-				case 3:	push(1); break;
+				case 3:	push(-1); break;
 #else 
 				case 3: push(0); break;
 #endif

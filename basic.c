@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.c,v 1.139 2022/11/19 16:43:24 stefan Exp stefan $ 
+ *	$Id: basic.c,v 1.140 2022/11/29 07:50:03 stefan Exp stefan $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -6137,7 +6137,7 @@ void xusr() {
 					break;
 				case 2: push(0); /* reserved for system speed identifier */			 
 #ifdef HASFLOAT
-				case 3:	push(1); break;
+				case 3:	push(-1); break;
 #else 
 				case 3: push(0); break;
 #endif
