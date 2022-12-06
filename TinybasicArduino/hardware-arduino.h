@@ -64,7 +64,7 @@
 #undef ARDUINOPS2
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
-#undef ARDUINOPRT
+#define ARDUINOPRT
 #define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
@@ -1776,8 +1776,11 @@ void dspgraphupdate() {
  */
  
 #ifdef HASVT52
-/* the state variables, and modes */
+/* the state variable */
 char vt52s = 0;
+
+/* the graphics mode mode */
+mem_t vt52graph = 0;
 
 /* the secondary cursor */
 mem_t vt52mycol = 0;
@@ -1803,7 +1806,49 @@ void dspvt52(char* c){
 	}
  
 /* commands of the terminal in text mode */
+  
 	switch (*c) {
+    case 'v': /* GEMDOS / TOS extension enable wrap */
+      dspwrap=0;
+      break;
+    case 'w': /* GEMDOS / TOS extension disable wrap */
+      dspwrap=1;
+      break;
+    case '^': /* Printer extensions - print on */
+      dspprintmode=1;
+      break;
+    case '_': /* Printer extensions - print off */
+      dspprintmode=0;
+      break;
+    case 'W': /* Printer extensions - print without display on */
+      dspprintmode=2;
+      break;
+    case 'X': /* Printer extensions - print without display off */
+      dspprintmode=0;
+      break;
+    case 'V': /* Printer extensions - print cursor line */
+      Serial.println("Print line");
+      break;
+    case ']': /* Printer extension - print screen */
+      Serial.println("Print screen");
+      break;
+    case 'F': /* enter graphics mode */
+      vt52graph=1;
+      break;
+    case 'G': /* exit graphics mode */
+      vt52graph=0;
+      break;
+    case 'Z': /* Ident */
+    case '=': /* alternate keypad on */
+    case '>': /* alternate keypad off */
+    case 'b': /* GEMDOS / TOS extension text color */
+    case 'c': /* GEMDOS / TOS extension background color */
+    case 'e': /* GEMDOS / TOS extension enable cursor */
+    case 'f': /* GEMDOS / TOS extension disable cursor */
+    case 'p': /* GEMDOS / TOS extension reverse video */
+    case 'q': /* GEMDOS / TOS extension normal video */
+      Serial.println("Not implemented");
+      break;
 		case 'A': /* cursor up */
 			if (dspmyrow>0) dspmyrow--;
 			break;
@@ -1864,39 +1909,6 @@ void dspvt52(char* c){
       dspmyrow=vt52tmpr;
       dspmycol=vt52tmpc;
       break;
-    case 'v': /* GEMDOS / TOS extension enable wrap */
-      dspwrap=0;
-      break;
-    case 'w': /* GEMDOS / TOS extension disable wrap */
-      dspwrap=1;
-      break;
-
-/* these standard VT52 function and their GEMDOS extensions are
-		not implemented. */ 
-		case 'F': // enter graphics mode
-		case 'G': // exit graphics mode
-		case 'Z': // Ident
-		case '=': // alternate keypad on
-		case '>': // alternate keypad off
-		case 'b': // GEMDOS / TOS extension text color
-		case 'c': // GEMDOS / TOS extension background color
-		case 'e': // GEMDOS / TOS extension enable cursor
-		case 'f': // GEMDOS / TOS extension disable cursor
-		case 'p': // GEMDOS / TOS extension reverse video
-		case 'q': // GEMDOS / TOS extension normal video
-		case '^': // Printer extensions - print on
-		case '_': // Printer extensions - print off
-		case 'W': // Printer extensions - print without display on
-		case 'X': // Printer extensions - print without display off
-		case 'V': // Printer extensions - print cursor line
-		case ']': // Printer extension - print screen 
-			break;
-/* the Arduino interface extensions defined in IoT BASIC
-		access to some functions of BASIC through escape sequences */
-		case 'x':
-			vt52s='x';
-			*c=0; 
-			break;
 	}
 	dspesc=0;
 	*c=0;
@@ -2007,6 +2019,15 @@ void dspwrite(char c){
 	if (dspesc) dspvt52(&c);
 #endif
 
+/* do we print ? */
+#ifdef ARDUINOPRT
+  if (dspprintmode) {
+    prtwrite(c);
+    if (sendcr && c == 10) prtwrite(13); /* some printers want cr */
+    if (dspprintmode == 2) return; /* do not print in mode 2 */
+  }
+#endif
+  
 /* the minimal cursor control functions of BASIC */
   switch(c) {
   	case 10: // this is LF Unix style doing also a CR
@@ -2098,6 +2119,15 @@ void dspwrite(char c){
 /* on escape call the vt52 state engine */
 #ifdef HASVT52
 	if (dspesc) { dspvt52(&c); }
+#endif
+
+/* do we print ? */
+#ifdef ARDUINOPRT
+  if (dspprintmode) {
+    prtwrite(c);
+    if (sendcr && c == 10) prtwrite(13); /* some printers want cr */
+    if (dsprintmode == 2) return; /* do not print in mode 2 */
+  }
 #endif
 
 	switch(c) {
