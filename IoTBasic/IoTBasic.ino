@@ -43,9 +43,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define	BASICFULL
+#undef	BASICFULL
 #undef  BASICINTEGER
-#undef	BASICSIMPLE
+#define	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICTINYWITHFLOAT
 
@@ -6317,7 +6317,7 @@ void xread(){
 	mem_t ps=1;	/* also remember if the left hand side is a pure string of something with an index 	*/
 	mem_t xcl, ycl; /* to preserve the left hand side variable names	*/
 	address_t i=1;  /* and the beginning of the destination string */
-    address_t i2=0;  /* and the end of the destination string */
+	address_t i2=0;  /* and the end of the destination string */
 	address_t j=arraylimit;	/* the second dimension of the array if needed */
 	mem_t datat;	/* the type of the data element */
 	address_t lendest, lensource, newlength;
@@ -6351,56 +6351,62 @@ void xread(){
 			assignnumber(t, xcl, ycl, i, j, ps);
 			break;
 		case STRING:	
+			if (t != STRINGVAR) {
+/* we read a string into a numerical variable */
+				push(*ir);
+				assignnumber(t, xcl, ycl, i, j, ps);
+			} else {
 /* a string is stored in ir2 */
-			ir2=ir;
-			lensource=x;
+				ir2=ir;
+				lensource=x;
 
 /* if we use the memory interface we have to save the source */ 
 #ifdef USEMEMINTERFACE
-			for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=ir2[k];
-			ir2=spistrbuf2;
+				for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=ir2[k];
+				ir2=spistrbuf2;
 #endif	
 
 /* the destination address of the lefthandside, on the fly create included */
-			ir=getstring(xcl, ycl, i, j);
-			if (er != 0) return;
+				ir=getstring(xcl, ycl, i, j);
+				if (er != 0) return;
 
 /* the length of the lefthandside string */
-			lendest=lenstring(xcl, ycl, j);
+				lendest=lenstring(xcl, ycl, j);
 
-			if (DEBUG) {
-				outsc("* read stringcode "); outch(xcl); outch(ycl); outcr();
-				outsc("** read source string length "); outnumber(lensource); outcr();
-				outsc("** read dest string length "); outnumber(lendest); outcr();
-				outsc("** read dest string dimension "); outnumber(stringdim(xcl, ycl)); outcr();
-			};
+				if (DEBUG) {
+					outsc("* read stringcode "); outch(xcl); outch(ycl); outcr();
+					outsc("** read source string length "); outnumber(lensource); outcr();
+					outsc("** read dest string length "); outnumber(lendest); outcr();
+					outsc("** read dest string dimension "); outnumber(stringdim(xcl, ycl)); outcr();
+				}
 
 /* does the source string fit into the destination */
-			if ((i+lensource-1) > stringdim(xcl, ycl)) { error(EORANGE); return; }
+				if ((i+lensource-1) > stringdim(xcl, ycl)) { error(EORANGE); return; }
 
 /* this code is needed to make sure we can copy one string to the same string 
 	without overwriting stuff, we go either left to right or backwards */
 #ifndef USEMEMINTERFACE
-			if (x > i) 
-				for (k=0; k<lensource; k++) { ir[k]=ir2[k];}
-			else
-				for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
+				if (x > i) 
+					for (k=0; k<lensource; k++) { ir[k]=ir2[k];}
+				else
+					for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
 #else 
 /* on an SPIRAM system we need to go through the mem interface 
 	for write */
-			if (ir != 0) {
-				if (x > i) 
-					for (k=0; k<lensource; k++) ir[k]=ir2[k];
-				else
-					for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
-			} else 
-				for (k=0; k<lensource; k++) memwrite2(ax+k, ir2[k]);
+				if (ir != 0) {
+					if (x > i) 
+						for (k=0; k<lensource; k++) ir[k]=ir2[k];
+					else
+						for (k=lensource-1; k>=0; k--) ir[k]=ir2[k]; 
+				} else 
+					for (k=0; k<lensource; k++) memwrite2(ax+k, ir2[k]);
 #endif
 
 /* classical Apple 1 behaviour is string truncation in substring logic */
-			newlength = i+lensource-1;	
+				newlength = i+lensource-1;	
 		
-			setstringlength(xcl, ycl, newlength, j);
+				setstringlength(xcl, ycl, newlength, j);
+			}
 			break;
 		default:
 			error(EUNKNOWN);
