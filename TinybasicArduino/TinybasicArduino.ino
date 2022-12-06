@@ -1938,7 +1938,7 @@ address_t parsenumber2(char *c, number_t *r) {
 		nd++;
 		if (*c == '-') {c++; nd++; nexp=1;};
 		i=parsenumber(c, &exponent);
-		nd+=i;
+		nd+=i;  
 		while ((--exponent)>=0) if (nexp) *r=*r/10; else *r=*r*10;		
 	}
 
@@ -1992,6 +1992,13 @@ address_t writenumber2(char *c, number_t vi) {
 	index_t exponent = 0; 
 	mem_t eflag=0;
 
+/* check if we have anything to write */
+  if (!isfinite(vi)) {
+    c[0]='*';
+    c[1]=0;
+    return 1; 
+  }
+
 /* pseudo integers are displayed as integer
 		zero trapped here */
 	f=floor(vi);
@@ -2003,6 +2010,7 @@ address_t writenumber2(char *c, number_t vi) {
 #ifndef ARDUINO
 	return sprintf(c, "%g", vi);
 #else
+
 	f=vi;
 	while (fabs(f)<1.0)   { f=f*10; exponent--; }
  	while (fabs(f)>=10.0-0.00001) { f=f/10; exponent++; }
@@ -2014,13 +2022,13 @@ address_t writenumber2(char *c, number_t vi) {
 		dtostrf(f, 0, 5, c);
 		eflag=1;
 	}
-	
+ 
 /* remove trailing zeros */
 	for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
 	i--;
 	while (c[i] == '0' && i>1) {i--;}
 	i++;
-
+    
 /* add the exponent */
 	if (eflag) {
 		c[i++]='E';
