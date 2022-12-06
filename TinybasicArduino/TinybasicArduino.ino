@@ -43,9 +43,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef	BASICFULL
+#define	BASICFULL
 #undef  BASICINTEGER
-#define	BASICSIMPLE
+#undef	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICTINYWITHFLOAT
 
@@ -1992,12 +1992,7 @@ address_t writenumber2(char *c, number_t vi) {
 	index_t exponent = 0; 
 	mem_t eflag=0;
 
-/* check if we have anything to write */
-  if (!isfinite(vi)) {
-    c[0]='*';
-    c[1]=0;
-    return 1; 
-  }
+
 
 /* pseudo integers are displayed as integer
 		zero trapped here */
@@ -2010,6 +2005,13 @@ address_t writenumber2(char *c, number_t vi) {
 #ifndef ARDUINO
 	return sprintf(c, "%g", vi);
 #else
+
+/* on an Arduino we have gcc, we check if we have anything to write */
+  if (!isfinite(vi)) {
+    c[0]='*';
+    c[1]=0;
+    return 1; 
+  }
 
 	f=vi;
 	while (fabs(f)<1.0)   { f=f*10; exponent--; }

@@ -222,17 +222,18 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
  * plain serial EEPROMs.
  * 
  * RTCs are often at 0x68 
- * RTCTYPE is the real time clock type, DS3231/DS3232 is default
  */
 #define EFSEEPROMADDR 0x050
-#define EFSEEPROMSIZE 32768
+/* #define EFSEEPROMSIZE 32768 */
 
 #define RTCI2CADDR 0x068
-#define RTCTYPE DS1307
 
 /* the size of the plain I2C EEPROM, typically a clock */
 #define I2CEEPROMADDR 0x050
-#define I2CEEPROMSIZE 4096
+/* #define I2CEEPROMSIZE 4096 */
+
+/* is the I2C EEPROM buffered */
+#define ARDUINOI2CEEPROM_BUFFERED
 
 /*
  * Sensor library code - experimental
@@ -523,30 +524,36 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 /*
  * Some settings, defaults, and dependencies
  * 
+ * NEEDSWIRE is set to start wire. Some libraries do this again.
+ * 
  * Handling Wire and SPI is tricky as some of the libraries 
  * also include and start SPI and Wire code. 
  */
 
 /* a clock needs wire */
 #ifdef ARDUINORTC
-#define ARDUINOWIRE
+#define NEEDSWIRE
 #endif
 
 /* a display needs wire */
 #if defined(ARDUINOLCDI2C) || defined(ARDUINOSSD1306) 
-#define ARDUINOWIRE
+#define NEEDSWIRE
 #endif
 
 /* EEPROM storage needs wire */
 #if defined(ARDUINOEFS)
-#define ARDUINOWIRE
+#define NEEDSWIRE
 #endif
 
 /* external EEPROMs also need wire */
 #if defined(ARDUINOI2CEEPROM)
-#define ARDUINOWIRE
+#define NEEDSWIRE
 #endif
 
+/* plain Wire support also needs wire ;-) */
+#if defined(ARDUINOWIRE)
+#define NEEDSWIRE
+#endif
 
 /* radio needs SPI */
 #ifdef ARDUINORF24
@@ -646,8 +653,8 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #include <SPI.h>
 #endif
 
-/* Standard wire */
-#ifdef ARDUINOWIRE
+/* Standard wire - triggered by the NEEDSWIRE macro now */
+#ifdef NEEDSWIRE
 #include <Wire.h>
 #endif
 
@@ -743,20 +750,6 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 /*
- * real time clock support, with the very tiny 
- * uRTC library 
- * https://github.com/slviajero/uRTCLib
- */
-#ifdef ARDUINORTC
-#include <uRTCLib.h>
-#ifdef RTCTYPE
-#if RTCTYPE == DS1307
-#define RTCTYPE URTCLIB_MODEL_DS1307
-#endif
-#endif
-#endif
-
-/*
  * SD filesystems with the standard SD driver
  * for MEGA 256 a soft SPI solution is needed 
  * if standard shields are used, this is a patched
@@ -825,8 +818,13 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 /* the EFS object is used for filesystems and raw EEPROM access */
-#if defined(ARDUINOI2CEEPROM) || defined(ARDUINOEFS)
+#if (defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)) || defined(ARDUINOEFS)
 #include <EepromFS.h>
+#endif
+
+/* if there is an unbuffered I2C EEPROM, use an autodetect mechanism */
+#if defined(ARDUINOI2CEEPROM) 
+unsigned int i2ceepromsize = 0;
 #endif
 
 /*
@@ -1045,20 +1043,19 @@ const int dsp_rows=2;
 const int dsp_columns=16;
 LiquidCrystal lcd( 8,  9,  4,  5,  6,  7);
 void dspbegin() { 	lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
-void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
+void dspprintchar(char c,  mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
 #define HASKEYPAD
 /* elementary keypad reader left=1, right=2, up=3, down=4, select=<lf> */
 short keypadread(){
-	short a=analogRead(A0);
-	if (a > 850) return 0;
-	else if (a>600 && a<800) return 10;
-	else if (a>400 && a<600) return '1'; 
-	else if (a>200 && a<400) return '3';
-	else if (a>60  && a<200) return '4';
-	else if (a<60)           return '2';
-	return 0;
+	int a=analogRead(A0);
+	if (a >= 850) return 0;
+	else if (a>=600 && a<850) return 10;
+	else if (a>=400 && a<600) return '1'; 
+	else if (a>=200 && a<400) return '3';
+	else if (a>=60  && a<200) return '4';
+	else return '2';
 }
 #endif
 
@@ -1072,7 +1069,7 @@ const int dsp_rows=4;
 const int dsp_columns=20;
 LiquidCrystal_I2C lcd(0x27, dsp_columns, dsp_rows);
 void dspbegin() {   lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
-void dspprintchar(char c, short col, short row) { lcd.setCursor(col, row); lcd.write(c);}
+void dspprintchar(char c, mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
 #endif
@@ -1090,6 +1087,7 @@ void dspupdate() {}
  */ 
 #ifdef ARDUINONOKIA51
 #define DISPLAYDRIVER
+#define DISPLAYPAGEMODE
 #ifndef NOKIA_CS
 #define NOKIA_CS 15
 #endif
@@ -1106,7 +1104,7 @@ uint8_t dspfgcolor = 1;
 uint8_t dspbgcolor = 0;
 char dspfontsize = 8;
 void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r); }
-void dspprintchar(char c, short col, short row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
+void dspprintchar(char c, mem_t col, smem_t row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
 void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); }
 void dspupdate() { u8g2.sendBuffer(); }
 void rgbcolor(int r, int g, int b) {}
@@ -1127,6 +1125,7 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
  */ 
 #ifdef ARDUINOSSD1306
 #define DISPLAYDRIVER
+#define DISPLAYPAGEMODE
 #define SSD1306WIDTH 32
 #define SSD1306HEIGHT 128
 /* constructors may look like this, last argument is the reset pin
@@ -1155,7 +1154,7 @@ const int dsp_columns=SSD1306HEIGHT/dspfontsize;
 uint16_t dspfgcolor = 1;
 uint16_t dspbgcolor = 0;
 void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r); }
-void dspprintchar(char c, short col, short row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
+void dspprintchar(char c, mem_t col, mem_t row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
 void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); }
 void dspupdate() { u8g2.sendBuffer(); }
 void rgbcolor(int r, int g, int b) {}
@@ -1209,7 +1208,7 @@ void dspbegin() {
   analogWrite(ILI_LED, 255);
   dspsetscrollmode(1, 4);
  }
-void dspprintchar(char c, short col, short row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
+void dspprintchar(char c, mem_t col, mem_t row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
 void dspclear() { tft.fillScreen(dspbgcolor); }
 void dspupdate() {}
 void rgbcolor(int r, int g, int b) { dspfgcolor=tft.color565(r, g, b);}
@@ -1269,7 +1268,7 @@ void dspbegin() {
   tft.fillScreen(dspbgcolor); 
   dspsetscrollmode(1, 4);
  }
-void dspprintchar(char c, short col, short row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
+void dspprintchar(char c, mem_t col, mem_t row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
 void dspclear() { tft.fillScreen(dspbgcolor); }
 void dspupdate() {}
 void rgbcolor(int r, int g, int b) { dspfgcolor=tft.color565(r, g, b);}
@@ -1300,7 +1299,7 @@ char dspfontsize = 16;
 uint16_t dspfgcolor = 0xFFFF;
 uint16_t dspbgcolor = 0x0000;
 void dspbegin() { dspsetscrollmode(1, 4); }
-void dspprintchar(char c, short col, short row) { }
+void dspprintchar(char c, mem_t col, mem_tshort row) { }
 void dspclear() {}
 void dspupdate() {}
 void rgbcolor(int r, int g, int b) { dspfgcolor=0; }
@@ -1342,7 +1341,7 @@ const int dsp_rows=30;
 const int dsp_columns=50;
 char dspfontsize = 16;
 void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrollmode(1, 4); }
-void dspprintchar(char c, short col, short row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
+void dspprintchar(char c, mem_t col, mem_t row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
 void dspclear() { tft.clrScr(); }
 void dspupdate() {}
 /*
@@ -1615,7 +1614,11 @@ char kbdavailable(){
 #endif
 #endif
 #ifdef HASKEYPAD
-	return keypadread()!=0;
+/* a poor man's debouncer, unstable state returns 0 */
+  char c=keypadread();
+  if (c) delay(2); else return 0;
+  if (c == keypadread()) return 1; else return 0;
+	/* return keypadread()!=0; */
 #endif	
 	return 0;
 }
@@ -1642,9 +1645,8 @@ char kbdread() {
 #endif
 #ifdef HASKEYPAD
 	c=keypadread();
-/* on a keypad wait for key release and then some more */
+/* if you uncommend this we wait for key release on a keypad */
 	while(kbdavailable()) byield();
-  delay(100);
 #endif	
 	if (c == 13) c=10;
 	return c;
@@ -1712,17 +1714,36 @@ char c;
  */
 
 #ifdef DISPLAYDRIVER
-short dspmycol = 0;
-short dspmyrow = 0;
-char esc = 0;
-char dspupdatemode = 0;
 
-int dspstat(char c) {return 0; }
+/* the cursor position */
+mem_t dspmycol = 0;
+mem_t dspmyrow = 0;
 
-void dspsetcursor(short c, short r) {
-	dspmyrow=r;
-	dspmycol=c;
+/* the escape state of the vt52 terminal */
+mem_t dspesc = 0;
+
+/* which update mode do we have */
+mem_t dspupdatemode = 0;
+
+/* how do we handle wrap 0 is wrap, 1 is no wrap */
+mem_t dspwrap = 0; 
+
+/* the print mode */
+mem_t dspprintmode = 0;
+
+int dspstat(char c) { return 0; }
+
+void dspsetcursorx(mem_t c) {
+  if (c>=0 && c<dsp_columns) dspmycol=c;
 }
+
+void dspsetcursory(mem_t r) {
+  if (r>=0 && r<dsp_rows) dspmyrow=r;
+}
+
+mem_t dspgetcursorx() { return dspmycol; }
+
+mem_t dspgetcursory() { return dspmyrow; }
 
 char dspactive() {
 	return od == ODSP;
@@ -1753,40 +1774,32 @@ void dspgraphupdate() {
  * It is planned to implement an interface to the wiring, graphics,
  * and print library here.
  */
-
+ 
 #ifdef HASVT52
 /* the state variables, and modes */
 char vt52s = 0;
-enum vt52modes {vt52text, vt52graph, vt52print, vt52wiring} vt52mode = vt52text;
+
+/* the secondary cursor */
+mem_t vt52mycol = 0;
+mem_t vt52myrow = 0;
 
 /* vt52 state engine */
 void dspvt52(char* c){
-
+  
 /* reading and processing multi byte commands */
 	switch (vt52s) {
 		case 'Y':
-			if (esc == 2) { dspmyrow=(*c-31)%dsp_rows; esc=1; return;}
-			if (esc == 1) { dspmycol=(*c-31)%dsp_columns; *c=0; }
-      vt52s=0; 
-			break;
-		case 'x':
-			switch(*c) {
-				case 'p':
-					vt52mode=vt52print;
-					break;
-				case 'w':
-					vt52mode=vt52wiring;
-					break;
-				case 'g':
-					vt52mode=vt52graph;
-				case 't':
-				default:
-					vt52mode=vt52text;
-					break;
+			if (dspesc == 2) { 
+        dspsetcursory(*c-31);
+			  dspesc=1; 
+			  return;
 			}
-			*c=0;
-			vt52s=0;
-			break;
+			if (dspesc == 1) { 
+			  dspsetcursorx(*c-31); 
+			  *c=0; 
+			}
+      vt52s=0; 
+      break;
 	}
  
 /* commands of the terminal in text mode */
@@ -1795,10 +1808,10 @@ void dspvt52(char* c){
 			if (dspmyrow>0) dspmyrow--;
 			break;
 		case 'B': /* cursor down */
-			dspmyrow=(dspmyrow++) % dsp_rows;
+			if (dspmyrow < dsp_rows-1) dspmyrow++;
 			break;
 		case 'C': /* cursor right */
-			dspmycol=(dspmycol++) % dsp_columns;
+			if (dspmycol < dsp_columns-1) dspmycol++;
 			break; 
 		case 'D': /* cursor left */
 			if (dspmycol>0) dspmycol--;
@@ -1808,40 +1821,69 @@ void dspvt52(char* c){
 			dspclear();
 			break;
 		case 'H': /* cursor home */
-			dspmyrow=0;
-   		dspmycol=0;
+			dspmyrow=dspmycol=0;
 			break;	
 		case 'Y': /* Set cursor position */
 			vt52s='Y';
-			esc=2;
+			dspesc=2;
   		*c=0;
 			return;
+    case 'J': /* clear to end of screen */
+      for (int i=dspmycol+dsp_columns*dspmyrow; i<dsp_columns*dsp_rows; i++) dspset(i, 0);
+      break;
+    case 'd': /* GEMDOS / TOS extension clear to start of screen */
+      for (int i=0; i<dspmycol+dsp_columns*dspmyrow; i++) dspset(i, 0);
+      break;
+    case 'K': /* clear to the end of line */
+      for (mem_t i=dspmycol; i<dsp_columns; i++) dspsetxy(0, i, dspmyrow);
+      break;
+    case 'l': /* GEMDOS / TOS extension clear line */
+      for (mem_t i=0; i<dsp_columns; i++) dspsetxy(0, i, dspmyrow);
+      break;
+    case 'o': /* GEMDOS / TOS extension clear to start of line */
+      for (mem_t i=0; i<=dspmycol; i++) dspsetxy(0, i, dspmyrow);
+      break;
+    case 'j': /* GEMDOS / TOS extension restore cursor */
+      dspmycol=vt52mycol;
+      dspmyrow=vt52myrow;
+      break;
+    case 'k': /* GEMDOS / TOS extension save cursor */
+      vt52mycol=dspmycol;
+      vt52myrow=dspmyrow;
+      break;
+    case 'I': /* reverse line feed */
+      if (dspmyrow>0) dspmyrow--; else dspreversescroll(0);
+      break;
+    case 'L': /* Insert line */
+      dspreversescroll(dspmyrow);
+      break;
+    case 'M': /* Delete line */
+      mem_t vt52tmpr = dspmyrow;
+      mem_t vt52tmpc = dspmycol;
+      dspscroll(1, dspmyrow);
+      dspmyrow=vt52tmpr;
+      dspmycol=vt52tmpc;
+      break;
+    case 'v': /* GEMDOS / TOS extension enable wrap */
+      dspwrap=0;
+      break;
+    case 'w': /* GEMDOS / TOS extension disable wrap */
+      dspwrap=1;
+      break;
 
 /* these standard VT52 function and their GEMDOS extensions are
 		not implemented. */ 
 		case 'F': // enter graphics mode
 		case 'G': // exit graphics mode
-		case 'I': // reverse line feed
-		case 'J': // clear to end of screen
-		case 'K': // clear to end of line
-		case 'L': // Insert line
-		case 'M': // Delete line
 		case 'Z': // Ident
 		case '=': // alternate keypad on
 		case '>': // alternate keypad off
 		case 'b': // GEMDOS / TOS extension text color
 		case 'c': // GEMDOS / TOS extension background color
-		case 'd': // GEMDOS / TOS extension clear to start of screen
 		case 'e': // GEMDOS / TOS extension enable cursor
 		case 'f': // GEMDOS / TOS extension disable cursor
-		case 'j': // GEMDOS / TOS extension restore cursor
-		case 'k': // GEMDOS / TOS extension save cursor
-		case 'l': // GEMDOS / TOS extension clear line
-		case 'o': // GEMDOS / TOS extension clear to start of line		
 		case 'p': // GEMDOS / TOS extension reverse video
 		case 'q': // GEMDOS / TOS extension normal video
-		case 'v': // GEMDOS / TOS extension enable wrap
-		case 'w': // GEMDOS / TOS extension disable wrap
 		case '^': // Printer extensions - print on
 		case '_': // Printer extensions - print off
 		case 'W': // Printer extensions - print without display on
@@ -1856,7 +1898,7 @@ void dspvt52(char* c){
 			*c=0; 
 			break;
 	}
-	esc=0;
+	dspesc=0;
 	*c=0;
 }
 #endif
@@ -1866,7 +1908,24 @@ void dspvt52(char* c){
 #ifdef DISPLAYCANSCROLL
 char dspbuffer[dsp_rows][dsp_columns];
 char dspscrollmode = 0;
-short dsp_scroll_rows = 1; 
+mem_t dsp_scroll_rows = 1;
+
+/* buffer access functions */
+char dspget(address_t i) {
+  if (i>=0 && i<=dsp_columns*dsp_rows-1) return dspbuffer[i/dsp_columns][i%dsp_columns]; else return 0;
+}
+
+void dspsetxy(char ch, mem_t c, mem_t r) {
+  dspbuffer[r][c]=ch;
+  if (ch != 0) dspprintchar(ch, c, r); else dspprintchar(' ', c, r);
+}
+
+void dspset(address_t i, char ch) {
+  mem_t c=i%dsp_columns;
+  mem_t r=i/dsp_columns;
+  dspsetxy(ch, c, r);
+}
+
 
 /* 0 normal scroll, 1 enable waitonscroll function */
 void dspsetscrollmode(char c, short l) {
@@ -1876,7 +1935,7 @@ void dspsetscrollmode(char c, short l) {
 
 /* clear the buffer */
 void dspbufferclear() {
-	short r,c;
+	mem_t r,c;
 	for (r=0; r<dsp_rows; r++)
 		for (c=0; c<dsp_columns; c++)
       dspbuffer[r][c]=0;
@@ -1885,48 +1944,74 @@ void dspbufferclear() {
 }
 
 /* do the scroll */
-void dspscroll(){
-	short r,c;
-	int i;
+void dspscroll(mem_t scroll_rows, mem_t scroll_top=0){
+	mem_t r,c;
   char a,b;
   	
 /* scroll data up and redraw the display */
-  for (r=0; r<dsp_rows-dsp_scroll_rows; r++) { 
+  for (r=scroll_top; r<dsp_rows-scroll_rows; r++) { 
     for (c=0; c<dsp_columns; c++) {
 			a=dspbuffer[r][c];
-			b=dspbuffer[r+dsp_scroll_rows][c];
+			b=dspbuffer[r+scroll_rows][c];
 			if ( a != b ) {
-  			if (b >= 32) dspprintchar(b, c, r); else dspprintchar(' ', c, r);
+  			if (b != 0) dspprintchar(b, c, r); else dspprintchar(' ', c, r);
       }      
 			dspbuffer[r][c]=b;
 		} 
 	}
 
 /* delete the characters in the remaining lines */
-	for (r=dsp_rows-dsp_scroll_rows; r<dsp_rows; r++) {
+	for (r=dsp_rows-scroll_rows; r<dsp_rows; r++) {
 		for (c=0; c<dsp_columns; c++) {
-			if (dspbuffer[r][c] > 32) dspprintchar(' ', c, r); 
+			if (dspbuffer[r][c] != 0 && dspbuffer[r][c] != 32) dspprintchar(' ', c, r); 
 			dspbuffer[r][c]=0;     
     }
 	}
   
-/* set the cursor to the fist free line	*/ 
+/* set the cursor to the first free line	*/ 
   dspmycol=0;
-	dspmyrow=dsp_rows-dsp_scroll_rows;
+	dspmyrow=dsp_rows-scroll_rows;
+}
+
+/* do the reverse scroll only one line implemented */
+void dspreversescroll(mem_t line){
+  mem_t r,c;
+  char a,b;
+    
+/* scroll data up and redraw the display */
+  for (r=dsp_rows; r>line; r--) { 
+    for (c=0; c<dsp_columns; c++) {
+      a=dspbuffer[r][c];
+      b=dspbuffer[r-1][c];
+      if ( a != b ) {
+        if (b != 0) dspprintchar(b, c, r); else dspprintchar(' ', c, r);
+      }      
+      dspbuffer[r][c]=b;
+    } 
+  }
+
+/* delete the characters in the remaining line */
+  for (c=0; c<dsp_columns; c++) {
+    if (dspbuffer[line][c] != 0 && dspbuffer[line][c] != 32) dspprintchar(' ', c, r); 
+    dspbuffer[line][c]=0;     
+  }
+ 
+/* set the cursor to the free line  */ 
+  dspmyrow=line;
 }
 
 void dspwrite(char c){
 
 /* on escape call the vt52 state engine */
 #ifdef HASVT52
-	if (esc) dspvt52(&c);
+	if (dspesc) dspvt52(&c);
 #endif
 
 /* the minimal cursor control functions of BASIC */
   switch(c) {
   	case 10: // this is LF Unix style doing also a CR
     	dspmyrow=(dspmyrow + 1);
-    	if (dspmyrow >= dsp_rows) dspscroll(); 
+    	if (dspmyrow >= dsp_rows) dspscroll(dsp_scroll_rows); 
     	dspmycol=0;
       if (dspupdatemode == 1) dspupdate();
     	return;
@@ -1941,29 +2026,35 @@ void dspwrite(char c){
       dspmycol=0;
       return;
   	case 27: // escape - initiate vtxxx mode
-			esc=1;
+			dspesc=1;
 			return;
     case 127: // delete
     	if (dspmycol > 0) {
       	dspmycol--;
-      	dspbuffer[dspmyrow][dspmycol]=0;
-      	dspprintchar(' ', dspmycol, dspmyrow);
+        dspsetxy(0, dspmyrow, dspmycol);
       	return;
     	}
-    case 3: // ETX = Update display for buffered display like Epaper
+#ifdef DISPLAYPAGEMODE
+    case 3: /* ETX = Update display for buffered display like Epaper */
       dspupdate();
+      return;
+#endif
+    case 0:
       return;
   }
 
-/* all other non printables ignored */ 
-	if (c < 32 ) return; 
+/* all other non printables ignored
+	if ( c = 32 ) return; 
+*/
 
-	dspprintchar(c, dspmycol, dspmyrow);
-	dspbuffer[dspmyrow][dspmycol++]=c;
+  dspsetxy(c, dspmycol, dspmyrow);
+  dspmycol++;
 	if (dspmycol == dsp_columns) {
-		dspmycol=0;
-		dspmyrow=(dspmyrow + 1);
-    if (dspmyrow >= dsp_rows) dspscroll(); 
+    if (!dspwrap) { /* we simply ignore the cursor */
+		  dspmycol=0;
+		  dspmyrow=(dspmyrow + 1);
+    }
+    if (dspmyrow >= dsp_rows) dspscroll(dsp_scroll_rows); 
 	}
   if (dspupdatemode == 0) dspupdate();
 }
@@ -1985,13 +2076,28 @@ char dspwaitonscroll() {
 /* code for low memory simple display access */
 #else 
 
+/* buffer access functions */
+char dspget(address_t i) { return 0; }
+
+void dspsetxy(char ch, mem_t c, mem_t r) {
+  if (ch != 0) dspprintchar(ch, c, r); else dspprintchar(' ', c, r);
+}
+
+void dspset(address_t i, char ch) {
+  mem_t c=i%dsp_columns;
+  mem_t r=i/dsp_columns;
+  dspsetxy(ch, c, r);
+}
+
 void dspbufferclear() {}
 char dspwaitonscroll() { return 0; }
+void dspscroll(mem_t s) {}
+
 void dspwrite(char c){
 
 /* on escape call the vt52 state engine */
 #ifdef HASVT52
-	if (esc) { dspvt52(&c); }
+	if (dspesc) { dspvt52(&c); }
 #endif
 
 	switch(c) {
@@ -2004,18 +2110,18 @@ void dspwrite(char c){
 #endif
     	return;
   	case 10: // this is LF Unix style doing also a CR
-    	dspmyrow=(dspmyrow + 1)%dsp_rows;
-    	dspmycol=0;
+    	if (dspmyrow < dsp_rows-1) dspmyrow++;  
+      dspmycol=0;
       if (dspupdatemode == 1) dspupdate();
     	return;
     case 11: // one char down 
-    	dspmyrow=(dspmyrow+1) % dsp_rows;
+    	if (dspmyrow < dsp_rows-1) dspmyrow++; 
     	return;
     case 13: // classical carriage return 
     	dspmycol=0;
     	return;
 		case 27: // escape - initiate vtxxx mode
-			esc=1;
+			dspesc=1;
 			return;
    	case 127: // delete
     	if (dspmycol > 0) {
@@ -2023,20 +2129,23 @@ void dspwrite(char c){
       	dspprintchar(' ', dspmycol, dspmyrow);
     	}
     	return;
-    case 3: // ETX = Update display for buffered display like Epaper
+#ifdef DISPLAYPAGEMODE
+    case 3: /*  ETX = Update display for buffered display like Epaper */
       dspupdate();
       return;
+    case 0:
+      return;
+#endif
   }
-
-/* all other non printables ignored */ 
-	if (c < 32 ) return; 
-
-	dspprintchar(c, dspmycol++, dspmyrow);
-	dspmycol=dspmycol%dsp_columns;
+  
+  dspsetxy(c, dspmycol, dspmyrow);
+  if (dspmycol<dsp_columns-1) dspmycol++;
   if (dspupdatemode == 0) dspupdate();
 }
 
 void dspsetscrollmode(char c, short l) {}
+void dspscroll(mem_t a, mem_t b){}
+void dspreversescroll(mem_t a){}
 #endif
 #else
 const int dsp_rows=0;
@@ -2047,105 +2156,122 @@ void dspbegin() {};
 int dspstat(char c) {return 0; }
 char dspwaitonscroll() { return 0; };
 char dspactive() {return 0; }
-void dspsetscrollmode(char c, short l) {}
-void dspsetcursor(short c, short r) {}
+void dspsetscrollmode(char c, mem_t l) {}
+void dspscroll(mem_t a, mem_t b){}
+void dspreversescroll(mem_t a){}
 #endif
 
 /* 
- * Arduino Real Time clock code based on uRTC 
- * this is a minimalistic library. The interface here 
+ * Arduino Real Time clock. The interface here 
  * offers the values as number_t plus a string, 
  * combining all values. 
  * 
- * Default here is DS3231 or DS3232, DS1307 can be set (
- * but not yet relevant)
+ * The code does not use an RTC library any more
+ * all the rtc support is builtin now. 
+ * 
+ * Supported clocks DS1307, DS3231, and DS3232 (not tested)
+ * 
+ * rtcget accesses the internal registers of the clock. 
+ * Registers 0-6 are bcd transformed to return 
+ * seconds, minutes, hours, day of week, day, month, year
+ * 
+ * Registers 7-255 are returned as 
  */
-#ifdef ARDUINORTC
-#ifdef RTCTYPE
-uRTCLib rtc(RTCI2CADDR, RTCTYPE);
-#else
-uRTCLib rtc(RTCI2CADDR);
-#endif
-char rtcstring[20] = { 0 }; 
 
-/* this code is currently not used, controls advanced features of the clock */
-void rtcsqw() {
-  rtc.sqwgSetMode(URTCLIB_SQWG_OFF_0); 
-  /* rtc.sqwgSetMode(URTCLIB_SQWG_1H); */
+#ifdef ARDUINORTC
+char rtcstring[20] = { 0 }; 
+short rtcget(short i) {
+  
+    /* set the address of the read */
+    Wire.beginTransmission(RTCI2CADDR);
+    Wire.write(i);
+    Wire.endTransmission();
+
+    /* now read */
+    Wire.requestFrom(RTCI2CADDR, 1);
+    uint8_t v=Wire.read();
+    
+    switch (i) {
+    case 0: 
+    case 1:
+      return (v & 0b00001111)+((v >> 4) & 0b00000111) * 10;      
+    case 2:
+      return (v & 0b00001111)+((v >> 4) & 0b00000011) * 10 ; /* only 24 hour support */
+    case 3:
+      return (v & 0b00001111);
+    case 4:
+      return (v & 0b00001111) + ((v >> 4) & 0b00000011) * 10;
+    case 5:
+      return (v & 0b00001111) + ((v >> 4) & 0b00000001) * 10;
+    case 6:
+      return (v & 0b00001111) + (v >> 4) * 10;
+    default:
+      return v;
+   }
+}
+
+void rtcset(uint8_t i, short v) { 
+  uint8_t b;
+
+  /* to bcd if we deal with a clock byte (0-6) */
+  if (i<7) b=(v%10 + ((v/10) << 4)); else b=v;
+   
+  switch (i) {
+    case 0: 
+    case 1:  
+      b = b & 0b01111111; 
+      break; 
+    case 2:
+    case 4:
+      b = b & 0b00111111; /* only 24 hour support */
+      break;
+    case 3:
+      b = b & 0b00000111;
+      break;
+    case 5:
+      b = b & 0b00011111;
+   }
+
+/* send the address and then the byte */
+   Wire.beginTransmission(RTCI2CADDR);
+   Wire.write(i);
+   Wire.write(b);
+   Wire.endTransmission(); 
 }
 
 char* rtcmkstr() {
-	int cc = 2;
-	short t;
-	char ch;
-  /* the first read refreshes */  
-	t=rtcget(2);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]=':';
-	t=rtcread(1);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]=':';
-	t=rtcread(0);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='-';
-	t=rtcread(3);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='/';
-	t=rtcread(4);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='/';
-	t=rtcread(5);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc]=0;
+  int cc = 2;
+  short t;
+  char ch;
+  /* the first read refreshes - not needed here but still ... */  
+  t=rtcget(2);
+  rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]=':';
+  t=rtcget(1);
+  rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]=':';
+  t=rtcget(0);
+  rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]='-';
+  t=rtcget(4);
+  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]='/';
+  t=rtcget(5);
+  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]='/';
+  t=rtcget(6);
+  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc]=0;
   /* needed for BASIC strings, reserve the first byte for two byte length handling in the upstream code */
-	rtcstring[1]=cc-1;
+  rtcstring[1]=cc-2;
   rtcstring[0]=0;
-	return rtcstring+1;
-}
-
-short rtcread(char i) {
-	switch (i) {
-		case 0: 
-			return rtc.second();
-		case 1:
-			return rtc.minute();
-		case 2:
-			return rtc.hour();
-		case 3:
-			return rtc.day();
-		case 4:
-			return rtc.month();
-		case 5:
-			return rtc.year();
-		case 6:
-			return rtc.dayOfWeek();
-		case 7:
-			return rtc.temp();
-		default:
-			return 0;
-	}
-}
-
-short rtcget(char i) {
-	rtc.refresh();
-	return rtcread(i);
-}
-
-void rtcset(char i, short v) {
-	uint8_t tv[7];
-	char j;
-	rtc.refresh();
-	for (j=0; j<7; j++) {
-	  tv[j]=rtcread(j);
-	}
-	tv[i]=v;
-	rtc.set(tv[0], tv[1], tv[2], tv[6], tv[3], tv[4], tv[5]);
+  return rtcstring+1;
 }
 #endif
 
@@ -2156,13 +2282,14 @@ void rtcset(char i, short v) {
 */
 #ifdef ARDUINOEFS
 #undef ARDUINOI2CEEPROM
-#ifndef EFSEEPROMSIZE
-#define EFSEEPROMSIZE 32768
-#endif
 #ifndef EFSEEPROMADDR
 #define EFSEEPROMADDR 0x50
 #endif
+#ifdef EFSEEPROMSIZE
 EepromFS EFS(EFSEEPROMADDR, EFSEEPROMSIZE);
+#else
+EepromFS EFS(EFSEEPROMADDR);
+#endif
 #endif
 
 /* 
@@ -2171,14 +2298,15 @@ EepromFS EFS(EFSEEPROMADDR, EFSEEPROMSIZE);
  * for details. Here the most common parameters are set as a default.
 */
 
-#ifdef ARDUINOI2CEEPROM
-#ifndef I2CEEPROMSIZE
-#define I2CEEPROMSIZE 32768
-#endif
+#if defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)
 #ifndef I2CEEPROMADDR
 #define I2CEEPROMADDR 0x50
 #endif
-EepromFS EFSRAW(I2CEEPROMADDR, EFSEEPROMSIZE);
+#ifdef I2CEEPROMSIZE
+EepromFS EFSRAW(I2CEEPROMADDR, I2CEEPROMSIZE);
+#else
+EepromFS EFSRAW(I2CEEPROMADDR);
+#endif
 #endif
 
 /*
@@ -2477,9 +2605,35 @@ void ebegin(){
 #if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM)
   EEPROM.begin(EEPROMSIZE);
 #endif
-/* there also can be a raw EFS object in parallel */
-#if defined(ARDUINOI2CEEPROM)
+/* an unbuffered EEPROM, typically used to store a program */
+#if defined(ARDUINOI2CEEPROM) && !defined(ARDUINOI2CEEPROM_BUFFERED)
+/* 
+ * we test the size with a heuristic, but beware, EEPROM addressing
+ * is circular. We only consider the two most common sizes, 4096 and 32768.
+ * This is tricky.
+ */
+
+#ifndef I2CEEPROMSIZE
+  int c4=eread(4094);
+  int c32=eread(32766);
+  eupdate(4094, 42);
+  eupdate(32766, 84);
+  if (ert !=0 ) return;
+  if (eread(32766) == 84 && eread(4094) == 42) i2ceepromsize = 32767; else i2ceepromsize = 4096;
+  eupdate(4094, c4);
+  eupdate(32766, c32);  
+#else
+  i2ceepromsize = I2CEEPROMSIZE;
+#endif
+#endif
+/* there also can be a raw EFS object */
+#if defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)
   EFSRAW.begin();
+#ifndef I2CEEPROMSIZE
+  i2ceepromsize = EFSRAW.esize();
+#else
+  i2ceepromsize = I2CEEPROMSIZE;
+#endif
 #endif
 }
 
@@ -2489,7 +2643,7 @@ void eflush(){
   EEPROM.commit();
 #endif 
 /* flushing the I2C EEPROM */
-#if defined(ARDUINOI2CEEPROM)
+#if defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)
   EFSRAW.rawflush();
 #endif
 }
@@ -2523,16 +2677,46 @@ short eread(address_t a) {
 #if defined(ARDUINOI2CEEPROM)
 
 address_t elength() { 
-  return I2CEEPROMSIZE;
+  return i2ceepromsize;
 }
 
 void eupdate(address_t a, short c) { 
+#if defined(ARDUINOI2CEEPROM_BUFFERED)
   EFSRAW.rawwrite(a, c);
-  /* EFSRAW.rawflush(); // evil code, we disable buffering -> check the EFS raw object, suspected mishandling of binary data */ 
+#else
+/* go directly into the EEPROM */
+  if (eread(a) != c) {
+  /* set the address and send the byte*/
+    Wire.beginTransmission(I2CEEPROMADDR);
+    Wire.write((int)a/256);
+    Wire.write((int)a%256);
+    Wire.write((int)c);
+    ert=Wire.endTransmission();
+  /* wait the max time */
+    delay(5);
+  }
+#endif
 }
 
 short eread(address_t a) { 
-  return (signed char) EFSRAW.rawread(a); 
+#ifdef ARDUINOI2CEEPROM_BUFFERED
+  return (mem_t) EFSRAW.rawread(a); 
+#else
+/* read directly from the EEPROM */
+
+/* set the address */
+  Wire.beginTransmission(I2CEEPROMADDR);
+  Wire.write((int)a/256);
+  Wire.write((int)a%256);
+  ert=Wire.endTransmission();
+
+/* read a byte */
+  if (ert == 0) {
+    Wire.requestFrom(I2CEEPROMADDR, 1);
+    return (mem_t) Wire.read();
+  } else return 0;
+ 
+#endif
 }
 #else
 /* no EEPROM present */
@@ -3285,8 +3469,8 @@ void consins(char *b, short nb) {
   		if (c == '\r') c=inch(); 			/* skip carriage return */
   		if (c == '\n' || c == -1 || c == 255) { 	/* terminal character is either newline or EOF */
     		break;
-  		} else if ( (c == 127 || c == 8) && z.a>1) {
-   			z.a--;
+  		} else if (c == 127 || c == 8) {
+        if (z.a>1) z.a--;
   		} else {
    			b[z.a++]=c;
   		} 
@@ -3361,6 +3545,25 @@ void prtset(int s) {
  * library
  */ 
 
+/* this is always here, if Wire is needed by a subsysem */
+#ifdef NEEDSWIRE
+/* default begin is as a master 
+ * This doesn't work properly on the ESP32C3 platform
+ * See  https://github.com/espressif/arduino-esp32/issues/6376 
+ * for more details
+ */
+void wirebegin() {
+#ifndef SDA_PIN   
+  Wire.begin();
+#else
+  Wire.begin(SDA_PIN, SCL_PIN);
+#endif
+}
+#else
+void wirebegin() {}
+#endif
+
+/* this is code needed for the OPEN/CLOSE and wireslave mechanisms */
 #ifdef ARDUINOWIRE
 uint8_t wire_slaveid = 0;
 uint8_t wire_myid = 0;
@@ -3371,19 +3574,6 @@ short wirereceivechars = 0;
 char wirerequestbuffer[ARDUINOWIREBUFFER];
 short wirerequestchars = 0;
 #endif
-
-/* default begin is as a master 
- * This doesn't work properly on the ESP32C3 platform
- * See  https://github.com/espressif/arduino-esp32/issues/6376 
- * for more details
- */
-void wirebegin() {
-#ifndef SDA_PIN   
-	Wire.begin();
-#else
-  Wire.begin(SDA_PIN, SCL_PIN);
-#endif
-}
 
 void wireslavebegin(char s) {
 #ifndef SDA_PIN
@@ -3490,7 +3680,6 @@ void wireouts(char *b, uint8_t l) {
   }
 }
 #else
-void wirebegin() {}
 int wirestat(char c) {return 0; }
 void wireopen(char s, char m) {}
 void wireins(char *b, uint8_t l) { b[0]=0; z.a=0; }
@@ -3957,6 +4146,8 @@ void spiramrawwrite(address_t a, mem_t c) {
 #ifdef ARDUINOPGMEEPROM
 #define USEMEMINTERFACE
 #define EEPROMMEMINTERFACE
+#else 
+#undef EEPROMMEMINTERFACE
 #endif
 
 

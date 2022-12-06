@@ -65,12 +65,12 @@
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
+#define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
-#undef ARDUINOMCUFRIEND
+#define ARDUINOMCUFRIEND
 #undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
@@ -3469,8 +3469,8 @@ void consins(char *b, short nb) {
   		if (c == '\r') c=inch(); 			/* skip carriage return */
   		if (c == '\n' || c == -1 || c == 255) { 	/* terminal character is either newline or EOF */
     		break;
-  		} else if ( (c == 127 || c == 8) && z.a>1) {
-   			z.a--;
+  		} else if (c == 127 || c == 8) {
+        if (z.a>1) z.a--;
   		} else {
    			b[z.a++]=c;
   		} 

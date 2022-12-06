@@ -609,6 +609,9 @@ const char* const message[] PROGMEM = {
  * 	to arbitrary types 
  *
  *	number_t is the type for numerical work - either float or int
+ *  wnumber_t is the type containing the largest printable integer, 
+ *    keep this int unless you want to use very long integers, 
+ *    like 64 or 128 bit types. 
  *  address_t is an unsigned type adddressing memory 
  *  mem_t is a SIGNED 8bit character type.
  *	index_t is a SIGNED minimum 16 bit integer type
@@ -630,18 +633,20 @@ const char* const message[] PROGMEM = {
 #ifdef HASFLOAT
 typedef float number_t;
 const number_t maxnum=16777216; 
+typedef int wnumber_t;
 #else
 typedef int number_t;
+typedef int wnumber_t;
 const number_t maxnum=(number_t)~((number_t)1<<(sizeof(number_t)*8-1));
 #endif
-typedef unsigned short address_t;
+typedef unsigned short address_t; /* this type addresses memory */
 const int numsize=sizeof(number_t);
 const int addrsize=sizeof(address_t);
 const int eheadersize=sizeof(address_t)+1;
 const int strindexsize=2; /* default in the meantime, strings up to unsigned 16 bit length */
 const address_t maxaddr=(address_t)(~0); 
-typedef signed char mem_t;
-typedef short index_t;
+typedef signed char mem_t; /* a signed 8 bit type for the memory */
+typedef short index_t; /* this type counts at least 16 bit */
 
 /* 
  * system type identifiers
@@ -871,7 +876,7 @@ void spibegin();
  *	dspupdate() only for display like Epapers
  */
 void dspbegin();
-void dspprintchar(char, short, short);
+void dspprintchar(char, mem_t, mem_t);
 void dspclear();
 void dspupdate();
 
@@ -910,12 +915,15 @@ void dspgraphupdate();
 void dspsetscrollmode(char, short);
 void dspsetcursor(short, short);
 void dspbufferclear();
+void dspset(address_t, char);
+void dspsetxy(char, mem_t, mem_t);
+void dspscroll(mem_t, mem_t);
+void dspreversescroll(mem_t);
 
 /* real time clock */
 char* rtcmkstr();
-void rtcset(char, short);
-short rtcget(char);
-short rtcread(char);
+void rtcset(uint8_t, short);
+short rtcget(short); 
 
 /* network and mqtt functions */
 void netbegin();
@@ -1119,7 +1127,7 @@ void outscf(const char *, short);
 /* I/O of number_t - floats and integers */
 address_t parsenumber(char*, number_t*);
 address_t parsenumber2(char*, number_t*);
-address_t writenumber(char*, number_t);
+address_t writenumber(char*, wnumber_t); 
 address_t writenumber2(char*, number_t);
 char innumber(number_t*);
 void outnumber(number_t);

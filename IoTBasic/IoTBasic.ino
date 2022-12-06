@@ -43,9 +43,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef	BASICFULL
-#undef	BASICINTEGER
-#define	BASICSIMPLE
+#define	BASICFULL
+#undef  BASICINTEGER
+#undef	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICTINYWITHFLOAT
 
@@ -214,43 +214,30 @@
 #include "hardware-posix.h"
 #endif
 
-/* 
- *	Code hardware dependencies
- *	Removed
- */
-
-
 /*
  *  Determine the possible basic memory size.
  *	using malloc causes some overhead which can be relevant on the smaller  
  *	boards. set MEMSIZE instead to a static value. In this case ballocmem 
  *	just returns the static MEMSIZE.
  * 
- * if SPIRAMINTERFACE is defined, we use the memory from a serial RAM and dont allocate 
- * it here.
+ * if SPIRAMINTERFACE is defined, we use the memory from a serial RAM and dont 
+ * allocate it here at all.
  *
  */
 #if MEMSIZE == 0 && !defined(SPIRAMINTERFACE)
 address_t ballocmem() { 
 	mem_t i = 0;
 
+/* this code is hardly needed any more on microcontrollers, most platforms 
+  can report a valid memory size */
 	const unsigned short memmodel[] = {
-		60000,  // DUE systems, RP2040 and ESP32, all POSIX systems - set to fit in one 16 bit page
-		48000,  // DUE with a bit of additional stuff,
-		40000, 	// simple ESP8266 systems, MSDOS small model 
-		24000,  // Arduino MK boards, SAMD, Seeduino
-		12000,  // ESP systems with a lot of subsystems and VGA
-		4096, 	// Arduino Nano Every, MEGA with a lot of stuff 
-		2048,   // AVR with a lot of additional stuff on them
-		1024, 	// UNO
-		128,	// fallback, something has gone wrong
+		48000,  /* larger 8 bit systems with enough heap */
+		24000,  /* small systems with max 32k */
+		128,	  /* fallback, something has gone wrong */
 		0      
 	}; 
 
-/*  if the number type is only 2 bytes max memory is 32000
-	if (sizeof(number_t) <= 2) i=2; */
-
-/* on some platforms we know the free memory for BASIC */
+/* on most platforms we know the free memory for BASIC */
 	long m=freememorysize();
 	if (m>maxaddr) m=maxaddr;
 	if (m>0) {
@@ -262,13 +249,7 @@ address_t ballocmem() {
  * if there is no valid freememorysize() result we need 
  * to guess the size by doing malloc, MEMMODEL can be used
  * to limit the max size.
- *
- * tiny model MSDOS needs more buffers 
- * don't use the 60k 
  */
-#ifdef MSDOS
-	i=1;
-#endif
 #ifdef MEMMODEL
 	i=MEMMODEL;
 #endif
@@ -287,16 +268,7 @@ address_t ballocmem(){ return MEMSIZE-1; };
 /*
  *	Layer 0 function - variable handling.
  *
- *	These function access variables, 
- *	In this implementation variables are a 
- *	static array and we simply subtract 'A' 
- *	from the variable name to get the index
- *	any other way to generate an index from a 
- *	byte hash can be used just as well.
- *
- *	delvar and createvar as stubs for further 
- *	use. They are not yet used consistenty in
- *	the code.
+ *	These function access variables and data
  */
 
 /*
@@ -327,7 +299,7 @@ void esave() {
 		eupdate(a++,0);
 	} else {
 		error(EOUTOFMEMORY);
-		er=0; //oh oh! check this.
+		er=0;
 	}
 /* needed on I2C EEPROM and other platforms where we buffer */
   eflush();
@@ -394,11 +366,11 @@ char autorun() {
 #ifdef HASAPPLE1
 /*
  *	bmalloc() allocates a junk of memory for a variable on the 
- *		heap every objects is identified by name (c,d) and type t
+ *		heap, every objects is identified by name (c,d) and type t
  *		3 bytes are used here.
  */
 address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
-	address_t vsize;     /* the length of the header */
+	address_t vsize;     /* the length of the header on the heap*/
 	address_t b;
 
 	if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
@@ -421,7 +393,7 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 				vsize=numsize*l+addrsize+3;
 				break;
 #else
-/* test multidim implementation for n=2 */
+/* multidim implementation for n=2 */
 			case ARRAYVAR:
 				vsize=numsize*l+addrsize*2+3;
 				break;
@@ -639,9 +611,9 @@ number_t getvar(mem_t c, mem_t d){
 				return rd;
 #ifdef DISPLAYDRIVER
 			case 'X':
-				return dspmycol;
+				return dspgetcursorx();
 			case 'Y':
-				return dspmyrow;
+				return dspgetcursory();
 #endif
 		}
 
@@ -692,10 +664,10 @@ void setvar(mem_t c, mem_t d, number_t v){
 				return;
 #ifdef DISPLAYDRIVER
 			case 'X':
-				dspmycol=(short)v%dsp_columns;
+        dspsetcursorx((int)v);
 				return;
 			case 'Y':
-				dspmyrow=(short)v%dsp_rows;
+				dspsetcursory((int)v);
 				return;
 #endif
 		}
@@ -885,7 +857,7 @@ address_t getarrayseconddim(address_t a, address_t za) {
 void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 	address_t a;
 	address_t h;
-	char e = 0;
+	mem_t e = 0;
 #ifdef HASMULTIDIM
 	address_t dim=1, zat;
 #endif
@@ -900,23 +872,12 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 				a=elength()-numsize*i;
 				e=1;
 				break;
+#if defined(DISPLAYDRIVER) && defined(DISPLAYCANSCROLL)      
 			case 'D': 
-#if defined(DISPLAYDRIVER) && defined(DISPLAYCANSCROLL)
-				if (dsp_rows == 0 || dsp_columns == 0) { return; }
-				if (i<1 || i>dsp_columns*dsp_columns ) { return; }
-				i--;
-				a=i%dsp_columns;
-				h=i/dsp_columns;
-/* this should be encapsulated later into the display object */
-				if (m == 's') {
-					if (*v == 0) e=' '; else e=*v;
-					dspprintchar(e, a, h);
-					if (*v == 32) dspbuffer[h][a]=0; else dspbuffer[h][a]=*v;
-				} else {
-					*v=(number_t)dspbuffer[h][a];          			
-				}
+        if (m == 'g') *v=dspget(i-1); 
+        else if (m == 's') dspset(i-1, *v);
+        return;
 #endif
-				return;
 #if !defined(ARDUINO) || defined(ARDUINORTC)
 			case 'T':
 				if (m == 'g') *v=rtcget(i); 
@@ -1027,7 +988,7 @@ address_t createstring(char c, char d, address_t i, address_t j) {
 	operation in BASIC, it cannot be used as a trigger for an I/O operation*/
 
 void makemyxstring() {
-	int i;
+	mem_t i;
 	const char text[] = "hello world";
 	for(i=0; i<SBUFSIZE-1 && text[i]!=0 ; i++) sbuffer[i+1]=text[i];
 	sbuffer[0]=i;
@@ -1588,7 +1549,7 @@ void ioinit() {
 #ifdef ARDUINOSPI
 	spibegin();
 #endif
-#ifdef ARDUINOWIRE
+#ifdef NEEDSWIRE
 	wirebegin();
 #endif
 
@@ -1801,25 +1762,25 @@ void ins(char *b, address_t nb) {
   	switch(id) {
 #ifdef ARDUINOWIRE
   		case IWIRE:
-			wireins(b, nb);
-			break;
+			  wireins(b, nb);
+			  break;
 #endif
 #ifdef ARDUINOMQTT
-		case IMQTT:
-			mqttins(b, nb);	
-			break;	
+		  case IMQTT:
+			  mqttins(b, nb);	
+			  break;	
 #endif
 #ifdef ARDUINORF24
-  		case IRADIO:
-  			radioins(b, nb);
-  			break;
+  	  case IRADIO:
+  		  radioins(b, nb);
+  		  break;
 #endif
-  		default:
+  	  default:
 #ifdef ARDUINOPRT
 /* blockmode only implemented for ISERIAL1 right now */
-  			if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
+  		  if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
 #endif
-  			consins(b, nb);
+  		  consins(b, nb);
   	}  
 }
 
@@ -1915,7 +1876,7 @@ void outsc(const char *c){
 /* output a zero terminated string in a formated box padding spaces 
 		needed for catalog output */
 void outscf(const char *c, short f){
-	short i = 0;
+	index_t i = 0;
   
 	while (*c != 0) { outch(*c++); i++; }
 	if (f > i) {
@@ -1925,7 +1886,7 @@ void outscf(const char *c, short f){
 }
 
 /* 
- *	reading a number from a char buffer 
+ *	reading a positive number from a char buffer 
  *	maximum number of digits is adjusted to 16
  *	ugly here, testcode when introducting 
  *	number_t was only 16 bit before
@@ -1950,7 +1911,7 @@ address_t parsenumber2(char *c, number_t *r) {
 	index_t i;
 	number_t fraction = 0;
 	number_t exponent = 0;
-	char nexp = 0;
+	mem_t nexp = 0;
 
 	*r=0;
 
@@ -1977,7 +1938,7 @@ address_t parsenumber2(char *c, number_t *r) {
 		nd++;
 		if (*c == '-') {c++; nd++; nexp=1;};
 		i=parsenumber(c, &exponent);
-		nd+=i;
+		nd+=i;  
 		while ((--exponent)>=0) if (nexp) *r=*r/10; else *r=*r*10;		
 	}
 
@@ -1987,27 +1948,21 @@ address_t parsenumber2(char *c, number_t *r) {
 
 /*
  *	convert a number to a string
- *	the use of long v here is a hack related to HASFLOAT 
- *	unfinished here and needs to be improved
+ *	the argument type controls the largerst displayable integer
+ *  default is int but it can be increased without any side effects
  */
-address_t writenumber(char *c, number_t vi){
+address_t writenumber(char *c, wnumber_t v){
 	address_t nd = 0;	
-	long v;
 	index_t i,j;
 	mem_t s = 1;
 	char c1;
+  
+	if (v<0) s=-1; 
 
-/* not really needed any more */
-	v=(long)vi;
-
-	if (v<0) {
-		s=-1; 
-		v=-v;
-	}
 	do {
-		c[nd++]=v%10+'0';
+		c[nd++]=(v%10)*s+'0';
 		v=v/10;
-	} while (v > 0);
+	} while (v != 0);
 
 	if (s < 0 ) c[nd]='-'; else nd--;
 
@@ -2037,6 +1992,8 @@ address_t writenumber2(char *c, number_t vi) {
 	index_t exponent = 0; 
 	mem_t eflag=0;
 
+
+
 /* pseudo integers are displayed as integer
 		zero trapped here */
 	f=floor(vi);
@@ -2048,6 +2005,14 @@ address_t writenumber2(char *c, number_t vi) {
 #ifndef ARDUINO
 	return sprintf(c, "%g", vi);
 #else
+
+/* on an Arduino we have gcc, we check if we have anything to write */
+  if (!isfinite(vi)) {
+    c[0]='*';
+    c[1]=0;
+    return 1; 
+  }
+
 	f=vi;
 	while (fabs(f)<1.0)   { f=f*10; exponent--; }
  	while (fabs(f)>=10.0-0.00001) { f=f/10; exponent++; }
@@ -2059,13 +2024,13 @@ address_t writenumber2(char *c, number_t vi) {
 		dtostrf(f, 0, 5, c);
 		eflag=1;
 	}
-	
+ 
 /* remove trailing zeros */
 	for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
 	i--;
 	while (c[i] == '0' && i>1) {i--;}
 	i++;
-
+    
 /* add the exponent */
 	if (eflag) {
 		c[i++]='E';
@@ -2917,10 +2882,9 @@ void storeline() {
  * implementing a C style logical expression model
  */
 
-/* the terminal symbol - ELSE is one too */
+/* the terminal symbol it ends a statement list - ELSE is one too as it ends a statement list */
 char termsymbol() {
 	return ( token == LINENUMBER ||  token == ':' || token == EOL || token == TELSE);
-  /* return ( token == LINENUMBER ||  token == ':' || token == EOL); */
 }
 
 /* a little helpers - one token expect */ 
@@ -6760,7 +6724,10 @@ void statement(){
 				xnetstat();
 				break;
 			case TCLS:
+        xc=od; 
+        od=2;
 				outch(12);
+        od=xc;
 				nexttoken();
 				break;
 /* low level functions as part of Stefan's extension */
@@ -6942,7 +6909,7 @@ void setup() {
  	xnew();	
 #else
 /* if we run on an EEPROM system, more work is needed */
-  if (eread(0) == 0 || eread(0) == 1) { /* have we stored a program and don't do new, god help us*/
+  if (eread(0) == 0 || eread(0) == 1) { /* have we stored a program and don't do new */
     egetnumber(1, addrsize);
     top=z.a;    
     resetbasicstate(); /* the little brother of new, reset the state but let the program memory be */
@@ -6960,7 +6927,7 @@ void setup() {
  	if (!autorun()) {
 		printmessage(MGREET); outspc();
 		printmessage(EOUTOFMEMORY); outspc(); 
-		outnumber(memsize+1); outspc();
+    outnumber(memsize+1); outspc();
 		outnumber(elength()); outcr();
  	}
 }
