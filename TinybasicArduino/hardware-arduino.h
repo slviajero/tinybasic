@@ -64,13 +64,13 @@
 #undef ARDUINOPS2
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
-#define ARDUINOPRT
-#define DISPLAYCANSCROLL
+#undef ARDUINOPRT
+#undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
-#define ARDUINOMCUFRIEND
+#undef ARDUINOMCUFRIEND
 #undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
@@ -1046,7 +1046,7 @@ void dspbegin() { 	lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
 void dspprintchar(char c,  mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
-void dspsetcursor(mem_t c) {}
+void dspsetcursor(mem_t c) { if (c) lcd.blink(); else lcd.noBlink(); }
 void dspsetfgcolor(address_t c) {}
 void dspsetbgcolor(address_t c) {}
 void dspsetreverse(mem_t c) {}
@@ -1842,7 +1842,8 @@ void dspvt52(char* c){
 			if (dspesc == 2) { 
         dspsetcursory(*c-31);
 			  dspesc=1; 
-			  return;
+			  *c=0;
+        return;
 			}
 			if (dspesc == 1) { 
 			  dspsetcursorx(*c-31); 
@@ -1884,10 +1885,8 @@ void dspvt52(char* c){
       dspprintmode=0;
       break;
     case 'V': /* Printer extensions - print cursor line */
-      Serial.println("Print line");
       break;
     case ']': /* Printer extension - print screen */
-      Serial.println("Print screen");
       break;
     case 'F': /* enter graphics mode */
       vt52graph=1;
@@ -3450,6 +3449,7 @@ volatile static short picoi = 1;
 
 /* getchar */
 void picogetchar(int c){
+  cli();
 	if (picob && (! picoa) ) {
     	picochar=c;
 		if (picochar != '\n' && picochar != '\r' && picoi<picobsize-1) {
@@ -3466,6 +3466,7 @@ void picogetchar(int c){
 	} else {
     	if (c != 10) picochar=c;
 	}
+  sei();
 }
 #endif
 
