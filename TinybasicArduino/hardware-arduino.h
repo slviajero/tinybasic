@@ -65,8 +65,8 @@
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
-#undef ARDUINOLCDI2C
+#define DISPLAYCANSCROLL
+#define ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
@@ -184,6 +184,9 @@
 /* use standard I2C pins almost always */
 #undef SDA_PIN
 #undef SCL_PIN
+
+/* the PIN for the external break */
+#define BREAKPIN 4
 
 /* 
  *  Pin settings for the ZX81 Keyboard
@@ -1077,7 +1080,7 @@ void dspbegin() {   lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
 void dspprintchar(char c, mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
-void dspsetcursor(mem_t c) {}
+void dspsetcursor(mem_t c) { if (c) lcd.blink(); else lcd.noBlink(); }
 void dspsetfgcolor(address_t c) {}
 void dspsetbgcolor(address_t c) {}
 void dspsetreverse(mem_t c) {}

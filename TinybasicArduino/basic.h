@@ -242,6 +242,8 @@ typedef unsigned char uint8_t;
  *	SERUN means running directly from EEPROM
  *		(enum would be the right way of doing this.)
  *	BREAKCHAR is the character stopping the program on Ardunios
+ *  BREAKPIN can be set, it is a pin that needs to go to low to stop a BASIC program
+ * 
  */
 #define SINT 0
 #define SRUN 1
@@ -875,21 +877,10 @@ void spibegin();
  * 	implemented for the display driver to work 
  *	dspupdate() only for display like Epapers
  */
-
-/* elementary hardware interface, they are needed for every display */
 void dspbegin();
 void dspprintchar(char, mem_t, mem_t);
 void dspclear();
-
-/* display with an update function need this */
 void dspupdate();
-
-/* these methods are part of the VT52 extension - optional*/
-void dspsetcursor();
-void dspsetfgcolor();
-void dspsetbgcolor();
-void dspsetreverse() ;
-mem_t dspident();
 
 /* keyboard code */
 void kbdbegin();
