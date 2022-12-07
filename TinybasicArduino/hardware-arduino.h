@@ -1046,6 +1046,11 @@ void dspbegin() { 	lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
 void dspprintchar(char c,  mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(address_t c) {}
+void dspsetbgcolor(address_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 #define HASKEYPAD
 /* elementary keypad reader left=1, right=2, up=3, down=4, select=<lf> */
 short keypadread(){
@@ -1072,6 +1077,11 @@ void dspbegin() {   lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
 void dspprintchar(char c, mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(address_t c) {}
+void dspsetbgcolor(address_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 #endif
 
 /* 
@@ -1107,6 +1117,11 @@ void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r);
 void dspprintchar(char c, mem_t col, smem_t row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
 void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); }
 void dspupdate() { u8g2.sendBuffer(); }
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(address_t c) {}
+void dspsetbgcolor(address_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 void rgbcolor(int r, int g, int b) {}
 void vgacolor(short c) { dspfgcolor=c%3; u8g2.setDrawColor(dspfgcolor); }
 void plot(int x, int y) { u8g2.setDrawColor(dspfgcolor); u8g2.drawPixel(x, y); dspgraphupdate(); }
@@ -1157,6 +1172,11 @@ void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r);
 void dspprintchar(char c, mem_t col, mem_t row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
 void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); }
 void dspupdate() { u8g2.sendBuffer(); }
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(address_t c) {}
+void dspsetbgcolor(address_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 void rgbcolor(int r, int g, int b) {}
 void vgacolor(short c) { dspfgcolor=c%3; u8g2.setDrawColor(dspfgcolor); }
 void plot(int x, int y) { u8g2.setDrawColor(dspfgcolor); u8g2.drawPixel(x, y); dspgraphupdate(); }
@@ -1211,6 +1231,11 @@ void dspbegin() {
 void dspprintchar(char c, mem_t col, mem_t row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
 void dspclear() { tft.fillScreen(dspbgcolor); }
 void dspupdate() {}
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(address_t c) {}
+void dspsetbgcolor(address_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 void rgbcolor(int r, int g, int b) { dspfgcolor=tft.color565(r, g, b);}
 void vgacolor(short c) {  
   short base=128;
@@ -1271,6 +1296,11 @@ void dspbegin() {
 void dspprintchar(char c, mem_t col, mem_t row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
 void dspclear() { tft.fillScreen(dspbgcolor); }
 void dspupdate() {}
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(address_t c) { vgacolor(c); }
+void dspsetbgcolor(address_t c) { }
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 void rgbcolor(int r, int g, int b) { dspfgcolor=tft.color565(r, g, b);}
 void vgacolor(short c) {  
   short base=128;
@@ -1302,6 +1332,11 @@ void dspbegin() { dspsetscrollmode(1, 4); }
 void dspprintchar(char c, mem_t col, mem_tshort row) { }
 void dspclear() {}
 void dspupdate() {}
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(address_t c) {}
+void dspsetbgcolor(address_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 void rgbcolor(int r, int g, int b) { dspfgcolor=0; }
 void vgacolor(short c) {  
   short base=128;
@@ -1344,6 +1379,11 @@ void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrol
 void dspprintchar(char c, mem_t col, mem_t row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
 void dspclear() { tft.clrScr(); }
 void dspupdate() {}
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(address_t c) {}
+void dspsetbgcolor(address_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 /*
  * Graphics code - not part of the display driver library
  */
@@ -1695,9 +1735,16 @@ char c;
  *
  * dspprintchar(char c, short col, short row)
  * dspclear()
- * spibegin()
+ * dspbegin()
+ * dspupdate()
+ * dspsetcursor(mem_t c) 
+ * dspsetfgcolor(address_t c)  
+ * void dspsetbgcolor(address_t c)  
+ * void dspsetreverse(mem_t c)  
+ * mem_t dspident()  
  *
  * have to be defined before in a hardware dependent section.
+ * Only dspprintchar and dspclear are needed, all other can be stubs
  *
  * VGA systems don't use the display driver for text based output.
  *
@@ -1803,6 +1850,16 @@ void dspvt52(char* c){
 			}
       vt52s=0; 
       break;
+    case 'b':
+      dspsetfgcolor(*c-31);
+      *c=0;
+      vt52s=0;
+      break;
+    case 'c':
+      dspsetbgcolor(*c-31);
+      *c=0;
+      vt52s=0;
+      break;
 	}
  
 /* commands of the terminal in text mode */
@@ -1841,13 +1898,24 @@ void dspvt52(char* c){
     case 'Z': /* Ident */
     case '=': /* alternate keypad on */
     case '>': /* alternate keypad off */
+      break;
     case 'b': /* GEMDOS / TOS extension text color */
     case 'c': /* GEMDOS / TOS extension background color */
+      vt52s=*c;
+      dspesc=1;
+      *c=0;
+      return;
     case 'e': /* GEMDOS / TOS extension enable cursor */
+      dspsetcursor(1);
+      break;
     case 'f': /* GEMDOS / TOS extension disable cursor */
+      dspsetcursor(0);
+      break;
     case 'p': /* GEMDOS / TOS extension reverse video */
+      dspsetreverse(1);
+      break;
     case 'q': /* GEMDOS / TOS extension normal video */
-      Serial.println("Not implemented");
+      dspsetreverse(0);
       break;
 		case 'A': /* cursor up */
 			if (dspmyrow>0) dspmyrow--;
