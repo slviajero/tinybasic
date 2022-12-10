@@ -65,8 +65,8 @@
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
 #undef ARDUINOPRT
-#define DISPLAYCANSCROLL
-#define ARDUINOLCDI2C
+#undef DISPLAYCANSCROLL
+#undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
@@ -185,8 +185,8 @@
 #undef SDA_PIN
 #undef SCL_PIN
 
-/* the PIN for the external break */
-#define BREAKPIN 4
+/* set this is you want pin 4 on low interrupting the interpreter */
+/* #define BREAKPIN 4 */
 
 /* 
  *  Pin settings for the ZX81 Keyboard
@@ -643,14 +643,6 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #include <EEPROM.h>
 #endif
 
-/* 
- * The PICO serial library saves memory for small systems
- * https://github.com/slviajero/PicoSerial
- */
-#ifdef USESPICOSERIAL
-#include <PicoSerial.h>
-#endif
-
 /* Standard SPI */
 #ifdef ARDUINOSPI
 #include <SPI.h>
@@ -831,15 +823,8 @@ unsigned int i2ceepromsize = 0;
 #endif
 
 /*
- * incompatibilities
- *
- * Picoserial only tested on the small boards
- *
  * Software SPI only on Mega2560
  */
-#if ! defined(ARDUINO_AVR_UNO) && ! defined(ARDUINO_AVR_DUEMILANOVE) 
-#undef USESPICOSERIAL
-#endif
 
 #ifndef ARDUINO_AVR_MEGA2560
 #undef SOFTWARE_SPI_FOR_SD
@@ -3439,9 +3424,21 @@ void formatdisk(short i) {
 /*
  *	Primary serial code uses the Serial object or Picoserial
  *
- *	Picoserial has an own input buffer and an 
- *	interrupt function. This is used to fill the input buffer 
- *	directly on read. Write is standard like in the Serial code.
+ *	The picoseria an own interrupt function. This is used to fill 
+ *  the input buffer directly on read. Write is standard like in 
+ *  the serial code.
+ *  
+ * As echoing is done in the interrupt routine, the code cannot be 
+ * used to receive keystrokes from serial and then display the echo
+ * directly to a display. To do this the write command in picogetchar
+ * would have to be replaced with a outch() that then redirects to the 
+ * display driver. This would be very tricky from the timing point of 
+ * view if the display driver code is slow. 
+ * 
+ * The code for the UART control is mostly taken from PicoSerial
+ * https://github.com/gitcnd/PicoSerial, originally written by Chris Drake
+ * and published under GPL3.0 just like this code
+ * 
  */
 #ifdef USESPICOSERIAL
 volatile static char picochar;
@@ -3450,14 +3447,52 @@ volatile static char* picob = NULL;
 static short picobsize = 0;
 volatile static short picoi = 1;
 
-/* getchar */
+/* this is mostly taken from PicoSerial */
+const uint16_t MIN_2X_BAUD = F_CPU/(4*(2*0XFFF + 1)) + 1;
+
+/* the begin code */
+void picobegin(uint32_t baud) {
+    uint16_t baud_setting;
+    cli();               
+    if ((F_CPU != 16000000UL || baud != 57600) && baud > MIN_2X_BAUD) {
+      UCSR0A = 1 << U2X0;
+      baud_setting = (F_CPU / 4 / baud - 1) / 2;
+    } else {
+      UCSR0A = 0;
+      baud_setting = (F_CPU / 8 / baud - 1) / 2;
+    }
+/* assign the baud_setting */
+    UBRR0H = baud_setting >> 8;
+    UBRR0L = baud_setting;
+/* enable transmit and receive */
+    UCSR0B |= (1 << TXEN0) | (1 << RXEN0) | (1 << RXCIE0);
+    sei();                   
+}
+
+/* the write code, sending bytes directly to the UART */
+void picowrite(char b) {
+    while (((1 << UDRIE0) & UCSR0B) || !(UCSR0A & (1 << UDRE0))) {}
+    UDR0 = b;
+}
+
+/* 
+ *  picogetchar: this is the interrupt service routine.  It 
+ *  recieves a character and feeds it into a buffer and echos it
+ *  back. The logic here is that the ins() code sets the buffer 
+ *  to the input buffer. Only then the routine starts writing to the 
+ *  buffer. Once a newline is received, the length information is set 
+ *  and picoa is also set to 1 indicating an available string, this stops
+ *  recevieing bytes until the input is processed by the calling code.
+ */
 void picogetchar(int c){
-  cli();
-	if (picob && (! picoa) ) {
-    	picochar=c;
+	if (picob && (! picoa)) {
+    picochar=c;
 		if (picochar != '\n' && picochar != '\r' && picoi<picobsize-1) {
-			picob[picoi++]=picochar;
-			outch(picochar);
+      if (c == 127 || c == 8) {
+        if (picoi>1) picoi--; else return;
+      } else 
+			  picob[picoi++]=picochar;
+      picowrite(picochar);
 		} else {
 			picoa = 1;
 			picob[picoi]=0;
@@ -3469,14 +3504,28 @@ void picogetchar(int c){
 	} else {
     	if (c != 10) picochar=c;
 	}
-  sei();
 }
+
+/* on an UART interrupt, the getchar function is called */
+#ifdef USART_RX_vect
+ISR(USART_RX_vect) {
+  int c=UDR0;
+  picogetchar(c);
+}
+#else
+/* for MEGAs and other with many UARTs */
+  ISR(USART0_RX_vect) {
+  int c=UDR0;
+  picogetchar(c);
+}
+#endif
 #endif
 
 /* 
  * blocking serial single char read for Serial
  * unblocking for Picoserial because it is not 
- * character oriented -> consins.
+ * character oriented -> blocking is handled in 
+ * consins instead.
  */
 char serialread() {
 #ifdef USESPICOSERIAL
@@ -3496,10 +3545,9 @@ char serialread() {
  */
 void serialbegin() {
 #ifdef USESPICOSERIAL
-	(void) PicoSerial.begin(serial_baudrate, picogetchar); 
+	picobegin(serial_baudrate); 
 #else
 	Serial.begin(serial_baudrate);
-  //while(!Serial) byield();
 #endif
 	delay(1000);
 }
@@ -3518,7 +3566,7 @@ void serialwrite(char c) {
   if (c == 10) charcount=0;
 #endif
 #ifdef USESPICOSERIAL
-	PicoSerial.print(c);
+	picowrite(c);
 #else
 /* write never blocks. discard any bytes we can't get rid of */
   Serial.write(c);  
@@ -3559,8 +3607,9 @@ void consins(char *b, short nb) {
 		picob=b;
 		picobsize=nb;
 		picoa=0;
+/* once picoa is set, the interrupt routine records characters 
+ *  until a cr and then resets picoa to 0 */
 		while (! picoa);
-		//outsc(b+1); 
 		outcr();
 		return;
 	}

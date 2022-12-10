@@ -185,6 +185,9 @@
 #undef SDA_PIN
 #undef SCL_PIN
 
+/* set this is you want pin 4 on low interrupting the interpreter */
+/* #define BREAKPIN 4 */
+
 /* 
  *  Pin settings for the ZX81 Keyboard
  *  first the 8 rows, then the 5 columns or the keyboard
@@ -640,14 +643,6 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #include <EEPROM.h>
 #endif
 
-/* 
- * The PICO serial library saves memory for small systems
- * https://github.com/slviajero/PicoSerial
- */
-#ifdef USESPICOSERIAL
-#include <PicoSerial.h>
-#endif
-
 /* Standard SPI */
 #ifdef ARDUINOSPI
 #include <SPI.h>
@@ -828,15 +823,8 @@ unsigned int i2ceepromsize = 0;
 #endif
 
 /*
- * incompatibilities
- *
- * Picoserial only tested on the small boards
- *
  * Software SPI only on Mega2560
  */
-#if ! defined(ARDUINO_AVR_UNO) && ! defined(ARDUINO_AVR_DUEMILANOVE) 
-#undef USESPICOSERIAL
-#endif
 
 #ifndef ARDUINO_AVR_MEGA2560
 #undef SOFTWARE_SPI_FOR_SD
@@ -1046,6 +1034,11 @@ void dspbegin() { 	lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
 void dspprintchar(char c,  mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
+void dspsetcursor(mem_t c) { if (c) lcd.blink(); else lcd.noBlink(); }
+void dspsetfgcolor(address_t c) {}
+void dspsetbgcolor(address_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 #define HASKEYPAD
 /* elementary keypad reader left=1, right=2, up=3, down=4, select=<lf> */
 short keypadread(){
@@ -1072,6 +1065,11 @@ void dspbegin() {   lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
 void dspprintchar(char c, mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
+void dspsetcursor(mem_t c) { if (c) lcd.blink(); else lcd.noBlink(); }
+void dspsetfgcolor(address_t c) {}
+void dspsetbgcolor(address_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 #endif
 
 /* 
@@ -1107,6 +1105,11 @@ void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r);
 void dspprintchar(char c, mem_t col, smem_t row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
 void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); }
 void dspupdate() { u8g2.sendBuffer(); }
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(address_t c) {}
+void dspsetbgcolor(address_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 void rgbcolor(int r, int g, int b) {}
 void vgacolor(short c) { dspfgcolor=c%3; u8g2.setDrawColor(dspfgcolor); }
 void plot(int x, int y) { u8g2.setDrawColor(dspfgcolor); u8g2.drawPixel(x, y); dspgraphupdate(); }
@@ -1157,6 +1160,11 @@ void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r);
 void dspprintchar(char c, mem_t col, mem_t row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
 void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); }
 void dspupdate() { u8g2.sendBuffer(); }
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(address_t c) {}
+void dspsetbgcolor(address_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 void rgbcolor(int r, int g, int b) {}
 void vgacolor(short c) { dspfgcolor=c%3; u8g2.setDrawColor(dspfgcolor); }
 void plot(int x, int y) { u8g2.setDrawColor(dspfgcolor); u8g2.drawPixel(x, y); dspgraphupdate(); }
@@ -1211,6 +1219,11 @@ void dspbegin() {
 void dspprintchar(char c, mem_t col, mem_t row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
 void dspclear() { tft.fillScreen(dspbgcolor); }
 void dspupdate() {}
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(address_t c) {}
+void dspsetbgcolor(address_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 void rgbcolor(int r, int g, int b) { dspfgcolor=tft.color565(r, g, b);}
 void vgacolor(short c) {  
   short base=128;
@@ -1271,6 +1284,11 @@ void dspbegin() {
 void dspprintchar(char c, mem_t col, mem_t row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
 void dspclear() { tft.fillScreen(dspbgcolor); }
 void dspupdate() {}
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(address_t c) { vgacolor(c); }
+void dspsetbgcolor(address_t c) { }
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 void rgbcolor(int r, int g, int b) { dspfgcolor=tft.color565(r, g, b);}
 void vgacolor(short c) {  
   short base=128;
@@ -1302,6 +1320,11 @@ void dspbegin() { dspsetscrollmode(1, 4); }
 void dspprintchar(char c, mem_t col, mem_tshort row) { }
 void dspclear() {}
 void dspupdate() {}
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(address_t c) {}
+void dspsetbgcolor(address_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 void rgbcolor(int r, int g, int b) { dspfgcolor=0; }
 void vgacolor(short c) {  
   short base=128;
@@ -1344,6 +1367,11 @@ void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrol
 void dspprintchar(char c, mem_t col, mem_t row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
 void dspclear() { tft.clrScr(); }
 void dspupdate() {}
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(address_t c) {}
+void dspsetbgcolor(address_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {}
 /*
  * Graphics code - not part of the display driver library
  */
@@ -1695,9 +1723,16 @@ char c;
  *
  * dspprintchar(char c, short col, short row)
  * dspclear()
- * spibegin()
+ * dspbegin()
+ * dspupdate()
+ * dspsetcursor(mem_t c) 
+ * dspsetfgcolor(address_t c)  
+ * void dspsetbgcolor(address_t c)  
+ * void dspsetreverse(mem_t c)  
+ * mem_t dspident()  
  *
  * have to be defined before in a hardware dependent section.
+ * Only dspprintchar and dspclear are needed, all other can be stubs
  *
  * VGA systems don't use the display driver for text based output.
  *
@@ -1776,8 +1811,11 @@ void dspgraphupdate() {
  */
  
 #ifdef HASVT52
-/* the state variables, and modes */
+/* the state variable */
 char vt52s = 0;
+
+/* the graphics mode mode */
+mem_t vt52graph = 0;
 
 /* the secondary cursor */
 mem_t vt52mycol = 0;
@@ -1792,7 +1830,8 @@ void dspvt52(char* c){
 			if (dspesc == 2) { 
         dspsetcursory(*c-31);
 			  dspesc=1; 
-			  return;
+			  *c=0;
+        return;
 			}
 			if (dspesc == 1) { 
 			  dspsetcursorx(*c-31); 
@@ -1800,10 +1839,71 @@ void dspvt52(char* c){
 			}
       vt52s=0; 
       break;
+    case 'b':
+      dspsetfgcolor(*c-31);
+      *c=0;
+      vt52s=0;
+      break;
+    case 'c':
+      dspsetbgcolor(*c-31);
+      *c=0;
+      vt52s=0;
+      break;
 	}
  
 /* commands of the terminal in text mode */
+  
 	switch (*c) {
+    case 'v': /* GEMDOS / TOS extension enable wrap */
+      dspwrap=0;
+      break;
+    case 'w': /* GEMDOS / TOS extension disable wrap */
+      dspwrap=1;
+      break;
+    case '^': /* Printer extensions - print on */
+      dspprintmode=1;
+      break;
+    case '_': /* Printer extensions - print off */
+      dspprintmode=0;
+      break;
+    case 'W': /* Printer extensions - print without display on */
+      dspprintmode=2;
+      break;
+    case 'X': /* Printer extensions - print without display off */
+      dspprintmode=0;
+      break;
+    case 'V': /* Printer extensions - print cursor line */
+      break;
+    case ']': /* Printer extension - print screen */
+      break;
+    case 'F': /* enter graphics mode */
+      vt52graph=1;
+      break;
+    case 'G': /* exit graphics mode */
+      vt52graph=0;
+      break;
+    case 'Z': /* Ident */
+    case '=': /* alternate keypad on */
+    case '>': /* alternate keypad off */
+      break;
+    case 'b': /* GEMDOS / TOS extension text color */
+    case 'c': /* GEMDOS / TOS extension background color */
+      vt52s=*c;
+      dspesc=1;
+      *c=0;
+      return;
+    case 'e': /* GEMDOS / TOS extension enable cursor */
+      dspsetcursor(1);
+      break;
+    case 'f': /* GEMDOS / TOS extension disable cursor */
+      dspsetcursor(0);
+      break;
+    case 'p': /* GEMDOS / TOS extension reverse video */
+      dspsetreverse(1);
+      break;
+    case 'q': /* GEMDOS / TOS extension normal video */
+      dspsetreverse(0);
+      break;
 		case 'A': /* cursor up */
 			if (dspmyrow>0) dspmyrow--;
 			break;
@@ -1864,39 +1964,6 @@ void dspvt52(char* c){
       dspmyrow=vt52tmpr;
       dspmycol=vt52tmpc;
       break;
-    case 'v': /* GEMDOS / TOS extension enable wrap */
-      dspwrap=0;
-      break;
-    case 'w': /* GEMDOS / TOS extension disable wrap */
-      dspwrap=1;
-      break;
-
-/* these standard VT52 function and their GEMDOS extensions are
-		not implemented. */ 
-		case 'F': // enter graphics mode
-		case 'G': // exit graphics mode
-		case 'Z': // Ident
-		case '=': // alternate keypad on
-		case '>': // alternate keypad off
-		case 'b': // GEMDOS / TOS extension text color
-		case 'c': // GEMDOS / TOS extension background color
-		case 'e': // GEMDOS / TOS extension enable cursor
-		case 'f': // GEMDOS / TOS extension disable cursor
-		case 'p': // GEMDOS / TOS extension reverse video
-		case 'q': // GEMDOS / TOS extension normal video
-		case '^': // Printer extensions - print on
-		case '_': // Printer extensions - print off
-		case 'W': // Printer extensions - print without display on
-		case 'X': // Printer extensions - print without display off
-		case 'V': // Printer extensions - print cursor line
-		case ']': // Printer extension - print screen 
-			break;
-/* the Arduino interface extensions defined in IoT BASIC
-		access to some functions of BASIC through escape sequences */
-		case 'x':
-			vt52s='x';
-			*c=0; 
-			break;
 	}
 	dspesc=0;
 	*c=0;
@@ -2007,6 +2074,15 @@ void dspwrite(char c){
 	if (dspesc) dspvt52(&c);
 #endif
 
+/* do we print ? */
+#ifdef ARDUINOPRT
+  if (dspprintmode) {
+    prtwrite(c);
+    if (sendcr && c == 10) prtwrite(13); /* some printers want cr */
+    if (dspprintmode == 2) return; /* do not print in mode 2 */
+  }
+#endif
+  
 /* the minimal cursor control functions of BASIC */
   switch(c) {
   	case 10: // this is LF Unix style doing also a CR
@@ -2098,6 +2174,15 @@ void dspwrite(char c){
 /* on escape call the vt52 state engine */
 #ifdef HASVT52
 	if (dspesc) { dspvt52(&c); }
+#endif
+
+/* do we print ? */
+#ifdef ARDUINOPRT
+  if (dspprintmode) {
+    prtwrite(c);
+    if (sendcr && c == 10) prtwrite(13); /* some printers want cr */
+    if (dsprintmode == 2) return; /* do not print in mode 2 */
+  }
 #endif
 
 	switch(c) {
@@ -3339,9 +3424,21 @@ void formatdisk(short i) {
 /*
  *	Primary serial code uses the Serial object or Picoserial
  *
- *	Picoserial has an own input buffer and an 
- *	interrupt function. This is used to fill the input buffer 
- *	directly on read. Write is standard like in the Serial code.
+ *	The picoseria an own interrupt function. This is used to fill 
+ *  the input buffer directly on read. Write is standard like in 
+ *  the serial code.
+ *  
+ * As echoing is done in the interrupt routine, the code cannot be 
+ * used to receive keystrokes from serial and then display the echo
+ * directly to a display. To do this the write command in picogetchar
+ * would have to be replaced with a outch() that then redirects to the 
+ * display driver. This would be very tricky from the timing point of 
+ * view if the display driver code is slow. 
+ * 
+ * The code for the UART control is mostly taken from PicoSerial
+ * https://github.com/gitcnd/PicoSerial, originally written by Chris Drake
+ * and published under GPL3.0 just like this code
+ * 
  */
 #ifdef USESPICOSERIAL
 volatile static char picochar;
@@ -3350,13 +3447,52 @@ volatile static char* picob = NULL;
 static short picobsize = 0;
 volatile static short picoi = 1;
 
-/* getchar */
+/* this is mostly taken from PicoSerial */
+const uint16_t MIN_2X_BAUD = F_CPU/(4*(2*0XFFF + 1)) + 1;
+
+/* the begin code */
+void picobegin(uint32_t baud) {
+    uint16_t baud_setting;
+    cli();               
+    if ((F_CPU != 16000000UL || baud != 57600) && baud > MIN_2X_BAUD) {
+      UCSR0A = 1 << U2X0;
+      baud_setting = (F_CPU / 4 / baud - 1) / 2;
+    } else {
+      UCSR0A = 0;
+      baud_setting = (F_CPU / 8 / baud - 1) / 2;
+    }
+/* assign the baud_setting */
+    UBRR0H = baud_setting >> 8;
+    UBRR0L = baud_setting;
+/* enable transmit and receive */
+    UCSR0B |= (1 << TXEN0) | (1 << RXEN0) | (1 << RXCIE0);
+    sei();                   
+}
+
+/* the write code, sending bytes directly to the UART */
+void picowrite(char b) {
+    while (((1 << UDRIE0) & UCSR0B) || !(UCSR0A & (1 << UDRE0))) {}
+    UDR0 = b;
+}
+
+/* 
+ *  picogetchar: this is the interrupt service routine.  It 
+ *  recieves a character and feeds it into a buffer and echos it
+ *  back. The logic here is that the ins() code sets the buffer 
+ *  to the input buffer. Only then the routine starts writing to the 
+ *  buffer. Once a newline is received, the length information is set 
+ *  and picoa is also set to 1 indicating an available string, this stops
+ *  recevieing bytes until the input is processed by the calling code.
+ */
 void picogetchar(int c){
-	if (picob && (! picoa) ) {
-    	picochar=c;
+	if (picob && (! picoa)) {
+    picochar=c;
 		if (picochar != '\n' && picochar != '\r' && picoi<picobsize-1) {
-			picob[picoi++]=picochar;
-			outch(picochar);
+      if (c == 127 || c == 8) {
+        if (picoi>1) picoi--; else return;
+      } else 
+			  picob[picoi++]=picochar;
+      picowrite(picochar);
 		} else {
 			picoa = 1;
 			picob[picoi]=0;
@@ -3369,12 +3505,27 @@ void picogetchar(int c){
     	if (c != 10) picochar=c;
 	}
 }
+
+/* on an UART interrupt, the getchar function is called */
+#ifdef USART_RX_vect
+ISR(USART_RX_vect) {
+  int c=UDR0;
+  picogetchar(c);
+}
+#else
+/* for MEGAs and other with many UARTs */
+  ISR(USART0_RX_vect) {
+  int c=UDR0;
+  picogetchar(c);
+}
+#endif
 #endif
 
 /* 
  * blocking serial single char read for Serial
  * unblocking for Picoserial because it is not 
- * character oriented -> consins.
+ * character oriented -> blocking is handled in 
+ * consins instead.
  */
 char serialread() {
 #ifdef USESPICOSERIAL
@@ -3394,10 +3545,9 @@ char serialread() {
  */
 void serialbegin() {
 #ifdef USESPICOSERIAL
-	(void) PicoSerial.begin(serial_baudrate, picogetchar); 
+	picobegin(serial_baudrate); 
 #else
 	Serial.begin(serial_baudrate);
-  //while(!Serial) byield();
 #endif
 	delay(1000);
 }
@@ -3416,7 +3566,7 @@ void serialwrite(char c) {
   if (c == 10) charcount=0;
 #endif
 #ifdef USESPICOSERIAL
-	PicoSerial.print(c);
+	picowrite(c);
 #else
 /* write never blocks. discard any bytes we can't get rid of */
   Serial.write(c);  
@@ -3457,8 +3607,9 @@ void consins(char *b, short nb) {
 		picob=b;
 		picobsize=nb;
 		picoa=0;
+/* once picoa is set, the interrupt routine records characters 
+ *  until a cr and then resets picoa to 0 */
 		while (! picoa);
-		//outsc(b+1); 
 		outcr();
 		return;
 	}
