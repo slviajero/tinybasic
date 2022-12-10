@@ -64,13 +64,13 @@
 #undef ARDUINOPS2
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
-#undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
+#define ARDUINOPRT
+#define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
-#undef ARDUINOMCUFRIEND
+#define ARDUINOMCUFRIEND
 #undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
@@ -587,6 +587,13 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 /* Networking and keyboards need the background task capability */
 #if defined(ARDUINOMQTT) || defined(ARDUINOETH) || defined(ARDUINOUSBKBD) || defined(ARDUINOZX81KBD)
 #define ARDUINOBGTASK
+#endif
+
+/* picoserial is not a available on many platforms */
+#ifdef USESPICOSERIAL
+#ifndef UCSR0A
+#undef USESPICOSERIAL
+#endif
 #endif
 
 /* 
@@ -1873,8 +1880,15 @@ void dspvt52(char* c){
       dspprintmode=0;
       break;
     case 'V': /* Printer extensions - print cursor line */
+#if defined(ARDUINOPRT) && defined(DISPLAYCANSCROLL)
+      for (mem_t i=0; i<dsp_columns; i++) prtwrite(dspgetc(i));
+#endif
       break;
     case ']': /* Printer extension - print screen */
+#if defined(ARDUINOPRT) && defined(DISPLAYCANSCROLL)
+      for (mem_t j=0; j<dsp_rows; j++)
+        for (mem_t i=0; i<dsp_columns; i++) prtwrite(dspgetrc(j, i));
+#endif
       break;
     case 'F': /* enter graphics mode */
       vt52graph=1;
@@ -1982,6 +1996,10 @@ char dspget(address_t i) {
   if (i>=0 && i<=dsp_columns*dsp_rows-1) return dspbuffer[i/dsp_columns][i%dsp_columns]; else return 0;
 }
 
+char dspgetrc(mem_t r, mem_t c) { return dspbuffer[r][c]; }
+
+char dspgetc(mem_t c) { return dspbuffer[dspmyrow][c]; }
+
 void dspsetxy(char ch, mem_t c, mem_t r) {
   dspbuffer[r][c]=ch;
   if (ch != 0) dspprintchar(ch, c, r); else dspprintchar(' ', c, r);
@@ -1992,7 +2010,6 @@ void dspset(address_t i, char ch) {
   mem_t r=i/dsp_columns;
   dspsetxy(ch, c, r);
 }
-
 
 /* 0 normal scroll, 1 enable waitonscroll function */
 void dspsetscrollmode(char c, short l) {
@@ -2154,6 +2171,10 @@ char dspwaitonscroll() {
 
 /* buffer access functions */
 char dspget(address_t i) { return 0; }
+
+char dspgetrc(mem_t r, mem_t c) { return 0; }
+
+char dspgetc(mem_t c) { return 0; }
 
 void dspsetxy(char ch, mem_t c, mem_t r) {
   if (ch != 0) dspprintchar(ch, c, r); else dspprintchar(' ', c, r);
