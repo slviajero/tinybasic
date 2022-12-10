@@ -3484,7 +3484,7 @@ void picowrite(char b) {
  *  and picoa is also set to 1 indicating an available string, this stops
  *  recevieing bytes until the input is processed by the calling code.
  */
-void picogetchar(int c){
+void picogetchar(char c){
 	if (picob && (! picoa)) {
     picochar=c;
 		if (picochar != '\n' && picochar != '\r' && picoi<picobsize-1) {
@@ -3506,16 +3506,29 @@ void picogetchar(int c){
 	}
 }
 
+/* the ins code of picoserial, called like this in consins */
+void picoins(char *b, short nb) {
+  char c;
+  picob=b;
+  picobsize=nb;
+  picoa=0;
+/* once picoa is set, the interrupt routine records characters 
+ *  until a cr and then resets picoa to 0 */
+  while (!picoa) byield();
+  outcr();
+  return;
+ }
+
 /* on an UART interrupt, the getchar function is called */
 #ifdef USART_RX_vect
 ISR(USART_RX_vect) {
-  int c=UDR0;
+  char c=UDR0;
   picogetchar(c);
 }
 #else
 /* for MEGAs and other with many UARTs */
   ISR(USART0_RX_vect) {
-  int c=UDR0;
+  char c=UDR0;
   picogetchar(c);
 }
 #endif
@@ -3604,14 +3617,8 @@ void consins(char *b, short nb) {
 	z.a = 1;
 #ifdef USESPICOSERIAL
 	if (id == ISERIAL) {
-		picob=b;
-		picobsize=nb;
-		picoa=0;
-/* once picoa is set, the interrupt routine records characters 
- *  until a cr and then resets picoa to 0 */
-		while (! picoa);
-		outcr();
-		return;
+	  picoins(b, nb);
+    return;
 	}
 #endif
 	while(z.a < nb) {

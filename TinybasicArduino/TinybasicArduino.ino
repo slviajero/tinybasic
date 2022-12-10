@@ -43,9 +43,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define	BASICFULL
+#undef	BASICFULL
 #undef  BASICINTEGER
-#undef	BASICSIMPLE
+#define	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICTINYWITHFLOAT
 
@@ -188,8 +188,14 @@
 #define HASMULTIDIM
 #endif
 
-/* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
+/* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point 
+ * on an 168 with only 1 k memory and 16 kB flash we try to reduce the overhead and always 
+ * set the memsize 
+ */
 #define MEMSIZE 0
+#ifdef ARDUINO_AVR_DUEMILANOVE
+#define MEMSIZE 512
+#endif
 
 /* debug mode switch */
 #define DEBUG 0

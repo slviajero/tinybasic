@@ -984,9 +984,12 @@ void rootclose();
 void formatdisk(short i);
 
 /* low level serial code */
+void picogetchar(char);
+void picowrite(char);
+void picobegin(uint32_t);
+void picoins(char, short);
 void serialbegin();
 int serialstat(char);
-void picogetchar(int);
 char serialread();
 void serialwrite(char);
 short serialcheckch();

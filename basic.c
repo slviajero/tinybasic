@@ -43,7 +43,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#define	BASICFULL
+#undef	BASICFULL
 #undef  BASICINTEGER
 #undef	BASICSIMPLE
 #undef	BASICMINIMAL
@@ -188,8 +188,14 @@
 #define HASMULTIDIM
 #endif
 
-/* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point */
+/* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point 
+ * on an 168 with only 1 k memory and 16 kB flash we try to reduce the overhead and always 
+ * set the memsize 
+ */
 #define MEMSIZE 0
+#ifdef ARDUINO_AVR_DUEMILANOVE
+#define MEMSIZE 512
+#endif
 
 /* debug mode switch */
 #define DEBUG 0
@@ -334,28 +340,28 @@ void eload() {
 char autorun() {
 #if defined(ARDUINOEEPROM) || defined(ARDUINOI2CEEPROM) || ! defined(ARDUINO) 
 	if (eread(0) == 1){ /* autorun from the EEPROM */
-  		egetnumber(1, addrsize);
-  		top=z.a;
-  		st=SERUN;
-  		return 1; /* EEPROM autorun overrules filesystem autorun */
+  	egetnumber(1, addrsize);
+  	top=z.a;
+  	st=SERUN;
+  	return 1; /* EEPROM autorun overrules filesystem autorun */
 	} 
 #endif
 #if defined(FILESYSTEMDRIVER) || ! defined(ARDUINO)
 /* on a POSIX or DOS platform, we check the command line first and the autoexec */
 #ifndef ARDUINO
-    if (bargc > 0) {
-        if (ifileopen(bargv[1])) {
-          	xload(bargv[1]);
-  		    st=SRUN;
-            ifileclose();
-            bnointafterrun=1;
-            return 1;
-        }
-    }
+	if (bargc > 0) {
+		if (ifileopen(bargv[1])) {
+			xload(bargv[1]);
+			st=SRUN;
+			ifileclose();
+			bnointafterrun=1;
+			return 1;
+		}			
+	}
 #endif
 	if (ifileopen("autoexec.bas")) {
-  		xload("autoexec.bas");
-  		st=SRUN;
+		xload("autoexec.bas");
+  	st=SRUN;
 		ifileclose();
 		return 1;
 	}
@@ -385,24 +391,24 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
  *		one byte for every string character
  */
 	switch(t) {
-  		case VARIABLE:
-    		vsize=numsize+3;
-    		break;
+  	case VARIABLE:
+    	vsize=numsize+3;
+    	break;
 #ifndef HASMULTIDIM
-			case ARRAYVAR:
-				vsize=numsize*l+addrsize+3;
-				break;
+		case ARRAYVAR:
+			vsize=numsize*l+addrsize+3;
+			break;
 #else
 /* multidim implementation for n=2 */
-			case ARRAYVAR:
-				vsize=numsize*l+addrsize*2+3;
-				break;
+		case ARRAYVAR:
+			vsize=numsize*l+addrsize*2+3;
+			break;
 #endif
-			case TFN:
-				vsize=addrsize+2+3;
-				break;
-			default:
-				vsize=l+addrsize+3;
+		case TFN:
+			vsize=addrsize+2+3;
+			break;
+		default:
+			vsize=l+addrsize+3;
 	}
 	
 /* enough memory ?, on an EEPROM system we limit the heap to the RAM */ 
@@ -416,11 +422,7 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 	 the hash is the first digit of the variable plus the token */
 	b=himem;
 
-/*
-	mem[b--]=c;
-	mem[b--]=d;
-	mem[b--]=t;
-*/
+
 	memwrite2(b--, c);
 	memwrite2(b--, d);
 	memwrite2(b--, t);
@@ -466,12 +468,6 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 
 	while (i < nvars) { 
 
-/*
-		c1=mem[b--];
-		d1=mem[b--];
-		t1=mem[b--];
-*/
-
 		c1=memread2(b--);
 		d1=memread2(b--);
 		t1=memread2(b--);
@@ -516,12 +512,6 @@ address_t bfree(mem_t t, mem_t c, mem_t d) {
 	if (DEBUG) { outsc("*** bfree called for "); outch(c); outch(d); outsc(" on heap with token "); outnumber(t); outcr(); }
 
 	while (i < nvars) { 
-
-/*
-		c1=mem[b--];
-		d1=mem[b--];
-		t1=mem[b--];
-*/
 
 		c1=memread2(b--);
 		d1=memread2(b--);
@@ -707,19 +697,13 @@ void getnumber(address_t m, mem_t n){
 
 	switch (n) {
 		case 1:
-/*			z.i=mem[m];  */
 			z.i=memread2(m);
 			break;
 		case 2:
-/*
-			z.b.l=mem[m++];
-			z.b.h=mem[m];
-*/
 			z.b.l=memread2(m++);
 			z.b.h=memread2(m);
 			break;
 		default:
-/*			for (i=0; i<n; i++) z.c[i]=mem[m++]; */
 			for (i=0; i<n; i++) z.c[i]=memread2(m++);
 	}
 }
@@ -769,20 +753,13 @@ void setnumber(address_t m, mem_t n){
 
 	switch (n) {
 		case 1:
-		/*	mem[m]=z.i; */
 			memwrite2(m, z.i);
 			break;
 		case 2: 
-/*
-			mem[m++]=z.b.l;
-			mem[m]=z.b.h;
-*/
 			memwrite2(m++, z.b.l);
 			memwrite2(m++, z.b.h);
 			break;
 		default:
-
- 		/*	for (i=0; i<n; i++) mem[m++]=z.c[i]; */
  			for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
 	}
 }
@@ -818,10 +795,7 @@ address_t createarray(mem_t c, mem_t d, address_t i, address_t j) {
 		zat=z.a; /* preserve z.a because it is needed on autocreate later */
 		z.a=j;
 		at=a+i*j*numsize; 
-/*
-		mem[at++]=z.b.l; // test code, assuming 16 bit address_t here, should be ported to setnumber 
-		mem[at]=z.b.h;
-*/
+
 		memwrite2(at++, z.b.l);
 		memwrite2(at, z.b.h);
 
@@ -839,11 +813,8 @@ address_t getarrayseconddim(address_t a, address_t za) {
 #ifdef HASMULTIDIM
 	address_t zat1, zat2;
 	zat1=z.a;
-/*
-	z.b.l=mem[a+za-2]; // test code, assuming 16 bit address_t here, should be ported to setnumber 
-	z.b.h=mem[a+za-1];
-*/
-	z.b.l=memread2(a+za-2); // test code, assuming 16 bit address_t here, should be ported to setnumber 
+
+	z.b.l=memread2(a+za-2); /* test code, assuming 16 bit address_t here, should be ported to setnumber */
 	z.b.h=memread2(a+za-1);
 	zat2=z.a;
 	z.a=zat1;
@@ -1042,11 +1013,11 @@ char* getstring(char c, char d, address_t b, address_t j) {
     
 /* the arguments string on POSIX systems */
 #ifndef ARDUINO
-    if ( c == '@' && d == 'A' ) {
-        k=0;
-        if (bargc > 1) while(k < SBUFSIZE && bargv[2][k] !=0) { sbuffer[k]=bargv[2][k]; k++; } 
-        return sbuffer+b;
-    }
+	if ( c == '@' && d == 'A' ) {
+		k=0;
+		if (bargc > 1) while(k < SBUFSIZE && bargv[2][k] !=0) { sbuffer[k]=bargv[2][k]; k++; } 
+ 		return sbuffer+b;
+	}
 #endif
 
 	if ( c == '@') { error(EVARIABLE); return 0;}
@@ -1186,11 +1157,11 @@ address_t lenstring(char c, char d, address_t j){
     
 /* the arguments string on POSIX systems */
 #ifndef ARDUINO
-    if ( c == '@' && d == 'A' ) {
-        a=0;
-        if (bargc > 1) while(a < SBUFSIZE && bargv[2][a] !=0) a++;
-        return a;
-    }
+	if ( c == '@' && d == 'A' ) {
+		a=0;
+		if (bargc > 1) while(a < SBUFSIZE && bargv[2][a] !=0) a++;
+		return a;
+	}
 #endif
     
 /* locate the string */
@@ -1649,12 +1620,12 @@ char checkch(){
 			return radio.available();
 #endif
 #ifdef ARDUINOMQTT
-			case IMQTT:
-				if (mqtt_messagelength>0) return mqtt_buffer[0];
+		case IMQTT:
+			if (mqtt_messagelength>0) return mqtt_buffer[0]; else return 0;
 #endif   
 #ifdef ARDUINOWIRE
-			case IWIRE:
-				return 0;
+		case IWIRE:
+			return 0;
 #endif
 #ifdef ARDUINOPRT
 			case ISERIAL1:
@@ -1762,25 +1733,25 @@ void ins(char *b, address_t nb) {
   	switch(id) {
 #ifdef ARDUINOWIRE
   		case IWIRE:
-			  wireins(b, nb);
-			  break;
+				wireins(b, nb);
+				break;
 #endif
 #ifdef ARDUINOMQTT
 		  case IMQTT:
-			  mqttins(b, nb);	
-			  break;	
+				mqttins(b, nb);	
+				break;	
 #endif
 #ifdef ARDUINORF24
-  	  case IRADIO:
-  		  radioins(b, nb);
-  		  break;
+			case IRADIO:
+ 				radioins(b, nb);
+ 				break;
 #endif
-  	  default:
+			default:
 #ifdef ARDUINOPRT
 /* blockmode only implemented for ISERIAL1 right now */
-  		  if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
+				if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
 #endif
-  		  consins(b, nb);
+				consins(b, nb);
   	}  
 }
 
@@ -2156,7 +2127,7 @@ void nexttoken() {
 
 /* unsigned numbers, value returned in x */
 #ifndef HASFLOAT
-	if (*bi <='9' && *bi >= '0'){		
+	if (*bi <='9' && *bi >= '0') {		
 		bi+=parsenumber(bi, &x);
 #else
 	if ((*bi <='9' && *bi >= '0') || *bi == '.') {	
@@ -2168,7 +2139,7 @@ void nexttoken() {
 	}
 
 /* strings between " " or " EOL, value returned in ir */
-	if (*bi == '"'){
+	if (*bi == '"') {
 		x=0;
 		bi++;
 		ir=bi;
@@ -2388,7 +2359,6 @@ void storetoken() {
 	switch (token) {
 		case LINENUMBER:
 			if ( nomemory(addrsize+1) ) break;
-/*			mem[top++]=token;	*/
 			memwrite2(top++, token);
 			z.a=x;
 			setnumber(top, addrsize);
@@ -2396,7 +2366,6 @@ void storetoken() {
 			return;	
 		case NUMBER:
 			if ( nomemory(numsize+1) ) break;
-/*			mem[top++]=token;	*/
 			memwrite2(top++, token);
 			z.i=x;
 			setnumber(top, numsize);
@@ -2406,25 +2375,12 @@ void storetoken() {
 		case VARIABLE:
 		case STRINGVAR:
 			if ( nomemory(3) ) break;
-/*
-			mem[top++]=token;
-			mem[top++]=xc;
-			mem[top++]=yc;
-*/
 			memwrite2(top++, token);
 			memwrite2(top++, xc);
 			memwrite2(top++, yc);
 			return;
 		case STRING:
 			if ( nomemory(x+2) ) break;
-/*
-			mem[top++]=token;
-			mem[top++]=i;
-			while (i > 0) {
-				mem[top++] = *ir++;
-				i--;
-			}
-*/
 			memwrite2(top++, token);
 			memwrite2(top++, i);
 			while (i > 0) {
@@ -2434,9 +2390,6 @@ void storetoken() {
 			return;
 		default:
 			if ( nomemory(1) ) break;
-/*
-			mem[top++]=token;
-*/
 			memwrite2(top++, token);
 			return;
 	}
@@ -2474,7 +2427,6 @@ void memwrite2(address_t a, mem_t c) { mem[a]=c; }
 #ifdef SPIRAMINTERFACE
 mem_t memread(address_t a) {
 	if (st != SERUN) {
-		/* return spiramrawread(a); */
     return spiram_robufferread(a);
 	} else {
 		return eread(a+eheadersize);
@@ -2482,12 +2434,10 @@ mem_t memread(address_t a) {
 }
 
 mem_t memread2(address_t a) {
-	/* return spiramrawread(a); */
   return spiram_rwbufferread(a);
 }
 
 void memwrite2(address_t a, mem_t c) {
-	/* spiramrawwrite(a, c); */
   spiram_rwbufferwrite(a, c);
 }
 #else
@@ -2679,10 +2629,9 @@ address_t myline(address_t h) {
  *	Move a block of storage beginng at b ending at e
  *	to destination d. No error handling here!!
  */
-void moveblock(address_t b, address_t l, address_t d){
+void moveblock(address_t b, address_t l, address_t d) {
 	address_t i;
 
-/* removed outsc("** Moving block: "); outnumber(b); outspc(); outnumber(l); outspc(); outnumber(d); outcr(); */
 	if (d+l > himem) {
 		error(EOUTOFMEMORY);
 		return;
@@ -2693,14 +2642,10 @@ void moveblock(address_t b, address_t l, address_t d){
 
 	if (b < d)
 		for (i=l; i>0; i--)
-      /* mem[d+i-1]=mem[b+i-1]; */
 			memwrite2(d+i-1, memread2(b+i-1));
 	else 
 		for (i=0; i<l; i++) 
-	/*		mem[d+i]=mem[b+i]; */
 			memwrite2(d+i, memread2(b+i));
-
-/* removed outsc("** Done moving /n"); */
 }
 
 /* zero a block of memory */
@@ -2713,7 +2658,6 @@ void zeroblock(address_t b, address_t l){
 	}
 	if (l<1) return;
 
-	/* for (i=0; i<l+1; i++) mem[b+i]=0; */
 	for (i=0; i<l+1; i++) memwrite2(b+i, 0);
 }
 
@@ -3105,7 +3049,6 @@ void xpeek(){
 	if ((long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
 
 	if (x >= 0 && x<amax) 
-		/* push(mem[(unsigned int) x]); */
 		push(memread2((address_t) x));
 	else if (x < 0 && -x <= elength())
 		push(eread(-x-1));
@@ -3208,7 +3151,6 @@ void xpow(){
 char stringvalue() {
 	mem_t xcl, ycl;
 	address_t k;
-	// int ix, iy;
 
 	if (DEBUG) outsc("** entering stringvalue \n");
 
@@ -3320,7 +3262,6 @@ void streval(){
 /* questionable !! */
 	t=token;
 	nexttoken(); 
-	//debugtoken();
 
 	if (!stringvalue()){
 		error(EUNKNOWN);
@@ -3825,7 +3766,6 @@ processsymbol:
 
 	if (termsymbol()) {
 		if (! semicolon) outcr();
-		/* nexttoken(); */
 		od=oldod;
 		form=0;
 		return;
@@ -4162,8 +4102,6 @@ void assignment() {
 			break;
 #endif
 	}
-
-/* nexttoken(); - the expression code does this already - bug as here for a long time */
 }
 
 /*
@@ -4950,7 +4888,6 @@ void xpoke(){
 	x=pop();
 
 	if (x >= 0 && x<amax) 
-		/* mem[(unsigned int) x]=y; */
 		memwrite2((address_t) x, y);
 	else if (x < 0 && x >= -elength())
 		eupdate(-x-1, y);
@@ -5097,7 +5034,6 @@ void getfilename(char *buffer, char d) {
 		}
 		nexttoken();
 	} else {
-/* error(EUNKNOWN); */
 		expression();
 		if (er != 0) return;
 		buffer[0]=pop();
@@ -5126,7 +5062,6 @@ void xsave() {
 	 	
 		if (!ofileopen(filename, "w")) {
 			error(EFILE);
-			//nexttoken();
 			return;
 		} 
 
@@ -5163,7 +5098,6 @@ void xsave() {
 
 /* and continue remembering, where we were */
 	token=t;
-	//nexttoken();
 }
 
 /*
@@ -5181,12 +5115,10 @@ void xload(const char* f) {
 		if (er != 0) return;
 	} else {
 		for(ch=0; ch<SBUFSIZE && f[ch]!=0; ch++) filename[ch]=f[ch];
-		//nexttoken(); //
 	}
 
 	if (filename[0] == '!') {
 		eload();
-		// nexttoken();
 	} else {
 
 /*	if load is called during runtime it chains
@@ -5205,7 +5137,6 @@ void xload(const char* f) {
 		if (!f)
 			if (!ifileopen(filename)) {
 				error(EFILE);
-				//nexttoken();
 				return;
 			} 
 
@@ -5240,7 +5171,6 @@ void xload(const char* f) {
 			here=0;
 			nexttoken();
 		}
-		// nexttoken();
 	}
 }
 #else 
@@ -5301,7 +5231,7 @@ void xget(){
 /* store the data element as a number */
 	assignnumber(t, xcl, ycl, i, j, ps);
 
-	//nexttoken();
+/* restore the output device */
 	id=oid;
 }
 
@@ -5918,7 +5848,6 @@ void xopen() {
 
 /* and the arguments */
 	args=0;
-	//nexttoken();
 	if (token == ',') { 
 		nexttoken(); 
 		parsearguments();
@@ -6474,10 +6403,7 @@ void xdef(){
 /* store the payload - the here address - and the name of the variable */
 	z.a=here;
 	setnumber(a, addrsize);
-/*
-	mem[a+addrsize]=xcl2;
-	mem[a+addrsize+1]=ycl2;
-*/
+
 	memwrite2(a+addrsize, xcl2);
 	memwrite2(a+addrsize+1, ycl2);
 
@@ -6514,10 +6440,7 @@ void xfn() {
 	if ((a=bfind(TFN, fxc, fyc))==0) {error(EUNKNOWN); return; }
 	getnumber(a, addrsize);
 	h1=z.a;
-/*	
-	vxc=mem[a+addrsize];
-	vyc=mem[a+addrsize+1];
-*/
+
 	vxc=memread2(a+addrsize);
 	vyc=memread2(a+addrsize+1);
 
@@ -6730,10 +6653,13 @@ void statement(){
 				xnetstat();
 				break;
 			case TCLS:
-        xc=od; 
-        od=2;
+				xc=od; 
+/* if we have a display it is the default for CLS */
+#if defined(DISPLAYDRIVER)			
+				od=ODSP;
+#endif
 				outch(12);
-        od=xc;
+				od=xc;
 				nexttoken();
 				break;
 /* low level functions as part of Stefan's extension */
@@ -6838,30 +6764,31 @@ void statement(){
 				xsleep();
 				break;	
 #endif
-/* and all the rest */
-/*			case UNKNOWN:
-				error(EUNKNOWN);
-				return; */
 			case ':':
 				nexttoken();
 				break;
 			default:
-/*  very tolerant - tokens are just skipped, this is anarchy */
-				/* if (DEBUG) { outsc("** hoppla - unexpected token, skipped "); debugtoken(); }
-				nexttoken(); */
 /*  strict syntax checking */
 				error(EUNKNOWN);
 				return;
-				//debugtoken();
-				//nexttoken();
 		}
 /* after each statement we check on a break character 
 		on an Arduino entering "#" at runtime stops the program */
+#if defined(BREAKCHAR)
 		if (checkch() == BREAKCHAR) {
 			st=SINT; 
 			xc=inch(); 
 			return;
 		}; 
+#endif
+
+/* and after each statement, check the break pin */
+#if defined(BREAKPIN) && ( defined(ARDUINO) || defined(RASPPI) )
+		if (digitalRead(BREAKPIN) == 0) {
+			st=SINT; 
+			return;
+		}; 
+#endif		
 
 /* yield after each statement which is a 30-100 microsecond cycle 
 		ALL backgriund tasks are handled in byield */
@@ -6936,6 +6863,11 @@ void setup() {
     outnumber(memsize+1); outspc();
 		outnumber(elength()); outcr();
  	}
+
+/* activate the BREAKPIN */
+#if defined(BREAKPIN) && ( defined(ARDUINO) || defined(RASPPI) )
+ 	pinMode(BREAKPIN, INPUT_PULLUP);
+#endif
 }
 
 /* 
@@ -6995,8 +6927,8 @@ void loop() {
 int main(int argc, char* argv[]){
 
 /* save the arguments if there are any */
-    bargc=argc;
-    bargv=argv;
+	bargc=argc;
+	bargv=argv;
   
 /* do what an Arduino would do, this loops for every interactive input */
 	setup();
