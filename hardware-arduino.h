@@ -589,6 +589,13 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #define ARDUINOBGTASK
 #endif
 
+/* picoserial is not a available on many platforms */
+#ifdef USESPICOSERIAL
+#ifndef UCSR0A
+#undef USESPICOSERIAL
+#endif
+#endif
+
 /* 
  * graphics adapter only when graphics hardware, overriding the 
  * language setting 
@@ -1102,8 +1109,8 @@ uint8_t dspfgcolor = 1;
 uint8_t dspbgcolor = 0;
 char dspfontsize = 8;
 void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r); }
-void dspprintchar(char c, mem_t col, smem_t row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
-void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); }
+void dspprintchar(char c, mem_t col, mem_t row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
+void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); dspfgcolor=1; }
 void dspupdate() { u8g2.sendBuffer(); }
 void dspsetcursor(mem_t c) {}
 void dspsetfgcolor(address_t c) {}
@@ -1158,7 +1165,7 @@ uint16_t dspfgcolor = 1;
 uint16_t dspbgcolor = 0;
 void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r); }
 void dspprintchar(char c, mem_t col, mem_t row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
-void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); }
+void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); dspfgcolor=1; }
 void dspupdate() { u8g2.sendBuffer(); }
 void dspsetcursor(mem_t c) {}
 void dspsetfgcolor(address_t c) {}
@@ -1217,7 +1224,7 @@ void dspbegin() {
   dspsetscrollmode(1, 4);
  }
 void dspprintchar(char c, mem_t col, mem_t row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
-void dspclear() { tft.fillScreen(dspbgcolor); }
+void dspclear() { tft.fillScreen(dspbgcolor); dspfgcolor = ILI9488_WHITE; }
 void dspupdate() {}
 void dspsetcursor(mem_t c) {}
 void dspsetfgcolor(address_t c) {}
@@ -1271,6 +1278,7 @@ const int dsp_columns=30;
 char dspfontsize = 16;
 uint16_t dspfgcolor = 0xFFFF;
 uint16_t dspbgcolor = 0x0000;
+const uint16_t dspdefaultfgcolor = 0xFFFF;
 void dspbegin() { 
   uint16_t ID = tft.readID();
   if (ID == 0xD3D3) ID = 0x9481; /* write-only shield - taken from the MCDFRIEND demo */
@@ -1282,7 +1290,7 @@ void dspbegin() {
   dspsetscrollmode(1, 4);
  }
 void dspprintchar(char c, mem_t col, mem_t row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
-void dspclear() { tft.fillScreen(dspbgcolor); }
+void dspclear() { tft.fillScreen(dspbgcolor); dspfgcolor = 0xFFFF; }
 void dspupdate() {}
 void dspsetcursor(mem_t c) {}
 void dspsetfgcolor(address_t c) { vgacolor(c); }
@@ -1313,6 +1321,7 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
 #define DISPLAYDRIVER
 const int dsp_rows=20;
 const int dsp_columns=30;
+const uint16_t dspdefaultfgcolor = 1;
 char dspfontsize = 16;
 uint16_t dspfgcolor = 0xFFFF;
 uint16_t dspbgcolor = 0x0000;
@@ -1365,7 +1374,7 @@ const int dsp_columns=50;
 char dspfontsize = 16;
 void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrollmode(1, 4); }
 void dspprintchar(char c, mem_t col, mem_t row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
-void dspclear() { tft.clrScr(); }
+void dspclear() { tft.clrScr(); vgacolor(15); }
 void dspupdate() {}
 void dspsetcursor(mem_t c) {}
 void dspsetfgcolor(address_t c) {}
@@ -1740,6 +1749,11 @@ char c;
  * or an unbuffered version that cannot scroll. Interfaces to hardware
  * scrolling are not yet implemented.
  * 
+ * A VT52 state engine is implemented and works for buffered and 
+ * unbuffered displays. Only buffered displays have the full VT52
+ * feature set including most of the GEMDOS extensions described here:
+ * https://en.wikipedia.org/wiki/VT52
+ * 
  * dspupdatemode controls the page update behaviour 
  *    0: character mode, display each character separately
  *    1: line mode, update the display after each line
@@ -1765,6 +1779,10 @@ mem_t dspwrap = 0;
 
 /* the print mode */
 mem_t dspprintmode = 0;
+
+/* the scroll control variables */
+mem_t dspscrollmode = 0;
+mem_t dsp_scroll_rows = 1;
 
 int dspstat(char c) { return 0; }
 
@@ -1805,9 +1823,6 @@ void dspgraphupdate() {
 /* 
  * This is the minimalistic VT52 state engine. It is an interface to 
  * process single byte control sequences of the form <ESC> char 
- *
- * It is planned to implement an interface to the wiring, graphics,
- * and print library here.
  */
  
 #ifdef HASVT52
@@ -1873,8 +1888,15 @@ void dspvt52(char* c){
       dspprintmode=0;
       break;
     case 'V': /* Printer extensions - print cursor line */
+#if defined(ARDUINOPRT) && defined(DISPLAYCANSCROLL)
+      for (mem_t i=0; i<dsp_columns; i++) prtwrite(dspgetc(i));
+#endif
       break;
     case ']': /* Printer extension - print screen */
+#if defined(ARDUINOPRT) && defined(DISPLAYCANSCROLL)
+      for (mem_t j=0; j<dsp_rows; j++)
+        for (mem_t i=0; i<dsp_columns; i++) prtwrite(dspgetrc(j, i));
+#endif
       break;
     case 'F': /* enter graphics mode */
       vt52graph=1;
@@ -1974,13 +1996,15 @@ void dspvt52(char* c){
 /* scrollable displays need a character buffer */
 #ifdef DISPLAYCANSCROLL
 char dspbuffer[dsp_rows][dsp_columns];
-char dspscrollmode = 0;
-mem_t dsp_scroll_rows = 1;
 
 /* buffer access functions */
 char dspget(address_t i) {
   if (i>=0 && i<=dsp_columns*dsp_rows-1) return dspbuffer[i/dsp_columns][i%dsp_columns]; else return 0;
 }
+
+char dspgetrc(mem_t r, mem_t c) { return dspbuffer[r][c]; }
+
+char dspgetc(mem_t c) { return dspbuffer[dspmyrow][c]; }
 
 void dspsetxy(char ch, mem_t c, mem_t r) {
   dspbuffer[r][c]=ch;
@@ -1992,7 +2016,6 @@ void dspset(address_t i, char ch) {
   mem_t r=i/dsp_columns;
   dspsetxy(ch, c, r);
 }
-
 
 /* 0 normal scroll, 1 enable waitonscroll function */
 void dspsetscrollmode(char c, short l) {
@@ -2067,74 +2090,6 @@ void dspreversescroll(mem_t line){
   dspmyrow=line;
 }
 
-void dspwrite(char c){
-
-/* on escape call the vt52 state engine */
-#ifdef HASVT52
-	if (dspesc) dspvt52(&c);
-#endif
-
-/* do we print ? */
-#ifdef ARDUINOPRT
-  if (dspprintmode) {
-    prtwrite(c);
-    if (sendcr && c == 10) prtwrite(13); /* some printers want cr */
-    if (dspprintmode == 2) return; /* do not print in mode 2 */
-  }
-#endif
-  
-/* the minimal cursor control functions of BASIC */
-  switch(c) {
-  	case 10: // this is LF Unix style doing also a CR
-    	dspmyrow=(dspmyrow + 1);
-    	if (dspmyrow >= dsp_rows) dspscroll(dsp_scroll_rows); 
-    	dspmycol=0;
-      if (dspupdatemode == 1) dspupdate();
-    	return;
-    case 12: // form feed is clear screen 
-    	dspbufferclear();
-    	dspclear();
-#ifdef HASGRAPH
-      vgacolor(15);
-#endif
-    	return;
-    case 13: // classical carriage return 
-      dspmycol=0;
-      return;
-  	case 27: // escape - initiate vtxxx mode
-			dspesc=1;
-			return;
-    case 127: // delete
-    	if (dspmycol > 0) {
-      	dspmycol--;
-        dspsetxy(0, dspmyrow, dspmycol);
-      	return;
-    	}
-#ifdef DISPLAYPAGEMODE
-    case 3: /* ETX = Update display for buffered display like Epaper */
-      dspupdate();
-      return;
-#endif
-    case 0:
-      return;
-  }
-
-/* all other non printables ignored
-	if ( c = 32 ) return; 
-*/
-
-  dspsetxy(c, dspmycol, dspmyrow);
-  dspmycol++;
-	if (dspmycol == dsp_columns) {
-    if (!dspwrap) { /* we simply ignore the cursor */
-		  dspmycol=0;
-		  dspmyrow=(dspmyrow + 1);
-    }
-    if (dspmyrow >= dsp_rows) dspscroll(dsp_scroll_rows); 
-	}
-  if (dspupdatemode == 0) dspupdate();
-}
-
 /* again a break in API, using inch here */
 char dspwaitonscroll() {
   char c;
@@ -2151,9 +2106,12 @@ char dspwaitonscroll() {
 
 /* code for low memory simple display access */
 #else 
-
 /* buffer access functions */
 char dspget(address_t i) { return 0; }
+
+char dspgetrc(mem_t r, mem_t c) { return 0; }
+
+char dspgetc(mem_t c) { return 0; }
 
 void dspsetxy(char ch, mem_t c, mem_t r) {
   if (ch != 0) dspprintchar(ch, c, r); else dspprintchar(' ', c, r);
@@ -2165,15 +2123,30 @@ void dspset(address_t i, char ch) {
   dspsetxy(ch, c, r);
 }
 
-void dspbufferclear() {}
+/* unbuffered display, the only thing we can do is go home */
+void dspbufferclear() {
+  dspmyrow=0;
+  dspmycol=0;
+}
+
 char dspwaitonscroll() { return 0; }
-void dspscroll(mem_t s) {}
+
+/* a stub for dspwrite */
+void dspscroll(mem_t scroll_rows, mem_t scroll_top=0){
+  dspmyrow=dsp_rows-1;
+}
+
+void dspsetscrollmode(char c, short l) {}
+void dspreversescroll(mem_t a){}
+#endif
+
+/* the generic write function for displays with and without buffers */
 
 void dspwrite(char c){
 
 /* on escape call the vt52 state engine */
 #ifdef HASVT52
-	if (dspesc) { dspvt52(&c); }
+  if (dspesc) { dspvt52(&c); }
 #endif
 
 /* do we print ? */
@@ -2185,35 +2158,29 @@ void dspwrite(char c){
   }
 #endif
 
-	switch(c) {
-  	case 12: // form feed is clear screen plus home
-    	dspclear();
-    	dspmyrow=0;
-      dspmycol=0;
-#ifdef HASGRAPH
-      vgacolor(15);
-#endif
-    	return;
-  	case 10: // this is LF Unix style doing also a CR
-    	if (dspmyrow < dsp_rows-1) dspmyrow++;  
+  switch(c) {
+    case 10: // this is LF Unix style doing also a CR
+      dspmyrow=(dspmyrow + 1);
+      if (dspmyrow >= dsp_rows) dspscroll(dsp_scroll_rows);  
       dspmycol=0;
       if (dspupdatemode == 1) dspupdate();
-    	return;
-    case 11: // one char down 
-    	if (dspmyrow < dsp_rows-1) dspmyrow++; 
-    	return;
+      return;
+    case 12: // form feed is clear screen plus home
+      dspbufferclear();
+      dspclear();
+      return;
     case 13: // classical carriage return 
-    	dspmycol=0;
-    	return;
-		case 27: // escape - initiate vtxxx mode
-			dspesc=1;
-			return;
-   	case 127: // delete
-    	if (dspmycol > 0) {
-      	dspmycol--;
-      	dspprintchar(' ', dspmycol, dspmyrow);
-    	}
-    	return;
+      dspmycol=0;
+      return;
+    case 27: // escape - initiate vtxxx mode
+      dspesc=1;
+      return;
+    case 127: // delete
+      if (dspmycol > 0) {
+        dspmycol--;
+        dspsetxy(0, dspmyrow, dspmycol);
+      }
+      return;
 #ifdef DISPLAYPAGEMODE
     case 3: /*  ETX = Update display for buffered display like Epaper */
       dspupdate();
@@ -2224,15 +2191,20 @@ void dspwrite(char c){
   }
   
   dspsetxy(c, dspmycol, dspmyrow);
-  if (dspmycol<dsp_columns-1) dspmycol++;
+  dspmycol++;
+  if (dspmycol == dsp_columns) {
+    if (!dspwrap) { /* we simply ignore the cursor */
+      dspmycol=0;
+      dspmyrow=(dspmyrow + 1);
+    }
+    if (dspmyrow >= dsp_rows) dspscroll(dsp_scroll_rows); 
+  }
   if (dspupdatemode == 0) dspupdate();
 }
 
-void dspsetscrollmode(char c, short l) {}
-void dspscroll(mem_t a, mem_t b){}
-void dspreversescroll(mem_t a){}
-#endif
+
 #else
+/* stubs for systems without a display driver, BASIC uses these functions */
 const int dsp_rows=0;
 const int dsp_columns=0;
 void dspsetupdatemode(char c) {}
@@ -2243,7 +2215,6 @@ char dspwaitonscroll() { return 0; };
 char dspactive() {return 0; }
 void dspsetscrollmode(char c, mem_t l) {}
 void dspscroll(mem_t a, mem_t b){}
-void dspreversescroll(mem_t a){}
 #endif
 
 /* 
