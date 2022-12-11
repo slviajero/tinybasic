@@ -635,7 +635,7 @@ const char* const message[] PROGMEM = {
 #ifdef HASFLOAT
 typedef float number_t;
 const number_t maxnum=16777216; 
-typedef int wnumber_t;
+typedef long wnumber_t;
 #else
 typedef int number_t;
 typedef int wnumber_t;
