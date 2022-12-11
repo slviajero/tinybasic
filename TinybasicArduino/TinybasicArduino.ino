@@ -67,7 +67,7 @@
 #define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
-#define  HASSTRINGARRAYS
+#define HASSTRINGARRAYS
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -234,38 +234,19 @@
 address_t ballocmem() { 
 	mem_t i = 0;
 
-/* this code is hardly needed any more on microcontrollers, most platforms 
-  can report a valid memory size */
-	const unsigned short memmodel[] = {
-		48000,  /* larger 8 bit systems with enough heap */
-		24000,  /* small systems with max 32k */
-		128,	  /* fallback, something has gone wrong */
-		0      
-	}; 
-
 /* on most platforms we know the free memory for BASIC */
 	long m=freememorysize();
 	if (m>maxaddr) m=maxaddr;
 	if (m>0) {
 		mem=(signed char*)malloc(m);
-		if (mem != NULL) return m-1;
+		if (mem != 0) return m-1;
 	}
 
 /*
- * if there is no valid freememorysize() result we need 
- * to guess the size by doing malloc, MEMMODEL can be used
- * to limit the max size.
+ * fallback if freememmorysize didn't work
  */
-#ifdef MEMMODEL
-	i=MEMMODEL;
-#endif
-
-	do {
-		mem=(mem_t*)malloc(memmodel[i]);
-		if (mem != NULL) break;
-		i++;
-	} while (memmodel[i] != 0);
-	return memmodel[i]-1;
+		mem=(mem_t*)malloc(128);
+		if (mem != 0) return 128; else return 0;
 }
 #else 
 address_t ballocmem(){ return MEMSIZE-1; };
