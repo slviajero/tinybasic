@@ -242,6 +242,8 @@ typedef unsigned char uint8_t;
  *	SERUN means running directly from EEPROM
  *		(enum would be the right way of doing this.)
  *	BREAKCHAR is the character stopping the program on Ardunios
+ *  BREAKPIN can be set, it is a pin that needs to go to low to stop a BASIC program
+ * 
  */
 #define SINT 0
 #define SRUN 1
@@ -916,6 +918,8 @@ void dspsetscrollmode(char, short);
 void dspsetcursor(short, short);
 void dspbufferclear();
 void dspset(address_t, char);
+char dspgetrc(mem_t, mem_t);
+char dspgetc(mem_t);
 void dspsetxy(char, mem_t, mem_t);
 void dspscroll(mem_t, mem_t);
 void dspreversescroll(mem_t);
@@ -982,9 +986,12 @@ void rootclose();
 void formatdisk(short i);
 
 /* low level serial code */
+void picogetchar(char);
+void picowrite(char);
+void picobegin(uint32_t);
+void picoins(char, short);
 void serialbegin();
 int serialstat(char);
-void picogetchar(int);
 char serialread();
 void serialwrite(char);
 short serialcheckch();
