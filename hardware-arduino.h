@@ -1802,6 +1802,9 @@ char dspactive() {
 	return od == ODSP;
 }
 
+/* to whom the bell tolls - implement this to you own liking */
+dspbell() {}
+
 /*
  * control the update modes for page update displays
  * like Epaper, Nokia 5110 and SSD1306
@@ -1835,6 +1838,10 @@ mem_t vt52graph = 0;
 /* the secondary cursor */
 mem_t vt52mycol = 0;
 mem_t vt52myrow = 0;
+
+/* temp variable, do them here and not in the case: guess why */
+mem_t vt52tmpr;
+mem_t vt52tmpc;
 
 /* vt52 state engine */
 void dspvt52(char* c){
@@ -1980,8 +1987,8 @@ void dspvt52(char* c){
       dspreversescroll(dspmyrow);
       break;
     case 'M': /* Delete line */
-      mem_t vt52tmpr = dspmyrow;
-      mem_t vt52tmpc = dspmycol;
+      vt52tmpr = dspmyrow;
+      vt52tmpc = dspmycol;
       dspscroll(1, dspmyrow);
       dspmyrow=vt52tmpr;
       dspmycol=vt52tmpc;
@@ -2143,6 +2150,7 @@ void dspreversescroll(mem_t a){}
 /* the generic write function for displays with and without buffers */
 
 void dspwrite(char c){
+mem_t dspmycolt;
 
 /* on escape call the vt52 state engine */
 #ifdef HASVT52
@@ -2159,17 +2167,32 @@ void dspwrite(char c){
 #endif
 
   switch(c) {
+    case 0:
+      return;
+    case 7: // bell just a stub
+      dspbell();
+      return;
+    case 8: // back space - here it is really just a cursor back
+      if (dspmycol>0) dspmycol--; 
+      return;
+    case 9: // tab 
+      dspmycolt = dspmycol/8;
+      if ((dspmycolt+1)*8<dsp_columns-1) dspmycol=(dspmycolt+1)*8;
+      return;
     case 10: // this is LF Unix style doing also a CR
-      dspmyrow=(dspmyrow + 1);
+      dspmyrow++;
       if (dspmyrow >= dsp_rows) dspscroll(dsp_scroll_rows);  
       dspmycol=0;
       if (dspupdatemode == 1) dspupdate();
       return;
+    case 11: // vertical tab - converted to line feed without carriage return
+      if (dspmyrow < dsp_rows-1) dspmyrow++;
+      return; 
     case 12: // form feed is clear screen plus home
       dspbufferclear();
       dspclear();
       return;
-    case 13: // classical carriage return 
+    case 13: // classical carriage return, no form feed 
       dspmycol=0;
       return;
     case 27: // escape - initiate vtxxx mode
@@ -2181,13 +2204,14 @@ void dspwrite(char c){
         dspsetxy(0, dspmyrow, dspmycol);
       }
       return;
-#ifdef DISPLAYPAGEMODE
-    case 3: /*  ETX = Update display for buffered display like Epaper */
+    case 2: // we abuse start of text as a home sequence, may also be needed for Epaper later
+      dspmycol=dspmyrow=0;
+      return;
+    case 3: //  ETX = Update display for buffered display like Epaper 
       dspupdate();
       return;
-    case 0:
-      return;
-#endif
+    default:
+      break;
   }
   
   dspsetxy(c, dspmycol, dspmyrow);
