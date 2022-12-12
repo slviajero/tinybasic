@@ -187,6 +187,7 @@
 
 /* set this is you want pin 4 on low interrupting the interpreter */
 /* #define BREAKPIN 4 */
+#undef BREAKPIN
 
 /* 
  *  Pin settings for the ZX81 Keyboard
@@ -1038,7 +1039,7 @@ const int dsp_rows=2;
 const int dsp_columns=16;
 LiquidCrystal lcd( 8,  9,  4,  5,  6,  7);
 void dspbegin() { 	lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
-void dspprintchar(char c,  mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.write(c);}
+void dspprintchar(char c, mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.write(c);}
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
 void dspsetcursor(mem_t c) { if (c) lcd.blink(); else lcd.noBlink(); }
@@ -1068,8 +1069,8 @@ short keypadread(){
 const int dsp_rows=4;
 const int dsp_columns=20;
 LiquidCrystal_I2C lcd(0x27, dsp_columns, dsp_rows);
-void dspbegin() {   lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
-void dspprintchar(char c, mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.write(c);}
+void dspbegin() { lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
+void dspprintchar(char c, mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.write(c); }
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
 void dspsetcursor(mem_t c) { if (c) lcd.blink(); else lcd.noBlink(); }
@@ -1326,7 +1327,7 @@ char dspfontsize = 16;
 uint16_t dspfgcolor = 0xFFFF;
 uint16_t dspbgcolor = 0x0000;
 void dspbegin() { dspsetscrollmode(1, 4); }
-void dspprintchar(char c, mem_t col, mem_tshort row) { }
+void dspprintchar(char c, mem_t col, mem_tshort row) {}
 void dspclear() {}
 void dspupdate() {}
 void dspsetcursor(mem_t c) {}
@@ -1341,12 +1342,12 @@ void vgacolor(short c) {
   if (c>8) base=255;
   rgbcolor(base*(c&1), base*((c&2)/2), base*((c&4)/4)); 
 }
-void plot(int x, int y) { }
-void line(int x0, int y0, int x1, int y1)   { }
-void rect(int x0, int y0, int x1, int y1)   { }
-void frect(int x0, int y0, int x1, int y1)  {  }
-void circle(int x0, int y0, int r) {  }
-void fcircle(int x0, int y0, int r) {  }
+void plot(int x, int y) {}
+void line(int x0, int y0, int x1, int y1) {}
+void rect(int x0, int y0, int x1, int y1) {}
+void frect(int x0, int y0, int x1, int y1) {}
+void circle(int x0, int y0, int r) {}
+void fcircle(int x0, int y0, int r) {}
 #endif
 
 
@@ -1438,6 +1439,7 @@ void vgabegin() {
 
 int vgastat(char c) {return 0; }
 
+/* scale the screen size */
 void vgascale(int* x, int* y) {
 	*y=*y*10/24;
 }
@@ -1456,6 +1458,7 @@ void plot(int x, int y) {
 	cv.setPixel(x,y);
 	cv.setPenColor(vga_txt_pen);
 }
+
 void line(int x0, int y0, int x1, int y1) {
 	vgascale(&x0, &y0);
 	vgascale(&x1, &y1);
@@ -1464,6 +1467,7 @@ void line(int x0, int y0, int x1, int y1) {
  	cv.drawLine(x0, y0, x1, y1);
  	cv.setPenColor(vga_txt_pen);
 }
+
 void rect(int x0, int y0, int x1, int y1) { 
 	vgascale(&x0, &y0);
 	vgascale(&x1, &y1);
@@ -1472,6 +1476,7 @@ void rect(int x0, int y0, int x1, int y1) {
 	cv.drawRectangle(x0, y0, x1, y1);
 	cv.setPenColor(vga_txt_pen);
 }
+
 void frect(int x0, int y0, int x1, int y1) {  
 	vgascale(&x0, &y0);
 	vgascale(&x1, &y1);
@@ -1479,6 +1484,7 @@ void frect(int x0, int y0, int x1, int y1) {
 	cv.fillRectangle(x0, y0, x1, y1);
 	cv.setBrushColor(vga_txt_background);
 }
+
 void circle(int x0, int y0, int r) {  
 	int rx = r;
 	int ry = r;
@@ -1489,6 +1495,7 @@ void circle(int x0, int y0, int r) {
 	cv.drawEllipse(x0, y0, rx, ry);
 	cv.setPenColor(vga_txt_pen);
 }
+
 void fcircle(int x0, int y0, int r) {  
 	int rx = r;
 	int ry = r;
@@ -1498,6 +1505,7 @@ void fcircle(int x0, int y0, int r) {
 	cv.fillEllipse(x0, y0, rx, ry);
 	cv.setBrushColor(vga_txt_background);	
 }
+
 void vgawrite(char c){
 	switch(c) {
     case 12: /* form feed is clear screen */
@@ -1850,24 +1858,24 @@ void dspvt52(char* c){
 	switch (vt52s) {
 		case 'Y':
 			if (dspesc == 2) { 
-        dspsetcursory(*c-31);
+        dspsetcursory(*c-32);
 			  dspesc=1; 
 			  *c=0;
         return;
 			}
 			if (dspesc == 1) { 
-			  dspsetcursorx(*c-31); 
+			  dspsetcursorx(*c-32); 
 			  *c=0; 
 			}
       vt52s=0; 
       break;
     case 'b':
-      dspsetfgcolor(*c-31);
+      dspsetfgcolor(*c-32);
       *c=0;
       vt52s=0;
       break;
     case 'c':
-      dspsetbgcolor(*c-31);
+      dspsetbgcolor(*c-32);
       *c=0;
       vt52s=0;
       break;
@@ -4006,7 +4014,7 @@ dht.begin();
 #endif
 #ifdef ARDUINOBMP280
   bmp.begin(); 
-    bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
+    bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,   /* Operating Mode. */
                   Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
                   Adafruit_BMP280::SAMPLING_X16,    /* Pressure oversampling */
                   Adafruit_BMP280::FILTER_X16,      /* Filtering. */
