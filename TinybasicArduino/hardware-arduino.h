@@ -1850,24 +1850,24 @@ void dspvt52(char* c){
 	switch (vt52s) {
 		case 'Y':
 			if (dspesc == 2) { 
-        dspsetcursory(*c-31);
+        dspsetcursory(*c-32);
 			  dspesc=1; 
 			  *c=0;
         return;
 			}
 			if (dspesc == 1) { 
-			  dspsetcursorx(*c-31); 
+			  dspsetcursorx(*c-32); 
 			  *c=0; 
 			}
       vt52s=0; 
       break;
     case 'b':
-      dspsetfgcolor(*c-31);
+      dspsetfgcolor(*c-32);
       *c=0;
       vt52s=0;
       break;
     case 'c':
-      dspsetbgcolor(*c-31);
+      dspsetbgcolor(*c-32);
       *c=0;
       vt52s=0;
       break;
