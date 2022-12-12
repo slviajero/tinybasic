@@ -1,6 +1,6 @@
 /*
  *
- * $Id: hardware-posix.h,v 1.4 2022/08/15 18:08:56 stefan Exp stefan $
+ * $Id: hardware-posix.h,v 1.4 2022/11/29 07:50:03 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *
@@ -116,7 +116,7 @@ void dspwrite(char c){};
 void dspbegin() {};
 int dspstat(char c) {return 0; }
 char dspwaitonscroll() { return 0; }
-char dspactive() {return FALSE; }
+char dspactive() {return 0; }
 void dspsetscrollmode(char c, short l) {}
 void dspsetcursor(short c, short r) {}
 void rgbcolor(int r, int g, int b) {}
@@ -144,6 +144,10 @@ char kbdavailable(){ return 0;}
 char kbdread() { return 0;}
 char kbdcheckch() { return 0;}
 
+/* vt52 code stubs */
+mem_t vt52avail() {return 0;}
+char vt52read() { return 0; }
+
 /* Display driver would be here, together with vt52 */
 
 
@@ -161,23 +165,23 @@ char* rtcmkstr() {
 	rtcstring[cc++]=t/10+'0';
 	rtcstring[cc++]=t%10+'0';
 	rtcstring[cc++]=':';
-	t=rtcread(1);
+	t=rtcget(1);
 	rtcstring[cc++]=t/10+'0';
 	rtcstring[cc++]=t%10+'0';
 	rtcstring[cc++]=':';
-	t=rtcread(0);
+	t=rtcget(0);
 	rtcstring[cc++]=t/10+'0';
 	rtcstring[cc++]=t%10+'0';
 	rtcstring[cc++]='-';
-	t=rtcread(3);
+	t=rtcget(3);
 	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
 	rtcstring[cc++]=t%10+'0';
 	rtcstring[cc++]='/';
-	t=rtcread(4);
+	t=rtcget(4);
 	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
 	rtcstring[cc++]=t%10+'0';
 	rtcstring[cc++]='/';
-	t=rtcread(5);
+	t=rtcget(5);
 	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
 	rtcstring[cc++]=t%10+'0';
 /* needed for BASIC strings, reserve the first byte for two byte length handling in the upstream code */
@@ -186,7 +190,7 @@ char* rtcmkstr() {
 	return rtcstring+1;
 }
 
-short rtcread(char i) {
+short rtcget(short i) {
 	struct timeb thetime;
 	struct tm *ltime;
 	ftime(&thetime);
@@ -212,8 +216,8 @@ short rtcread(char i) {
 			return 0;
 	}
 }
-short rtcget(char i) {return rtcread(i);}
-void rtcset(char i, short v) {}
+
+void rtcset(uint8_t i, short v) {}
 
 
 /* 
@@ -392,7 +396,7 @@ int rootnextfile() {
   file = readdir(root);
   return (file != 0);
 #else 
-  return FALSE;
+  return 0;
 #endif
 }
 
@@ -400,7 +404,7 @@ int rootisfile() {
 #ifndef MSDOS
   return (file->d_type == DT_REG);
 #else
-  return FALSE;
+  return 0;
 #endif
 }
 
@@ -451,8 +455,8 @@ void serialwrite(char c) {
 	putchar(c); 
 }
 char serialread() { return getchar(); }
-short serialcheckch(){ return TRUE; }
-short serialavailable() {return TRUE; }
+short serialcheckch(){ return 1; }
+short serialavailable() {return 1; }
 
 /*
  * reading from the console with inch 
