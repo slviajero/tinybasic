@@ -243,6 +243,7 @@ typedef unsigned char uint8_t;
  *		(enum would be the right way of doing this.)
  *	BREAKCHAR is the character stopping the program on Ardunios
  *  BREAKPIN can be set, it is a pin that needs to go to low to stop a BASIC program
+ *    This should be done in hardware*.h
  * 
  */
 #define SINT 0
@@ -612,8 +613,8 @@ const char* const message[] PROGMEM = {
  *
  *	number_t is the type for numerical work - either float or int
  *  wnumber_t is the type containing the largest printable integer, 
- *    keep this int unless you want to use very long integers, 
- *    like 64 or 128 bit types. 
+ *    for float keep this int on 32 bit and long on 8 bit unless you 
+ *    want to use very long integers, like 64 or 128 bit types. 
  *  address_t is an unsigned type adddressing memory 
  *  mem_t is a SIGNED 8bit character type.
  *	index_t is a SIGNED minimum 16 bit integer type

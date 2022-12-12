@@ -43,9 +43,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic
  * BASICMINIMAL: minimal language
  */
-#undef	BASICFULL
+#define	BASICFULL
 #undef  BASICINTEGER
-#define	BASICSIMPLE
+#undef	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICTINYWITHFLOAT
 
@@ -1579,9 +1579,14 @@ char inch() {
 		case ISERIAL1:
 			return prtread();
 #endif				
-#if defined(HASKEYBOARD) || defined(HASKEYPAD)				
+#if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)				
 		case IKEYBOARD:
+#if defined(HASVT52)
+      if (vt52avail()) return vt52read(); /* if the display has a message, read it */
+#endif
+#if defined(HASKEYBOARD) || defined(HASKEYPAD)  
 			return kbdread();
+#endif
 #endif
 	}
 	return 0;
@@ -1614,7 +1619,7 @@ char checkch(){
 #endif
 		case IKEYBOARD:
 #if defined(HASKEYBOARD)	|| defined(HASKEYPAD)
-			return kbdcheckch();
+			return kbdcheckch(); /* here no display read as this is only for break and scroll control */
 #endif
 			break;
 	}
@@ -1647,8 +1652,13 @@ short availch(){
       return prtavailable();
 #endif
     case IKEYBOARD:
-#if defined(HASKEYBOARD) || defined(HASKEYPAD)  
+#if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)
+#if defined(HASVT52)
+      return vt52avail(); /* if the display has a message, read it */
+#endif
+#if defined(HASKEYBOARD) || defined(HASKEYPAD) 
       return kbdavailable();
+#endif
 #endif
 	    break;
 	}
@@ -1943,8 +1953,6 @@ address_t writenumber2(char *c, number_t vi) {
 	number_t f;
 	index_t exponent = 0; 
 	mem_t eflag=0;
-
-
 
 /* pseudo integers are displayed as integer
 		zero trapped here */
@@ -2244,27 +2252,11 @@ void nexttoken() {
 	}
 
 /*
- *	a variable has length 1 in the first version
- *	its literal value is returned in xc
- *	in addition to this, a number or $ is accepted as 
- *	second character like in Apple 1 BASIC
+ * a variable has length 2 with either two letters or a letter 
+ * and a number. @ can be the first letter of a variable. 
+ * here, no tokens can appear any more as they have been processed 
+ * further up. 
  */
-/*
-	if ( x == 1 || (x == 2 && *bi == '@') ) {
-		token=VARIABLE;
-		xc=*bi;
-		yc=0;
-		bi++;
-		if (*bi >= '0' && *bi <= '9') { 
-			yc=*bi;
-			bi++;
-		} 
-		if (xc == '@' && x == 2) {
-			yc=*bi;
-			bi++;
-		}
-*/
-/* general two letter variables test code */
 	if ( x == 1 || x == 2 ) {
 		token=VARIABLE;
 		xc=*bi;
@@ -2339,14 +2331,14 @@ void storetoken() {
 	index_t i=x;
 	switch (token) {
 		case LINENUMBER:
-			if ( nomemory(addrsize+1) ) break;
+			if (nomemory(addrsize+1)) break;
 			memwrite2(top++, token);
 			z.a=x;
 			setnumber(top, addrsize);
 			top+=addrsize;
 			return;	
 		case NUMBER:
-			if ( nomemory(numsize+1) ) break;
+			if (nomemory(numsize+1)) break;
 			memwrite2(top++, token);
 			z.i=x;
 			setnumber(top, numsize);
@@ -2355,13 +2347,13 @@ void storetoken() {
 		case ARRAYVAR:
 		case VARIABLE:
 		case STRINGVAR:
-			if ( nomemory(3) ) break;
+			if (nomemory(3)) break;
 			memwrite2(top++, token);
 			memwrite2(top++, xc);
 			memwrite2(top++, yc);
 			return;
 		case STRING:
-			if ( nomemory(x+2) ) break;
+			if (nomemory(x+2)) break;
 			memwrite2(top++, token);
 			memwrite2(top++, i);
 			while (i > 0) {
@@ -2384,12 +2376,18 @@ void storetoken() {
  * memread is used only in the token stream, it reads from a stream
  * read only. If run is done from eeprom then bytes are taken from this 
  * stream, this would also be the place to implement direct run from 
- * another device like a file system or embedded programs on flash
+ * another device like a file system or embedded programs on flash. 
+ * Only the token stream uses memread. 
  *
- * memread2 and memwrite2 always go to ram. 
+ * memread2 and memwrite2 always go to ram. They are read/write. Variables and 
+ * the program editor uses these functions. 
  *
- * currently only the SPIRAM interface is implemented. This is 
- * handled in hardware-arduino.h.
+ * currently only the SPIRAM and the EEPROM direct edit interface is implemented. 
+ * This is handled in hardware-arduino.h.
+ * 
+ * USEMEMINTERFACE is the macro to control this.
+ * 
+ * The POSIX code has a test interface for SPIRAM as a dummy.
  *
  */
 #ifndef USEMEMINTERFACE
@@ -2521,10 +2519,10 @@ void nextline() {
 }
 
 /* 
- * the experimental line cache mechanism, useful for large codes 
- * not fully tested, super primitive so far
+ * the line cache mechanism, useful for large codes.
  * addlinecache does not test if the line already exist because it 
  * assumes that findline calls it only if a new line is to be stored
+ * the LINECACHE size depends on the architecture. 
  */
 #if defined(LINECACHESIZE) && LINECACHESIZE>0
 const unsigned char linecachedepth = LINECACHESIZE;
@@ -2652,7 +2650,7 @@ void zeroblock(address_t b, address_t l){
  *		appropriate place
  *	stage 4: copy to the right place 
  *
- *	Very fragile code. 
+ *	Very fragile code, con't change if you don't have to
  *
  *	zeroblock statements commented out after EOL code was fixed
  */
@@ -4115,7 +4113,7 @@ void xinput(){
 			nexttoken();
 	}
 /* unlink print, form can appear only once in input after the
-		stream, it controls character count in wire */
+		stream, it controls character counts in wire */
 #ifdef ARDUINOWIRE
 	if (token == '#') {
 		if(!expectexpr()) return;
@@ -4640,8 +4638,7 @@ void xrun(){
 		if (args > 1) { error(EARGS); return; }
 		if (args == 0) {
 			here=0;
-		}
-		else {
+		} else {
 			findline(pop());
 		}
 		if (er != 0) return;
@@ -4670,6 +4667,9 @@ void xrun(){
 
 /*
  * NEW the general cleanup function - new deletes everything
+ * 
+ * restbasicstate() is a helper, it keeps the memory intact
+ * 	this is needed for EEPROM direct memory 
  */
 void resetbasicstate() {
  
@@ -4693,6 +4693,7 @@ void resetbasicstate() {
 }
  
 void xnew(){ 
+
 /* reset the state of the interpreter */
   resetbasicstate();
 
@@ -4879,7 +4880,7 @@ void xpoke(){
 
 /*
  *	TAB - spaces command of Apple 1 BASIC 
- * 		charcount mechanism for relative tab on
+ * 		charcount mechanism for relative tab if HASMSTAB is set
  */
 void xtab(){
 	nexttoken();

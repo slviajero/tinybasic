@@ -1851,6 +1851,31 @@ mem_t vt52myrow = 0;
 mem_t vt52tmpr;
 mem_t vt52tmpc;
 
+/* an output buffer for the vt52 terminal */
+const mem_t vt52buffersize = 4; 
+char vt52outbuffer[vt52buffersize] = { 0, 0, 0, 0 };
+mem_t vt52bi = 0;
+mem_t vt52bj = 0;
+
+/* the reader from the buffer */
+char vt52read() {
+  if (vt52bi<=vt52bj) { vt52bi = 0; vt52bj = 0; }
+  if (vt52bi>vt52bj) return vt52outbuffer[vt52bj++];
+}
+
+/* the avail from the buffer */
+mem_t vt52avail() { return vt52bi-vt52bj; }
+
+/* putting something into the buffer */
+void vt52push(char c) {
+  if (vt52bi < vt52buffersize) vt52outbuffer[vt52bi++]=c; 
+}
+
+/* clear the buffer */
+void vt52clear() {
+  vt52bi=0;
+}
+
 /* vt52 state engine */
 void dspvt52(char* c){
   
@@ -1920,6 +1945,15 @@ void dspvt52(char* c){
       vt52graph=0;
       break;
     case 'Z': /* Ident */
+      vt52clear();
+      vt52push(27);
+      vt52push('/');
+#ifndef ARDUINOPRT
+      vt52push('K');
+#else
+      vt52push('L');
+#endif
+      break;
     case '=': /* alternate keypad on */
     case '>': /* alternate keypad off */
       break;
@@ -2247,6 +2281,8 @@ char dspwaitonscroll() { return 0; };
 char dspactive() {return 0; }
 void dspsetscrollmode(char c, mem_t l) {}
 void dspscroll(mem_t a, mem_t b){}
+char vt52read() { return 0; }
+mem_t vt52avail() { return 0; }
 #endif
 
 /* 
