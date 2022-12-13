@@ -8,8 +8,15 @@ changed to any other baud rate.
 
 Most VT52 control characters and GEMDOS extensions are supported.
 
-The code of the display and device drivers of BASIC is used here. Currenty supported display are 
-parallel and serial LCD, parallel TFT with MCUFRIEND, SD1306 and SD1963, SPI ILIs like 9488. 
+The code of the display and device drivers of BASIC is used here. Currenty supported display are:
+
+	- Text LCD based LCD shields
+ 	- Text LCDs from 2x16 and 4x20 with parallel and I2C interfaces
+	- ILI9486 480x320 parallel TFTs with the MCUFRIEND graph library
+	- ILI9488 480x320 SPI based displays with the ug2 library
+	- SD1963 TFTs with up to 800x600 pixels. This display uses utft.
+	- Nokia 5110 displays with SPI.
+	- OLEDS like 1306.
 
 ## Files in this archive 
 
