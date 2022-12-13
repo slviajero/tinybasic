@@ -1159,15 +1159,25 @@ In non buffered mode the display driver has the following functions:
 
 The cursor of the display can be accessed special variables @X and @Y. Both variables are read/write. One can find out where the cursor is and set its position. Output with PUT &2 and PRINT &2 goes to the next cursor postion.
 
-Sending ASCII character 12 clears the display. PUT &2, 12 is clear screen on the display.
+ASCII character 7 is the bell character. It calls the dspbell() function which is empty by default. Any action can be implemented here.
 
-Sending ASCII character 10 goes to the beginning of next line.
+ASCII character 8 is true backspace with no delete. 
 
-Sending ASCII character 13 goes to the next line leaving the column the same.
+ASCII character 9 is tab to the next multiple of 8 tab stop.
 
-Sending ASCII character 127 goes back one cursor position and clears the character. It is "delete".
+ASCII character 10 goes to the beginning of next line (Unix style LF).
 
-ASCII character 27 (ESC) is sets the terminal to esc mode and triggers vt52 character interpretation. 
+ASCII character 11 is vertical tab, going to the next line in the same column.
+
+ASCII character 12 clears the display. PUT &2, 12 is clear screen on the display.
+
+ASCII character 13 goes to the beginning of the currently line (true CR).
+
+ASCII character 127 goes back one cursor position and clears the character. It is "delete".
+
+ASCII character 27 (ESC) sets the terminal to esc mode and triggers vt52 character interpretation. 
+
+ASCII character 2 (STX) sends the cursor to the home position. This feature will also be used for Epaper support in the future.
 
 ASCII character 3 (ETX) is used for page mode displays to trigger the redraw.
 
@@ -1175,7 +1185,7 @@ Buffered displays add scrolling. Once the cursor goes beyond the last line, the 
 
 Each character in the display is buffered a display buffer. This buffer can be accessed through the special array D(). Writing to the array immediately display the character on the display. Reading from it gives the displayed character at the index position. The array starts from 1. The index advances by column and then by row. 
 
-Currently LCD displays 16x2 and 20x4, Nokia 5110, ILI9486, ILI9488, SSD1306, and SD1963 are supported. All displays use 8x8 fonts. Nokia has 10 columns and 6 rows. SSD1306 character buffer dimension depend on the display size. 16x8 is the most common size. ILI9488 has 20 columns and 30 rows. It is portrait mode by default. A 7 inch SD1963 has 50 columns and 30 rows. ILI9486 displays are based on the MCUFRIEND library with parallel access.
+Currently LCD displays 16x2 and 20x4, Nokia 5110, ILI9486, ILI9488, SSD1306, and SD1963 are supported. All these displays use 8x8 or 16x16 fonts. Nokia has 10 columns and 6 rows. SSD1306 character buffer dimension depend on the display size. 16x8 is the most common size. ILI9488 has 20 columns and 30 rows. It is portrait mode by default. A 7 inch SD1963 has 50 columns and 30 rows. ILI9486 displays are based on the MCUFRIEND library with parallel access.
 
 Some displays use page based low level graphics drivers. These displays mirror the entire canvas in memory on a pixel basis. When one draws to the canvas, nothing is shown until an update command transfers the buffer to the display. SPI bus based monochrome display use this technique. The ILI9488 and SSD1306 Oled driver use this mechanism. By default these displays behave like the other displays and page mode is of. Drawing of graphics and text appears slow.
 
@@ -1194,6 +1204,32 @@ SET 10, 0
 For epaper displays page mode is default. Epaper disply integration is in preparation.
 
 In addition to the displays, VGA output is supported with the FabGL library on ESP32 systems. These systems are described in the special systems section.
+
+### VT52 terminal emulation
+
+If compiled with HASVT52, BASIC has a full VT52 terminal emulation, including many of the GEMDOS addons. Please look at the wikipedia page https://en.wikipedia.org/wiki/VT52 for a full list of the supported ESC sequences.
+
+All standard commands except the keypad and graphics sequences are supported. All GEMDOS extensions except reverse video are supported where it makes sense. On color displays, the color code is sent as a VGA color in the range from 0 to 15. 
+
+The most useful VT52 sequences in a BASIC program are the ons manipulating entire line.
+
+PUT &2, 27, "L" 
+
+inserts a line, while 
+
+PUT &2, 27, "M"
+
+deletes a line. 
+
+ON LCD displays, switching on the cursor is supported.
+
+PUT &2, 27, "e"
+
+switches on a blinking cursor, while 
+
+PUT &2, 27, "f"
+
+switches it off again.
 
 ### Secondary serial stream
 
@@ -1415,10 +1451,9 @@ Currently DS1307, DS3231 and DS3232 clocks are supported and can be accessed thr
 
 @T(7): temperature (DS1307 only)
 
-@T(8)-T(15): reserved, will access clock status in future
+@T(8): direct bytewise access to the clocks registers. On a DS1307 the addresses from 8 onwards are the NVRAM memory. On DS3231 and DS3232 these are the clock internal registers for alarm followed by the memory on DS3232. 
 
-T(16)-T(255): reserved, will access clock NVRAM in future
-
+Real time clock support is now built-in. No external library is used for this.
 
 ## Special systems and hardware components
 
