@@ -1654,7 +1654,7 @@ short availch(){
     case IKEYBOARD:
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)
 #if defined(HASVT52)
-      return vt52avail(); /* if the display has a message, read it */
+      if (vt52avail()) return vt52avail(); /* if the display has a message, read it */
 #endif
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) 
       return kbdavailable();
