@@ -70,12 +70,12 @@
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
-#undef ARDUINOMCUFRIEND
+#define ARDUINOMCUFRIEND
 #undef ARDUINOGRAPHDUMMY
-#define LCDSHIELD
+#undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#undef ARDUINOEEPROM
+#define ARDUINOEEPROM
 #undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
@@ -2014,11 +2014,11 @@ void dspvt52(char* c){
     case 'o': /* GEMDOS / TOS extension clear to start of line */
       for (mem_t i=0; i<=dspmycol; i++) dspsetxy(0, i, dspmyrow);
       break;
-    case 'j': /* GEMDOS / TOS extension restore cursor */
+    case 'k': /* GEMDOS / TOS extension restore cursor */
       dspmycol=vt52mycol;
       dspmyrow=vt52myrow;
       break;
-    case 'k': /* GEMDOS / TOS extension save cursor */
+    case 'j': /* GEMDOS / TOS extension save cursor */
       vt52mycol=dspmycol;
       vt52myrow=dspmyrow;
       break;
