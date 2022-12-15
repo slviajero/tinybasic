@@ -1,6 +1,6 @@
 /*
  *
- * $Id: hardware-arduino.h,v 1.5 2022/11/18 18:17:46 stefan Exp stefan $
+ * $Id: hardware-arduino.h,v 1.7 2022/12/15 06:19:42 stefan Exp stefan $
  *
  * Stefan's basic interpreter 
  *
@@ -65,12 +65,12 @@
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
 #undef ARDUINOPRT
-#define DISPLAYCANSCROLL
+#undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
-#define ARDUINOMCUFRIEND
+#undef ARDUINOMCUFRIEND
 #undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
