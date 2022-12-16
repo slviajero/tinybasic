@@ -65,12 +65,12 @@
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
+#define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
-#undef ARDUINOMCUFRIEND
+#define ARDUINOMCUFRIEND
 #undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
@@ -1876,31 +1876,38 @@ void vt52clear() {
   vt52bi=0;
 }
 
+/* something little */
+uint8_t vt52number(char c) {
+  uint8_t b=c;
+  if (b>31) return b-32; else return 0;
+}
+
 /* vt52 state engine */
 void dspvt52(char* c){
+int n;
   
 /* reading and processing multi byte commands */
 	switch (vt52s) {
 		case 'Y':
 			if (dspesc == 2) { 
-        dspsetcursory(*c-32);
+        dspsetcursory(vt52number(*c));
 			  dspesc=1; 
 			  *c=0;
         return;
 			}
 			if (dspesc == 1) { 
-			  dspsetcursorx(*c-32); 
+        dspsetcursorx(vt52number(*c)); 
 			  *c=0; 
 			}
       vt52s=0; 
       break;
     case 'b':
-      dspsetfgcolor(*c-32);
+      dspsetfgcolor(vt52number(*c));
       *c=0;
       vt52s=0;
       break;
     case 'c':
-      dspsetbgcolor(*c-32);
+      dspsetbgcolor(vt52number(*c));
       *c=0;
       vt52s=0;
       break;
@@ -2056,8 +2063,10 @@ char dspgetrc(mem_t r, mem_t c) { return dspbuffer[r][c]; }
 char dspgetc(mem_t c) { return dspbuffer[dspmyrow][c]; }
 
 void dspsetxy(char ch, mem_t c, mem_t r) {
-  dspbuffer[r][c]=ch;
-  if (ch != 0) dspprintchar(ch, c, r); else dspprintchar(' ', c, r);
+  if (r>=0 && c>=0 && r<dsp_rows && c<dsp_columns) {
+    dspbuffer[r][c]=ch;
+    if (ch != 0) dspprintchar(ch, c, r); else dspprintchar(' ', c, r);
+  }
 }
 
 void dspset(address_t i, char ch) {
@@ -2252,7 +2261,8 @@ mem_t dspmycolt;
     case 3: //  ETX = Update display for buffered display like Epaper 
       dspupdate();
       return;
-    default:
+    default: // eliminate all non printables - problematic for LCD special character
+      if (c<32) return;
       break;
   }
   
