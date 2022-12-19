@@ -65,7 +65,7 @@
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
 #undef ARDUINOPRT
-#define DISPLAYCANSCROLL
+#undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
@@ -73,7 +73,7 @@
 #undef ARDUINOMCUFRIEND
 #undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
-#define ARDUINOTFT
+#undef ARDUINOTFT
 #undef ARDUINOVGA
 #define ARDUINOEEPROM
 #undef ARDUINOI2CEEPROM
@@ -431,6 +431,7 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #define DISPLAYCANSCROLL
 #define ARDUINOILI9488
 #undef  ARDUINOEEPROM
+#define ARDUINOI2CEEPROM
 #define ARDUINOPRT
 #define ARDUINOSD
 #undef RP2040LITTLEFS
@@ -438,7 +439,7 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #define ARDUINORTC 
 #define ARDUINOPS2
 #define ARDUINOMQTT
-#define STANDALONE
+#undef STANDALONE
 #endif
 
 /* an RP2040 Raspberry Pi Pico based board with an ILI9488 display */
@@ -1214,7 +1215,7 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
  
 #ifdef ARDUINOILI9488
 #define DISPLAYDRIVER
-#define DISLAYHASCOLOR
+#define DISPLAYHASCOLOR
 #ifndef ILI_CS
 #define ILI_CS  9
 #endif
@@ -1233,8 +1234,13 @@ const int dsp_rows=20;
 const int dsp_columns=30;
 char dspfontsize = 16;
 typedef uint16_t dspcolor_t;
-dspcolor_t dspfgcolor = ILI9488_WHITE;
-dspcolor_t dspbgcolor = ILI9488_BLACK;
+const uint16_t dspdefaultfgcolor = 0xFFFF;
+const uint8_t dspdefaultfgvgacolor = 0x0F;
+dspcolor_t dspfgcolor = dspdefaultfgcolor;
+dspcolor_t dspbgcolor = 0;
+dspcolor_t dsptmpcolor = 0;
+uint8_t dspfgvgacolor = dspdefaultfgvgacolor;
+uint8_t dsptmpvgacolor = 0;
 void dspbegin() { 
   tft.begin(); 
   tft.setRotation(3); /* ILI in landscape, SD slot up */
@@ -1244,21 +1250,28 @@ void dspbegin() {
   pinMode(ILI_LED, OUTPUT);
   analogWrite(ILI_LED, 255);
   dspsetscrollmode(1, 4);
- }
-void dspprintchar(char c, mem_t col, mem_t row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
-void dspclear() { tft.fillScreen(dspbgcolor); dspfgcolor = ILI9488_WHITE; }
+}
+void dspprintchar(char c, mem_t col, mem_t row) {  tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
+void dspclear() { 
+  tft.fillScreen(dspbgcolor); 
+  dspfgcolor = dspdefaultfgcolor; 
+  dspfgvgacolor = dspdefaultfgvgacolor; 
+}
 void dspupdate() {}
 void dspsetcursor(mem_t c) {}
-void dspsetfgcolor(uint8_t c) {}
-void dspsetbgcolor(uint8_t c) {}
+void dspsavepen() { dsptmpcolor=dspfgcolor; dsptmpvgacolor=dspfgvgacolor; }
+void dsprestorepen() { dspfgcolor=dsptmpcolor; dspfgvgacolor=dsptmpvgacolor; }
+void dspsetfgcolor(uint8_t c) { vgacolor(c); }
+void dspsetbgcolor(uint8_t c) { }
 void dspsetreverse(mem_t c) {}
 mem_t dspident() {}
-void rgbcolor(int r, int g, int b) { dspfgcolor=tft.color565(r, g, b);}
+void rgbcolor(int r, int g, int b) { dspfgvgacolor=rgbtovga(r, g, b); dspfgcolor=tft.color565(r, g, b);}
 void vgacolor(short c) {  
   short base=128;
-  if (c==8) { rgbcolor(64, 64, 64); return; }
+  dspfgvgacolor=c;
+  if (c==8) { dspfgcolor=tft.color565(64, 64, 64); return; }
   if (c>8) base=255;
-  rgbcolor(base*(c&1), base*((c&2)/2), base*((c&4)/4)); 
+  dspfgcolor=tft.color565(base*(c&1), base*((c&2)/2), base*((c&4)/4)); 
 }
 void plot(int x, int y) { tft.drawPixel(x, y, dspfgcolor); }
 void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1, dspfgcolor); }
@@ -1354,16 +1367,16 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
  */ 
 #ifdef ARDUINOGRAPHDUMMY
 #define DISPLAYDRIVER
-#undef DISLAYHASCOLOR
+#undef DISPLAYHASCOLOR
 const int dsp_rows=20;
 const int dsp_columns=30;
 const uint16_t dspdefaultfgcolor = 1;
 char dspfontsize = 16;
-typedef uint16_t dspcolor_t
+typedef uint16_t dspcolor_t;
 dspcolor_t dspfgcolor = 0xFFFF;
 dspcolor_t dspbgcolor = 0x0000;
 void dspbegin() { dspsetscrollmode(1, 4); }
-void dspprintchar(char c, mem_t col, mem_tshort row) {}
+void dspprintchar(char c, mem_t col, mem_t row) {}
 void dspclear() {}
 void dspupdate() {}
 void dspsetcursor(mem_t c) {}
@@ -1421,10 +1434,10 @@ uint8_t dsptmpvgacolor = 0;
 void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrollmode(1, 4); }
 void dspprintchar(char c, mem_t col, mem_t row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
 void dspclear() { 
-  tft.clrScr(); 
-  vgacolor(dspbgcolor); 
+  tft.clrScr();  
   dspfgcolor = dspdefaultfgcolor; 
   dspfgvgacolor = dspdefaultfgvgacolor; 
+  vgacolor(dspfgvgacolor);
 }
 void rgbcolor(int r, int g, int b) { 
   tft.setColor(r,g,b); 
@@ -2104,7 +2117,7 @@ mem_t dspmycolt;
   if (dspprintmode) {
     prtwrite(c);
     if (sendcr && c == 10) prtwrite(13); /* some printers want cr */
-    if (dsprintmode == 2) return; /* do not print in mode 2 */
+    if (dspprintmode == 2) return; /* do not print in mode 2 */
   }
 #endif 
   
@@ -2143,7 +2156,7 @@ mem_t dspmycolt;
     case 127: // delete
       if (dspmycol > 0) {
         dspmycol--;
-        dspsetxy(0, dspmyrow, dspmycol);
+        dspsetxy(0, dspmycol, dspmyrow);
       }
       return;
     case 2: // we abuse start of text as a home sequence, may also be needed for Epaper later
@@ -3778,7 +3791,7 @@ void consins(char *b, short nb) {
 #endif
 	while(z.a < nb) {
   		c=inch();
-  		if (id == ISERIAL || id == IKEYBOARD) outch(c);
+  		if (id == ISERIAL || id == IKEYBOARD) outch(c); /* this is local echo */
   		if (c == '\r') c=inch(); 			/* skip carriage return */
   		if (c == '\n' || c == -1 || c == 255) { 	/* terminal character is either newline or EOF */
     		break;

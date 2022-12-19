@@ -918,12 +918,9 @@ void dspgraphupdate();
 void dspsetscrollmode(char, short);
 void dspsetcursor(short, short);
 void dspbufferclear();
-void dspset(address_t, char);
-char dspgetrc(mem_t, mem_t);
-char dspgetc(mem_t);
-void dspsetxy(char, mem_t, mem_t);
 void dspscroll(mem_t, mem_t);
 void dspreversescroll(mem_t);
+void dspvt52(char *);
 
 /* real time clock */
 char* rtcmkstr();

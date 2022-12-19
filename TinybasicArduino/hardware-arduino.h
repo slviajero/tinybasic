@@ -431,6 +431,7 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #define DISPLAYCANSCROLL
 #define ARDUINOILI9488
 #undef  ARDUINOEEPROM
+#define ARDUINOI2CEEPROM
 #define ARDUINOPRT
 #define ARDUINOSD
 #undef RP2040LITTLEFS
@@ -438,7 +439,7 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #define ARDUINORTC 
 #define ARDUINOPS2
 #define ARDUINOMQTT
-#define STANDALONE
+#undef STANDALONE
 #endif
 
 /* an RP2040 Raspberry Pi Pico based board with an ILI9488 display */
@@ -1023,7 +1024,20 @@ void spibegin() {
  * plot(), line(), rect(), frect(), circle(), fcircle() 
  * 
  * Color is currently either 24 bit or 4 bit 16 color vga.
+ * 
+ * Non rgb ready displays on rgbcolor translate to their native color
+ * when BASIC requests an rgb color, in this case the nearest 4 bit 
+ * color of the display is also stored for use in the text DISLAY driver
+ * code
  */
+
+ /* generate a 4 bit vga color from a given rgb color */
+uint8_t rgbtovga(int r, int g, int b) {
+  short vga;
+  if (r>191 || g>191 || b>191) vga=8; else vga=0;
+  vga=vga+r/128+g/128*2+b/128*4;
+  return vga;
+}
 
 /* 
  * global variables for a standard LCD shield. 
@@ -1031,6 +1045,7 @@ void spibegin() {
  */
 #ifdef LCDSHIELD 
 #define DISPLAYDRIVER
+#undef DISPLAYHASCOLOR
 /* LCD shield pins to Arduino
  *  RS, EN, d4, d5, d6, d7; 
  * backlight on pin 10;
@@ -1043,8 +1058,8 @@ void dspprintchar(char c, mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.w
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
 void dspsetcursor(mem_t c) { if (c) lcd.blink(); else lcd.noBlink(); }
-void dspsetfgcolor(address_t c) {}
-void dspsetbgcolor(address_t c) {}
+void dspsetfgcolor(uint8_t c) {}
+void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
 mem_t dspident() {}
 #define HASKEYPAD
@@ -1066,6 +1081,7 @@ short keypadread(){
  */ 
 #ifdef ARDUINOLCDI2C
 #define DISPLAYDRIVER
+#undef DISPLAYHASCOLOR
 const int dsp_rows=4;
 const int dsp_columns=20;
 LiquidCrystal_I2C lcd(0x27, dsp_columns, dsp_rows);
@@ -1074,8 +1090,8 @@ void dspprintchar(char c, mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.w
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
 void dspsetcursor(mem_t c) { if (c) lcd.blink(); else lcd.noBlink(); }
-void dspsetfgcolor(address_t c) {}
-void dspsetbgcolor(address_t c) {}
+void dspsetfgcolor(uint8_t c) {}
+void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
 mem_t dspident() {}
 #endif
@@ -1094,6 +1110,7 @@ mem_t dspident() {}
 #ifdef ARDUINONOKIA51
 #define DISPLAYDRIVER
 #define DISPLAYPAGEMODE
+#undef DISPLAYHASCOLOR /* display driver not color aware for this display */
 #ifndef NOKIA_CS
 #define NOKIA_CS 15
 #endif
@@ -1106,16 +1123,17 @@ mem_t dspident() {}
 U8G2_PCD8544_84X48_F_4W_HW_SPI u8g2(U8G2_R0, NOKIA_CS, NOKIA_DC, NOKIA_RST); 
 const int dsp_rows=6;
 const int dsp_columns=10;
-uint8_t dspfgcolor = 1;
-uint8_t dspbgcolor = 0;
+typedef uint8_t dspcolor_t;
+dspcolor_t dspfgcolor = 1;
+dspcolor_t dspbgcolor = 0;
 char dspfontsize = 8;
 void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r); }
 void dspprintchar(char c, mem_t col, mem_t row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
 void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); dspfgcolor=1; }
 void dspupdate() { u8g2.sendBuffer(); }
 void dspsetcursor(mem_t c) {}
-void dspsetfgcolor(address_t c) {}
-void dspsetbgcolor(address_t c) {}
+void dspsetfgcolor(uint8_t c) {}
+void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
 mem_t dspident() {}
 void rgbcolor(int r, int g, int b) {}
@@ -1137,6 +1155,7 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
 #ifdef ARDUINOSSD1306
 #define DISPLAYDRIVER
 #define DISPLAYPAGEMODE
+#undef DISLAYHASCOLOR /* display driver not color aware for this display */
 #define SSD1306WIDTH 32
 #define SSD1306HEIGHT 128
 /* constructors may look like this, last argument is the reset pin
@@ -1162,15 +1181,16 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0);
 const char dspfontsize = 8;
 const int dsp_rows=SSD1306WIDTH/dspfontsize;
 const int dsp_columns=SSD1306HEIGHT/dspfontsize;
-uint16_t dspfgcolor = 1;
-uint16_t dspbgcolor = 0;
+typedef uint8_t dspcolor_t;
+dspcolor_t dspfgcolor = 1;
+dspcolor_t dspbgcolor = 0;
 void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r); }
 void dspprintchar(char c, mem_t col, mem_t row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
 void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); dspfgcolor=1; }
 void dspupdate() { u8g2.sendBuffer(); }
 void dspsetcursor(mem_t c) {}
-void dspsetfgcolor(address_t c) {}
-void dspsetbgcolor(address_t c) {}
+void dspsetfgcolor(uint8_t c) {}
+void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
 mem_t dspident() {}
 void rgbcolor(int r, int g, int b) {}
@@ -1195,6 +1215,7 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
  
 #ifdef ARDUINOILI9488
 #define DISPLAYDRIVER
+#define DISPLAYHASCOLOR
 #ifndef ILI_CS
 #define ILI_CS  9
 #endif
@@ -1212,8 +1233,14 @@ ILI9488 tft = ILI9488(ILI_CS, ILI_DC, ILI_RST);
 const int dsp_rows=20;
 const int dsp_columns=30;
 char dspfontsize = 16;
-uint16_t dspfgcolor = ILI9488_WHITE;
-uint16_t dspbgcolor = ILI9488_BLACK;
+typedef uint16_t dspcolor_t;
+const uint16_t dspdefaultfgcolor = 0xFFFF;
+const uint8_t dspdefaultfgvgacolor = 0x0F;
+dspcolor_t dspfgcolor = dspdefaultfgcolor;
+dspcolor_t dspbgcolor = 0;
+dspcolor_t dsptmpcolor = 0;
+uint8_t dspfgvgacolor = dspdefaultfgvgacolor;
+uint8_t dsptmpvgacolor = 0;
 void dspbegin() { 
   tft.begin(); 
   tft.setRotation(3); /* ILI in landscape, SD slot up */
@@ -1223,21 +1250,28 @@ void dspbegin() {
   pinMode(ILI_LED, OUTPUT);
   analogWrite(ILI_LED, 255);
   dspsetscrollmode(1, 4);
- }
-void dspprintchar(char c, mem_t col, mem_t row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
-void dspclear() { tft.fillScreen(dspbgcolor); dspfgcolor = ILI9488_WHITE; }
+}
+void dspprintchar(char c, mem_t col, mem_t row) {  tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
+void dspclear() { 
+  tft.fillScreen(dspbgcolor); 
+  dspfgcolor = dspdefaultfgcolor; 
+  dspfgvgacolor = dspdefaultfgvgacolor; 
+}
 void dspupdate() {}
 void dspsetcursor(mem_t c) {}
-void dspsetfgcolor(address_t c) {}
-void dspsetbgcolor(address_t c) {}
+void dspsavepen() { dsptmpcolor=dspfgcolor; dsptmpvgacolor=dspfgvgacolor; }
+void dsprestorepen() { dspfgcolor=dsptmpcolor; dspfgvgacolor=dsptmpvgacolor; }
+void dspsetfgcolor(uint8_t c) { vgacolor(c); }
+void dspsetbgcolor(uint8_t c) { }
 void dspsetreverse(mem_t c) {}
 mem_t dspident() {}
-void rgbcolor(int r, int g, int b) { dspfgcolor=tft.color565(r, g, b);}
+void rgbcolor(int r, int g, int b) { dspfgvgacolor=rgbtovga(r, g, b); dspfgcolor=tft.color565(r, g, b);}
 void vgacolor(short c) {  
   short base=128;
-  if (c==8) { rgbcolor(64, 64, 64); return; }
+  dspfgvgacolor=c;
+  if (c==8) { dspfgcolor=tft.color565(64, 64, 64); return; }
   if (c>8) base=255;
-  rgbcolor(base*(c&1), base*((c&2)/2), base*((c&4)/4)); 
+  dspfgcolor=tft.color565(base*(c&1), base*((c&2)/2), base*((c&4)/4)); 
 }
 void plot(int x, int y) { tft.drawPixel(x, y, dspfgcolor); }
 void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1, dspfgcolor); }
@@ -1257,6 +1291,7 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
 
 #ifdef ARDUINOMCUFRIEND
 #define DISPLAYDRIVER
+#define DISPLAYHASCOLOR
 #ifndef LCD_CS
 #define LCD_CS  A3
 #endif
@@ -1277,9 +1312,14 @@ MCUFRIEND_kbv tft;
 const int dsp_rows=20;
 const int dsp_columns=30;
 char dspfontsize = 16;
-uint16_t dspfgcolor = 0xFFFF;
-uint16_t dspbgcolor = 0x0000;
+typedef uint16_t dspcolor_t;
 const uint16_t dspdefaultfgcolor = 0xFFFF;
+const uint8_t dspdefaultfgvgacolor = 0x0F;
+dspcolor_t dspfgcolor = dspdefaultfgcolor;
+dspcolor_t dspbgcolor = 0;
+dspcolor_t dsptmpcolor = 0;
+uint8_t dspfgvgacolor = dspdefaultfgvgacolor;
+uint8_t dsptmpvgacolor = 0;
 void dspbegin() { 
   uint16_t ID = tft.readID();
   if (ID == 0xD3D3) ID = 0x9481; /* write-only shield - taken from the MCDFRIEND demo */
@@ -1288,22 +1328,29 @@ void dspbegin() {
   tft.setTextColor(dspfgcolor);
   tft.setTextSize(2);
   tft.fillScreen(dspbgcolor); 
-  dspsetscrollmode(1, 4);
+  dspsetscrollmode(1, 4); /* scrolling is on, scroll 4 lines at once */
  }
-void dspprintchar(char c, mem_t col, mem_t row) { tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
-void dspclear() { tft.fillScreen(dspbgcolor); dspfgcolor = 0xFFFF; }
+void dspprintchar(char c, mem_t col, mem_t row) {  tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
+void dspclear() { 
+  tft.fillScreen(dspbgcolor); 
+  dspfgcolor = dspdefaultfgcolor; 
+  dspfgvgacolor = dspdefaultfgvgacolor; 
+}
 void dspupdate() {}
 void dspsetcursor(mem_t c) {}
-void dspsetfgcolor(address_t c) { vgacolor(c); }
-void dspsetbgcolor(address_t c) { }
+void dspsavepen() { dsptmpcolor=dspfgcolor; dsptmpvgacolor=dspfgvgacolor; }
+void dsprestorepen() { dspfgcolor=dsptmpcolor; dspfgvgacolor=dsptmpvgacolor; }
+void dspsetfgcolor(uint8_t c) { vgacolor(c); }
+void dspsetbgcolor(uint8_t c) { }
 void dspsetreverse(mem_t c) {}
 mem_t dspident() {}
-void rgbcolor(int r, int g, int b) { dspfgcolor=tft.color565(r, g, b);}
+void rgbcolor(int r, int g, int b) { dspfgvgacolor=rgbtovga(r, g, b); dspfgcolor=tft.color565(r, g, b);}
 void vgacolor(short c) {  
   short base=128;
-  if (c==8) { rgbcolor(64, 64, 64); return; }
+  dspfgvgacolor=c;
+  if (c==8) { dspfgcolor=tft.color565(64, 64, 64); return; }
   if (c>8) base=255;
-  rgbcolor(base*(c&1), base*((c&2)/2), base*((c&4)/4)); 
+  dspfgcolor=tft.color565(base*(c&1), base*((c&2)/2), base*((c&4)/4)); 
 }
 void plot(int x, int y) { tft.drawPixel(x, y, dspfgcolor); }
 void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1, dspfgcolor); }
@@ -1320,19 +1367,21 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
  */ 
 #ifdef ARDUINOGRAPHDUMMY
 #define DISPLAYDRIVER
+#undef DISPLAYHASCOLOR
 const int dsp_rows=20;
 const int dsp_columns=30;
 const uint16_t dspdefaultfgcolor = 1;
 char dspfontsize = 16;
-uint16_t dspfgcolor = 0xFFFF;
-uint16_t dspbgcolor = 0x0000;
+typedef uint16_t dspcolor_t;
+dspcolor_t dspfgcolor = 0xFFFF;
+dspcolor_t dspbgcolor = 0x0000;
 void dspbegin() { dspsetscrollmode(1, 4); }
-void dspprintchar(char c, mem_t col, mem_tshort row) {}
+void dspprintchar(char c, mem_t col, mem_t row) {}
 void dspclear() {}
 void dspupdate() {}
 void dspsetcursor(mem_t c) {}
-void dspsetfgcolor(address_t c) {}
-void dspsetbgcolor(address_t c) {}
+void dspsetfgcolor(uint8_t c) {}
+void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
 mem_t dspident() {}
 void rgbcolor(int r, int g, int b) { dspfgcolor=0; }
@@ -1363,6 +1412,7 @@ void fcircle(int x0, int y0, int r) {}
  */
 #ifdef ARDUINOTFT
 #define DISPLAYDRIVER
+#define DISPLAYHASCOLOR 
 extern uint8_t SmallFont[];
 extern uint8_t BigFont[];
 #ifdef ARDUINO_SAM_DUE
@@ -1373,33 +1423,48 @@ UTFT tft(CTE70,38,39,40,41);
 const int dsp_rows=30;
 const int dsp_columns=50;
 char dspfontsize = 16;
+const uint32_t dspdefaultfgcolor = 0x00FFFFFF;
+const uint8_t dspdefaultfgvgacolor = 0x0F;
+typedef uint32_t dspcolor_t;
+dspcolor_t dspfgcolor = dspdefaultfgcolor;
+dspcolor_t dspbgcolor = 0;
+dspcolor_t dsptmpcolor = 0;
+uint8_t dspfgvgacolor = dspdefaultfgvgacolor;
+uint8_t dsptmpvgacolor = 0;
 void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrollmode(1, 4); }
 void dspprintchar(char c, mem_t col, mem_t row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
-void dspclear() { tft.clrScr(); vgacolor(15); }
+void dspclear() { 
+  tft.clrScr();  
+  dspfgcolor = dspdefaultfgcolor; 
+  dspfgvgacolor = dspdefaultfgvgacolor; 
+  vgacolor(dspfgvgacolor);
+}
+void rgbcolor(int r, int g, int b) { 
+  tft.setColor(r,g,b); 
+  dspfgcolor=((uint8_t)r << 16) + ((uint8_t)g << 8) + b;
+  dspfgvgacolor=rgbtovga(r, g, b);
+}
+void vgacolor(short c) {
+  short base=128;
+  dspfgvgacolor=c;
+  if (c==8) { tft.setColor(64, 64, 64); return; }
+  if (c>8) base=255;
+  tft.setColor(base*(c&1), base*((c&2)/2), base*((c&4)/4));  
+}
 void dspupdate() {}
 void dspsetcursor(mem_t c) {}
-void dspsetfgcolor(address_t c) {}
-void dspsetbgcolor(address_t c) {}
+void dspsavepen() { dsptmpcolor=dspfgcolor; dsptmpvgacolor=dspfgvgacolor; }
+void dsprestorepen() { dspfgcolor=dsptmpcolor; dspfgvgacolor=dsptmpvgacolor; }
+void dspsetfgcolor(uint8_t c) { vgacolor(c); }
+void dspsetbgcolor(uint8_t c) { }
 void dspsetreverse(mem_t c) {}
 mem_t dspident() {}
-/*
- * Graphics code - not part of the display driver library
- */
-#ifdef HASGRAPH
-void rgbcolor(int r, int g, int b) { tft.setColor(r,g,b); }
-void vgacolor(short c) {
-	short base=128;
-	if (c==8) { rgbcolor(64, 64, 64); return; }
-	if (c>8) base=255;
-	rgbcolor(base*(c&1), base*((c&2)/2), base*((c&4)/4));  
-}
 void plot(int x, int y) { tft.drawPixel(x, y); }
 void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1); }
 void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, y0, x1, y1); }
 void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, y0, x1, y1); }
 void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r); }
 void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
-#endif
 #endif
 
 /* 
@@ -1811,7 +1876,7 @@ char dspactive() {
 }
 
 /* to whom the bell tolls - implement this to you own liking */
-dspbell() {}
+void dspbell() {}
 
 /*
  * control the update modes for page update displays
@@ -1831,245 +1896,56 @@ void dspgraphupdate() {
   if (dspupdatemode == 0) dspupdate();
 }
 
-/* 
- * This is the minimalistic VT52 state engine. It is an interface to 
- * process single byte control sequences of the form <ESC> char 
- */
- 
-#ifdef HASVT52
-/* the state variable */
-char vt52s = 0;
-
-/* the graphics mode mode */
-mem_t vt52graph = 0;
-
-/* the secondary cursor */
-mem_t vt52mycol = 0;
-mem_t vt52myrow = 0;
-
-/* temp variable, do them here and not in the case: guess why */
-mem_t vt52tmpr;
-mem_t vt52tmpc;
-
-/* an output buffer for the vt52 terminal */
-const mem_t vt52buffersize = 4; 
-char vt52outbuffer[vt52buffersize] = { 0, 0, 0, 0 };
-mem_t vt52bi = 0;
-mem_t vt52bj = 0;
-
-/* the reader from the buffer */
-char vt52read() {
-  if (vt52bi<=vt52bj) { vt52bi = 0; vt52bj = 0; }
-  if (vt52bi>vt52bj) return vt52outbuffer[vt52bj++];
-}
-
-/* the avail from the buffer */
-mem_t vt52avail() { return vt52bi-vt52bj; }
-
-/* putting something into the buffer */
-void vt52push(char c) {
-  if (vt52bi < vt52buffersize) vt52outbuffer[vt52bi++]=c; 
-}
-
-/* clear the buffer */
-void vt52clear() {
-  vt52bi=0;
-}
-
-/* something little */
-uint8_t vt52number(char c) {
-  uint8_t b=c;
-  if (b>31) return b-32; else return 0;
-}
-
-/* vt52 state engine */
-void dspvt52(char* c){
-int n;
-  
-/* reading and processing multi byte commands */
-	switch (vt52s) {
-		case 'Y':
-			if (dspesc == 2) { 
-        dspsetcursory(vt52number(*c));
-			  dspesc=1; 
-			  *c=0;
-        return;
-			}
-			if (dspesc == 1) { 
-        dspsetcursorx(vt52number(*c)); 
-			  *c=0; 
-			}
-      vt52s=0; 
-      break;
-    case 'b':
-      dspsetfgcolor(vt52number(*c));
-      *c=0;
-      vt52s=0;
-      break;
-    case 'c':
-      dspsetbgcolor(vt52number(*c));
-      *c=0;
-      vt52s=0;
-      break;
-	}
- 
-/* commands of the terminal in text mode */
-  
-	switch (*c) {
-    case 'v': /* GEMDOS / TOS extension enable wrap */
-      dspwrap=0;
-      break;
-    case 'w': /* GEMDOS / TOS extension disable wrap */
-      dspwrap=1;
-      break;
-    case '^': /* Printer extensions - print on */
-      dspprintmode=1;
-      break;
-    case '_': /* Printer extensions - print off */
-      dspprintmode=0;
-      break;
-    case 'W': /* Printer extensions - print without display on */
-      dspprintmode=2;
-      break;
-    case 'X': /* Printer extensions - print without display off */
-      dspprintmode=0;
-      break;
-    case 'V': /* Printer extensions - print cursor line */
-#if defined(ARDUINOPRT) && defined(DISPLAYCANSCROLL)
-      for (mem_t i=0; i<dsp_columns; i++) prtwrite(dspgetc(i));
-#endif
-      break;
-    case ']': /* Printer extension - print screen */
-#if defined(ARDUINOPRT) && defined(DISPLAYCANSCROLL)
-      for (mem_t j=0; j<dsp_rows; j++)
-        for (mem_t i=0; i<dsp_columns; i++) prtwrite(dspgetrc(j, i));
-#endif
-      break;
-    case 'F': /* enter graphics mode */
-      vt52graph=1;
-      break;
-    case 'G': /* exit graphics mode */
-      vt52graph=0;
-      break;
-    case 'Z': /* Ident */
-      vt52clear();
-      vt52push(27);
-      vt52push('/');
-#ifndef ARDUINOPRT
-      vt52push('K');
-#else
-      vt52push('L');
-#endif
-      break;
-    case '=': /* alternate keypad on */
-    case '>': /* alternate keypad off */
-      break;
-    case 'b': /* GEMDOS / TOS extension text color */
-    case 'c': /* GEMDOS / TOS extension background color */
-      vt52s=*c;
-      dspesc=1;
-      *c=0;
-      return;
-    case 'e': /* GEMDOS / TOS extension enable cursor */
-      dspsetcursor(1);
-      break;
-    case 'f': /* GEMDOS / TOS extension disable cursor */
-      dspsetcursor(0);
-      break;
-    case 'p': /* GEMDOS / TOS extension reverse video */
-      dspsetreverse(1);
-      break;
-    case 'q': /* GEMDOS / TOS extension normal video */
-      dspsetreverse(0);
-      break;
-		case 'A': /* cursor up */
-			if (dspmyrow>0) dspmyrow--;
-			break;
-		case 'B': /* cursor down */
-			if (dspmyrow < dsp_rows-1) dspmyrow++;
-			break;
-		case 'C': /* cursor right */
-			if (dspmycol < dsp_columns-1) dspmycol++;
-			break; 
-		case 'D': /* cursor left */
-			if (dspmycol>0) dspmycol--;
-			break;
-		case 'E': /* GEMDOS / TOS extension clear screen */
-			dspbufferclear();
-			dspclear();
-			break;
-		case 'H': /* cursor home */
-			dspmyrow=dspmycol=0;
-			break;	
-		case 'Y': /* Set cursor position */
-			vt52s='Y';
-			dspesc=2;
-  		*c=0;
-			return;
-    case 'J': /* clear to end of screen */
-      for (int i=dspmycol+dsp_columns*dspmyrow; i<dsp_columns*dsp_rows; i++) dspset(i, 0);
-      break;
-    case 'd': /* GEMDOS / TOS extension clear to start of screen */
-      for (int i=0; i<dspmycol+dsp_columns*dspmyrow; i++) dspset(i, 0);
-      break;
-    case 'K': /* clear to the end of line */
-      for (mem_t i=dspmycol; i<dsp_columns; i++) dspsetxy(0, i, dspmyrow);
-      break;
-    case 'l': /* GEMDOS / TOS extension clear line */
-      for (mem_t i=0; i<dsp_columns; i++) dspsetxy(0, i, dspmyrow);
-      break;
-    case 'o': /* GEMDOS / TOS extension clear to start of line */
-      for (mem_t i=0; i<=dspmycol; i++) dspsetxy(0, i, dspmyrow);
-      break;
-    case 'k': /* GEMDOS / TOS extension restore cursor */
-      dspmycol=vt52mycol;
-      dspmyrow=vt52myrow;
-      break;
-    case 'j': /* GEMDOS / TOS extension save cursor */
-      vt52mycol=dspmycol;
-      vt52myrow=dspmyrow;
-      break;
-    case 'I': /* reverse line feed */
-      if (dspmyrow>0) dspmyrow--; else dspreversescroll(0);
-      break;
-    case 'L': /* Insert line */
-      dspreversescroll(dspmyrow);
-      break;
-    case 'M': /* Delete line */
-      vt52tmpr = dspmyrow;
-      vt52tmpc = dspmycol;
-      dspscroll(1, dspmyrow);
-      dspmyrow=vt52tmpr;
-      dspmycol=vt52tmpc;
-      break;
-	}
-	dspesc=0;
-	*c=0;
-}
-#endif
-
-
 /* scrollable displays need a character buffer */
 #ifdef DISPLAYCANSCROLL
-char dspbuffer[dsp_rows][dsp_columns];
+
+/* 
+ * text color code for the scrolling display 
+ * 
+ * non scrolling displays simply use the pen color of the display
+ * stored in dspfgcolor to paint the information on the screen
+ * 
+ * for scrolling displays we store the color information of every
+ * character in the display buffer to enable scrolling, to limit the 
+ * storage requirements, this code translates the color to a 4 bit VGA
+ * color. This means that if BASIC uses 24 bit colors, the color may
+ * change at scroll
+ *
+ */
+
+#ifdef DISPLAYHASCOLOR
+/* 
+ * the display buffer is int here, lower 8 bits plus the sign
+ * are the character, higher 7 the color and font 
+ */
+typedef short dspbuffer_t;
+#else
+
+/* plain monochrome display buffer */
+typedef char dspbuffer_t;
+const uint16_t dspfgvgacolor = 0;
+#endif
+
+dspbuffer_t dspbuffer[dsp_rows][dsp_columns];
 
 /* buffer access functions */
-char dspget(address_t i) {
+dspbuffer_t dspget(address_t i) {
   if (i>=0 && i<=dsp_columns*dsp_rows-1) return dspbuffer[i/dsp_columns][i%dsp_columns]; else return 0;
 }
 
-char dspgetrc(mem_t r, mem_t c) { return dspbuffer[r][c]; }
+dspbuffer_t dspgetrc(mem_t r, mem_t c) { return dspbuffer[r][c]; }
 
-char dspgetc(mem_t c) { return dspbuffer[dspmyrow][c]; }
+dspbuffer_t dspgetc(mem_t c) { return dspbuffer[dspmyrow][c]; }
 
-void dspsetxy(char ch, mem_t c, mem_t r) {
+/* this functions prints a character and updates the display buffer */
+void dspsetxy(dspbuffer_t ch, mem_t c, mem_t r) {
   if (r>=0 && c>=0 && r<dsp_rows && c<dsp_columns) {
-    dspbuffer[r][c]=ch;
+    dspbuffer[r][c]=(dspbuffer_t)ch | (dspfgvgacolor << 8);
     if (ch != 0) dspprintchar(ch, c, r); else dspprintchar(' ', c, r);
   }
 }
 
-void dspset(address_t i, char ch) {
+void dspset(address_t i, dspbuffer_t ch) {
   mem_t c=i%dsp_columns;
   mem_t r=i/dsp_columns;
   dspsetxy(ch, c, r);
@@ -2091,18 +1967,33 @@ void dspbufferclear() {
   dspmycol=0;
 }
 
+#ifdef DISPLAYHASCOLOR
+const uint16_t charmask = 0x80FF;
+#endif
+
 /* do the scroll */
 void dspscroll(mem_t scroll_rows, mem_t scroll_top=0){
 	mem_t r,c;
-  char a,b;
-  	
+  dspbuffer_t a,b;
+  
 /* scroll data up and redraw the display */
   for (r=scroll_top; r<dsp_rows-scroll_rows; r++) { 
     for (c=0; c<dsp_columns; c++) {
 			a=dspbuffer[r][c];
 			b=dspbuffer[r+scroll_rows][c];
 			if ( a != b ) {
-  			if (b != 0) dspprintchar(b, c, r); else dspprintchar(' ', c, r);
+  			if (b != 0) { 
+#ifdef DISPLAYHASCOLOR
+            dspsavepen();
+            dspsetfgcolor((b >> 8) & 15);
+            dspprintchar(b & charmask, c, r); 
+            dsprestorepen();
+#else
+  			    dspprintchar(b, c, r); 
+#endif     
+  			} else {
+  			  dspprintchar(' ', c, r);
+  			}
       }      
 			dspbuffer[r][c]=b;
 		} 
@@ -2111,7 +2002,7 @@ void dspscroll(mem_t scroll_rows, mem_t scroll_top=0){
 /* delete the characters in the remaining lines */
 	for (r=dsp_rows-scroll_rows; r<dsp_rows; r++) {
 		for (c=0; c<dsp_columns; c++) {
-			if (dspbuffer[r][c] != 0 && dspbuffer[r][c] != 32) dspprintchar(' ', c, r); 
+			if (dspbuffer[r][c] != 0 && ( dspbuffer[r][c]) != 32) dspprintchar(' ', c, r); 
 			dspbuffer[r][c]=0;     
     }
 	}
@@ -2124,15 +2015,26 @@ void dspscroll(mem_t scroll_rows, mem_t scroll_top=0){
 /* do the reverse scroll only one line implemented */
 void dspreversescroll(mem_t line){
   mem_t r,c;
-  char a,b;
-    
+  dspbuffer_t a,b;
+  
 /* scroll data up and redraw the display */
   for (r=dsp_rows; r>line; r--) { 
     for (c=0; c<dsp_columns; c++) {
       a=dspbuffer[r][c];
       b=dspbuffer[r-1][c];
       if ( a != b ) {
-        if (b != 0) dspprintchar(b, c, r); else dspprintchar(' ', c, r);
+        if (b != 0) { 
+#ifdef DISPLAYHASCOLOR
+            dspsavepen();
+            dspsetfgcolor((b >> 8) & 15);
+            dspprintchar(b & charmask, c, r); 
+            dsprestorepen();
+#else
+            dspprintchar(b, c, r); 
+#endif 
+        } else {
+          dspprintchar(' ', c, r);
+        }
       }      
       dspbuffer[r][c]=b;
     } 
@@ -2205,7 +2107,9 @@ mem_t dspmycolt;
 
 /* on escape call the vt52 state engine */
 #ifdef HASVT52
-  if (dspesc) { dspvt52(&c); }
+  if (dspesc) { 
+    dspvt52(&c); 
+  }
 #endif
 
 /* do we print ? */
@@ -2213,10 +2117,10 @@ mem_t dspmycolt;
   if (dspprintmode) {
     prtwrite(c);
     if (sendcr && c == 10) prtwrite(13); /* some printers want cr */
-    if (dsprintmode == 2) return; /* do not print in mode 2 */
+    if (dspprintmode == 2) return; /* do not print in mode 2 */
   }
-#endif
-
+#endif 
+  
   switch(c) {
     case 0:
       return;
@@ -2252,7 +2156,7 @@ mem_t dspmycolt;
     case 127: // delete
       if (dspmycol > 0) {
         dspmycol--;
-        dspsetxy(0, dspmyrow, dspmycol);
+        dspsetxy(0, dspmycol, dspmyrow);
       }
       return;
     case 2: // we abuse start of text as a home sequence, may also be needed for Epaper later
@@ -2278,6 +2182,221 @@ mem_t dspmycolt;
   if (dspupdatemode == 0) dspupdate();
 }
 
+/* 
+ * This is the minimalistic VT52 state engine. It is an interface to 
+ * process single byte control sequences of the form <ESC> char 
+ */
+ 
+#ifdef HASVT52
+/* the state variable */
+char vt52s = 0;
+
+/* the graphics mode mode */
+mem_t vt52graph = 0;
+
+/* the secondary cursor */
+mem_t vt52mycol = 0;
+mem_t vt52myrow = 0;
+
+/* temp variable, do them here and not in the case: guess why */
+mem_t vt52tmpr;
+mem_t vt52tmpc;
+
+/* an output buffer for the vt52 terminal */
+const mem_t vt52buffersize = 4; 
+char vt52outbuffer[vt52buffersize] = { 0, 0, 0, 0 };
+mem_t vt52bi = 0;
+mem_t vt52bj = 0;
+
+/* the reader from the buffer */
+char vt52read() {
+  if (vt52bi<=vt52bj) { vt52bi = 0; vt52bj = 0; }
+  if (vt52bi>vt52bj) return vt52outbuffer[vt52bj++];
+}
+
+/* the avail from the buffer */
+mem_t vt52avail() { return vt52bi-vt52bj; }
+
+/* putting something into the buffer */
+void vt52push(char c) {
+  if (vt52bi < vt52buffersize) vt52outbuffer[vt52bi++]=c; 
+}
+
+/* clear the buffer */
+void vt52clear() {
+  vt52bi=0;
+}
+
+/* something little */
+uint8_t vt52number(char c) {
+  uint8_t b=c;
+  if (b>31) return b-32; else return 0;
+}
+
+/* vt52 state engine */
+void dspvt52(char* c){
+  
+/* reading and processing multi byte commands */
+  switch (vt52s) {
+    case 'Y':
+      if (dspesc == 2) { 
+        dspsetcursory(vt52number(*c));
+        dspesc=1; 
+        *c=0;
+        return;
+      }
+      if (dspesc == 1) { 
+        dspsetcursorx(vt52number(*c)); 
+        *c=0; 
+      }
+      vt52s=0; 
+      break;
+    case 'b':
+      dspsetfgcolor(vt52number(*c));
+      *c=0;
+      vt52s=0;
+      break;
+    case 'c':
+      dspsetbgcolor(vt52number(*c));
+      *c=0;
+      vt52s=0;
+      break;
+  }
+ 
+/* commands of the terminal in text mode */
+  
+  switch (*c) {
+    case 'v': /* GEMDOS / TOS extension enable wrap */
+      dspwrap=0;
+      break;
+    case 'w': /* GEMDOS / TOS extension disable wrap */
+      dspwrap=1;
+      break;
+    case '^': /* Printer extensions - print on */
+      dspprintmode=1;
+      break;
+    case '_': /* Printer extensions - print off */
+      dspprintmode=0;
+      break;
+    case 'W': /* Printer extensions - print without display on */
+      dspprintmode=2;
+      break;
+    case 'X': /* Printer extensions - print without display off */
+      dspprintmode=0;
+      break;
+    case 'V': /* Printer extensions - print cursor line */
+#if defined(ARDUINOPRT) && defined(DISPLAYCANSCROLL)
+      for (mem_t i=0; i<dsp_columns; i++) prtwrite(dspgetc(i));
+#endif
+      break;
+    case ']': /* Printer extension - print screen */
+#if defined(ARDUINOPRT) && defined(DISPLAYCANSCROLL)
+      for (mem_t j=0; j<dsp_rows; j++)
+        for (mem_t i=0; i<dsp_columns; i++) prtwrite(dspgetrc(j, i));
+#endif
+      break;
+    case 'F': /* enter graphics mode */
+      vt52graph=1;
+      break;
+    case 'G': /* exit graphics mode */
+      vt52graph=0;
+      break;
+    case 'Z': // Ident 
+      vt52clear();
+      vt52push(27);
+      vt52push('/');
+#ifndef ARDUINOPRT
+      vt52push('K');
+#else
+      vt52push('L');
+#endif
+      break;
+    case '=': // alternate keypad on 
+    case '>': // alternate keypad off 
+      break;
+    case 'b': // GEMDOS / TOS extension text color 
+    case 'c': // GEMDOS / TOS extension background color 
+      vt52s=*c;
+      dspesc=1;
+      *c=0;
+      return;
+    case 'e': // GEMDOS / TOS extension enable cursor
+      dspsetcursor(1);
+      break;
+    case 'f': // GEMDOS / TOS extension disable cursor 
+      dspsetcursor(0);
+      break;
+    case 'p': // GEMDOS / TOS extension reverse video 
+      dspsetreverse(1);
+      break;
+    case 'q': // GEMDOS / TOS extension normal video 
+      dspsetreverse(0);
+      break;
+    case 'A': // cursor up
+      if (dspmyrow>0) dspmyrow--;
+      break;
+    case 'B': // cursor down 
+      if (dspmyrow < dsp_rows-1) dspmyrow++;
+      break;
+    case 'C': // cursor right 
+      if (dspmycol < dsp_columns-1) dspmycol++;
+      break; 
+    case 'D': // cursor left 
+      if (dspmycol>0) dspmycol--;
+      break;
+    case 'E': // GEMDOS / TOS extension clear screen 
+      dspbufferclear();
+      dspclear();
+      break;
+    case 'H': // cursor home 
+      dspmyrow=dspmycol=0;
+      break;  
+    case 'Y': // Set cursor position 
+      vt52s='Y';
+      dspesc=2;
+      *c=0;
+      return;
+    case 'J': // clear to end of screen 
+      for (int i=dspmycol+dsp_columns*dspmyrow; i<dsp_columns*dsp_rows; i++) dspset(i, 0);
+      break;
+    case 'd': // GEMDOS / TOS extension clear to start of screen 
+      for (int i=0; i<dspmycol+dsp_columns*dspmyrow; i++) dspset(i, 0);
+      break;
+    case 'K': // clear to the end of line
+      for (mem_t i=dspmycol; i<dsp_columns; i++) dspsetxy(0, i, dspmyrow);
+      break;
+    case 'l': // GEMDOS / TOS extension clear line 
+      for (mem_t i=0; i<dsp_columns; i++) dspsetxy(0, i, dspmyrow);
+      break;
+    case 'o': // GEMDOS / TOS extension clear to start of line
+      for (mem_t i=0; i<=dspmycol; i++) dspsetxy(0, i, dspmyrow);
+      break;
+    case 'k': // GEMDOS / TOS extension restore cursor
+      dspmycol=vt52mycol;
+      dspmyrow=vt52myrow;
+      break;
+    case 'j': // GEMDOS / TOS extension save cursor
+      vt52mycol=dspmycol;
+      vt52myrow=dspmyrow;
+      break;
+    case 'I': // reverse line feed
+      if (dspmyrow>0) dspmyrow--; else dspreversescroll(0);
+      break;
+    case 'L': // Insert line
+      dspreversescroll(dspmyrow);
+      break;
+    case 'M': 
+      vt52tmpr = dspmyrow;
+      vt52tmpc = dspmycol;
+      dspscroll(1, dspmyrow);
+      dspmyrow=vt52tmpr;
+      dspmycol=vt52tmpc;
+      break;
+  }
+  dspesc=0;
+  *c=0;
+}
+#endif
 
 #else
 /* stubs for systems without a display driver, BASIC uses these functions */
@@ -3672,7 +3791,7 @@ void consins(char *b, short nb) {
 #endif
 	while(z.a < nb) {
   		c=inch();
-  		if (id == ISERIAL || id == IKEYBOARD) outch(c);
+  		if (id == ISERIAL || id == IKEYBOARD) outch(c); /* this is local echo */
   		if (c == '\r') c=inch(); 			/* skip carriage return */
   		if (c == '\n' || c == -1 || c == 255) { 	/* terminal character is either newline or EOF */
     		break;
