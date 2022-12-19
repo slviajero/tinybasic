@@ -28,9 +28,32 @@ hardware-arduino.h contains the platform specific definitions and a thin OS like
 
 This file needs to be edited before compile. The displays and the keyboard model has to be set there. 
 
-## VT52 and ANSI control codes of the display 
+## Supported ANSI codes
 
-Escape sequences
+The terminal implements a small set of ANSI control characters.
+
+^B 	2 	STX Start of Text - Moves the cursor home.
+
+^C 	3 	ETX End of Text - Updates the display in page mode.
+
+^G	7	BEL	Bell - Makes an audible noise.
+
+^H	8	BS	Backspace - Moves the cursor left.
+
+^I	9	HT	Tab	- Moves the cursor right to next multiple of 8.
+
+^J	10	LF	Line Feed - Moves to next line, scrolls the display up if at bottom of the screen. Goes to column 0 (i.e. UNIX style line feed)
+
+^K 	11	VT 	Vertical tab - Move to the next line without change in horizontal position.
+
+^L	12	FF	Form Feed - Clear the screen. 
+
+^M	13	CR	Carriage Return	Moves the cursor to column zero.
+
+
+## VT52 escape sequences
+
+The supported escape sequences of the VT52 terminal are
 
 ESC A	Cursor up - Move cursor one line upwards.
 
@@ -84,25 +107,6 @@ ESC v	Wrap on	- Enable line wrap, removing the need for CR/LF at line endings.
 
 ESC w	Wrap off - Disable line wrap.
 
-Control characters
-
-^B 	2 	STX Start of Text - Moves the cursor home.
-
-^C 	3 	ETX End of Text - Updates the display in page mode.
-
-^G	7	BEL	Bell - Makes an audible noise.
-
-^H	8	BS	Backspace - Moves the cursor left.
-
-^I	9	HT	Tab	- Moves the cursor right to next multiple of 8.
-
-^J	10	LF	Line Feed - Moves to next line, scrolls the display up if at bottom of the screen. Goes to column 0 (i.e. UNIX style line feed)
-
-^K 	11	VT 	Vertical tab - Move to the next line without change in horizontal position.
-
-^L	12	FF	Form Feed - Clear the screen. 
-
-^M	13	CR	Carriage Return	Moves the cursor to column zero.
 
 
 
