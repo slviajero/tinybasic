@@ -1,132 +1,95 @@
+/*
+ *
+ *  $Id: TinyVT52.ino,v 1.1 2022/12/13 19:00:16 stefan Exp stefan $ 
+ *
+ *  Stefan's TinyVT52 derived from the IoT BASIC interpreter 
+ *
+ *  See the licence file on 
+ *  https://github.com/slviajero/tinybasic for copyright/left.
+ *    (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
+ *
+ *  Author: Stefan Lenz, sl001@serverfabrik.de
+ *
+ * Device drivers and low level I/O routines are used from the BASIC code
+ * These definitions are in basic.h and hardware-arduino.h. These two files 
+ * are exactly identical to the BASIC language files to make sure that further
+ * work on the device drivers can be used here without changes.
+ * 
+ * To use the terminal, the hardware definition in hardware-arduino.h need to be set
+ * 
+ * Any one of the following macros need to be defined 
+ * 
+ * Always set #define DISPLAYCANSCROLL
+ * 
+ * Displays: define one(!) of the following displays in hardware
+ *  ARDUINOLCDI2C, ARDUINONOKIA51, ARDUINOILI9488, ARDUINOSSD1306
+ *  ARDUINOMCUFRIEND, ARDUINOGRAPHDUMMY, LCDSHIELD, ARDUINOTFT
+ * 
+ * Keyboards:
+ *  ARDUINOPS2, ARDUINOUSBKBD (alpha!!), ARDUINOZX81KBD
+ * 
+ * Printers:
+ *  ARDUINOPRT 
+ *
+ */
+
+/* the only language feature of BASIC that we need is the VT52 component */
 #define HASVT52
+
+/* dummy memsize parameter */
 #define MEMSIZE 128
 
 #include "basic.h"
 #include "hardware-arduino.h"
 
-/* the inch routine - generates on incoming character stream - taken from BASIC */
-char inch() {
-  switch(id) {
-    case ISERIAL:
-      return serialread();    
-#ifdef ARDUINOPRT
-    case ISERIAL1:
-      return prtread();
-#endif        
-#if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)        
-    case IKEYBOARD:
-#if defined(HASVT52)
-      if (vt52avail()) return vt52read(); /* if the display has a message, read it */
-#endif
-#if defined(HASKEYBOARD) || defined(HASKEYPAD)  
-      return kbdread();
-#endif
-#endif
-  }
-  return 0;
-}
-
-/* checking on a character in the stream */
-char checkch(){
-  switch (id) {
-    case ISERIAL:
-      return serialcheckch();
-#ifdef ARDUINOPRT
-      case ISERIAL1:
-        return prtcheckch(); 
-#endif
-    case IKEYBOARD:
-#if defined(HASKEYBOARD)  || defined(HASKEYPAD)
-      return kbdcheckch(); /* here no display read as this is only for break and scroll control */
-#endif
-      break;
-  }
-  return 0;
-}
-
-/* character availability */
-short availch(){
-  switch (id) {
-    case ISERIAL:
-      return serialavailable(); 
-#ifdef ARDUINOPRT
-    case ISERIAL1:
-      return prtavailable();
-#endif
-    case IKEYBOARD:
-#if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)
-#if defined(HASVT52)
-      if (vt52avail()) return vt52avail(); /* if the display has a message, read it */
-#endif
-#if defined(HASKEYBOARD) || defined(HASKEYPAD) 
-      return kbdavailable();
-#endif
-#endif
-      break;
-  }
-  return 0;
-}
-
-/*
- * outch() outputs one character to a stream
- * block oriented i/o like in radio not implemented here
- */
-void outch(char c) {
-  switch(od) {
-    case OSERIAL:
-      serialwrite(c);
-      break;
-#ifdef ARDUINOPRT
-    case OPRT:
-      prtwrite(c);
-      break;
-#endif
-#ifdef ARDUINOVGA
-    case ODSP: 
-      vgawrite(c);
-      break;
-#else
-#ifdef DISPLAYDRIVER
-    case ODSP: 
-      dspwrite(c);
-      break;
-#endif
-#endif
-    default:
-      break;
-  }
-  byield(); /* yield after every character for ESP8266 */
-}
-
+/* XON and XOFF characters */
+#define XON 0x11
+#define XOFF 0x13
 
 void setup() {
-  serialbegin();
+
+/* start the primary serial interface */
+  Serial.begin(9600);
+
+/* start the terminal interface */
+  Serial1.begin(9600);
+
+/* start the display stream */
   dspbegin();  
+
+/* if a printer port is defined, start the printer, this is Serial1 of Software Serial */
+#if defined(ARDUINOPRT)
+  prtbegin();
+#endif
+
+/* if any wire subsystem is requested, start it as well */
+#if defined(NEEDSWIRE)
+  wirebegin();
+#endif
+
+/* and then there is SPI */
+#if defined(ARDUINOSPI)
+  spibegin();
+#endif
+
 }
 
-  
 void loop() {
   char ch;
 
 /* first test, just use the serial port as in */
-  
-/* read from the serial port and write to the display */ 
-    id=OSERIAL;
-    od=ODSP;
 
-/* send all characters we have to the display */
-  while (availch()) {
-    ch=inch();
-    outch(ch);
+/* read a chunk of characters */
+/* display output is slow, it is an operation at the timescale of 10 ms per character, XOFF while we do it*/
+  if (Serial1.available()) {
+    Serial1.write(XOFF);
+    while (Serial1.available()) dspwrite(Serial1.read());
+    Serial1.write(XON);
   }
-
-/* see if the display has something to say, this is relevant for id but also for keypads */
-  id=IKEYBOARD;
-  od=OSERIAL;
-
+  
 /* send all characters from the display to the serial stream */
-  while (availch()) {
-    ch=inch();
-    outch(ch);
+  while (kbdavailable()) {
+    ch=kbdread();
+    Serial1.write(ch);
   } 
 }
