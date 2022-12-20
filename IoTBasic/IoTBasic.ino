@@ -45,7 +45,7 @@
  */
 #undef	BASICFULL
 #undef  BASICINTEGER
-#define	BASICSIMPLE
+#define BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICTINYWITHFLOAT
 
@@ -5177,12 +5177,13 @@ void xload(const char* f) {
  */
 void xget(){
 	mem_t t;		/* remember the left hand side token until the end of the statement, type of the lhs */
-	mem_t ps=1;	/* also remember if the left hand side is a pure string of something with an index */
+	mem_t ps=1;	/* also remember if the left hand side is a pure string or something with an index */
 	mem_t xcl, ycl;	/* to preserve the left hand side variable names	*/
 	address_t i=1;	/* and the beginning of the destination string  	*/
  	address_t i2=1; /* and the end of the destination string    */
 	address_t j=1;	/* the second dimension of the array if needed		*/
-	mem_t oid=id;
+	mem_t oid=id;   /* remember the input stream */
+  char ch;
 
 	nexttoken();
 
@@ -5207,11 +5208,17 @@ void xget(){
 	lefthandside(&i, &i2, &j, &ps);
 	if (er != 0) return;
 
-/* get the data */
-	if (availch()) push(inch()); else push(0);
+/* get the data, non blocking on Arduino */
+	if (availch()) ch=inch(); else ch=0;
 
-/* store the data element as a number */
-	assignnumber(t, xcl, ycl, i, j, ps);
+/* store the data element as a number expect for */
+  push(ch);
+	assignnumber(t, xcl, ycl, i, j, ps); 
+
+/* but then, strings where we deliver a string with length 0 if there is no data */
+#ifdef HASAPPLE1
+  if (t == STRINGVAR && ch == 0 && ps) setstringlength(xcl, ycl, 0, arraylimit);
+#endif
 
 /* restore the output device */
 	id=oid;
