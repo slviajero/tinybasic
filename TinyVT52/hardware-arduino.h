@@ -65,12 +65,12 @@
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
+#define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
-#undef ARDUINOMCUFRIEND
+#define ARDUINOMCUFRIEND
 #undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
@@ -2191,14 +2191,14 @@ mem_t dspmycolt;
 /* the state variable */
 char vt52s = 0;
 
-/* the graphics mode mode */
+/* the graphics mode mode - unused so far */
 mem_t vt52graph = 0;
 
 /* the secondary cursor */
 mem_t vt52mycol = 0;
 mem_t vt52myrow = 0;
 
-/* temp variable, do them here and not in the case: guess why */
+/* temp variables for column and row , do them here and not in the case: guess why */
 mem_t vt52tmpr;
 mem_t vt52tmpc;
 
@@ -2210,7 +2210,7 @@ mem_t vt52bj = 0;
 
 /* the reader from the buffer */
 char vt52read() {
-  if (vt52bi<=vt52bj) { vt52bi = 0; vt52bj = 0; }
+  if (vt52bi<=vt52bj) { vt52bi = 0; vt52bj = 0; } /* empty, reset */
   if (vt52bi>vt52bj) return vt52outbuffer[vt52bj++];
 }
 
@@ -2232,6 +2232,53 @@ uint8_t vt52number(char c) {
   uint8_t b=c;
   if (b>31) return b-32; else return 0;
 }
+
+#define VT52HASGRAPH
+
+
+/* graphics code in VT52, if you want to control graphics from the character stream */
+#ifdef VT52HASGRAPH
+/* the grahics cursor of VT52 */
+uint16_t vt52graphx = 0;
+uint16_t vt52graphy = 0;
+
+/* the three register variables */
+uint16_t vt52regx = 0;
+uint16_t vt52regy = 0;
+uint8_t  vt52regz = 0;
+
+/* one argument cache for two byte arguments */
+uint8_t vt52arg =0;
+
+/* execute one graphics command */
+void vt52graphcommand(uint8_t c) {
+  switch(c) {
+    case 's': /* set the cursor */
+      vt52graphx=vt52regx;
+      vt52graphy=vt52regy;
+      break;
+    case 'p': /* plot a point at the cursor */
+      plot(vt52graphx, vt52graphy);
+      break;
+    case 'l': /* plot a line */
+      line(vt52graphx, vt52graphy, vt52regx, vt52regy);
+      break;
+    case 'r': /* plot a rectangle */
+      rect(vt52graphx, vt52graphy, vt52regx, vt52regy);
+      break;
+    case 'c': /* plot a circle */
+      circle(vt52graphx, vt52graphy, vt52regx);
+      break;
+    case 'R': /* plot a filled rectangle */
+      frect(vt52graphx, vt52graphy, vt52regx, vt52regy);
+      break;
+    case 'C': /* plot a filled circle */
+      fcircle(vt52graphx, vt52graphy, vt52regx);
+      break;
+  }  
+}
+#endif
+
 
 /* vt52 state engine */
 void dspvt52(char* c){
@@ -2261,6 +2308,44 @@ void dspvt52(char* c){
       *c=0;
       vt52s=0;
       break;
+#ifdef VT52HASGRAPH
+    case 'x':
+      if (dspesc == 2) { 
+        vt52arg=vt52number(*c);
+        dspesc=1; 
+        *c=0;
+        return;
+      }
+      if (dspesc == 1) { 
+        vt52regx=vt52arg+vt52number(*c)*127;
+        *c=0; 
+      }
+      vt52s=0; 
+      break;
+    case 'y':
+      if (dspesc == 2) { 
+        vt52arg=vt52number(*c);
+        dspesc=1; 
+        *c=0;
+        return;
+      }
+      if (dspesc == 1) { 
+        vt52regy=vt52arg+vt52number(*c)*127;
+        *c=0; 
+      }
+      vt52s=0; 
+      break;
+    case 'z':
+      vt52regz=vt52number(*c);
+      *c=0;
+      vt52s=0;
+      break;
+    case 'g':
+      vt52graphcommand(*c);
+      *c=0;
+      vt52s=0;
+      break;      
+#endif
   }
  
 /* commands of the terminal in text mode */
@@ -2392,6 +2477,21 @@ void dspvt52(char* c){
       dspmyrow=vt52tmpr;
       dspmycol=vt52tmpc;
       break;
+#ifdef VT52HASGRAPH
+    case 'x': // set the x register 
+    case 'y': // set the y register 
+      vt52s=*c;
+      dspesc=2;
+      *c=0;
+      return;
+    case 'z': // set the z register
+    case 'g': // execute a graphics command 
+      vt52s=*c;
+      dspesc=1;
+      *c=0;
+      return;
+      break;
+#endif
   }
   dspesc=0;
   *c=0;
