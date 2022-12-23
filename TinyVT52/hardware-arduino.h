@@ -30,7 +30,7 @@
  *  ARDUINO_ARCH_RP2040: dtostrf (for ARDUINO_NANO_RP2040_CONNECT)
  *  ARDUINO_ARCH_SAMD: dtostrf (for ARDUINO_SAMD_MKRWIFI1010, ARDUINO_SEEED_XIAO_M0)
  *  ARDUINO_ARCH_ESP8266: SPIFFS, dtostrf (ESP8266)
- *  ARDUINO_AVR_MEGA2560, ARDUARDUINO_SAM_DUE: second serial port is Serial1 - no software serial
+ *  ARDUINO_AVR_MEGA2560, ARDUARDUINO_SAM_DUE: second serial port is Serial1-3 - no software serial
  *  ARDUINO_SAM_DUE: hardware heuristics
  *  ARDUINO_ARCH_AVR: nothing
  *  ARDUINO_ARCH_LGT8F: EEPROM code for flash EEPROM - platform fully supported now, yet no call 0
@@ -70,12 +70,12 @@
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
-#define ARDUINOMCUFRIEND
-#undef ARDUINOGRAPHDUMMY
+#undef ARDUINOMCUFRIEND
+#define ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
@@ -188,6 +188,11 @@
 /* set this is you want pin 4 on low interrupting the interpreter */
 /* #define BREAKPIN 4 */
 #undef BREAKPIN
+
+/* the secondary serial port aka prt aka stream 4 */
+#ifndef PRTSERIAL
+#define PRTSERIAL Serial1
+#endif
 
 /* 
  *  Pin settings for the ZX81 Keyboard
@@ -1046,6 +1051,7 @@ uint8_t rgbtovga(int r, int g, int b) {
 #ifdef LCDSHIELD 
 #define DISPLAYDRIVER
 #undef DISPLAYHASCOLOR
+#undef DISPLAYHASGRAPH
 /* LCD shield pins to Arduino
  *  RS, EN, d4, d5, d6, d7; 
  * backlight on pin 10;
@@ -1082,6 +1088,7 @@ short keypadread(){
 #ifdef ARDUINOLCDI2C
 #define DISPLAYDRIVER
 #undef DISPLAYHASCOLOR
+#undef DISPLAYHASGRAPH
 const int dsp_rows=4;
 const int dsp_columns=20;
 LiquidCrystal_I2C lcd(0x27, dsp_columns, dsp_rows);
@@ -1111,6 +1118,7 @@ mem_t dspident() {}
 #define DISPLAYDRIVER
 #define DISPLAYPAGEMODE
 #undef DISPLAYHASCOLOR /* display driver not color aware for this display */
+#define DISPLAYHASGRAPH
 #ifndef NOKIA_CS
 #define NOKIA_CS 15
 #endif
@@ -1156,6 +1164,7 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
 #define DISPLAYDRIVER
 #define DISPLAYPAGEMODE
 #undef DISLAYHASCOLOR /* display driver not color aware for this display */
+#define DISPLAYHASGRAPH
 #define SSD1306WIDTH 32
 #define SSD1306HEIGHT 128
 /* constructors may look like this, last argument is the reset pin
@@ -1216,6 +1225,7 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
 #ifdef ARDUINOILI9488
 #define DISPLAYDRIVER
 #define DISPLAYHASCOLOR
+#define DISPLAYHASGRAPH
 #ifndef ILI_CS
 #define ILI_CS  9
 #endif
@@ -1292,6 +1302,7 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
 #ifdef ARDUINOMCUFRIEND
 #define DISPLAYDRIVER
 #define DISPLAYHASCOLOR
+#define DISPLAYHASGRAPH
 #ifndef LCD_CS
 #define LCD_CS  A3
 #endif
@@ -1368,6 +1379,7 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
 #ifdef ARDUINOGRAPHDUMMY
 #define DISPLAYDRIVER
 #undef DISPLAYHASCOLOR
+#define DISPLAYHASGRAPH
 const int dsp_rows=20;
 const int dsp_columns=30;
 const uint16_t dspdefaultfgcolor = 1;
@@ -1413,6 +1425,7 @@ void fcircle(int x0, int y0, int r) {}
 #ifdef ARDUINOTFT
 #define DISPLAYDRIVER
 #define DISPLAYHASCOLOR 
+#define DISPLAYHASGRAPH
 extern uint8_t SmallFont[];
 extern uint8_t BigFont[];
 #ifdef ARDUINO_SAM_DUE
@@ -2233,22 +2246,45 @@ uint8_t vt52number(char c) {
   if (b>31) return b-32; else return 0;
 }
 
-#define VT52HASGRAPH
+/*
+ * The VT52 data registers for the graphics and wiring extension.
+ * x,y are 14 bit and z is 7bit. Data is transferred in VT52 style
+ * -> numerical value plus 32 to map the data to printable characters
+ * Access is done through the the ESC x, ESC y and ESC z sequences:
+ * ESC x #1 #2 
+ * sets the xregister to (#1-32)+(#2-32)*128
+ */
 
-
-/* graphics code in VT52, if you want to control graphics from the character stream */
-#ifdef VT52HASGRAPH
-/* the grahics cursor of VT52 */
-uint16_t vt52graphx = 0;
-uint16_t vt52graphy = 0;
-
+#if defined(DISPLAYHASGRAPH) || defined(VT52WIRING)
+#define VT52HASREGISTERS
 /* the three register variables */
 uint16_t vt52regx = 0;
 uint16_t vt52regy = 0;
 uint8_t  vt52regz = 0;
 
 /* one argument cache for two byte arguments */
-uint8_t vt52arg =0;
+uint8_t vt52arg = 0;
+#endif
+
+/* 
+ * graphics code in VT52, if you want to control graphics from the character stream 
+ * The ESC g <ch> sequence sends a graphics command as the second byte after the g
+ * 
+ * Valid values for g are
+ *  s: set the graphics cursor
+ *  p: plot a point
+ *  l: draw a line
+ *  L: draw a line and move the cursor to the endpoint
+ *  r: draw a rectangle
+ *  R: draw a filled rectangle
+ *  c: draw a circle
+ *  C: draw a filled circle
+ * 
+ */
+#ifdef DISPLAYHASGRAPH
+/* the grahics cursor of VT52 */
+uint16_t vt52graphx = 0;
+uint16_t vt52graphy = 0;
 
 /* execute one graphics command */
 void vt52graphcommand(uint8_t c) {
@@ -2262,6 +2298,11 @@ void vt52graphcommand(uint8_t c) {
       break;
     case 'l': /* plot a line */
       line(vt52graphx, vt52graphy, vt52regx, vt52regy);
+      break;
+    case 'L': /* plot a line and update the cursor, needed for drawing shapes */
+      line(vt52graphx, vt52graphy, vt52regx, vt52regy);
+      vt52graphx=vt52regx;
+      vt52graphy=vt52regy;
       break;
     case 'r': /* plot a rectangle */
       rect(vt52graphx, vt52graphy, vt52regx, vt52regy);
@@ -2277,6 +2318,44 @@ void vt52graphcommand(uint8_t c) {
       break;
   }  
 }
+#endif
+
+/* 
+ * this is an odd part of the vt52 code with this, the terminal 
+ * can control the digital and analog pins.
+ * it is meant for situations where the terminal is controlled by a (powerful)
+ * device with no or very few I/O pins. It can use the pins of the Arduino through  
+ * the terminal. This works as long as everything stays within the terminals timescale
+ * On a 9600 baud interface, the character processing time is 1ms, everything slower 
+ * than approximately 10ms can be done through the serial line.
+ */
+
+#ifdef VT52WIRING
+#define VT52HASREGISTERS
+  void vt52wiringcommand(uint8_t c) {
+    switch(c) { 
+      case 'p': /* pinMode z */
+        pinMode(vt52regz);
+        break;
+      case 'l': /* digital write low pin z*/
+        digitalWrite(vt52regz, LOW);
+        break;
+      case 'h': /* digital write high pin z*/
+        digitalWrite(vt52regz, HIGH);
+        break;
+      case 'r': /* digital read from pin z */
+        vt52push(digitalRead(vt52regz)+32);
+        break;      
+      case 'a': /* analog write pin z to value x */
+        analogWrite(vt52regz, vt52regx);
+        break;
+      case 'A': /* analog read from pin z */
+        break;
+      case 't': /* tone at pin z, frequency x, duration y */
+        tone(vt52regz, vt52regx, vt52regy);
+        break;
+    }  
+  }
 #endif
 
 
@@ -2308,7 +2387,7 @@ void dspvt52(char* c){
       *c=0;
       vt52s=0;
       break;
-#ifdef VT52HASGRAPH
+#ifdef VT52HASREGISTERS
     case 'x':
       if (dspesc == 2) { 
         vt52arg=vt52number(*c);
@@ -2317,7 +2396,7 @@ void dspvt52(char* c){
         return;
       }
       if (dspesc == 1) { 
-        vt52regx=vt52arg+vt52number(*c)*127;
+        vt52regx=vt52arg+vt52number(*c)*128;
         *c=0; 
       }
       vt52s=0; 
@@ -2340,11 +2419,20 @@ void dspvt52(char* c){
       *c=0;
       vt52s=0;
       break;
+#endif
+#ifdef DISPLAYHASGRAPH
     case 'g':
       vt52graphcommand(*c);
       *c=0;
       vt52s=0;
       break;      
+#endif
+#ifdef VT52WIRING
+    case 'a':
+      vt52wiringcommand(*c);
+      *c=0;
+      vt52s=0;
+      break; 
 #endif
   }
  
@@ -2477,7 +2565,7 @@ void dspvt52(char* c){
       dspmyrow=vt52tmpr;
       dspmycol=vt52tmpc;
       break;
-#ifdef VT52HASGRAPH
+#ifdef VT52REGISTERS
     case 'x': // set the x register 
     case 'y': // set the y register 
       vt52s=*c;
@@ -2485,7 +2573,22 @@ void dspvt52(char* c){
       *c=0;
       return;
     case 'z': // set the z register
+      vt52s=*c;
+      dspesc=1;
+      *c=0;
+      return;
+      break;
+#endif   
+#ifdef DISPLAYHASGRAPH 
     case 'g': // execute a graphics command 
+      vt52s=*c;
+      dspesc=1;
+      *c=0;
+      return;
+      break;
+#endif
+#ifdef VT52WIRING
+    case 'a':
       vt52s=*c;
       dspesc=1;
       *c=0;
@@ -3914,16 +4017,14 @@ void consins(char *b, short nb) {
 #ifdef ARDUINOPRT
 #if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE) && !defined(ARDUINO_AVR_NANO_EVERY) && !defined(ARDUINO_NANO_RP2040_CONNECT) && !defined(ARDUINO_RASPBERRY_PI_PICO) && !defined(ARDUINO_SEEED_XIAO_M0)
 #include <SoftwareSerial.h>
-/* definition of the serial port pins from "pretzel board"
-for UNO 11 is not good for rx */
 const int software_serial_rx = SOFTSERIALRX;
 const int software_serial_tx = SOFTSERIALTX;
-SoftwareSerial Serial1(software_serial_rx, software_serial_tx);
+SoftwareSerial PRTSERIAL(software_serial_rx, software_serial_tx);
 #endif
 
 /* second serial port */
 void prtbegin() {
-	Serial1.begin(serial1_baudrate);
+	PRTSERIAL.begin(serial1_baudrate);
 }
 
 /* the open functions are not needed here */
@@ -3937,20 +4038,20 @@ int prtstat(char c) {
 }
 
 void prtwrite(char c) {
-	Serial1.write(c);
+	PRTSERIAL.write(c);
 }
 
 char prtread() {
-	while (!Serial1.available()) byield();
-	return Serial1.read();
+	while (!PRTSERIAL.available()) byield();
+	return PRTSERIAL.read();
 }
 
 short prtcheckch() {
-	if (Serial1.available()) return Serial1.peek(); else return 0;
+	if (PRTSERIAL.available()) return PRTSERIAL.peek(); else return 0;
 }
 
 short prtavailable() {
-	return Serial1.available();
+	return PRTSERIAL.available();
 }
 
 void prtset(int s) {
