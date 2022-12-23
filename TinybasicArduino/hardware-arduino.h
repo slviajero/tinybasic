@@ -503,6 +503,17 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #undef STANDALONE
 #endif
  
+/* an xmc1100 board */
+#if defined(XMC1100_XMC2GO)
+// picocom /dev/ttyACM0 --omap crlf --imap lfcrlf
+#undef USESPICOSERIAL
+#undef ARDUINOUSBKBD
+#undef ARDUINOEEPROM
+#undef RP2040LITTLEFS
+#undef ARDUINOPROGMEM
+#undef USEMEMINTERFACE
+#endif
+
 /*
  * defining the systype variable which informs BASIC about the platform at runtime
  */
@@ -526,7 +537,7 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
  * the ARDUINO 100 definition is probably not needed anymore
  */
 
-#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040)
+#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040) || defined(XMC1100_XMC2GO)
 #include <avr/dtostrf.h>
 #define ARDUINO 100
 #endif
@@ -876,7 +887,7 @@ void wiringbegin() {}
  * Arduino information from
  * data from https://docs.arduino.cc/learn/programming/memory-guide
  */
-#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM)
+#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM) || defined(XMC1100_XMC2GO)
 extern "C" char* sbrk(int incr);
 long freeRam() {
   char top;
@@ -3210,6 +3221,10 @@ void dwrite(number_t p, number_t v){
  */
 void pinm(number_t p, number_t m){
   if (m == 0) m=INPUT; else if (m == 1) m=OUTPUT;
+#if defined(XMC1100_XMC2GO)
+  if(m==0) pinMode(p, 0xc0UL);
+  if(m==1) pinMode(p, 0x80UL);
+#endif
 	pinMode(p, m);
 }
 
@@ -3316,7 +3331,9 @@ void byield() {
   	lastlongyield=millis();
   }
  #endif
+ #if !defined(XMC1100_XMC2GO)
   delay(0);
+ #endif
 }
 
 /* everything that needs to be done often - 32 ms */
