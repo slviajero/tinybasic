@@ -75,7 +75,7 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
@@ -915,7 +915,7 @@ long freeRam() {
  * RP2040 cannot measure, we set to 16 bit full address space
  */
 long freememorysize() {
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD) || defined(XMC1100_XMC2GO)
   return freeRam() - 4000;
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_LGT8F)
@@ -3220,12 +3220,25 @@ void dwrite(number_t p, number_t v){
  *  Example: OUTPUT on ESP32 is 3 and 1 is assigned to INPUT.
  */
 void pinm(number_t p, number_t m){
+  uint8_t ml = m;
+  switch (ml) {
+    case 0:
+      pinm(p, INPUT);
+      break;
+    case 1:
+      pinm(p, OUTPUT);
+      break;
+    default:
+      pinm(p, ml);
+  }
+/*
   if (m == 0) m=INPUT; else if (m == 1) m=OUTPUT;
 #if defined(XMC1100_XMC2GO)
   if(m==0) pinMode(p, 0xc0UL);
   if(m==1) pinMode(p, 0x80UL);
 #endif
 	pinMode(p, m);
+*/
 }
 
 void bmillis() {

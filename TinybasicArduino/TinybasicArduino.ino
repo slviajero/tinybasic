@@ -195,8 +195,9 @@
 #define MEMSIZE 0
 #ifdef ARDUINO_AVR_DUEMILANOVE
 #define MEMSIZE 512
-#elif defined(XMC1100_XMC2GO)
-#define MEMSIZE 12000 //Not needed in Version 1.31, autodetected
+// possibly obsolete
+// #elif defined(XMC1100_XMC2GO)
+// #define MEMSIZE 12000 // Not needed in Version 1.31, autodetected
 #endif
 
 /* debug mode switch */
