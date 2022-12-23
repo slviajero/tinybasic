@@ -3221,15 +3221,17 @@ void dwrite(number_t p, number_t v){
  */
 void pinm(number_t p, number_t m){
   uint8_t ml = m;
+  uint8_t pl = p;
   switch (ml) {
     case 0:
-      pinm(p, INPUT);
+      pinMode(pl, INPUT);
       break;
     case 1:
-      pinm(p, OUTPUT);
+      pinMode(pl, OUTPUT);
       break;
     default:
-      pinm(p, ml);
+      pinMode(pl, ml);
+      break;
   }
 /*
   if (m == 0) m=INPUT; else if (m == 1) m=OUTPUT;
