@@ -526,7 +526,7 @@ const mem_t bsystype = SYSTYPE_ESP8266;
 const mem_t bsystype = SYSTYPE_ESP32;
 #elif defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040)
 const mem_t bsystype = SYSTYPE_RP2040;
-#elif defined(ARDUINO_ARCH_SAM) && defined(ARDUINO_ARCH_SAMD)
+#elif defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD)
 const mem_t bsystype = SYSTYPE_SAM;
 #else
 const mem_t bsystype = SYSTYPE_UNKNOWN;
@@ -972,7 +972,7 @@ void restartsystem() {
  * for this very simple implementation - needs to be improved (pass data from sleep
  * state to sleep state via EEPROM)
  */
-#if defined(ARDUINO_ARCH_SAMD)
+#if defined(ARDUINO_ARCH_SAMD) && defined(ARDUINO_ARCH_SAM)
 #include "RTCZero.h"
 #include "ArduinoLowPower.h"
 #endif
@@ -992,7 +992,7 @@ void activatesleep(long t) {
   esp_sleep_enable_timer_wakeup(t*1000);
   esp_deep_sleep_start();
 #endif
-#if defined(ARDUINO_ARCH_SAMD)
+#if defined(ARDUINO_ARCH_SAMD) && defined(ARDUINO_ARCH_SAM)
   LowPower.sleep((int) t);
 #endif
 #if defined(ARDUINO_AVR_ATmega644)
