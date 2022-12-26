@@ -75,7 +75,7 @@
 #undef LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
-#undef ARDUINOEEPROM
+#define ARDUINOEEPROM
 #undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
@@ -503,9 +503,10 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #undef STANDALONE
 #endif
  
-/* an xmc1100 board */
+/* an xmc1100 board - contributed by Florian 
+ * Picocom settings: picocom /dev/ttyACM0 --omap crlf --imap lfcrlf
+ */
 #if defined(XMC1100_XMC2GO)
-// picocom /dev/ttyACM0 --omap crlf --imap lfcrlf
 #undef USESPICOSERIAL
 #undef ARDUINOUSBKBD
 #undef ARDUINOEEPROM
@@ -3218,6 +3219,7 @@ void dwrite(number_t p, number_t v){
  *  and 1 always to OUTPUT, all the other numbers are passed through to the HAL 
  *  layer of the platform.
  *  Example: OUTPUT on ESP32 is 3 and 1 is assigned to INPUT.
+ *  XMC also needs special treatment here.
  */
 void pinm(number_t p, number_t m){
   uint8_t ml = m;
@@ -3233,14 +3235,6 @@ void pinm(number_t p, number_t m){
       pinMode(pl, ml);
       break;
   }
-/*
-  if (m == 0) m=INPUT; else if (m == 1) m=OUTPUT;
-#if defined(XMC1100_XMC2GO)
-  if(m==0) pinMode(p, 0xc0UL);
-  if(m==1) pinMode(p, 0x80UL);
-#endif
-	pinMode(p, m);
-*/
 }
 
 void bmillis() {
@@ -3346,6 +3340,7 @@ void byield() {
   	lastlongyield=millis();
   }
  #endif
+ /* delay 0 blocks XMC unlink other boards where it is either yield() or no operation */
  #if !defined(XMC1100_XMC2GO)
   delay(0);
  #endif

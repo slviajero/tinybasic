@@ -503,6 +503,18 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #undef STANDALONE
 #endif
  
+/* an xmc1100 board - contributed by Florian 
+ * Picocom settings: picocom /dev/ttyACM0 --omap crlf --imap lfcrlf
+ */
+#if defined(XMC1100_XMC2GO)
+#undef USESPICOSERIAL
+#undef ARDUINOUSBKBD
+#undef ARDUINOEEPROM
+#undef RP2040LITTLEFS
+#undef ARDUINOPROGMEM
+#undef USEMEMINTERFACE
+#endif
+
 /*
  * defining the systype variable which informs BASIC about the platform at runtime
  */
@@ -526,7 +538,7 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
  * the ARDUINO 100 definition is probably not needed anymore
  */
 
-#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040)
+#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040) || defined(XMC1100_XMC2GO)
 #include <avr/dtostrf.h>
 #define ARDUINO 100
 #endif
@@ -876,7 +888,7 @@ void wiringbegin() {}
  * Arduino information from
  * data from https://docs.arduino.cc/learn/programming/memory-guide
  */
-#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM)
+#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM) || defined(XMC1100_XMC2GO)
 extern "C" char* sbrk(int incr);
 long freeRam() {
   char top;
@@ -904,7 +916,7 @@ long freeRam() {
  * RP2040 cannot measure, we set to 16 bit full address space
  */
 long freememorysize() {
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD) || defined(XMC1100_XMC2GO)
   return freeRam() - 4000;
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_LGT8F)
@@ -3207,10 +3219,22 @@ void dwrite(number_t p, number_t v){
  *  and 1 always to OUTPUT, all the other numbers are passed through to the HAL 
  *  layer of the platform.
  *  Example: OUTPUT on ESP32 is 3 and 1 is assigned to INPUT.
+ *  XMC also needs special treatment here.
  */
 void pinm(number_t p, number_t m){
-  if (m == 0) m=INPUT; else if (m == 1) m=OUTPUT;
-	pinMode(p, m);
+  uint8_t ml = m;
+  uint8_t pl = p;
+  switch (ml) {
+    case 0:
+      pinMode(pl, INPUT);
+      break;
+    case 1:
+      pinMode(pl, OUTPUT);
+      break;
+    default:
+      pinMode(pl, ml);
+      break;
+  }
 }
 
 void bmillis() {
@@ -3316,7 +3340,10 @@ void byield() {
   	lastlongyield=millis();
   }
  #endif
+ /* delay 0 blocks XMC unlink other boards where it is either yield() or no operation */
+ #if !defined(XMC1100_XMC2GO)
   delay(0);
+ #endif
 }
 
 /* everything that needs to be done often - 32 ms */
