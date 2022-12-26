@@ -81,7 +81,22 @@ examples contains a lot of demo programs and games ported to BASIC.
 
 MANUAL.md is the BASIC manual.
 
+The folder TinybasicArduino is kept for compatibility purposes. This is my working code. Things may be broken here.
+
+TinyVT52 is a VT52 terminal emulation for Arduinos.
+
+## Libraries needed
+
+The code is written to work standalone for many systems. As long as no complex device drivers are needed, you can simply compile it and start using BASIC.
+
+Build-in features are EEPROM access, Real Time Clock access and handling of SPI memory.
+
+One exceptions are the Arduino SAMD broards like the MKR1000, Zero or Vidor boards. You need to install the RTCZero library for this. The library is used to support the SLEEP function.
+
+Displays, filesystem, networking, and sensors need libraries. Please consult the wiki for this.
+
+
 ## What's next
 
-More IoT functionality. More devices. Code cleanup.
+More IoT functionality. More devices. Code cleanup. Getting version 1.4. released. Then more cloud / networking functions.
 
