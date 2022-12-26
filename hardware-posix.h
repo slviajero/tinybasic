@@ -158,7 +158,7 @@ char rtcstring[20] = { 0 };
 
 /* identical to arduino code -> isolate */
 char* rtcmkstr() {
-	int cc = 1;
+	int cc = 2;
 	short t;
 	char ch;
 	t=rtcget(2);
