@@ -1567,7 +1567,7 @@ SET changes internal variables of the interpreter. Set has two arguments, the va
 
 SET 0,1 switches on the debug mode. The token stream in the statement loop is displayed. SET 0,0 resets the interpreter to normal mode.
 
-SET 1,1 activates the autorun mode of the EEPROM. SET 1,0 resets the autorun mode. SET 1,255 marks the EEPROM as not to contain a program. SET 1,1 should only be used if a program was stored with SAVE "!" to the EEPROM. There is no safety net here.
+SET 1,1 activates the autorun mode of the EEPROM. SET 1,0 resets the autorun mode. SET 1,255 marks the EEPROM as not to contain a program. SET 1,1 should only be used if a program was stored with SAVE "!" to the EEPROM. There is no safety net here. A running program in EEPROM autorun mode can always interrupted by sending the break character. This is '#' by default and defined in the BREAKCHAR macro. Alternatively the BREAKPIN macro can be defined in hardware-arduino.h. This this case the pin it is set to will interrupt the program if set to low.
 
 SET 2,1 sets the output to display mode, SET 2,0 to serial mode. This is a deprecated feature. Using @O is a better way to do this.
 
