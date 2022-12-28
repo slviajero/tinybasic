@@ -1999,7 +1999,7 @@ address_t writenumber2(char *c, number_t vi) {
 	if (f == vi && fabs(vi) < maxnum) {
 		return writenumber(c, vi);
 	}
-
+  
 /* floats are displayed using the libraries */
 #ifndef ARDUINO
 	return sprintf(c, "%g", vi);
@@ -2016,6 +2016,14 @@ address_t writenumber2(char *c, number_t vi) {
 	while (fabs(f)<1.0)   { f=f*10; exponent--; }
  	while (fabs(f)>=10.0-0.00001) { f=f/10; exponent++; }
 
+/* there are platforms where dtostrf is broken, we do things by hand in a simple way */
+#ifdef BROKENDTOSTRF
+  int nd=writenumber(c, (int)(f*10000));
+  for(int i=SBUFSIZE-2; i>0; i--) c[i+1]=c[i];
+  c[1]='.';
+  nd++;
+  eflag=1;
+#else
 /* small numbers */
 	if (exponent > -2 && exponent < 7) { 
 		dtostrf(vi, 0, 5, c);
@@ -2023,7 +2031,7 @@ address_t writenumber2(char *c, number_t vi) {
 		dtostrf(f, 0, 5, c);
 		eflag=1;
 	}
- 
+#endif
 /* remove trailing zeros */
 	for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
 	i--;
@@ -2031,7 +2039,7 @@ address_t writenumber2(char *c, number_t vi) {
 	i++;
     
 /* add the exponent */
-	if (eflag) {
+	if (eflag && exponent != 0) {
 		c[i++]='E';
 		i+=writenumber(c+i, exponent);
 	}
