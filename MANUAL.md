@@ -1603,13 +1603,13 @@ USR(0,x) returns an interpreter parameter or capability. The program can find ou
 
 Function numbers 1 to 31 are assigned to the I/O streams. Currently only USR(f, 0) is implemented for the I/O streams. They output the status of the stream. 
 
-Function numbers 32 and above can be used to implement individual commands.
+Function numbers 32 and above can be used to implement individual commands. See below for more information.
 
 ### CALL 
 
 Currently only CALL 0 is implemented. Call 0 flushes all buffers. On POSIX systems it ends the interpreter and returns to the OS. On Arduino AVR and ESP the microcontroller kernel is restarted.
 
-CALL parameters 0 to 31 are reserved. Values from 32 on can be used for implementing own commands.
+CALL parameters 0 to 31 are reserved. Values from 32 on can be used for implementing own commands. See below for more information.
 
 ### SLEEP 
 
@@ -1622,6 +1622,23 @@ There are two mechanism implemented to stop programs. One listens to the default
 If BREAKCHAR is defined in the BASIC code, this character will stop the program if it is encountered in the input stream. It has to be found as a first character. Default BREAKCHAR is '#'.
 
 If BREAKPIN is defined, the interpreter will stop once this pin is pulled to low. By default, BREAKPIN is not defined, i.e. there is no BREAKPIN. This mechanism is for use cases where using BREAKCHAR is not practical. One can implement a separate stop button with it. 
+
+### Extnding basic 
+
+The BASIC interpreter has several mechanisms to extend the language set without having to work directly with the interpreter data structures. 
+
+USR(N, X) with N greater than 32 will call the function usrfunction(). It gets both arguments as values and can return one number as reault. 
+
+CALL N with N greater than 32 will call the function usrcall(). It gets N as an argument.
+
+@U is a special variable. Reading it will call getusrvar(), writing it will call setusrvar().
+
+@U() is a special array. Reading it will call getusrarray(), writing it will call setusrarray(). In both cases the index is the array is passed on as argument.
+
+@U$ is the user string. It is read only. Reading it will trigger the function makeusrarray(). It can pass an set of characters to BASIC.
+
+
+
 
 
 
