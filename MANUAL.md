@@ -1615,4 +1615,13 @@ CALL parameters 0 to 31 are reserved. Values from 32 on can be used for implemen
 
 SLEEP n enters sleep mode. This is only implemented on ESPs and SAMD right now. n is the time in milliseconds. For ESP8266 the wiring for sleep mode has to be right. ESP32 can awake from SLEEP without additional wiring. ESPs restart after wakeup. An autorun program is needed for this. Once the restart happens, the program starts from the beginning. Reentry has to be handled in the program. On Arduino SAMD the interpreter uses the low power library. The program resumes after the sleep command. Sleep is experimental right now. 
 
+### Stopping programs
+
+There are two mechanism implemented to stop programs. One listens to the default input stream, in general this is either default serial or the keyboard. The other monitors a pin.
+
+If BREAKCHAR is defined in the BASIC code, this character will stop the program if it is encountered in the input stream. It has to be found as a first character. Default BREAKCHAR is '#'.
+
+If BREAKPIN is defined, the interpreter will stop once this pin is pulled to low. By default, BREAKPIN is not defined, i.e. there is no BREAKPIN. This mechanism is for use cases where using BREAKCHAR is not practical. One can implement a separate stop button with it. 
+
+
 
