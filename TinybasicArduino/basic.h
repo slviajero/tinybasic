@@ -1078,6 +1078,15 @@ address_t lenstring(char, char, address_t);
 void setstringlength(char, char, address_t, address_t);
 void setstring(char, char, address_t, char *, address_t, address_t);
 
+/* the user defined extension functions */
+number_t getusrvar();
+void setusrvar(number_t);
+number_t getusrarray(address_t);
+void setusrarray(address_t, number_t);
+void makeusrstring();
+number_t usrfunction(address_t, number_t);
+void usrcall(address_t);
+
 /* get keywords and tokens from PROGMEM */
 char* getkeyword(unsigned short);
 char* getmessage(char);

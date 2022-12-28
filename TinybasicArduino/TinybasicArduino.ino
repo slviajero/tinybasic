@@ -580,6 +580,8 @@ number_t getvar(mem_t c, mem_t d){
 				return (himem-top)/numsize;
 			case 'R':
 				return rd;
+			case 'U':
+				return getusrvar();
 #ifdef DISPLAYDRIVER
 			case 'X':
 				return dspgetcursorx();
@@ -632,6 +634,9 @@ void setvar(mem_t c, mem_t d, number_t v){
 				return;
 			case 'R':
 				rd=v;
+				return;
+			case 'U':
+				setusrvar(v);
 				return;
 #ifdef DISPLAYDRIVER
 			case 'X':
@@ -841,6 +846,10 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 				if (m == 'g') *v=sensorread(i, 0); 
 				return;
 #endif
+			case 'U': 
+				if (m == 'g') *v=getusrarray(i); 
+				else if (m == 's') setusrarray(i, *v);
+				return;
 			case 0: 
 			default:
 				h=(himem-top)/numsize;
@@ -934,17 +943,6 @@ address_t createstring(char c, char d, address_t i, address_t j) {
 #endif
 }
 
-/* this is an experimental helper for @X$, generates a string  
-	this is a method to insert a user defined string, e.g. from an I/O device 
-	makemyxstring() can be called multiple times in the code for the same string 
-	operation in BASIC, it cannot be used as a trigger for an I/O operation*/
-
-void makemyxstring() {
-	mem_t i;
-	const char text[] = "hello world";
-	for(i=0; i<SBUFSIZE-1 && text[i]!=0 ; i++) sbuffer[i+1]=text[i];
-	sbuffer[0]=i;
-}
 
 /* get a string at position b, the -1+stringdexsize is needed because a string index starts with 1 
  * 	in addition to the memory pointer, return the address in memory.
@@ -984,10 +982,10 @@ char* getstring(char c, char d, address_t b, address_t j) {
 	}
 #endif
 
-/* a user definable special string in sbuffer, makemyxtring is a 
+/* a user definable special string in sbuffer, makeusrtring is a 
 	user definable function  */
-	if ( c == '@' && d == 'X' ) {
-		makemyxstring();
+	if ( c == '@' && d == 'U' ) {
+		makeusrstring();
 		return sbuffer+b;
 	}
 
@@ -1099,6 +1097,12 @@ address_t stringdim(char c, char d) {
 /* input buffer, payload size is buffer -1 as the first byte is length */	
 	if (c == '@') return BUFSIZE-1;
 
+/* the user string */
+	if (c == '@' && d == 'U') return SBUFSIZE-1;
+
+/* the clock string should never be assigned */
+	if (c == '@' && d == 'T') return 0;
+
 /* length of the payload from the parameters */
 #ifndef HASSTRINGARRAYS
 	else return blength(STRINGVAR, c, d)-strindexsize;
@@ -1128,11 +1132,11 @@ address_t lenstring(char c, char d, address_t j){
 #endif
 
 /* a user definable special string in sbuffer 
-	makemyxstring has to be called here because 
+	makeusrstring has to be called here because 
 	in the code sometimes getstring is called first 
 	and sometimes lenstring */
-	if ( c == '@' && d == 'X' ) {
-		makemyxstring();
+	if ( c == '@' && d == 'U' ) {
+		makeusrstring();
 		return sbuffer[0];
 	}
     
@@ -1178,6 +1182,7 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 		return;
 	}
 
+/* find the variable address */
 	a=bfind(STRINGVAR, c, d);
 	if (er != 0) return;
 
@@ -1185,16 +1190,6 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 		error(EVARIABLE);
 		return;
 	}
-
-/* error handling at this point wrong and potentially not needed */
-/*
-	if (l < z.a) {
-		z.a=l;
-		setnumber(a, strindexsize);
-	} else
-		error(EORANGE);
-}
-*/
 
 /* multiple calls of bfind here is harmless as bfind caches  */ 
 	a=a+(stringdim(c, d)+strindexsize)*(j-arraylimit);
@@ -1206,6 +1201,50 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 }
 
 #endif
+
+/* 
+ * Layer 0 Extension: the user defined extension functions, use this function for a 
+ * quick way to extend BASIC. 
+ * 
+ * @U is a single variable that can be set and get. Every access to this variable
+ * 	calls getusrvar() or setusrvar(). 
+ * @U() is a 1d array every access calls get or setusrarray().
+ * @U$ is a read only string created by makeusrstring().
+ * USR(32, V) is a user defined function created by usrfunction().
+ * CALL 32 is a user defined call
+ *
+ */
+
+/* read or write the variable @U, you can do anything you want here */
+number_t getusrvar() { return 0; }
+void setusrvar(number_t v) {return; }
+
+
+/* read or write the array @U(), you can do anything you want here */
+number_t getusrarray(address_t i) {return 0;}
+void setusrarray(address_t i, number_t v) {return; }
+
+/* make the usr string from @U$, this function can be called multiple times for one operation */
+void makeusrstring() {
+/*
+ * sample code could be:
+ *
+ *	mem_t i;
+ *	const char text[] = "hello world";
+ *	for(i=0; i<SBUFSIZE-1 && text[i]!=0 ; i++) sbuffer[i+1]=text[i];
+ *	sbuffer[0]=i;
+ *
+ * Always set sbuffer[0] to the string length, keep in mind that sbuffer 
+ * is 32 bytes long by default
+ */
+ 	sbuffer[0]=0;
+}
+
+/* USR with arguments > 31 calls this */
+number_t usrfunction(address_t i, number_t v) { return 0; }
+
+/* CALL with arguments > 31 calls this */
+void usrcall(address_t i) { return; }
 
 /*
  *  Layer 0 - keyword handling - PROGMEM logic goes here
@@ -5983,9 +6022,11 @@ void xfdisk() {
  */
 void xusr() {
 	address_t fn;
+	number_t v;
 	int arg;
 
-	arg=pop();
+	v=pop();
+	arg=(int)v; /* a bit paranoid here */
 	fn=pop();
 	switch(fn) {
 /* USR(0,y) delivers all the internal constants and variables or the interpreter */		
@@ -6104,17 +6145,11 @@ void xusr() {
 			push(fsstat(arg));	
 			break;			
 #endif
-/* user function 32 and beyond can be used freely */
 		case 32:
-/* put your code here, always push a result to the stack 
- * example for a function calulating 2*x
- *		push(arg*2);
- */
-			push(0);
-			break;
+/* user function 32 and beyond can be used freely */
 /* all USR values not assigned return 0 */
 		default:
-			push(0);
+			if (fn>31) push(usrfunction(fn, v)); else push(0);
 	}
 }
 
@@ -6135,14 +6170,12 @@ void xcall() {
 			ofileclose();
 			restartsystem();
 			break;
-/* call values to 31 reserved, add your own programs here */
-		case 32:
-/* your custom code here, always call nexttoken() ! */
-			nexttoken();
-			return;
+/* call values to 31 reserved! */
 		default:
-			error(EORANGE);
-			return;			
+/* your custom code into usrcall() */
+			if (r > 31) usrcall(r); else { error(EORANGE); return; }
+			nexttoken();
+			return;		
 	}
 }
 
