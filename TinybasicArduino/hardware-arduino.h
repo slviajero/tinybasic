@@ -238,29 +238,31 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #define RTCI2CADDR 0x068
 
 /* the size of the plain I2C EEPROM, typically a clock */
-#define I2CEEPROMADDR 0x050
+#define I2CEEPROMADDR 0x057
 /* #define I2CEEPROMSIZE 4096 */
 
 /* is the I2C EEPROM buffered */
 #define ARDUINOI2CEEPROM_BUFFERED
 
 /*
- * Sensor library code - experimental
+ * Sensor library code - configure your sensors here
  */
 #ifdef ARDUINOSENSORS
 #undef ARDUINODHT
 #define DHTTYPE DHT22
 #define DHTPIN 2
 #undef ARDUINOSHT
-#ifdef ARDUINOSHT
-#define ARDUINOWIRE
-#endif
 #undef  ARDUINOMQ2
 #define MQ2PIN A0
 #undef ARDUINOLMS6
 #undef ARDUINOAHT
 #undef ARDUINOBMP280
 #undef ARDUINOBME280
+#endif
+
+
+#if defined(ARDUINOSHT) || defined(ARDUINOLMS6) || defined(ARDUINOAHT) || defined(ARDUINOBMP280) || defined(RDUINOBME280)
+#define NEEDSWIRE
 #endif
 
 /*
@@ -538,9 +540,13 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
  * the ARDUINO 100 definition is probably not needed anymore
  */
 
-#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040) || defined(XMC1100_XMC2GO)
+#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040) 
 #include <avr/dtostrf.h>
 #define ARDUINO 100
+#endif
+
+#if defined(ARDUINO_ARCH_XMC)
+#define BROKENDTOSTRF
 #endif
 
 /*
@@ -888,7 +894,7 @@ void wiringbegin() {}
  * Arduino information from
  * data from https://docs.arduino.cc/learn/programming/memory-guide
  */
-#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM) || defined(XMC1100_XMC2GO)
+#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_XMC)
 extern "C" char* sbrk(int incr);
 long freeRam() {
   char top;
@@ -916,10 +922,13 @@ long freeRam() {
  * RP2040 cannot measure, we set to 16 bit full address space
  */
 long freememorysize() {
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD) || defined(XMC1100_XMC2GO)
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
   return freeRam() - 4000;
 #endif
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_LGT8F)
+#if defined(ARDUINO_ARCH_XMC)
+  return freeRam() - 2000;
+#endif
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_LGT8F) 
   int overhead=192;
 #ifdef ARDUINOWIRE
   overhead+=128;
@@ -3341,7 +3350,7 @@ void byield() {
   }
  #endif
  /* delay 0 blocks XMC unlink other boards where it is either yield() or no operation */
- #if !defined(XMC1100_XMC2GO)
+ #if !defined(ARDUINO_ARCH_XMC)
   delay(0);
  #endif
 }
@@ -4353,7 +4362,6 @@ void radioset(int s) {
 }
 
 
-
 /* 
  *	Arduino Sensor library code 
  *		The sensorread() is a generic function called by 
@@ -4389,6 +4397,7 @@ Adafruit_BMP280 bmp;
 #ifdef ARDUINOBME280
 #include <Adafruit_BME280.h>
 Adafruit_BME280 bme;
+/* add your own code here */
 #endif
 
 
@@ -4509,6 +4518,7 @@ number_t sensorread(short s, short v) {
           return bme.readHumidity();
       }       
 #endif
+/* add your own sensor code here */
       return 0;  
     default:
       return 0;
