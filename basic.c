@@ -1987,11 +1987,33 @@ address_t writenumber(char *c, wnumber_t v){
  * this is for floats, going back to library functions
  * for a starter.
  */
+
+address_t tinydtostrf(number_t v, int p, char* c) {  
+  int nd;
+  number_t f;
+/* write the integer part */
+  nd=writenumber(c, (int)v); 
+  c[nd++]='.';
+/* only the fraction to precision p */
+  f=fabs(v);
+/* get p digits of the fraction */
+  for (int i=p; i>0; i--) {
+    f=f-floor(f);
+    f=f*10;
+    c[nd++]=(int)floor(f)+'0';
+  }
+/* and a terminating 0 */
+  c[nd]=0;
+  return nd;
+}
+ 
 address_t writenumber2(char *c, number_t vi) {
 	index_t i;
+  index_t nd;
 	number_t f;
 	index_t exponent = 0; 
 	mem_t eflag=0;
+  const int p = 5;
 
 /* pseudo integers are displayed as integer
 		zero trapped here */
@@ -2012,26 +2034,29 @@ address_t writenumber2(char *c, number_t vi) {
     return 1; 
   }
 
+/* normalize the number and see which exponent we have to deal with */
 	f=vi;
 	while (fabs(f)<1.0)   { f=f*10; exponent--; }
  	while (fabs(f)>=10.0-0.00001) { f=f/10; exponent++; }
 
 /* there are platforms where dtostrf is broken, we do things by hand in a simple way */
-#ifdef BROKENDTOSTRF
-  int nd=writenumber(c, (int)(f*10000));
-  for(int i=SBUFSIZE-2; i>0; i--) c[i+1]=c[i];
-  c[1]='.';
-  nd++;
-  eflag=1;
-#else
-/* small numbers */
+
+  if (exponent > -2 && exponent < 7) { 
+    tinydtostrf(vi, 5, c);
+  } else {
+    tinydtostrf(f, 5, c);
+    eflag=1;
+  }
+
+/* small numbers - removed as not really portable */
+/*
 	if (exponent > -2 && exponent < 7) { 
 		dtostrf(vi, 0, 5, c);
 	} else {
 		dtostrf(f, 0, 5, c);
 		eflag=1;
 	}
-#endif
+*/
 /* remove trailing zeros */
 	for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
 	i--;
