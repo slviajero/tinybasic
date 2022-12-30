@@ -80,6 +80,15 @@ typedef unsigned char uint8_t;
 #define FORDEPTH		8
 #define LINECACHESIZE	16
 #endif
+
+/* on the real small systems we remove the linecache and set a fixed memory size*/
+#ifdef ARDUINO_AVR_DUEMILANOVE
+#undef LINECACHESIZE
+#if MEMSIZE == 0
+#define MEMSIZE 512
+#endif
+#endif
+
 /* more duffers and vars */
 #define SBUFSIZE		32
 #define VARSIZE			26

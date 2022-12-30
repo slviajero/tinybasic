@@ -506,7 +506,7 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #endif
  
 /* an xmc1100 board - contributed by Florian 
- * Picocom settings: picocom /dev/ttyACM0 --omap crlf --imap lfcrlf
+ * Picocom settings: picocom /dev/ttyACM0 --omap crlf --imap lfcrlfEEPROM
  */
 #if defined(XMC1100_XMC2GO)
 #undef USESPICOSERIAL
@@ -1085,7 +1085,7 @@ void dspsetcursor(mem_t c) { if (c) lcd.blink(); else lcd.noBlink(); }
 void dspsetfgcolor(uint8_t c) {}
 void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0; }
 #define HASKEYPAD
 /* elementary keypad reader left=1, right=2, up=3, down=4, select=<lf> */
 short keypadread(){
@@ -1118,7 +1118,7 @@ void dspsetcursor(mem_t c) { if (c) lcd.blink(); else lcd.noBlink(); }
 void dspsetfgcolor(uint8_t c) {}
 void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0; }
 #endif
 
 /* 
@@ -1161,7 +1161,7 @@ void dspsetcursor(mem_t c) {}
 void dspsetfgcolor(uint8_t c) {}
 void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0;}
 void rgbcolor(int r, int g, int b) {}
 void vgacolor(short c) { dspfgcolor=c%3; u8g2.setDrawColor(dspfgcolor); }
 void plot(int x, int y) { u8g2.setDrawColor(dspfgcolor); u8g2.drawPixel(x, y); dspgraphupdate(); }
@@ -1219,7 +1219,7 @@ void dspsetcursor(mem_t c) {}
 void dspsetfgcolor(uint8_t c) {}
 void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0;}
 void rgbcolor(int r, int g, int b) {}
 void vgacolor(short c) { dspfgcolor=c%3; u8g2.setDrawColor(dspfgcolor); }
 void plot(int x, int y) { u8g2.setDrawColor(dspfgcolor); u8g2.drawPixel(x, y); dspgraphupdate(); }
@@ -1292,7 +1292,7 @@ void dsprestorepen() { dspfgcolor=dsptmpcolor; dspfgvgacolor=dsptmpvgacolor; }
 void dspsetfgcolor(uint8_t c) { vgacolor(c); }
 void dspsetbgcolor(uint8_t c) { }
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0; }
 void rgbcolor(int r, int g, int b) { dspfgvgacolor=rgbtovga(r, g, b); dspfgcolor=tft.color565(r, g, b);}
 void vgacolor(short c) {  
   short base=128;
@@ -1372,7 +1372,7 @@ void dsprestorepen() { dspfgcolor=dsptmpcolor; dspfgvgacolor=dsptmpvgacolor; }
 void dspsetfgcolor(uint8_t c) { vgacolor(c); }
 void dspsetbgcolor(uint8_t c) { }
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0; }
 void rgbcolor(int r, int g, int b) { dspfgvgacolor=rgbtovga(r, g, b); dspfgcolor=tft.color565(r, g, b);}
 void vgacolor(short c) {  
   short base=128;
@@ -1413,7 +1413,7 @@ void dspsetcursor(mem_t c) {}
 void dspsetfgcolor(uint8_t c) {}
 void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0; }
 void rgbcolor(int r, int g, int b) { dspfgcolor=0; }
 void vgacolor(short c) {  
   short base=128;
@@ -1489,7 +1489,7 @@ void dsprestorepen() { dspfgcolor=dsptmpcolor; dspfgvgacolor=dsptmpvgacolor; }
 void dspsetfgcolor(uint8_t c) { vgacolor(c); }
 void dspsetbgcolor(uint8_t c) { }
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0;}
 void plot(int x, int y) { tft.drawPixel(x, y); }
 void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1); }
 void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, y0, x1, y1); }
@@ -2243,6 +2243,7 @@ mem_t vt52bj = 0;
 char vt52read() {
   if (vt52bi<=vt52bj) { vt52bi = 0; vt52bj = 0; } /* empty, reset */
   if (vt52bi>vt52bj) return vt52outbuffer[vt52bj++];
+  return 0;
 }
 
 /* the avail from the buffer */
@@ -3346,7 +3347,7 @@ void byield() {
   	lastlongyield=millis();
   }
  #endif
- /* delay 0 blocks XMC unlink other boards where it is either yield() or no operation */
+ /* delay 0 blocks XMC unlike other boards where it is either yield() or no operation, it is needed on ESP8266 */
  #if !defined(ARDUINO_ARCH_XMC)
   delay(0);
  #endif
