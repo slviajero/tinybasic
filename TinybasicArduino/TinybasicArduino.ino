@@ -38,15 +38,18 @@
 */
 
 /*
- * BASICFUL: full language set
- * BASICINTEGER: integer BASIC with full language 
- * BASICTINYWITHFLOAT: a floating point tinybasic
- * BASICMINIMAL: minimal language
+ * BASICFUL: full language set, use this with flash >32kB - ESPs, MKRs, Mega2560, RP2040 ...
+ * BASICINTEGER: integer BASIC with full language, use this with flash >32kB
+ * BASICSIMPLE: integer BASIC with reduced language set, 32kB capable - for UNOs with a lot of device drivers
+ * BASICSIMPLEWITHFLOAT: a small floating point BASIC, 32kB capable, for UNOs - good for UNOs with the need of float
+ * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
+ * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
 #undef	BASICFULL
 #undef  BASICINTEGER
-#define	BASICSIMPLE
-#undef	BASICMINIMAL
+#undef	BASICSIMPLE
+#define	BASICMINIMAL
+#undef  BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
 
 /*
@@ -145,9 +148,28 @@
 #define HASSTRINGARRAYS
 #endif
 
+/* a simple BASIC with float support */
+#ifdef BASICSIMPLEWITHFLOAT
+#define HASAPPLE1
+#define HASARDUINOIO
+#undef HASFILEIO
+#undef HASTONE
+#undef HASPULSE
+#define HASSTEFANSEXT
+#define HASERRORMSG
+#undef HASVT52
+#define HASFLOAT
+#undef HASGRAPH
+#define HASDARTMOUTH
+#undef HASDARKARTS
+#undef HASIOT
+#undef HASMULTIDIM
+#undef HASSTRINGARRAYS
+#endif
+
 /* a Tinybasic with float support */
 #ifdef BASICTINYWITHFLOAT
-#undef HASAPPLE1
+#define HASAPPLE1
 #define HASARDUINOIO
 #undef HASFILEIO
 #undef HASTONE
@@ -189,13 +211,8 @@
 #endif
 
 /* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point 
- * on an 168 with only 1 k memory and 16 kB flash we try to reduce the overhead and always 
- * set the memsize 
  */
 #define MEMSIZE 0
-#ifdef ARDUINO_AVR_DUEMILANOVE
-#define MEMSIZE 512
-#endif
 
 /* debug mode switch */
 #define DEBUG 0
