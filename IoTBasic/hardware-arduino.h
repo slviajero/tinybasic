@@ -9,6 +9,9 @@
  *   (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
  *
  * Author: Stefan Lenz, sl001@serverfabrik.de
+ * 
+ * Credits:
+ *  - XMC contributed by Florian
  *
  * Hardware definition file coming with TinybasicArduino.ino aka basic.c
  *
@@ -504,18 +507,6 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #undef ARDUINOUSBKBD
 #undef STANDALONE
 #endif
- 
-/* an xmc1100 board - contributed by Florian 
- * Picocom settings: picocom /dev/ttyACM0 --omap crlf --imap lfcrlfEEPROM
- */
-#if defined(XMC1100_XMC2GO)
-#undef USESPICOSERIAL
-#undef ARDUINOUSBKBD
-#undef ARDUINOEEPROM
-#undef RP2040LITTLEFS
-#undef ARDUINOPROGMEM
-#undef USEMEMINTERFACE
-#endif
 
 /*
  * defining the systype variable which informs BASIC about the platform at runtime
@@ -656,6 +647,7 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 /*
  * ESPy stuff, pgmspace has changed location 
  */
+
 #ifdef ARDUINOPROGMEM
 #ifdef ARDUINO_ARCH_ESP32
 #include <pgmspace.h>
@@ -664,12 +656,25 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 #endif
 
+/* 
+ *  Fix a few things around XMC, contributed by Florian
+ */
+#if defined(ARDUINO_ARCH_XMC)
+#undef USESPICOSERIAL
+#undef ARDUINOPROGMEM
+#endif 
+
 /*
- * This works for AVR and ESP EEPROM dummy. Throws a 
- * compiler error for other platforms.
+ * This works for AVR and ESP EEPROM dummy. 
+ * On XMC you need https://github.com/slviajero/XMCEEPROMLib
+ * Throws a compiler error for other platforms.
  */
 #ifdef ARDUINOEEPROM
+#ifdef ARDUINO_ARCH_XMC
+#include <XMCEEPROMLib.h>
+#else
 #include <EEPROM.h>
+#endif
 #endif
 
 /* Standard SPI */
@@ -3080,6 +3085,9 @@ void ebegin(){
 #if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM)
   EEPROM.begin(EEPROMSIZE);
 #endif
+#if (defined(ARDUINO_ARCH_XMC)) && defined(ARDUINOEEPROM)
+  EEPROM.begin();
+#endif
 /* an unbuffered EEPROM, typically used to store a program */
 #if defined(ARDUINOI2CEEPROM) && !defined(ARDUINOI2CEEPROM_BUFFERED)
 /* 
@@ -3114,7 +3122,7 @@ void ebegin(){
 
 void eflush(){
 /* code for the EEPROM dummy */
-#if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM) 
+#if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_XMC) ) && defined(ARDUINOEEPROM) 
   EEPROM.commit();
 #endif 
 /* flushing the I2C EEPROM */
@@ -3128,7 +3136,7 @@ address_t elength() {
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
   return EEPROMSIZE;
 #endif
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_XMC)
   return EEPROM.length(); 
 #endif
 #ifdef ARDUINO_ARCH_LGT8F 
@@ -3138,7 +3146,7 @@ address_t elength() {
 }
 
 void eupdate(address_t a, short c) { 
-#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F)
+#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F) || defined(ARDUINO_ARCH_XMC)
   EEPROM.write(a, c);
 #else
   EEPROM.update(a, c); 
