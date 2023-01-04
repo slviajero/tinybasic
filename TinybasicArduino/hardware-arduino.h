@@ -2163,9 +2163,6 @@ mem_t dspmycolt;
     case 7: // bell just a stub
       dspbell();
       return;
-    case 8: // back space - here it is really just a cursor back
-      if (dspmycol>0) dspmycol--; 
-      return;
     case 9: // tab 
       dspmycolt = dspmycol/8;
       if ((dspmycolt+1)*8<dsp_columns-1) dspmycol=(dspmycolt+1)*8;
@@ -2189,6 +2186,13 @@ mem_t dspmycolt;
     case 27: // escape - initiate vtxxx mode
       dspesc=1;
       return;
+    case 28: // cursor back - this is what terminal applications send for cursor back
+      if (dspmycol > 0) dspmycol--;
+      return;
+    case 29: // cursor forward - this is what terminal applications send for cursor back
+      if (dspmycol < dsp_columns-1) dspmycol++;
+      return;
+    case 8:   // back space is delete the moment
     case 127: // delete
       if (dspmycol > 0) {
         dspmycol--;

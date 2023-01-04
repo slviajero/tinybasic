@@ -9,6 +9,9 @@
  *   (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
  *
  * Author: Stefan Lenz, sl001@serverfabrik.de
+ * 
+ * Credits:
+ *  - XMC contributed by Florian
  *
  * Hardware definition file coming with TinybasicArduino.ino aka basic.c
  *
@@ -238,29 +241,31 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #define RTCI2CADDR 0x068
 
 /* the size of the plain I2C EEPROM, typically a clock */
-#define I2CEEPROMADDR 0x050
+#define I2CEEPROMADDR 0x057
 /* #define I2CEEPROMSIZE 4096 */
 
 /* is the I2C EEPROM buffered */
 #define ARDUINOI2CEEPROM_BUFFERED
 
 /*
- * Sensor library code - experimental
+ * Sensor library code - configure your sensors here
  */
 #ifdef ARDUINOSENSORS
 #undef ARDUINODHT
 #define DHTTYPE DHT22
 #define DHTPIN 2
 #undef ARDUINOSHT
-#ifdef ARDUINOSHT
-#define ARDUINOWIRE
-#endif
 #undef  ARDUINOMQ2
 #define MQ2PIN A0
 #undef ARDUINOLMS6
 #undef ARDUINOAHT
 #undef ARDUINOBMP280
 #undef ARDUINOBME280
+#endif
+
+
+#if defined(ARDUINOSHT) || defined(ARDUINOLMS6) || defined(ARDUINOAHT) || defined(ARDUINOBMP280) || defined(RDUINOBME280)
+#define NEEDSWIRE
 #endif
 
 /*
@@ -502,18 +507,6 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #undef ARDUINOUSBKBD
 #undef STANDALONE
 #endif
- 
-/* an xmc1100 board - contributed by Florian 
- * Picocom settings: picocom /dev/ttyACM0 --omap crlf --imap lfcrlf
- */
-#if defined(XMC1100_XMC2GO)
-#undef USESPICOSERIAL
-#undef ARDUINOUSBKBD
-#undef ARDUINOEEPROM
-#undef RP2040LITTLEFS
-#undef ARDUINOPROGMEM
-#undef USEMEMINTERFACE
-#endif
 
 /*
  * defining the systype variable which informs BASIC about the platform at runtime
@@ -538,8 +531,9 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
  * the ARDUINO 100 definition is probably not needed anymore
  */
 
-#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040) || defined(XMC1100_XMC2GO)
-#include <avr/dtostrf.h>
+#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040) 
+/* removed, unneeded, takes more space than it should */
+/* #include <avr/dtostrf.h> */
 #define ARDUINO 100
 #endif
 
@@ -653,6 +647,7 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 /*
  * ESPy stuff, pgmspace has changed location 
  */
+
 #ifdef ARDUINOPROGMEM
 #ifdef ARDUINO_ARCH_ESP32
 #include <pgmspace.h>
@@ -661,12 +656,25 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 #endif
 
+/* 
+ *  Fix a few things around XMC, contributed by Florian
+ */
+#if defined(ARDUINO_ARCH_XMC)
+#undef USESPICOSERIAL
+#undef ARDUINOPROGMEM
+#endif 
+
 /*
- * This works for AVR and ESP EEPROM dummy. Throws a 
- * compiler error for other platforms.
+ * This works for AVR and ESP EEPROM dummy. 
+ * On XMC you need https://github.com/slviajero/XMCEEPROMLib
+ * Throws a compiler error for other platforms.
  */
 #ifdef ARDUINOEEPROM
+#ifdef ARDUINO_ARCH_XMC
+#include <XMCEEPROMLib.h>
+#else
 #include <EEPROM.h>
+#endif
 #endif
 
 /* Standard SPI */
@@ -888,7 +896,7 @@ void wiringbegin() {}
  * Arduino information from
  * data from https://docs.arduino.cc/learn/programming/memory-guide
  */
-#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM) || defined(XMC1100_XMC2GO)
+#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_XMC)
 extern "C" char* sbrk(int incr);
 long freeRam() {
   char top;
@@ -916,10 +924,13 @@ long freeRam() {
  * RP2040 cannot measure, we set to 16 bit full address space
  */
 long freememorysize() {
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD) || defined(XMC1100_XMC2GO)
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
   return freeRam() - 4000;
 #endif
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_LGT8F)
+#if defined(ARDUINO_ARCH_XMC)
+  return freeRam() - 2000;
+#endif
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_LGT8F) 
   int overhead=192;
 #ifdef ARDUINOWIRE
   overhead+=128;
@@ -1079,7 +1090,7 @@ void dspsetcursor(mem_t c) { if (c) lcd.blink(); else lcd.noBlink(); }
 void dspsetfgcolor(uint8_t c) {}
 void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0; }
 #define HASKEYPAD
 /* elementary keypad reader left=1, right=2, up=3, down=4, select=<lf> */
 short keypadread(){
@@ -1112,7 +1123,7 @@ void dspsetcursor(mem_t c) { if (c) lcd.blink(); else lcd.noBlink(); }
 void dspsetfgcolor(uint8_t c) {}
 void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0; }
 #endif
 
 /* 
@@ -1155,7 +1166,7 @@ void dspsetcursor(mem_t c) {}
 void dspsetfgcolor(uint8_t c) {}
 void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0;}
 void rgbcolor(int r, int g, int b) {}
 void vgacolor(short c) { dspfgcolor=c%3; u8g2.setDrawColor(dspfgcolor); }
 void plot(int x, int y) { u8g2.setDrawColor(dspfgcolor); u8g2.drawPixel(x, y); dspgraphupdate(); }
@@ -1213,7 +1224,7 @@ void dspsetcursor(mem_t c) {}
 void dspsetfgcolor(uint8_t c) {}
 void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0;}
 void rgbcolor(int r, int g, int b) {}
 void vgacolor(short c) { dspfgcolor=c%3; u8g2.setDrawColor(dspfgcolor); }
 void plot(int x, int y) { u8g2.setDrawColor(dspfgcolor); u8g2.drawPixel(x, y); dspgraphupdate(); }
@@ -1286,7 +1297,7 @@ void dsprestorepen() { dspfgcolor=dsptmpcolor; dspfgvgacolor=dsptmpvgacolor; }
 void dspsetfgcolor(uint8_t c) { vgacolor(c); }
 void dspsetbgcolor(uint8_t c) { }
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0; }
 void rgbcolor(int r, int g, int b) { dspfgvgacolor=rgbtovga(r, g, b); dspfgcolor=tft.color565(r, g, b);}
 void vgacolor(short c) {  
   short base=128;
@@ -1366,7 +1377,7 @@ void dsprestorepen() { dspfgcolor=dsptmpcolor; dspfgvgacolor=dsptmpvgacolor; }
 void dspsetfgcolor(uint8_t c) { vgacolor(c); }
 void dspsetbgcolor(uint8_t c) { }
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0; }
 void rgbcolor(int r, int g, int b) { dspfgvgacolor=rgbtovga(r, g, b); dspfgcolor=tft.color565(r, g, b);}
 void vgacolor(short c) {  
   short base=128;
@@ -1407,7 +1418,7 @@ void dspsetcursor(mem_t c) {}
 void dspsetfgcolor(uint8_t c) {}
 void dspsetbgcolor(uint8_t c) {}
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0; }
 void rgbcolor(int r, int g, int b) { dspfgcolor=0; }
 void vgacolor(short c) {  
   short base=128;
@@ -1483,7 +1494,7 @@ void dsprestorepen() { dspfgcolor=dsptmpcolor; dspfgvgacolor=dsptmpvgacolor; }
 void dspsetfgcolor(uint8_t c) { vgacolor(c); }
 void dspsetbgcolor(uint8_t c) { }
 void dspsetreverse(mem_t c) {}
-mem_t dspident() {}
+mem_t dspident() {return 0;}
 void plot(int x, int y) { tft.drawPixel(x, y); }
 void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1); }
 void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, y0, x1, y1); }
@@ -2152,9 +2163,6 @@ mem_t dspmycolt;
     case 7: // bell just a stub
       dspbell();
       return;
-    case 8: // back space - here it is really just a cursor back
-      if (dspmycol>0) dspmycol--; 
-      return;
     case 9: // tab 
       dspmycolt = dspmycol/8;
       if ((dspmycolt+1)*8<dsp_columns-1) dspmycol=(dspmycolt+1)*8;
@@ -2178,6 +2186,13 @@ mem_t dspmycolt;
     case 27: // escape - initiate vtxxx mode
       dspesc=1;
       return;
+    case 28: // cursor back - this is what terminal applications send for cursor back
+      if (dspmycol > 0) dspmycol--;
+      return;
+    case 29: // cursor forward - this is what terminal applications send for cursor back
+      if (dspmycol < dsp_columns-1) dspmycol++;
+      return;
+    case 8:   // back space is delete the moment
     case 127: // delete
       if (dspmycol > 0) {
         dspmycol--;
@@ -2237,6 +2252,7 @@ mem_t vt52bj = 0;
 char vt52read() {
   if (vt52bi<=vt52bj) { vt52bi = 0; vt52bj = 0; } /* empty, reset */
   if (vt52bi>vt52bj) return vt52outbuffer[vt52bj++];
+  return 0;
 }
 
 /* the avail from the buffer */
@@ -3073,6 +3089,9 @@ void ebegin(){
 #if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM)
   EEPROM.begin(EEPROMSIZE);
 #endif
+#if (defined(ARDUINO_ARCH_XMC)) && defined(ARDUINOEEPROM)
+  EEPROM.begin();
+#endif
 /* an unbuffered EEPROM, typically used to store a program */
 #if defined(ARDUINOI2CEEPROM) && !defined(ARDUINOI2CEEPROM_BUFFERED)
 /* 
@@ -3107,7 +3126,7 @@ void ebegin(){
 
 void eflush(){
 /* code for the EEPROM dummy */
-#if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM) 
+#if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_XMC) ) && defined(ARDUINOEEPROM) 
   EEPROM.commit();
 #endif 
 /* flushing the I2C EEPROM */
@@ -3121,7 +3140,7 @@ address_t elength() {
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
   return EEPROMSIZE;
 #endif
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_XMC)
   return EEPROM.length(); 
 #endif
 #ifdef ARDUINO_ARCH_LGT8F 
@@ -3131,7 +3150,7 @@ address_t elength() {
 }
 
 void eupdate(address_t a, short c) { 
-#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F)
+#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F) || defined(ARDUINO_ARCH_XMC)
   EEPROM.write(a, c);
 #else
   EEPROM.update(a, c); 
@@ -3340,8 +3359,8 @@ void byield() {
   	lastlongyield=millis();
   }
  #endif
- /* delay 0 blocks XMC unlink other boards where it is either yield() or no operation */
- #if !defined(XMC1100_XMC2GO)
+ /* delay 0 blocks XMC unlike other boards where it is either yield() or no operation, it is needed on ESP8266 */
+ #if !defined(ARDUINO_ARCH_XMC)
   delay(0);
  #endif
 }
@@ -4353,7 +4372,6 @@ void radioset(int s) {
 }
 
 
-
 /* 
  *	Arduino Sensor library code 
  *		The sensorread() is a generic function called by 
@@ -4389,6 +4407,7 @@ Adafruit_BMP280 bmp;
 #ifdef ARDUINOBME280
 #include <Adafruit_BME280.h>
 Adafruit_BME280 bme;
+/* add your own code here */
 #endif
 
 
@@ -4509,6 +4528,7 @@ number_t sensorread(short s, short v) {
           return bme.readHumidity();
       }       
 #endif
+/* add your own sensor code here */
       return 0;  
     default:
       return 0;
