@@ -3390,12 +3390,9 @@ void byield() {
   	lastlongyield=millis();
   }
  #endif
- /* delay 0 blocks XMC unlike other boards where it is either yield() or no operation, it is needed on ESP8266 */
+ /* delay 0 blocks XMC unlike other boards where it is either yield() or no operation. delay(0) is needed on ESP8266! */
  #if !defined(ARDUINO_ARCH_XMC)
   delay(0);
- #endif
- #if defined(ARDUINO_ARCH_STM32)
-  yield();
  #endif
 }
 
