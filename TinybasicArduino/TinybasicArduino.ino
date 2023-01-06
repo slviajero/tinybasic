@@ -45,9 +45,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#undef	BASICFULL
+#define	BASICFULL
 #undef  BASICINTEGER
-#define	BASICSIMPLE
+#undef	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef  BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
@@ -249,19 +249,18 @@
  */
 #if MEMSIZE == 0 && !defined(SPIRAMINTERFACE)
 address_t ballocmem() { 
-	mem_t i = 0;
 
 /* on most platforms we know the free memory for BASIC */
 	long m=freememorysize();
-	if (m>maxaddr) m=maxaddr;
-	if (m>0) {
-		mem=(signed char*)malloc(m);
-		if (mem != 0) return m-1;
-	}
 
-/*
- * fallback if freememmorysize didn't work
- */
+/* we allocate as much as address_t can handle */
+	if (m>maxaddr) m=maxaddr;
+
+/* try to allocate the memory */
+	mem=(mem_t*)malloc(m);
+	if (mem != 0) return m-1;
+
+/* fallback if allocation failed, 128 bytes */
 		mem=(mem_t*)malloc(128);
 		if (mem != 0) return 128; else return 0;
 }
@@ -296,7 +295,6 @@ void esave() {
 		a+=addrsize;
 
 		while (a < top+eheadersize){
-			/* eupdate(a, mem[a-eheadersize]); */
 			eupdate(a, memread2(a-eheadersize));
 			a++;
 		}
@@ -420,7 +418,6 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 	 the hash is the first digit of the variable plus the token */
 	b=himem;
 
-
 	memwrite2(b--, c);
 	memwrite2(b--, d);
 	memwrite2(b--, t);
@@ -464,6 +461,8 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 		return bfinda;
 	}
 
+
+/* walk through the heap now */
 	while (i < nvars) { 
 
 		c1=memread2(b--);
@@ -485,6 +484,7 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 
 		b-=z.a;
 
+/* once we found we cache and return the location */
 		if (c1 == c && d1 == d && t1 == t) {
 			bfindc=c;
 			bfindd=d;
@@ -509,12 +509,14 @@ address_t bfree(mem_t t, mem_t c, mem_t d) {
 
 	if (DEBUG) { outsc("*** bfree called for "); outch(c); outch(d); outsc(" on heap with token "); outnumber(t); outcr(); }
 
+/* walk through the heap to find the location */
 	while (i < nvars) { 
 
 		c1=memread2(b--);
 		d1=memread2(b--);
 		t1=memread2(b--);
 
+/* found it */
 		if (t == t1 && c == c1 && d == d1) {
 
 /* set the number of variables to the new value */
@@ -522,14 +524,13 @@ address_t bfree(mem_t t, mem_t c, mem_t d) {
 			if (DEBUG) { outsc("*** bfree setting nvars to "); outnumber(nvars); outcr(); }
 
 /* clean up - this is somehow optional, one could drop this */
-
 			if (DEBUG) { outsc("*** bfree clearing "); outnumber(himem); outspc(); outnumber(b+3); outcr(); }
 			for (i=himem; i<=b+3; i++) memwrite2(i, 0);
 
 /* now set the memory to the right address */			
 			himem=b+3;
 
-/* forget the chache !! */
+/* forget the chache, because heap structure has changed !! */
 			bfindc=0;
 			bfindd=0;
 			bfindt=0;
@@ -563,11 +564,6 @@ address_t blength (mem_t t, mem_t c, mem_t d) {
 	if (bfind(t, c, d)) return z.a; else return 0;
 }
 #endif
-
-/* ununsed so far, simple variables are created on the fly */
-void createvar(mem_t c, mem_t d){
-	return;
-}
 
 /* get and create a variable */
 number_t getvar(mem_t c, mem_t d){
@@ -617,6 +613,7 @@ number_t getvar(mem_t c, mem_t d){
 	return z.i;
 
 #else
+/* systems without Apple1 extension i.e. HEAP throw an error */
 	error(EVARIABLE);
 	return 0;
 #endif
@@ -670,7 +667,7 @@ void setvar(mem_t c, mem_t d, number_t v){
 	if (!(a=bfind(VARIABLE, c, d))) a=bmalloc(VARIABLE, c, d, 0);
 	if (er != 0) return;
 
-/* set the valus */
+/* set the value */
 	z.i=v;
 	setnumber(a, numsize);
 #else 	
@@ -681,18 +678,48 @@ void setvar(mem_t c, mem_t d, number_t v){
 /* clr all variables */
 void clrvars() {
 	address_t i;
+
+/* delete all statics */
 	for (i=0; i<VARSIZE; i++) vars[i]=0;
+
 #ifdef HASAPPLE1
+/* clear the heap */
 	nvars=0;
-/*	for (i=himem; i<memsize; i++) mem[i]=0; */
+
+/* then set the entire mem area to zero */
 	for (i=himem; i<memsize; i++) memwrite2(i, 0);
+
+/* reset the heap start*/
 	himem=memsize;
+
+/* and clear the cache */
 	bfindc=bfindd=bfindt=0;
 	bfinda=bfindz=0;
 #endif
 }
 
-/* the BASIC memory access function */
+/* 
+ * The BASIC memory access function 
+ * 
+ * the functions getnumber(), pgetnumber() and egetnumber()
+ * retrieve a number from memory. This can be a a byte, an address 
+ * or a real number. setnumber() and esetnumber() store the object.
+ *
+ * All operations are always going through the structure z. 
+ */
+
+void getnumber(address_t m, mem_t n){
+	mem_t i;
+
+	z.i=0;
+	for (i=0; i<n; i++) z.c[i]=memread2(m++);
+}
+
+
+
+
+
+/* a number from a memory location *
 void getnumber(address_t m, mem_t n){
 	mem_t i;
 
@@ -710,9 +737,11 @@ void getnumber(address_t m, mem_t n){
 			for (i=0; i<n; i++) z.c[i]=memread2(m++);
 	}
 }
+*/
 
-/* test code only for the SPI RAM code, this function goes through the 
-  ro buffer to avoit rw buffer page faults */
+/* code only for the USEMEMINTERFACE code, this function goes through the 
+  ro buffer to avoit rw buffer page faults, do not use this unless
+  you understand the USEMEMINTERFACE mechanism completely */
 void pgetnumber(address_t m, mem_t n){
   mem_t i;
 
@@ -750,7 +779,7 @@ void egetnumber(address_t m, mem_t n){
 	}
 }
 
-/* set a number at a memory location */
+/* set a number at a memory location 
 void setnumber(address_t m, mem_t n){
 	mem_t i;
 
@@ -766,6 +795,12 @@ void setnumber(address_t m, mem_t n){
  			for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
 	}
 }
+*/
+void setnumber(address_t m, mem_t n){
+  mem_t i;
+  for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
+}
+
 
 /* set a number at a eepromlocation */
 void esetnumber(address_t m, mem_t n){
@@ -6143,6 +6178,7 @@ void xusr() {
 #else
 				case 33: push(0); break;
 #endif
+        case 34: push(fsbegins); break;
 /* - 48 reserved */
 				case 48: push(id); break;
 				case 49: push(idd); break;
@@ -6220,6 +6256,11 @@ void xcall() {
 			ofileclose();
 			restartsystem();
 			break;
+/* restart the filesystem - only test code*/
+    case 1:
+      fsbegin(1);
+      if (fsbegins) outsc("FS started"); else outsc("FS error");
+      break;
 /* call values to 31 reserved! */
 		default:
 /* your custom code into usrcall() */
@@ -6533,7 +6574,7 @@ void xfn() {
 	here=h2;
 	setvar(vxc, vyc, xt);
 
-/* no nexttoken as this is called in factor !! */
+/* no nexttoken as this is called in factor during expectexpr() !! */
 }
 
 /*
@@ -6862,8 +6903,8 @@ void statement(){
 		}; 
 #endif		
 
-/* yield after each statement which is a 30-100 microsecond cycle 
-		ALL backgriund tasks are handled in byield */
+/* yield after each statement which is a 10-100 microsecond cycle 
+		on Arduinos and the like, aLL backgriund tasks are handled in byield */
 		byield();
 
 /* interrupt handling - not yet implemented, only stubs*/
