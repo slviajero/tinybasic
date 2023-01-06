@@ -3620,14 +3620,14 @@ char ifileopen(const char* filename){
 	return (int) ifile;
 #endif
 #if defined(STM32SDIO)
-  outsc("Opening file for read ");
+  outsc("** Test code - opening file for read ");
   outsc(filename);
   outcr();
   ifile=SD.open(filename);
-  outsc("Result ");
+  outsc("** Test code - Result ");
   if (ifile) outnumber(1); else outnumber(0);
   outcr();
-  if (ifile) return 1; else return 0;
+  return (int) ifile;
 #endif
 #ifdef ESPSPIFFS
 	ifile=SPIFFS.open(mkfilename(filename), "r");
