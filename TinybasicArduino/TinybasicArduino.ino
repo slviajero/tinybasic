@@ -49,7 +49,7 @@
 #undef  BASICINTEGER
 #undef	BASICSIMPLE
 #undef	BASICMINIMAL
-#undef  BASICSIMPLEWITHFLOAT
+#define  BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
 
 /*
@@ -715,11 +715,9 @@ void getnumber(address_t m, mem_t n){
 	for (i=0; i<n; i++) z.c[i]=memread2(m++);
 }
 
-
-
-
-
-/* a number from a memory location *
+/* a number from a memory location */
+/* removed / simplified */
+/*
 void getnumber(address_t m, mem_t n){
 	mem_t i;
 
@@ -744,6 +742,14 @@ void getnumber(address_t m, mem_t n){
   you understand the USEMEMINTERFACE mechanism completely */
 void pgetnumber(address_t m, mem_t n){
   mem_t i;
+  z.i=0;
+  for (i=0; i<n; i++) z.c[i]=memread(m++);
+}
+
+/* removed - simplified */
+/*
+void pgetnumber(address_t m, mem_t n){
+  mem_t i;
 
   z.i=0;
 
@@ -759,8 +765,18 @@ void pgetnumber(address_t m, mem_t n){
       for (i=0; i<n; i++) z.c[i]=memread(m++);
   }
 }
+*/
 
 /* the eeprom memory access */
+void egetnumber(address_t m, mem_t n){
+  mem_t i;
+
+  z.i=0;
+  for (i=0; i<n; i++) z.c[i]=eread(m++);
+}
+
+/* removed - simplified */
+/*
 void egetnumber(address_t m, mem_t n){
 	mem_t i;
 
@@ -778,31 +794,41 @@ void egetnumber(address_t m, mem_t n){
 			for (i=0; i<n; i++) z.c[i]=eread(m++);
 	}
 }
-
-/* set a number at a memory location 
-void setnumber(address_t m, mem_t n){
-	mem_t i;
-
-	switch (n) {
-		case 1:
-			memwrite2(m, z.i);
-			break;
-		case 2: 
-			memwrite2(m++, z.b.l);
-			memwrite2(m++, z.b.h);
-			break;
-		default:
- 			for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
-	}
-}
 */
+
+/* set a number at a memory location */
 void setnumber(address_t m, mem_t n){
   mem_t i;
   for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
 }
 
+/* removed - simplified */
+/*
+void setnumber(address_t m, mem_t n){
+  mem_t i;
+
+  switch (n) {
+    case 1:
+      memwrite2(m, z.i);
+      break;
+    case 2: 
+      memwrite2(m++, z.b.l);
+      memwrite2(m++, z.b.h);
+      break;
+    default:
+      for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
+  }
+}
+*/
 
 /* set a number at a eepromlocation */
+void esetnumber(address_t m, mem_t n){
+  mem_t i; 
+  for (i=0; i<n; i++) eupdate(m++, z.c[i]);
+}
+
+/* removed - simplified */
+/*
 void esetnumber(address_t m, mem_t n){
 	mem_t i; 
 
@@ -818,6 +844,7 @@ void esetnumber(address_t m, mem_t n){
  			for (i=0; i<n; i++) eupdate(m++, z.c[i]);
 	}
 }
+*/
 
 /* create an array */
 address_t createarray(mem_t c, mem_t d, address_t i, address_t j) {

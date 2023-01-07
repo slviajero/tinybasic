@@ -2752,6 +2752,7 @@ void rtcset(uint8_t i, short v) {
    Wire.endTransmission(); 
 }
 #else 
+#if defined(HASBUILTINRTC) 
 void rtcbegin() {
   rtc.begin(); /* 24 hours mode */
 }
@@ -2802,6 +2803,7 @@ void rtcset(uint8_t i, short v) {
       return; 
    }
 }
+#endif
 #endif
 
 /* the BASIC string mechanism */
@@ -3253,7 +3255,7 @@ void eupdate(address_t a, short c) {
 }
 
 short eread(address_t a) { 
-#ifndef ARDUINO_ARCH_STM32
+#ifdef ARDUINO_ARCH_STM32
   return (signed char) eeprom_buffered_read(a); 
 #else
   return (signed char) EEPROM.read(a); 
