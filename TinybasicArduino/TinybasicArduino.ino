@@ -45,11 +45,11 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#define	BASICFULL
+#undef	BASICFULL
 #undef  BASICINTEGER
-#undef	BASICSIMPLE
+#define	BASICSIMPLE
 #undef	BASICMINIMAL
-#define  BASICSIMPLEWITHFLOAT
+#undef  BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
 
 /*
@@ -6208,7 +6208,7 @@ void xusr() {
 #else
 				case 33: push(0); break;
 #endif
-        case 34: push(fsbegins); break;
+        case 34: push(0); break;
 /* - 48 reserved */
 				case 48: push(id); break;
 				case 49: push(idd); break;
@@ -6286,10 +6286,9 @@ void xcall() {
 			ofileclose();
 			restartsystem();
 			break;
-/* restart the filesystem - only test code*/
+/* restart the filesystem - only test code */
     case 1:
       fsbegin(1);
-      if (fsbegins) outsc("FS started"); else outsc("FS error");
       break;
 /* call values to 31 reserved! */
 		default:
