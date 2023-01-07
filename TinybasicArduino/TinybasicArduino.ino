@@ -5062,9 +5062,11 @@ void xtab(){
  *	DUMP - memory dump program
  */
 void xdump() {
-	address_t a;
-	
+	address_t a,x;
+	char eflag = 0;
+
 	nexttoken();
+	if (token == '!') { eflag=1; nexttoken(); }
 	parsearguments();
 	if (er != 0) return;
 
@@ -5087,47 +5089,40 @@ void xdump() {
 	}
 
 	form=6;
-	dumpmem(a/8+1, x);
+	if (a>x) dumpmem((a-x)/8+1, x, eflag);
 	form=0;
-	nexttoken();
 }
 
 /*
  * helper of DUMP, wrote the memory out
  */
-void dumpmem(address_t r, address_t b) {
+void dumpmem(address_t r, address_t b, char eflag) {
 	address_t j, i;	
 	address_t k;
+	mem_t c;
+	address_t end;
 
 	k=b;
 	i=r;
+	if (eflag) end=elength(); else end=memsize;
 	while (i>0) {
 		outnumber(k); outspc();
 		for (j=0; j<8; j++) {
-			outnumber(memread(k++)); outspc();
-			if (k > memsize) break;
+			if (eflag) c=eread(k); else c=memread(k);
+			k++;
+			outnumber(c); outspc();
+			if (k > end) break;
 		}
 		outcr();
 		i--;
-		if (k > memsize) break;
+		if (k > end) break;
 	}
-#if defined(ARDUINOEEPROM) || defined(ARDUINOI2CEEPROM) || ( !defined(ARDUINO) && EEPROMSIZE>0)
-	printmessage(EEEPROM); outcr();
-	i=r;
-	k=0;
-	while (i>0) {
-		outnumber(k); outspc();
-		for (j=0; j<8; j++) {
-			outnumber(eread(k++)); outspc();
-			if (k > elength()) break;
-		}
-		outcr();
-		i--;
-		if (k > elength()) break;	
+	if (eflag) {
+		outsc("elength: "); outnumber(elength()); outcr();
+	} else {
+		outsc("top: "); outnumber(top); outcr();
+		outsc("himem: "); outnumber(himem); outcr();
 	}
-#endif
-	outsc("top: "); outnumber(top); outcr();
-	outsc("himem: "); outnumber(himem); outcr();
 }
 
 /*
