@@ -1414,10 +1414,11 @@ void reseterror() {
 }
 
 void debugtoken(){
-	outsc("* "); /* outnumber(here); outsc(" * "); */
+	outsc("* "); 
+	if (debuglevel>2) { outnumber(here); outsc(" * "); }
 
 	if (token == EOL) {
-		outsc("EOL\n");
+		outsc("EOL");
 		return;	
 	}
 	switch(token) {
@@ -2251,7 +2252,7 @@ void nexttoken() {
 /* RUN mode vs. INT mode, in RUN mode we read from mem via gettoken() */
 	if (st == SRUN || st == SERUN) {
 		gettoken();
-		if (debuglevel>1) debugtoken();
+		if (debuglevel>1) { debugtoken(); outcr(); }
 		return;
 	}
 
@@ -6687,8 +6688,8 @@ void statement(){
 	if (DEBUG) bdebug("statement \n"); 
 	while (token != EOL) {
 #ifdef HASSTEFANSEXT
-		if (debuglevel == 1) debugtoken();
-		if (debuglevel) outcr();
+/* debug level 1 happens only in the statement loop */
+		if (debuglevel == 1) { debugtoken(); outcr(); }
 #endif
 		switch(token){
 			case LINENUMBER:
