@@ -996,16 +996,27 @@ void restartsystem() {
 }
 
 /*
- * Used these two articles 
+ * I used these two articles 
  * https://randomnerdtutorials.com/esp8266-deep-sleep-with-arduino-ide/
  * https://randomnerdtutorials.com/esp32-deep-sleep-arduino-ide-wake-up-sources/
  * for this very simple implementation - needs to be improved (pass data from sleep
  * state to sleep state via EEPROM)
  */
 #if defined(ARDUINO_ARCH_SAMD)
+#define HASBUILTINRTC
 #include "RTCZero.h"
 #include "ArduinoLowPower.h"
+RTCZero rtc;
 #endif
+
+/* STM32duino have the same structure */
+#if defined(ARDUINO_ARCH_STM32)
+#define HASBUILTINRTC
+#include "STM32RTC.h"
+#include "STM32LowPower.h"
+STM32RTC& rtc = STM32RTC::getInstance();
+#endif
+
 
 /* this is unfinished, don't use */ 
 void rtcsqw();
@@ -2677,11 +2688,11 @@ mem_t vt52avail() { return 0; }
  * Registers 0-6 are bcd transformed to return 
  * seconds, minutes, hours, day of week, day, month, year
  * 
- * Registers 7-255 are returned as 
+ * Registers 7-255 are returned as memory cells
  */
 
 #ifdef ARDUINORTC
-char rtcstring[20] = { 0 }; 
+void rtcbegin() {}
 short rtcget(short i) {
   
     /* set the address of the read */
@@ -2740,6 +2751,62 @@ void rtcset(uint8_t i, short v) {
    Wire.write(b);
    Wire.endTransmission(); 
 }
+#else 
+void rtcbegin() {
+  rtc.begin(); /* 24 hours mode */
+}
+short rtcget(short i) { 
+    switch (i) {
+    case 0: 
+      return rtc.getSeconds();
+    case 1:
+      return rtc.getMinutes();      
+    case 2:
+      return rtc.getHours();
+    case 3:
+      return rtc.getWeekDay();
+    case 4:
+      return rtc.getDay();
+    case 5:
+      return rtc.getMonth();
+    case 6:
+      return rtc.getYear();
+    default:
+      return 0;
+   }
+}
+void rtcset(uint8_t i, short v) { 
+  switch (i) {
+    case 0: 
+      rtc.setSeconds(v);
+      break;
+    case 1: 
+      rtc.setMinutes(v);
+      break;    
+    case 2:
+      rtc.setHours(v);
+      break;
+    case 3:
+      rtc.setWeekDay(v);
+      break;
+    case 4:
+      rtc.setDay(v);
+      break;
+    case 5:
+      rtc.setMonth(v);
+      break;
+    case 6:
+      rtc.setYear(v);
+      break;
+    default:
+      return; 
+   }
+}
+#endif
+
+/* the BASIC string mechanism */
+#if defined(ARDUINORTC) || defined(HASBUILTINRTC)
+char rtcstring[20] = { 0 }; 
 
 char* rtcmkstr() {
   int cc = 2;

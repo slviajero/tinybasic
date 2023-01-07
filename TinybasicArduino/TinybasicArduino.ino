@@ -887,7 +887,7 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
         else if (m == 's') dspset(i-1, *v);
         return;
 #endif
-#if !defined(ARDUINO) || defined(ARDUINORTC)
+#if !defined(ARDUINO) || ( defined(ARDUINORTC) || defined(HASBUILTINRTC) )
 			case 'T':
 				if (m == 'g') *v=rtcget(i); 
 				else if (m == 's') rtcset(i, *v);
@@ -1027,7 +1027,7 @@ char* getstring(char c, char d, address_t b, address_t j) {
 /* special strings */
     
 /* the time string */
-#if !defined(ARDUINO) || defined(ARDUINORTC)
+#if !defined(ARDUINO) || ( defined(ARDUINORTC) || defined(HASBUILTINRTC) )
 	if ( c == '@' && d == 'T') {
 		rtcmkstr();
 		return rtcstring+1+b;
@@ -1176,7 +1176,7 @@ address_t lenstring(char c, char d, address_t j){
 	if (c == '@' && d == 0) return ibuffer[0];
 
 /* the time */
-#if !defined(ARDUINO) || defined(ARDUINORTC) 
+#if !defined(ARDUINO) || ( defined(ARDUINORTC) || defined(HASBUILTINRTC) )
 	if (c == '@' && d == 'T') {
 		rtcmkstr();
 		return rtcstring[1];
@@ -1613,6 +1613,9 @@ void ioinit() {
 #endif
 #ifdef ARDUINOSENSORS
 	sensorbegin();
+#endif
+#if defined(ARDUINORTC) || defined(HASBUILTINRTC)
+  rtcbegin();
 #endif
 
 /* the eeprom dummy */
