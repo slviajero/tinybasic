@@ -14,8 +14,10 @@ Arithmetic is 16 bit, 32bit or float depending on the compiler settings and the 
 
 Just like the home computer BASICs of the old times, IoTBasic is a small standalone operating system. It supports a number of peripherals and can be extended to new peripherals fast as there are generic device driver stubbs in the code.
 
+Supported platforms right now are all 8bit Arduino AVR systems, LGT8 systems, the various Arduino 32bit systems like the MKR and of cource the RP2040, plain Rasberry PI Pico, ESP8266 and ESP32, Infineon XMC, Seeeduino Xiao and STM32. A full list of supported platforms can be found here https://github.com/slviajero/tinybasic/wiki/Hardware-Platforms.
+
 Filesystems like Arduino SD, SPIFFS and LittleFS are supported on microcontrollers. EEPROMS can be used
-as BASIC filesystem using the EepromFS library. This includes I2C external EEPROMS.
+as BASIC filesystem. This includes I2C external EEPROMS.
 
 Memory extension with SPI SRAM modules is possible.
 
@@ -91,9 +93,15 @@ The code is written to work standalone for many systems. As long as no complex d
 
 Build-in features are EEPROM access, Real Time Clock access and handling of SPI memory.
 
-One exceptions are the Arduino SAMD broards like the MKR1000, Zero or Vidor boards. You need to install the RTCZero library for this. The library is used to support the SLEEP function.
+One exceptions are the Arduino SAMD broards like the MKR1000, Zero or Vidor boards. You need to install the RTCZero library and the RTCLowPower for this. 
 
-Displays, filesystem, networking, and sensors need libraries. Please consult the wiki for this.
+On STM32, the STM32ZRTC and the STM32LowPower library is needed. 
+
+EEPROM emulations on XMC needs the XMCEEPROM library. 
+
+Displays, filesystem, networking, and sensors need libraries. 
+
+lease consult the wiki https://github.com/slviajero/tinybasic/wiki/Hardware-Platforms for this.
 
 
 ## What's next
