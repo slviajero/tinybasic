@@ -553,6 +553,10 @@ DUMP 0, 100
 
 writes the first 100 bytes of the program memory. 
 
+DUMP !0, 100
+
+writes the first 100 bytes of the EEPROM. 
+
 ### Error Message capability
 
 Error messages are stored in Arduino program memory. For systems with low program memory undefining the #HASERRORMSG flag removes explicit error messages. 
@@ -1565,7 +1569,7 @@ Some more can be found here: https://pi4j.com/1.2/pins/model-b-plus.html
 
 SET changes internal variables of the interpreter. Set has two arguments, the variable or class to be changed and a value. There is no systematic in the numbering of the variables and classes.
 
-SET 0,1 switches on the debug mode. The token stream in the statement loop is displayed. SET 0,0 resets the interpreter to normal mode.
+SET 0,n switches on the debug mode. The token stream in the statement loop is displayed. SET 0,0 resets the interpreter to normal mode. SET 0,1 shows the token stream of the statement loop. SET 0,2 shows the entire token stream, including arithmetic operations, SET 0,3 displays the memory addresses with this data. The latter two settings produce a lot of output and are meant for interpreter testing.
 
 SET 1,1 activates the autorun mode of the EEPROM. SET 1,0 resets the autorun mode. SET 1,255 marks the EEPROM as not to contain a program. SET 1,1 should only be used if a program was stored with SAVE "!" to the EEPROM. There is no safety net here. A running program in EEPROM autorun mode can always interrupted by sending the break character. This is '#' by default and defined in the BREAKCHAR macro. Alternatively the BREAKPIN macro can be defined in hardware-arduino.h. This this case the pin it is set to will interrupt the program if set to low.
 
@@ -1601,7 +1605,7 @@ A=USR(function, parameter)
 
 USR(0,x) returns an interpreter parameter or capability. The program can find out which platform it is running on. Please look at examples/00tutorial/hinv.bas for a list of the parameters and return values.
 
-Function numbers 1 to 31 are assigned to the I/O streams. Currently only USR(f, 0) is implemented for the I/O streams. They output the status of the stream. 
+Function numbers 1 to 31 are assigned to the I/O streams. Currently only USR(f, 0) is implemented for all I/O streams. They output the status of the stream. 
 
 Function numbers 32 and above can be used to implement individual commands. See below for more information.
 
