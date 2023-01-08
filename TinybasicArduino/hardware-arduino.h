@@ -3264,7 +3264,7 @@ void eupdate(address_t a, short c) {
 
 short eread(address_t a) { 
 #ifdef ARDUINO_ARCH_STM32
-  return (signed char) eeprom_buffered_read(a); 
+  return (signed char) eeprom_buffered_read_byte(a); 
 #else
   return (signed char) EEPROM.read(a); 
 #endif
