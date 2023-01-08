@@ -626,6 +626,14 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 /* 
+ *  incompatibilities and library stuff
+ */
+/* these platforms have no EEPROM and no emulation built-in */
+#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040) 
+#undef ARDUINOEEPROM
+#endif
+
+/* 
  * Keyboard library, on AVR systems Paul Stoffregens original 
  * PS2 library works.
  * I recommend to use my patched version from 
