@@ -196,7 +196,7 @@
 
 /* the primary serial stream aka serial aka sream 1 */
 #ifndef ALTSERIAL
-#define SERIAL Serial
+#define SERIALPORT Serial
 #endif
 
 /* the secondary serial port aka prt aka stream 4 */
@@ -3912,7 +3912,7 @@ void rootfileclose() {
 }
 
 void rootclose(){
-#ifdef ARDUINOSD || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(STM32SDIO)
   root.close();
 #endif
 #ifdef ESPSPIFFS
@@ -4104,8 +4104,8 @@ char serialread() {
 	picochar=0;
 	return c;	
 #else
-	while (!SERIAL.available()) byield();
-	return SERIAL.read();
+	while (!SERIALPORT.available()) byield();
+	return SERIALPORT.read();
 #endif
 }
 
@@ -4117,7 +4117,7 @@ void serialbegin() {
 #ifdef USESPICOSERIAL
 	picobegin(serial_baudrate); 
 #else
-	SERIAL.begin(serial_baudrate);
+	SERIALPORT.begin(serial_baudrate);
 #endif
 	delay(1000);
 }
@@ -4139,7 +4139,7 @@ void serialwrite(char c) {
 	picowrite(c);
 #else
 /* write never blocks. discard any bytes we can't get rid of */
-  SERIAL.write(c);  
+  SERIALPORT.write(c);  
 /* if (Serial.availableForWrite()>0) Serial.write(c);	*/
 #endif
 }
@@ -4149,7 +4149,7 @@ short serialcheckch() {
 #ifdef USESPICOSERIAL
 	return picochar;
 #else
-	if (SERIAL.available()) return SERIAL.peek(); else return 0;
+	if (SERIALPORT.available()) return SERIALPORT.peek(); else return 0;
 #endif	
 }
 
@@ -4158,7 +4158,7 @@ short serialavailable() {
 #ifdef USESPICOSERIAL
 	return picoi;
 #else
-	return SERIAL.available();
+	return SERIALPORT.available();
 #endif	
 }
 

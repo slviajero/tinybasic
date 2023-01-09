@@ -2601,7 +2601,10 @@ void gettoken() {
 		return;
 	}
 
-	token=memread(here++);
+/* if we have no data type we are done reading just one byte */
+	token=memread(here++); 
+
+ /* otherwise we check for the argument */
 	switch (token) {
 		case LINENUMBER:
 #ifdef USEMEMINTERFACE
