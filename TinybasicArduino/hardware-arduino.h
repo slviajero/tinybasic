@@ -4316,6 +4316,8 @@ short wireavailable() {
   if (wire_myid == 0) return 1;
 #ifdef ARDUINOWIRESLAVE
   else return wirereceivechars; 
+#else
+  else return 0;
 #endif
 }
 
