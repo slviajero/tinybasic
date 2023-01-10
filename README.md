@@ -27,6 +27,31 @@ PS2 keyboard support and keypads are added for standalone computer projects. A Z
 
 Microcontroller specific features are EEPROM access, EEPROM program storage and autorun, control of digital and analog I/O as well as the delay function, Wire library support, RF2401 support andsimple MQTT / Wifi support on ESP.
 
+## Files in this archive 
+
+basic.c is the program source. basic.h is the header file. 
+
+IoTBasic/IoTBasic.ino is a copy of basic.c. The Arduino and POSIX source code is the same. 
+
+In addition to this file and basic.h you need a hardware definition file.
+
+For the Arduino IDE place hardware-arduino.h in your Arduino sketch directory. These are the platform specific definitions and a thin OS like layer for hardware abstraction. All platforms from tiny AVR168 up to the powerful ESP32, RP2040 and STM32 are covered by this one file. Actually this is not only a header but really a complete library. I will rewrite this code in the future and make it a library.
+
+For POSIX OSes you need hardware-posix.h in your working directory. GCC compiles BASIC for Linux, Mac (primary dev platform), Windows (with MINGW), and MSDOS (Turbo C 2).
+
+utility/monitor.py is a little serial monitor to interact with the running BASIC interpreter on the Arduino. It allows very simple loading of files into the Arduino and saving of output to a file on a computer. utility/arduinoterm is a wrapper of monitor.py.
+
+utility/dosify converts the code to tcc 2.01 ready format to be compiled in DOSBOX.
+
+examples contains a lot of demo programs and games ported to BASIC.
+
+MANUAL.md is the BASIC manual.
+
+The folder TinybasicArduino is kept for compatibility purposes. This is my working code. Things may be broken here.
+
+TinyVT52 is a VT52 terminal emulation for Arduinos.
+
+
 ## Software and documentation
 
 Most of the builtin Arduino demos are ported to BASIC and published here https://github.com/slviajero/tinybasic/tree/main/examples. These programs are the BASIC versions of the C++ programs in https://docs.arduino.cc/built-in-examples/. Please look at this original Arduino website for wiring and project information.
@@ -63,29 +88,6 @@ There is a set of BASIC programs in the examples section https://github.com/slvi
 
 For more information on the language, please look in the manual at: https://github.com/slviajero/tinybasic/blob/main/MANUAL.md
 
-## Files in this archive 
-
-basic.c is the program source. basic.h is the header file. 
-
-IoTBasic/IoTBasic.ino is a copy of basic.c. The Arduino and POSIX source code is the same.
-
-In addition to this file and basic.h you need a hardware definition file.
-
-For the Arduino IDE place hardware-arduino.h in your Arduino sketch directory. These are the platform specific definitions and a thin OS like layer for hardware abstraction. All platforms from tiny AVR168 up to the powerful ESP32 and RP2040 are covered by this one file. Actually this is not only a header but really a complete library. I will rewrite this code in the future and make it a library.
-
-For POSIX OSes you need hardware-posix.h in your working directory. GCC compiles BASIC for Linux, Mac (primary dev platform), Windows (with MINGW), and MSDOS (Turbo C 2).
-
-utility/monitor.py is a little serial monitor to interact with the running BASIC interpreter on the Arduino. It allows very simple loading of files into the Arduino and saving of output to a file on a computer. utility/arduinoterm is a wrapper of monitor.py.
-
-utility/dosify converts the code to tcc 2.01 ready format to be compiled in DOSBOX.
-
-examples contains a lot of demo programs and games ported to BASIC.
-
-MANUAL.md is the BASIC manual.
-
-The folder TinybasicArduino is kept for compatibility purposes. This is my working code. Things may be broken here.
-
-TinyVT52 is a VT52 terminal emulation for Arduinos.
 
 ## Libraries needed
 
