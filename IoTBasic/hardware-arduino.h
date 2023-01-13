@@ -55,7 +55,8 @@
  *	ARDUINOPRT, DISPLAYCANSCROLL, ARDUINOLCDI2C,
  *	ARDUINOTFT, ARDUINONOKIA51, ARDUINOILI9488,
  *  ARDUINOSSD1306, ARDUINOMCUFRIEND
- * storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS
+ * storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS
+ * storage ARDUINOEFS, SM32SDIO
  * sensors ARDUINORTC, ARDUINOWIRE, ARDUINOSENSORS
  * network ARDUINORF24, ARDUNIOMQTT 
  * memory ARDUINOSPIRAM
@@ -84,6 +85,7 @@
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
+#undef STM32SDIO
 #undef ARDUINORTC
 #undef ARDUINOWIRE
 #undef ARDUINOWIRESLAVE
@@ -192,6 +194,11 @@
 /* #define BREAKPIN 4 */
 #undef BREAKPIN
 
+/* the primary serial stream aka serial aka sream 1 */
+#ifndef ALTSERIAL
+#define SERIALPORT Serial
+#endif
+
 /* the secondary serial port aka prt aka stream 4 */
 #ifndef PRTSERIAL
 #define PRTSERIAL Serial1
@@ -254,8 +261,8 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #undef ARDUINODHT
 #define DHTTYPE DHT22
 #define DHTPIN 2
-#undef ARDUINOSHT
-#undef  ARDUINOMQ2
+#define  ARDUINOSHT
+#define  ARDUINOMQ2
 #define MQ2PIN A0
 #undef ARDUINOLMS6
 #undef ARDUINOAHT
@@ -619,6 +626,14 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 /* 
+ *  incompatibilities and library stuff
+ */
+/* these platforms have no EEPROM and no emulation built-in */
+#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040) 
+#undef ARDUINOEEPROM
+#endif
+
+/* 
  * Keyboard library, on AVR systems Paul Stoffregens original 
  * PS2 library works.
  * I recommend to use my patched version from 
@@ -824,6 +839,16 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 /*
+ * STM32 SDIO driver for he SD card slot of the STM32F4 boards (and others)
+ */
+#ifdef STM32SDIO 
+#define FILESYSTEMDRIVER
+#include <STM32SD.h> 
+#ifndef SD_DETECT_PIN
+#define SD_DETECT_PIN SD_DETECT_NONE
+#endif
+#endif
+/*
  * external flash file systems override internal filesystems
  * currently BASIC can only have one filesystem
  */ 
@@ -843,6 +868,7 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ARDUINOSD
+#undef STM32SDIO
 #define FILESYSTEMDRIVER
 #endif
 
@@ -896,7 +922,7 @@ void wiringbegin() {}
  * Arduino information from
  * data from https://docs.arduino.cc/learn/programming/memory-guide
  */
-#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_XMC)
+#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_STM32)
 extern "C" char* sbrk(int incr);
 long freeRam() {
   char top;
@@ -924,7 +950,7 @@ long freeRam() {
  * RP2040 cannot measure, we set to 16 bit full address space
  */
 long freememorysize() {
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD)
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_STM32)
   return freeRam() - 4000;
 #endif
 #if defined(ARDUINO_ARCH_XMC)
@@ -938,7 +964,7 @@ long freememorysize() {
 #ifdef ARDUINORF24
   overhead+=128;
 #endif
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD)
   overhead+=512;
 #endif
 #ifdef ARDUINOZX81KBD
@@ -978,16 +1004,27 @@ void restartsystem() {
 }
 
 /*
- * Used these two articles 
+ * I used these two articles 
  * https://randomnerdtutorials.com/esp8266-deep-sleep-with-arduino-ide/
  * https://randomnerdtutorials.com/esp32-deep-sleep-arduino-ide-wake-up-sources/
  * for this very simple implementation - needs to be improved (pass data from sleep
  * state to sleep state via EEPROM)
  */
 #if defined(ARDUINO_ARCH_SAMD)
+#define HASBUILTINRTC
 #include "RTCZero.h"
 #include "ArduinoLowPower.h"
+RTCZero rtc;
 #endif
+
+/* STM32duino have the same structure */
+#if defined(ARDUINO_ARCH_STM32)
+#define HASBUILTINRTC
+#include "STM32RTC.h"
+#include "STM32LowPower.h"
+STM32RTC& rtc = STM32RTC::getInstance();
+#endif
+
 
 /* this is unfinished, don't use */ 
 void rtcsqw();
@@ -2659,11 +2696,11 @@ mem_t vt52avail() { return 0; }
  * Registers 0-6 are bcd transformed to return 
  * seconds, minutes, hours, day of week, day, month, year
  * 
- * Registers 7-255 are returned as 
+ * Registers 7-255 are returned as memory cells
  */
 
 #ifdef ARDUINORTC
-char rtcstring[20] = { 0 }; 
+void rtcbegin() {}
 short rtcget(short i) {
   
     /* set the address of the read */
@@ -2722,6 +2759,64 @@ void rtcset(uint8_t i, short v) {
    Wire.write(b);
    Wire.endTransmission(); 
 }
+#else 
+#if defined(HASBUILTINRTC) 
+void rtcbegin() {
+  rtc.begin(); /* 24 hours mode */
+}
+short rtcget(short i) { 
+    switch (i) {
+    case 0: 
+      return rtc.getSeconds();
+    case 1:
+      return rtc.getMinutes();      
+    case 2:
+      return rtc.getHours();
+    case 3:
+      return rtc.getWeekDay();
+    case 4:
+      return rtc.getDay();
+    case 5:
+      return rtc.getMonth();
+    case 6:
+      return rtc.getYear();
+    default:
+      return 0;
+   }
+}
+void rtcset(uint8_t i, short v) { 
+  switch (i) {
+    case 0: 
+      rtc.setSeconds(v);
+      break;
+    case 1: 
+      rtc.setMinutes(v);
+      break;    
+    case 2:
+      rtc.setHours(v);
+      break;
+    case 3:
+      rtc.setWeekDay(v);
+      break;
+    case 4:
+      rtc.setDay(v);
+      break;
+    case 5:
+      rtc.setMonth(v);
+      break;
+    case 6:
+      rtc.setYear(v);
+      break;
+    default:
+      return; 
+   }
+}
+#endif
+#endif
+
+/* the BASIC string mechanism */
+#if defined(ARDUINORTC) || defined(HASBUILTINRTC)
+char rtcstring[20] = { 0 }; 
 
 char* rtcmkstr() {
   int cc = 2;
@@ -3089,6 +3184,9 @@ void ebegin(){
 #if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) ) && defined(ARDUINOEEPROM)
   EEPROM.begin(EEPROMSIZE);
 #endif
+#if (defined(ARDUINO_ARCH_STM32)) && defined(ARDUINOEEPROM)
+  eeprom_buffer_fill();
+#endif
 #if (defined(ARDUINO_ARCH_XMC)) && defined(ARDUINOEEPROM)
   EEPROM.begin();
 #endif
@@ -3129,6 +3227,9 @@ void eflush(){
 #if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_XMC) ) && defined(ARDUINOEEPROM) 
   EEPROM.commit();
 #endif 
+#if (defined(ARDUINO_ARCH_STM32)) && defined(ARDUINOEEPROM) 
+  eeprom_buffer_flush();
+#endif
 /* flushing the I2C EEPROM */
 #if defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)
   EFSRAW.rawflush();
@@ -3140,7 +3241,7 @@ address_t elength() {
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
   return EEPROMSIZE;
 #endif
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_XMC)
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_STM32)
   return EEPROM.length(); 
 #endif
 #ifdef ARDUINO_ARCH_LGT8F 
@@ -3153,16 +3254,23 @@ void eupdate(address_t a, short c) {
 #if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F) || defined(ARDUINO_ARCH_XMC)
   EEPROM.write(a, c);
 #else
+#if defined(ARDUINO_ARCH_STM32)
+  eeprom_buffered_write_byte(a, c);
+#else
   EEPROM.update(a, c); 
+#endif
 #endif
 }
 
 short eread(address_t a) { 
+#ifdef ARDUINO_ARCH_STM32
+  return (signed char) eeprom_buffered_read_byte(a); 
+#else
   return (signed char) EEPROM.read(a); 
+#endif
 }
 #else 
 #if defined(ARDUINOI2CEEPROM)
-
 address_t elength() { 
   return i2ceepromsize;
 }
@@ -3359,7 +3467,7 @@ void byield() {
   	lastlongyield=millis();
   }
  #endif
- /* delay 0 blocks XMC unlike other boards where it is either yield() or no operation, it is needed on ESP8266 */
+ /* delay 0 blocks XMC unlike other boards where it is either yield() or no operation. delay(0) is needed on ESP8266! */
  #if !defined(ARDUINO_ARCH_XMC)
   delay(0);
  #endif
@@ -3393,11 +3501,11 @@ void longyieldfunction() {
  * 	Different filesystems need different prefixes and fs objects, these 
  * 	filesystems use the stream API
  */
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
 File ifile;
 File ofile;
 char tempname[SBUFSIZE];
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD) || defined(STM32SDIO)
 File root;
 File file;
 #ifdef ARDUINO_ARCH_ESP32
@@ -3420,7 +3528,7 @@ File file;
 #ifdef ARDUINO_ARCH_ESP8266
 #define FILE_OWRITE (sdfat::O_READ | sdfat::O_WRITE | sdfat::O_CREAT | sdfat::O_TRUNC)
 #else 
-#ifdef ARDUINO_ARCH_ESP32
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_STM32)
 #define FILE_OWRITE FILE_WRITE
 #else 
 #define FILE_OWRITE (O_READ | O_WRITE | O_CREAT | O_TRUNC)
@@ -3446,7 +3554,7 @@ byte ofile;
 byte file;
 #endif
 
-/* these filesystems have a path prefix */
+/* these filesystems may have a path prefixes, we treat STM32SDIO like an SD here */
 #if defined(RP2040LITTLEFS) || defined(ESPSPIFFS) || defined(ARDUINOSD) 
 char tmpfilename[10+SBUFSIZE];
 
@@ -3476,12 +3584,23 @@ const char* rmrootfsprefix(const char* filename) {
  * if SDPIN is empty it is the standard SS pin of the platfrom
  * 
  */
+
+static int fsbegins = -1;
+ 
 void fsbegin(char v) {
 #ifdef ARDUINOSD 
 #ifndef SDPIN
 #define SDPIN
 #endif
   if (SD.begin(SDPIN) && v) outsc("SDcard ok \n"); else outsc("SDcard not ok \n");	
+#endif
+#ifdef STM32SDIO
+  int i = 1;
+  while (i<100) {
+    if (SD.begin(SD_DETECT_PIN)) {fsbegins=i; break; } else fsbegins=0; 
+    delay(20); 
+    i++;
+  } 
 #endif
 #if defined(ESPSPIFFS) && defined(ARDUINO_ARCH_ESP8266) 
  	if (SPIFFS.begin() && v) {
@@ -3526,7 +3645,7 @@ int fsstat(char c) {
  * only one file can be open for write and read at the same time
  */
 void filewrite(char c) {
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
 	if (ofile) ofile.write(c); else ert=1;
 #endif
 #if defined(RP2040LITTLEFS)
@@ -3541,7 +3660,7 @@ void filewrite(char c) {
 
 char fileread(){
 	char c;
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
 	if (ifile) c=ifile.read(); else { ert=1; return 0; }
 	if (c == -1 || c == 255) ert=-1;
 	return c;
@@ -3560,7 +3679,7 @@ char fileread(){
 }
 
 int fileavailable(){
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
 	return ifile.available();
 #endif
 #ifdef RP2040LITTLEFS
@@ -3573,9 +3692,13 @@ int fileavailable(){
 }
 
 char ifileopen(const char* filename){
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD)
 	ifile=SD.open(mkfilename(filename), FILE_READ);
 	return (int) ifile;
+#endif
+#if defined(STM32SDIO)
+  ifile=SD.open(filename);
+  return (int) ifile;
 #endif
 #ifdef ESPSPIFFS
 	ifile=SPIFFS.open(mkfilename(filename), "r");
@@ -3593,7 +3716,7 @@ char ifileopen(const char* filename){
 }
 
 void ifileclose(){
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
 	ifile.close();
 #endif	
 #ifdef RP2040LITTLEFS
@@ -3607,7 +3730,7 @@ void ifileclose(){
 }
 
 char ofileopen(char* filename, const char* m){
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD) 
 	if (*m == 'w') ofile=SD.open(mkfilename(filename), FILE_OWRITE);
 /* ESP32 has FILE_APPEND defined */
 #ifdef FILE_APPEND
@@ -3616,6 +3739,16 @@ char ofileopen(char* filename, const char* m){
 	if (*m == 'a') ofile=SD.open(mkfilename(filename), FILE_WRITE);
 #endif
 	return (int) ofile;
+#endif
+#if  defined(STM32SDIO)
+  if (*m == 'w') ofile=SD.open(filename, FILE_OWRITE);
+/* ESP32 has FILE_APPEND defined */
+#ifdef FILE_APPEND
+  if (*m == 'a') ofile=SD.open(filename, FILE_APPEND);
+#else
+  if (*m == 'a') ofile=SD.open(filename, FILE_WRITE);
+#endif
+  return (int) ofile;
 #endif
 #ifdef ESPSPIFFS
 	ofile=SPIFFS.open(mkfilename(filename), m);
@@ -3633,7 +3766,7 @@ char ofileopen(char* filename, const char* m){
 }
 
 void ofileclose(){
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
     ofile.close();
 #endif
 #ifdef RP2040LITTLEFS
@@ -3656,7 +3789,7 @@ void ofileclose(){
  * rootclose()
  */
 void rootopen() {
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD) || defined(STM32SDIO)
 	root=SD.open("/");
 #endif
 #ifdef ESPSPIFFS
@@ -3676,7 +3809,7 @@ void rootopen() {
 }
 
 int rootnextfile() {
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD) || defined(STM32SDIO)
 	file=root.openNextFile();
 	return (file != 0);
 #endif
@@ -3706,7 +3839,7 @@ int rootnextfile() {
 }
 
 int rootisfile() {
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD) || defined(STM32SDIO)
 	return (! file.isDirectory());
 #endif
 #ifdef ESPSPIFFS
@@ -3727,9 +3860,12 @@ int rootisfile() {
 }
 
 const char* rootfilename() {
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD)
 	//return (char*) file.name();
  return rmrootfsprefix(file.name());
+#endif
+#if defined(STM32SDIO)
+  return (char*) file.name();
 #endif
 #ifdef ESPSPIFFS
 #ifdef ARDUINO_ARCH_ESP8266
@@ -3754,7 +3890,7 @@ const char* rootfilename() {
 }
 
 int rootfilesize() {
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
   return file.size();
 #endif  
 #ifdef RP2040LITTLEFS
@@ -3766,7 +3902,7 @@ int rootfilesize() {
 }
 
 void rootfileclose() {
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
   file.close();
 #endif 
 #ifdef RP2040LITTLEFS
@@ -3776,7 +3912,7 @@ void rootfileclose() {
 }
 
 void rootclose(){
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD) || defined(STM32SDIO)
   root.close();
 #endif
 #ifdef ESPSPIFFS
@@ -3797,9 +3933,13 @@ void rootclose(){
  * remove method for files
  */
 void removefile(char *filename) {
-#ifdef ARDUINOSD	
+#if defined(ARDUINOSD)	
 	SD.remove(mkfilename(filename));
 	return;
+#endif
+#if defined(STM32SDIO)  
+  SD.remove(filename);
+  return;
 #endif
 #ifdef ESPSPIFFS
 	SPIFFS.remove(mkfilename(filename));
@@ -3819,7 +3959,7 @@ void removefile(char *filename) {
  * formatting for fdisk of the internal filesystems
  */
 void formatdisk(short i) {
-#ifdef ARDUINOSD	
+#if defined(ARDUINOSD) || defined(STM32SDIO)	
 	return;
 #endif
 #ifdef ESPSPIFFS
@@ -3964,8 +4104,8 @@ char serialread() {
 	picochar=0;
 	return c;	
 #else
-	while (!Serial.available()) byield();
-	return Serial.read();
+	while (!SERIALPORT.available()) byield();
+	return SERIALPORT.read();
 #endif
 }
 
@@ -3977,7 +4117,7 @@ void serialbegin() {
 #ifdef USESPICOSERIAL
 	picobegin(serial_baudrate); 
 #else
-	Serial.begin(serial_baudrate);
+	SERIALPORT.begin(serial_baudrate);
 #endif
 	delay(1000);
 }
@@ -3999,7 +4139,7 @@ void serialwrite(char c) {
 	picowrite(c);
 #else
 /* write never blocks. discard any bytes we can't get rid of */
-  Serial.write(c);  
+  SERIALPORT.write(c);  
 /* if (Serial.availableForWrite()>0) Serial.write(c);	*/
 #endif
 }
@@ -4009,7 +4149,7 @@ short serialcheckch() {
 #ifdef USESPICOSERIAL
 	return picochar;
 #else
-	if (Serial.available()) return Serial.peek(); else return 0;
+	if (SERIALPORT.available()) return SERIALPORT.peek(); else return 0;
 #endif	
 }
 
@@ -4018,7 +4158,7 @@ short serialavailable() {
 #ifdef USESPICOSERIAL
 	return picoi;
 #else
-	return Serial.available();
+	return SERIALPORT.available();
 #endif	
 }
 
@@ -4176,6 +4316,8 @@ short wireavailable() {
   if (wire_myid == 0) return 1;
 #ifdef ARDUINOWIRESLAVE
   else return wirereceivechars; 
+#else
+  else return 0;
 #endif
 }
 

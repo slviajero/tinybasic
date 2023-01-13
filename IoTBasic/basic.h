@@ -1060,10 +1060,10 @@ char autorun();
 /* the variable heap from Apple 1 BASIC */
 address_t bmalloc(mem_t, mem_t, mem_t, address_t);
 address_t bfind(mem_t, mem_t, mem_t);
+address_t bfree(mem_t, mem_t, mem_t);
 address_t blength (mem_t, mem_t, mem_t);
 
 /* normal variables of number_t */
-void createvar(mem_t, mem_t);
 number_t getvar(mem_t, mem_t);
 void setvar(mem_t, mem_t, number_t);
 void clrvars();
@@ -1074,6 +1074,7 @@ void getnumber(address_t, mem_t);
 void setnumber(address_t, mem_t);
 void egetnumber(address_t, mem_t);
 void esetnumber(address_t, mem_t);
+void pgetnumber(address_t, mem_t);
 
 /* array and string handling */
 /* the multidim extension is experimental, here only 2 array dimensions implemented as test */
@@ -1261,7 +1262,7 @@ void xdim();
 void xpoke();
 void xtab();
 void xdump();
-void dumpmem(address_t, address_t);
+void dumpmem(address_t, address_t, char);
 
 /* file access and other i/o */
 void stringtobuffer();
