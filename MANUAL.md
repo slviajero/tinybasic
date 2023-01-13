@@ -937,7 +937,8 @@ All variables defined after A() are also deleted. Example:
 
 40 DIM A(20)
 
-In this examples B$ is also deleted. 
+In this examples B$ is also deleted. All variables defined after the object to be clear are deleed as well. The heap is simply reset to the previous state. This mechanism can be used to define local variables in subroutines. Simply clear the first variable defined in the subroutine before calling RETURN.
+
 
 ## IOT language set
 
@@ -1165,7 +1166,7 @@ The cursor of the display can be accessed special variables @X and @Y. Both vari
 
 ASCII character 7 is the bell character. It calls the dspbell() function which is empty by default. Any action can be implemented here.
 
-ASCII character 8 is true backspace with no delete. 
+ASCII character 8 is backspace and delete. This is needed for compatibility with certain terminals. 
 
 ASCII character 9 is tab to the next multiple of 8 tab stop.
 
@@ -1211,7 +1212,7 @@ In addition to the displays, VGA output is supported with the FabGL library on E
 
 ### VT52 terminal emulation
 
-If compiled with HASVT52, BASIC has a full VT52 terminal emulation, including many of the GEMDOS addons. Please look at the wikipedia page https://en.wikipedia.org/wiki/VT52 for a full list of the supported ESC sequences.
+If compiled with HASVT52, BASIC has a full VT52 terminal emulation, including many of the GEMDOS addons. Please look at the wikipedia page https://en.wikipedia.org/wiki/VT52 for a full list of the originally supported ESC sequences.
 
 All standard commands except the keypad and graphics sequences are supported. All GEMDOS extensions except reverse video are supported where it makes sense. On color displays, the color code is sent as a VGA color in the range from 0 to 15. 
 
@@ -1234,6 +1235,98 @@ switches on a blinking cursor, while
 PUT &2, 27, "f"
 
 switches it off again.
+
+The following ESC sequences are supported right now
+
+ESC A Cursor up - Move cursor one line upwards.
+
+ESC B Cursor down - Move cursor one line downwards.
+
+ESC C Cursor right - Move cursor one column to the right.
+
+ESC D Cursor left - Move cursor one column to the left.
+
+ESC H Cursor home - Move cursor to the upper left corner.
+
+ESC I Reverse line feed - Insert a line above the cursor, then move the cursor into it.
+
+ESC J Clear to end of screen - Clear screen from cursor onwards.
+
+ESC K Clear to end of line - Clear line from cursor onwards.
+
+ESC L Insert line - Insert a line.
+
+ESC M Delete line - Remove line.
+
+ESC Yrc Set cursor position - Move cursor to position c,r, encoded as single characters.
+
+ESC Z ident Identify what the terminal is, see notes below.
+
+ESC E Clear screen - Clear screen and place cursor at top left corner.
+
+ESC b# Foreground color - Set text colour to the selected value (only implemented on color displays).
+
+ESC c# Background color - Set background colour (only implemented on color displays).
+
+ESC d Clear to start of screen - Clear screen from the cursor up to the home position.
+
+ESC e Enable cursor - Makes the cursor visible on the screen (only implemented on LCDs).
+
+ESC f Disable cursor - Makes the cursor invisible (only implemented on LCDs).
+
+ESC j Save cursor - Saves the current position of the cursor in memory.
+
+ESC k Restore cursor - Return the cursor to the settings previously saved with j.
+
+ESC l Clear line - Erase the entire line and positions the cursor on the left.
+
+ESC o Clear to start of line - Clear current line from the start to the left side to the cursor.
+
+ESC p Reverse video - Switch on inverse video text (implemented but with no function).
+
+ESC q Normal video - Switch off inverse video text (implemented but with no function).
+
+ESC v Wrap on - Enable line wrap, removing the need for CR/LF at line endings.
+
+ESC w Wrap off - Disable line wrap.
+
+### VT52 graphics extension
+
+On displays with graphics capabilities, the graphics commands can also be sent to the display with ESC sequences. This is not part of the standard VT52 command set and also not part of the GEMDOS extension.
+
+The graphics code uses three general purpose registers x, y, and z. x and y are 14 bit registers while z is a 7 bit register. Setting a register is done with the sequences 
+
+ESC x low high
+
+ESC y low high
+
+ESC z char
+
+Like in cursor control the arguments are transfered as printable characters. 32 is subtracted from the ASCII value of low, high or char. 
+
+Graphics commands are initiated by 
+
+ESC g command
+
+where command is one character. The following graphics sequences are currently implemented
+
+ESC g s - set the graphics cursor to position x and y
+
+ESC g p - plot a point at the graphics cursor
+
+ESC g l - draw a line from the graphics cursor to position x and y 
+
+ESC g L - draw a line from the graphics cursor to position x and y and move the graphics cursor to x, y
+
+ESC g r - draw a rectangle between the graphics cursor position and x, y (like RECT)
+
+ESC g R - draw a filled rectangle
+
+ESC g c - draw a circle at graphics cursor position with radius x
+
+ESC g C draw filled circle
+
+Color is set with ESC c. 
 
 ### Secondary serial stream
 

@@ -553,6 +553,10 @@ DUMP 0, 100
 
 writes the first 100 bytes of the program memory. 
 
+DUMP !0, 100
+
+writes the first 100 bytes of the EEPROM. 
+
 ### Error Message capability
 
 Error messages are stored in Arduino program memory. For systems with low program memory undefining the #HASERRORMSG flag removes explicit error messages. 
@@ -933,7 +937,8 @@ All variables defined after A() are also deleted. Example:
 
 40 DIM A(20)
 
-In this examples B$ is also deleted. 
+In this examples B$ is also deleted. All variables defined after the object to be clear are deleed as well. The heap is simply reset to the previous state. This mechanism can be used to define local variables in subroutines. Simply clear the first variable defined in the subroutine before calling RETURN.
+
 
 ## IOT language set
 
@@ -1161,7 +1166,7 @@ The cursor of the display can be accessed special variables @X and @Y. Both vari
 
 ASCII character 7 is the bell character. It calls the dspbell() function which is empty by default. Any action can be implemented here.
 
-ASCII character 8 is true backspace with no delete. 
+ASCII character 8 is backspace and delete. This is needed for compatibility with certain terminals. 
 
 ASCII character 9 is tab to the next multiple of 8 tab stop.
 
@@ -1207,7 +1212,7 @@ In addition to the displays, VGA output is supported with the FabGL library on E
 
 ### VT52 terminal emulation
 
-If compiled with HASVT52, BASIC has a full VT52 terminal emulation, including many of the GEMDOS addons. Please look at the wikipedia page https://en.wikipedia.org/wiki/VT52 for a full list of the supported ESC sequences.
+If compiled with HASVT52, BASIC has a full VT52 terminal emulation, including many of the GEMDOS addons. Please look at the wikipedia page https://en.wikipedia.org/wiki/VT52 for a full list of the originally supported ESC sequences.
 
 All standard commands except the keypad and graphics sequences are supported. All GEMDOS extensions except reverse video are supported where it makes sense. On color displays, the color code is sent as a VGA color in the range from 0 to 15. 
 
@@ -1230,6 +1235,98 @@ switches on a blinking cursor, while
 PUT &2, 27, "f"
 
 switches it off again.
+
+The following ESC sequences are supported right now
+
+ESC A Cursor up - Move cursor one line upwards.
+
+ESC B Cursor down - Move cursor one line downwards.
+
+ESC C Cursor right - Move cursor one column to the right.
+
+ESC D Cursor left - Move cursor one column to the left.
+
+ESC H Cursor home - Move cursor to the upper left corner.
+
+ESC I Reverse line feed - Insert a line above the cursor, then move the cursor into it.
+
+ESC J Clear to end of screen - Clear screen from cursor onwards.
+
+ESC K Clear to end of line - Clear line from cursor onwards.
+
+ESC L Insert line - Insert a line.
+
+ESC M Delete line - Remove line.
+
+ESC Yrc Set cursor position - Move cursor to position c,r, encoded as single characters.
+
+ESC Z ident Identify what the terminal is, see notes below.
+
+ESC E Clear screen - Clear screen and place cursor at top left corner.
+
+ESC b# Foreground color - Set text colour to the selected value (only implemented on color displays).
+
+ESC c# Background color - Set background colour (only implemented on color displays).
+
+ESC d Clear to start of screen - Clear screen from the cursor up to the home position.
+
+ESC e Enable cursor - Makes the cursor visible on the screen (only implemented on LCDs).
+
+ESC f Disable cursor - Makes the cursor invisible (only implemented on LCDs).
+
+ESC j Save cursor - Saves the current position of the cursor in memory.
+
+ESC k Restore cursor - Return the cursor to the settings previously saved with j.
+
+ESC l Clear line - Erase the entire line and positions the cursor on the left.
+
+ESC o Clear to start of line - Clear current line from the start to the left side to the cursor.
+
+ESC p Reverse video - Switch on inverse video text (implemented but with no function).
+
+ESC q Normal video - Switch off inverse video text (implemented but with no function).
+
+ESC v Wrap on - Enable line wrap, removing the need for CR/LF at line endings.
+
+ESC w Wrap off - Disable line wrap.
+
+### VT52 graphics extension
+
+On displays with graphics capabilities, the graphics commands can also be sent to the display with ESC sequences. This is not part of the standard VT52 command set and also not part of the GEMDOS extension.
+
+The graphics code uses three general purpose registers x, y, and z. x and y are 14 bit registers while z is a 7 bit register. Setting a register is done with the sequences 
+
+ESC x low high
+
+ESC y low high
+
+ESC z char
+
+Like in cursor control the arguments are transfered as printable characters. 32 is subtracted from the ASCII value of low, high or char. 
+
+Graphics commands are initiated by 
+
+ESC g command
+
+where command is one character. The following graphics sequences are currently implemented
+
+ESC g s - set the graphics cursor to position x and y
+
+ESC g p - plot a point at the graphics cursor
+
+ESC g l - draw a line from the graphics cursor to position x and y 
+
+ESC g L - draw a line from the graphics cursor to position x and y and move the graphics cursor to x, y
+
+ESC g r - draw a rectangle between the graphics cursor position and x, y (like RECT)
+
+ESC g R - draw a filled rectangle
+
+ESC g c - draw a circle at graphics cursor position with radius x
+
+ESC g C draw filled circle
+
+Color is set with ESC c. 
 
 ### Secondary serial stream
 
@@ -1565,9 +1662,9 @@ Some more can be found here: https://pi4j.com/1.2/pins/model-b-plus.html
 
 SET changes internal variables of the interpreter. Set has two arguments, the variable or class to be changed and a value. There is no systematic in the numbering of the variables and classes.
 
-SET 0,1 switches on the debug mode. The token stream in the statement loop is displayed. SET 0,0 resets the interpreter to normal mode.
+SET 0,n switches on the debug mode. The token stream in the statement loop is displayed. SET 0,0 resets the interpreter to normal mode. SET 0,1 shows the token stream of the statement loop. SET 0,2 shows the entire token stream, including arithmetic operations, SET 0,3 displays the memory addresses with this data. The latter two settings produce a lot of output and are meant for interpreter testing.
 
-SET 1,1 activates the autorun mode of the EEPROM. SET 1,0 resets the autorun mode. SET 1,255 marks the EEPROM as not to contain a program. SET 1,1 should only be used if a program was stored with SAVE "!" to the EEPROM. There is no safety net here.
+SET 1,1 activates the autorun mode of the EEPROM. SET 1,0 resets the autorun mode. SET 1,255 marks the EEPROM as not to contain a program. SET 1,1 should only be used if a program was stored with SAVE "!" to the EEPROM. There is no safety net here. A running program in EEPROM autorun mode can always interrupted by sending the break character. This is '#' by default and defined in the BREAKCHAR macro. Alternatively the BREAKPIN macro can be defined in hardware-arduino.h. This this case the pin it is set to will interrupt the program if set to low.
 
 SET 2,1 sets the output to display mode, SET 2,0 to serial mode. This is a deprecated feature. Using @O is a better way to do this.
 
@@ -1601,18 +1698,44 @@ A=USR(function, parameter)
 
 USR(0,x) returns an interpreter parameter or capability. The program can find out which platform it is running on. Please look at examples/00tutorial/hinv.bas for a list of the parameters and return values.
 
-Function numbers 1 to 31 are assigned to the I/O streams. Currently only USR(f, 0) is implemented for the I/O streams. They output the status of the stream. 
+Function numbers 1 to 31 are assigned to the I/O streams. Currently only USR(f, 0) is implemented for all I/O streams. They output the status of the stream. 
 
-Function numbers 32 and above can be used to implement individual commands.
+Function numbers 32 and above can be used to implement individual commands. See below for more information.
 
 ### CALL 
 
 Currently only CALL 0 is implemented. Call 0 flushes all buffers. On POSIX systems it ends the interpreter and returns to the OS. On Arduino AVR and ESP the microcontroller kernel is restarted.
 
-CALL parameters 0 to 31 are reserved. Values from 32 on can be used for implementing own commands.
+CALL parameters 0 to 31 are reserved. Values from 32 on can be used for implementing own commands. See below for more information.
 
 ### SLEEP 
 
 SLEEP n enters sleep mode. This is only implemented on ESPs and SAMD right now. n is the time in milliseconds. For ESP8266 the wiring for sleep mode has to be right. ESP32 can awake from SLEEP without additional wiring. ESPs restart after wakeup. An autorun program is needed for this. Once the restart happens, the program starts from the beginning. Reentry has to be handled in the program. On Arduino SAMD the interpreter uses the low power library. The program resumes after the sleep command. Sleep is experimental right now. 
+
+### Stopping programs
+
+There are two mechanism implemented to stop programs. One listens to the default input stream, in general this is either default serial or the keyboard. The other monitors a pin.
+
+If BREAKCHAR is defined in the BASIC code, this character will stop the program if it is encountered in the input stream. It has to be found as a first character. Default BREAKCHAR is '#'.
+
+If BREAKPIN is defined, the interpreter will stop once this pin is pulled to low. By default, BREAKPIN is not defined, i.e. there is no BREAKPIN. This mechanism is for use cases where using BREAKCHAR is not practical. One can implement a separate stop button with it. 
+
+### Extnding basic 
+
+The BASIC interpreter has several mechanisms to extend the language set without having to work directly with the interpreter data structures. 
+
+USR(N, X) with N greater than 32 will call the function usrfunction(). It gets both arguments as values and can return one number as reault. 
+
+CALL N with N greater than 32 will call the function usrcall(). It gets N as an argument.
+
+@U is a special variable. Reading it will call getusrvar(), writing it will call setusrvar().
+
+@U() is a special array. Reading it will call getusrarray(), writing it will call setusrarray(). In both cases the index is the array is passed on as argument.
+
+@U$ is the user string. It is read only. Reading it will trigger the function makeusrarray(). It can pass an set of characters to BASIC.
+
+
+
+
 
 
