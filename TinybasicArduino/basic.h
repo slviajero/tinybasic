@@ -855,6 +855,9 @@ static address_t bfinda, bfindz;
 static short interruptvector;
 #endif
 
+/* the string for real time clocks */
+char rtcstring[20] = { 0 }; 
+
 /* 
  * Function prototypes, ordered by layers
  * HAL - hardware abstraction
