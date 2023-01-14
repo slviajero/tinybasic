@@ -154,41 +154,9 @@ char vt52read() { return 0; }
 /* 
  * Real Time clock code 
  */
-char rtcstring[20] = { 0 };
+#define HASCLOCK
 
-/* identical to arduino code -> isolate */
-char* rtcmkstr() {
-	int cc = 2;
-	short t;
-	char ch;
-	t=rtcget(2);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]=':';
-	t=rtcget(1);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]=':';
-	t=rtcget(0);
-	rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='-';
-	t=rtcget(3);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='/';
-	t=rtcget(4);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-	rtcstring[cc++]='/';
-	t=rtcget(5);
-	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-	rtcstring[cc++]=t%10+'0';
-/* needed for BASIC strings, reserve the first byte for two byte length handling in the upstream code */
-	rtcstring[1]=cc-1;
-	rtcstring[0]=0;
-	return rtcstring+1;
-}
+void rtcbegin() {}
 
 short rtcget(short i) {
 	struct timeb thetime;
@@ -203,15 +171,13 @@ short rtcget(short i) {
 		case 2:
 			return ltime->tm_hour;
 		case 3:
-			return ltime->tm_mday;
-		case 4:
-			return ltime->tm_mon+1;
-		case 5:
-			return ltime->tm_year-100;
-		case 6:
 			return ltime->tm_wday;
-		case 7:
-			return 0;
+		case 4:
+			return ltime->tm_mday;
+		case 5:
+			return ltime->tm_mon+1;
+		case 6:
+			return ltime->tm_year-100;
 		default:
 			return 0;
 	}

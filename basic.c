@@ -914,7 +914,7 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
         else if (m == 's') dspset(i-1, *v);
         return;
 #endif
-#if !defined(ARDUINO) || ( defined(ARDUINORTC) || defined(HASBUILTINRTC) )
+#if defined(HASCLOCK) 
 			case 'T':
 				if (m == 'g') *v=rtcget(i); 
 				else if (m == 's') rtcset(i, *v);
@@ -1054,7 +1054,7 @@ char* getstring(char c, char d, address_t b, address_t j) {
 /* special strings */
     
 /* the time string */
-#if !defined(ARDUINO) || ( defined(ARDUINORTC) || defined(HASBUILTINRTC) )
+#if defined(HASCLOCK)
 	if ( c == '@' && d == 'T') {
 		rtcmkstr();
 		return rtcstring+1+b;
@@ -1203,7 +1203,7 @@ address_t lenstring(char c, char d, address_t j){
 	if (c == '@' && d == 0) return ibuffer[0];
 
 /* the time */
-#if !defined(ARDUINO) || ( defined(ARDUINORTC) || defined(HASBUILTINRTC) )
+#if defined(HASCLOCK)
 	if (c == '@' && d == 'T') {
 		rtcmkstr();
 		return rtcstring[1];
@@ -1279,6 +1279,43 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 	setnumber(a, strindexsize);
 }
 
+#endif
+
+/* the BASIC string mechanism for real time clocks, create a string with the clock data */
+#ifdef HASCLOCK
+char* rtcmkstr() {
+  int cc = 2;
+  short t;
+  char ch;
+  t=rtcget(2);
+  rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]=':';
+  t=rtcget(1);
+  rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]=':';
+  t=rtcget(0);
+  rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]='-';
+  t=rtcget(4);
+  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]='/';
+  t=rtcget(5);
+  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]='/';
+  t=rtcget(6)%100; /* only 100 years no 19xx epochs */
+  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc]=0;
+  /* needed for BASIC strings, reserve the first byte for two byte length handling in the upstream code */
+  rtcstring[1]=cc-2;
+  rtcstring[0]=0;
+  return rtcstring+1;
+}
 #endif
 
 /* 
@@ -1642,7 +1679,7 @@ void ioinit() {
 #ifdef ARDUINOSENSORS
 	sensorbegin();
 #endif
-#if defined(ARDUINORTC) || defined(HASBUILTINRTC)
+#if defined(HASCLOCK)
   rtcbegin();
 #endif
 
@@ -2601,7 +2638,10 @@ void gettoken() {
 		return;
 	}
 
-	token=memread(here++);
+/* if we have no data type we are done reading just one byte */
+	token=memread(here++); 
+
+ /* otherwise we check for the argument */
 	switch (token) {
 		case LINENUMBER:
 #ifdef USEMEMINTERFACE
