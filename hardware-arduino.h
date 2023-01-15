@@ -57,9 +57,10 @@
  *  ARDUINOSSD1306, ARDUINOMCUFRIEND
  * storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS
  * storage ARDUINOEFS, SM32SDIO
- * sensors ARDUINORTC, ARDUINOWIRE, ARDUINOSENSORS
+ * sensors ARDUINOWIRE, ARDUINOSENSORS
  * network ARDUINORF24, ARDUNIOMQTT 
  * memory ARDUINOSPIRAM
+ * real time clocks ARDUINORTC, ARDUINORTCEMULATION
  *
  *	leave this unset if you use the definitions below
  */
@@ -3666,7 +3667,11 @@ void yieldfunction() {
   (void) keyboard.peek(); /* scan once and set lastkey properly every 32 ms */
 #endif
 #ifdef ARDUINOMQTT
+#ifdef ARDUINO_ARCH_ESP8266
   delay(YIELDTIME); /* ESP8266 heuristics, needed for Wifi stability */
+#else
+  delay(0);
+#endif
 #endif
 }
 
