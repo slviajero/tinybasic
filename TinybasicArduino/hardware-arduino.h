@@ -1026,6 +1026,12 @@ RTCZero rtc;
 STM32RTC& rtc = STM32RTC::getInstance();
 #endif
 
+/* for ESP32 we also include the time stuctures and offer a POSIX style clock*/
+#if defined(ARDUINO_ARCH_ESP32)
+#include "time.h"
+#include <sys/time.h>
+#endif
+
 
 /* this is unfinished, don't use */ 
 void rtcsqw();
@@ -2942,9 +2948,89 @@ void rtcset(uint8_t i, short v) {
   rtcutimeoffset = rtcutime - millis()/1000;  
 }
 #else
+/* on ESP32 we use the builtin clock */
+#if defined(ARDUINO_ARCH_ESP32)
+#define HASCLOCK
+void rtcbegin() {}
+short rtcget(short i) { 
+  struct tm rtctime;
+  time_t now;
+  time(&now);
+  localtime_r(&now, &rtctime);
+
+  switch (i) {
+    case 0: 
+      return rtctime.tm_sec;
+    case 1:
+      return rtctime.tm_min;      
+    case 2:
+      return rtctime.tm_hour;
+    case 3:
+      return rtctime.tm_wday;
+    case 4:
+      return rtctime.tm_mday;
+    case 5:
+      return rtctime.tm_mon+1;
+    case 6:
+      if (rtctime.tm_year > 100) return rtctime.tm_year-100; else return rtctime.tm_year;
+    default:
+      return 0;
+  }
+
+  return 0; 
+}
+void rtcset(uint8_t i, short v) { 
+  struct tm rtctime;
+  struct timeval tv;
+
+  /* get the time stucture from the system */
+  time_t now;
+  time(&now);
+  localtime_r(&now, &rtctime);
+
+  /* change what needs to be changed */
+  switch (i) {
+    case 0: 
+      rtctime.tm_sec = v%60;
+      break;
+    case 1:
+      rtctime.tm_min = v%60; 
+      break;     
+    case 2:
+      rtctime.tm_hour = v%24;
+      break;
+    case 3:
+      rtctime.tm_wday = v%7;
+      break;
+    case 4:
+      rtctime.tm_mday = v;
+      break;
+    case 5:
+      rtctime.tm_mon = v-1;
+      break;
+    case 6:
+      if (v > 1900) v=v-1900; /* get years to the right value */
+      if (v < 50) v=v+100; 
+      rtctime.tm_year = v;
+      break;
+  }
+
+  /* calculate the seconds and put it back*/
+  time_t epocht = mktime(&rtctime);
+  if (epocht > 2082758399){
+    tv.tv_sec = epocht - 2082758399;  
+  } else {
+    tv.tv_sec = epocht;  
+  }
+  tv.tv_usec = 0;
+  settimeofday(&tv, NULL);
+}
+#else
+/* no clock at all */
 void rtcbegin() {}
 short rtcget(short i) { return 0; }
 void rtcset(uint8_t i, short v) { }
+#endif
 #endif
 #endif
 #endif
