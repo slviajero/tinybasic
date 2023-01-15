@@ -57,9 +57,10 @@
  *  ARDUINOSSD1306, ARDUINOMCUFRIEND
  * storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS
  * storage ARDUINOEFS, SM32SDIO
- * sensors ARDUINORTC, ARDUINOWIRE, ARDUINOSENSORS
+ * sensors ARDUINOWIRE, ARDUINOSENSORS
  * network ARDUINORF24, ARDUNIOMQTT 
  * memory ARDUINOSPIRAM
+ * real time clocks ARDUINORTC, ARDUINORTCEMULATION
  *
  *	leave this unset if you use the definitions below
  */
@@ -87,6 +88,7 @@
 #undef RP2040LITTLEFS
 #undef STM32SDIO
 #undef ARDUINORTC
+#undef ARDUINORTCEMULATION
 #undef ARDUINOWIRE
 #undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
@@ -1023,6 +1025,12 @@ RTCZero rtc;
 #include "STM32RTC.h"
 #include "STM32LowPower.h"
 STM32RTC& rtc = STM32RTC::getInstance();
+#endif
+
+/* for ESP32 we also include the time stuctures and offer a POSIX style clock*/
+#if defined(ARDUINO_ARCH_ESP32)
+#include "time.h"
+#include <sys/time.h>
 #endif
 
 
@@ -2700,6 +2708,7 @@ mem_t vt52avail() { return 0; }
  */
 
 #ifdef ARDUINORTC
+#define HASCLOCK
 void rtcbegin() {}
 short rtcget(short i) {
   
@@ -2761,6 +2770,7 @@ void rtcset(uint8_t i, short v) {
 }
 #else 
 #if defined(HASBUILTINRTC) 
+#define HASCLOCK
 void rtcbegin() {
   rtc.begin(); /* 24 hours mode */
 }
@@ -2811,47 +2821,219 @@ void rtcset(uint8_t i, short v) {
       return; 
    }
 }
-#endif
-#endif
-
-/* the BASIC string mechanism */
-#if defined(ARDUINORTC) || defined(HASBUILTINRTC)
-char rtcstring[20] = { 0 }; 
-
-char* rtcmkstr() {
-  int cc = 2;
-  short t;
-  char ch;
-  /* the first read refreshes - not needed here but still ... */  
-  t=rtcget(2);
-  rtcstring[cc++]=t/10+'0';
-  rtcstring[cc++]=t%10+'0';
-  rtcstring[cc++]=':';
-  t=rtcget(1);
-  rtcstring[cc++]=t/10+'0';
-  rtcstring[cc++]=t%10+'0';
-  rtcstring[cc++]=':';
-  t=rtcget(0);
-  rtcstring[cc++]=t/10+'0';
-  rtcstring[cc++]=t%10+'0';
-  rtcstring[cc++]='-';
-  t=rtcget(4);
-  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-  rtcstring[cc++]=t%10+'0';
-  rtcstring[cc++]='/';
-  t=rtcget(5);
-  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-  rtcstring[cc++]=t%10+'0';
-  rtcstring[cc++]='/';
-  t=rtcget(6);
-  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-  rtcstring[cc++]=t%10+'0';
-  rtcstring[cc]=0;
-  /* needed for BASIC strings, reserve the first byte for two byte length handling in the upstream code */
-  rtcstring[1]=cc-2;
-  rtcstring[0]=0;
-  return rtcstring+1;
+#else
+/* the default clock is simple millis() based */
+#ifdef ARDUINORTCEMULATION
+#define HASCLOCK
+void rtcbegin() {}
+/* the current unix time - initialized to the begin of the epoch */
+long rtcutime = 0; 
+/* the offset of millis()/1000 when we last set the clock */
+long rtcutimeoffset = 0;
+/* the current unix date - initialized to the begin of the epoch */
+struct { uint8_t second; uint8_t minute; uint8_t hour; uint8_t weekday; uint8_t day; uint8_t month; uint16_t year; } 
+  rtctime = { 0, 0, 0, 4, 1, 1, 1970 };
+const int rtcmonthdays[12] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+/* Algorithm taken from https://de.wikipedia.org/wiki/Unixzeit */
+void rtctimetoutime() {
+  int leapyear = ((rtctime.year-1)-1968)/4 - ((rtctime.year-1)-1900)/100 + ((rtctime.year-1)-1600)/400;
+  long epochdays = (rtctime.year-1970)*365 + leapyear + rtcmonthdays[rtctime.month-1] + rtctime.day - 1;
+  if ((rtctime.month > 2) && (rtctime.year%4 == 0 && (rtctime.year%100 != 0 || rtctime.year%400 == 0))) epochdays+=1;
+  rtcutime = rtctime.second + 60*(rtctime.minute + 60*(rtctime.hour + 24*epochdays));
 }
+void rtcutimetotime() {
+  const unsigned long int secondsperday   =  86400ul; /*  24* 60 * 60 */
+  const unsigned long int daysperyear     =    365ul; /* no leap year */
+  const unsigned long int daysinfoury     =   1461ul; /*   4*365 +   1 */
+  const unsigned long int daysinhundredy  =  36524ul; /* 100*365 +  25 - 1 */
+  const unsigned long int daysinfourhundredy = 146097ul; /* 400*365 + 100 - 4 + 1 */
+  const unsigned long int daynumberzero      = 719468ul; /* day number of March, 1 1970 */
+  
+  unsigned long int daynumber = daynumberzero + rtcutime/secondsperday;
+  unsigned long int secondssincemidnight = rtcutime%secondsperday;
+  unsigned long int temp;
+
+  /* the weekday is based in the daynumber since March, 1, 1970 a SUNDAY */
+  rtctime.weekday = daynumber % 7;
+
+  /* leap years of the Gregorian calendar */
+  temp = 4 * (daynumber + daysinhundredy + 1) / daysinfourhundredy - 1;
+  rtctime.year = 100 * temp;
+  daynumber -= daysinhundredy * temp + temp / 4;
+
+  /* leap years of the Julian calendar */
+  temp = 4 * (daynumber + daysperyear + 1) / daysinfoury - 1;
+  rtctime.year += temp;
+  daynumber -= daysperyear * temp + temp / 4;
+
+  /* calculate day and month, reference March 1 */
+  rtctime.month = (5 * daynumber + 2) / 153;
+  rtctime.day = daynumber - (rtctime.month * 153 + 2) / 5 + 1;
+
+  /* recalulate to a normal year */
+  rtctime.month += 3;
+  if (rtctime.month > 12) {
+    rtctime.month -= 12;
+    rtctime.year++;
+  }
+
+  /* calculate hours, months, seconds */
+    rtctime.hour  = secondssincemidnight / 3600;
+    rtctime.minute = secondssincemidnight % 3600 / 60;
+    rtctime.second = secondssincemidnight % 60;
+}
+
+short rtcget(short i) { 
+/* add to the last time we set the clock and subtract the offset*/
+  rtcutime = millis()/1000 + rtcutimeoffset;
+/* calulate the time data */
+  rtcutimetotime();
+
+  switch (i) {
+    case 0: 
+      return rtctime.second;
+    case 1:
+      return rtctime.minute;      
+    case 2:
+      return rtctime.hour;
+    case 3:
+      return rtctime.weekday;
+    case 4:
+      return rtctime.day;
+    case 5:
+      return rtctime.month;
+    case 6:
+      return rtctime.year;
+    default:
+      return 0;
+   }
+}
+void rtcset(uint8_t i, short v) {
+/* how much time has elapsed since we last set the clock */
+  rtcutime = millis()/1000 + rtcutimeoffset;
+
+/* generate the time structure */
+  rtcutimetotime();
+
+/* set the clock */
+  switch (i) {
+    case 0: 
+      rtctime.second=v%60;
+      break;
+    case 1:
+      rtctime.minute=v%60;
+      break;     
+    case 2:
+      rtctime.hour=v%24;
+      break;
+    case 3:
+      rtctime.weekday=v%7;
+      break;
+    case 4:
+      rtctime.day=v;
+      break;
+    case 5:
+      rtctime.month=v;
+      break;
+    case 6:
+      rtctime.year=v;
+      break;
+    default:
+      return;
+   }
+
+ /* recalulate the right offset by first finding the second value of the new date*/
+  rtctimetoutime();
+  
+/* remember when we set the clock */
+  rtcutimeoffset = rtcutime - millis()/1000;  
+}
+#else
+/* on ESP32 we use the builtin clock */
+#if defined(ARDUINO_ARCH_ESP32)
+#define HASCLOCK
+void rtcbegin() {}
+short rtcget(short i) { 
+  struct tm rtctime;
+  time_t now;
+  time(&now);
+  localtime_r(&now, &rtctime);
+
+  switch (i) {
+    case 0: 
+      return rtctime.tm_sec;
+    case 1:
+      return rtctime.tm_min;      
+    case 2:
+      return rtctime.tm_hour;
+    case 3:
+      return rtctime.tm_wday;
+    case 4:
+      return rtctime.tm_mday;
+    case 5:
+      return rtctime.tm_mon+1;
+    case 6:
+      if (rtctime.tm_year > 100) return rtctime.tm_year-100; else return rtctime.tm_year;
+    default:
+      return 0;
+  }
+
+  return 0; 
+}
+void rtcset(uint8_t i, short v) { 
+  struct tm rtctime;
+  struct timeval tv;
+
+  /* get the time stucture from the system */
+  time_t now;
+  time(&now);
+  localtime_r(&now, &rtctime);
+
+  /* change what needs to be changed */
+  switch (i) {
+    case 0: 
+      rtctime.tm_sec = v%60;
+      break;
+    case 1:
+      rtctime.tm_min = v%60; 
+      break;     
+    case 2:
+      rtctime.tm_hour = v%24;
+      break;
+    case 3:
+      rtctime.tm_wday = v%7;
+      break;
+    case 4:
+      rtctime.tm_mday = v;
+      break;
+    case 5:
+      rtctime.tm_mon = v-1;
+      break;
+    case 6:
+      if (v > 1900) v=v-1900; /* get years to the right value */
+      if (v < 50) v=v+100; 
+      rtctime.tm_year = v;
+      break;
+  }
+
+  /* calculate the seconds and put it back*/
+  time_t epocht = mktime(&rtctime);
+  if (epocht > 2082758399){
+    tv.tv_sec = epocht - 2082758399;  
+  } else {
+    tv.tv_sec = epocht;  
+  }
+  tv.tv_usec = 0;
+  settimeofday(&tv, NULL);
+}
+#else
+/* no clock at all */
+void rtcbegin() {}
+short rtcget(short i) { return 0; }
+void rtcset(uint8_t i, short v) { }
+#endif
+#endif
+#endif
 #endif
 
 /* 
@@ -3485,7 +3667,11 @@ void yieldfunction() {
   (void) keyboard.peek(); /* scan once and set lastkey properly every 32 ms */
 #endif
 #ifdef ARDUINOMQTT
+#ifdef ARDUINO_ARCH_ESP8266
   delay(YIELDTIME); /* ESP8266 heuristics, needed for Wifi stability */
+#else
+  delay(0);
+#endif
 #endif
 }
 

@@ -1530,7 +1530,7 @@ On POSIX and SD no formating is supported.
 
 ### Real time clock support
 
-Currently DS1307, DS3231 and DS3232 clocks are supported and can be accessed through the special array @T() and the special string @T$. The array elements are 
+Currently the built-in clocks of ESP32, STM32 and Arduino MKR and I2C clocks DS1307, DS3231 and DS3232 are supported and can be accessed through the special array @T() and the special string @T$. The array elements are 
 
 @T(0): seconds
 
@@ -1550,7 +1550,9 @@ Currently DS1307, DS3231 and DS3232 clocks are supported and can be accessed thr
 
 @T(8): direct bytewise access to the clocks registers. On a DS1307 the addresses from 8 onwards are the NVRAM memory. On DS3231 and DS3232 these are the clock internal registers for alarm followed by the memory on DS3232. 
 
-Real time clock support is now built-in. No external library is used for this.
+Real time clock support for I2C is now built-in. No external library is used for this. For STM32 and Ardunio MKR the clock and low power libraries are automatically used by BASIC. 
+
+For systems without a hardware clock ARDUINORTCEMULATION can be activated in hardware-ardunio.h. It uses millis() to emulate a Unix style real time clock.
 
 ## Special systems and hardware components
 
