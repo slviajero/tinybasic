@@ -5548,7 +5548,11 @@ void xset(){
       arraylimit=args;
       break;
 #endif
-
+#ifdef HASKEYPAD
+    case 13:
+      kbdrepeat=args;
+      break;
+#endif
 	}
 }
 
