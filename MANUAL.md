@@ -809,7 +809,9 @@ Unlike other BASIC versions, reading past the end of DATA will not lead to an er
 
 RESTORE resets the data pointer. 
 
-Unlike other BASIC versions READ cannot have an argument list in the current version. 
+From BASIC v1.4 on argument lists are also supported in READ. 
+
+In READ, the two index substring notation like A\$(3,3) is not yet supported. READ will interpret this as A\$(3) and append the read string. 
 
 Tutorial: readdata.bas
 
