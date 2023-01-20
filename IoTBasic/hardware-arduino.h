@@ -1127,8 +1127,8 @@ uint8_t rgbtovga(int r, int g, int b) {
 const int dsp_rows=2;
 const int dsp_columns=16;
 LiquidCrystal lcd( 8,  9,  4,  5,  6,  7);
-void dspbegin() { 	lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
-void dspprintchar(char c, mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.write(c);}
+void dspbegin() { lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
+void dspprintchar(char c, mem_t col, mem_t row) { lcd.setCursor(col, row); if (c) lcd.write(c);}
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
 void dspsetcursor(mem_t c) { if (c) lcd.blink(); else lcd.noBlink(); }
@@ -1147,6 +1147,8 @@ short keypadread(){
 	else if (a>=60  && a<200) return '4';
 	else return '2';
 }
+/* repeat mode of the keypad - off means block, on means return immediately */
+mem_t kbdrepeat=0;
 #endif
 
 /* 
@@ -1161,7 +1163,7 @@ const int dsp_rows=4;
 const int dsp_columns=20;
 LiquidCrystal_I2C lcd(0x27, dsp_columns, dsp_rows);
 void dspbegin() { lcd.init(); lcd.backlight(); dspsetscrollmode(1, 1); }
-void dspprintchar(char c, mem_t col, mem_t row) { lcd.setCursor(col, row); lcd.write(c); }
+void dspprintchar(char c, mem_t col, mem_t row) { lcd.setCursor(col, row); if (c) lcd.write(c); }
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
 void dspsetcursor(mem_t c) { if (c) lcd.blink(); else lcd.noBlink(); }
@@ -1204,7 +1206,7 @@ dspcolor_t dspfgcolor = 1;
 dspcolor_t dspbgcolor = 0;
 char dspfontsize = 8;
 void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r); }
-void dspprintchar(char c, mem_t col, mem_t row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
+void dspprintchar(char c, mem_t col, mem_t row) { char b[] = { 0, 0 }; b[0]=c; if (c) u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
 void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); dspfgcolor=1; }
 void dspupdate() { u8g2.sendBuffer(); }
 void dspsetcursor(mem_t c) {}
@@ -1262,7 +1264,7 @@ typedef uint8_t dspcolor_t;
 dspcolor_t dspfgcolor = 1;
 dspcolor_t dspbgcolor = 0;
 void dspbegin() { u8g2.begin(); u8g2.setFont(u8g2_font_amstrad_cpc_extended_8r); }
-void dspprintchar(char c, mem_t col, mem_t row) { char b[] = { 0, 0 }; b[0]=c; u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
+void dspprintchar(char c, mem_t col, mem_t row) { char b[] = { 0, 0 }; b[0]=c; if (c) u8g2.drawStr(col*dspfontsize+2, (row+1)*dspfontsize, b); }
 void dspclear() { u8g2.clearBuffer(); u8g2.sendBuffer(); dspfgcolor=1; }
 void dspupdate() { u8g2.sendBuffer(); }
 void dspsetcursor(mem_t c) {}
@@ -1329,7 +1331,7 @@ void dspbegin() {
   analogWrite(ILI_LED, 255);
   dspsetscrollmode(1, 4);
 }
-void dspprintchar(char c, mem_t col, mem_t row) {  tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
+void dspprintchar(char c, mem_t col, mem_t row) {  if (c) tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
 void dspclear() { 
   tft.fillScreen(dspbgcolor); 
   dspfgcolor = dspdefaultfgcolor; 
@@ -1409,7 +1411,7 @@ void dspbegin() {
   tft.fillScreen(dspbgcolor); 
   dspsetscrollmode(1, 4); /* scrolling is on, scroll 4 lines at once */
  }
-void dspprintchar(char c, mem_t col, mem_t row) {  tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
+void dspprintchar(char c, mem_t col, mem_t row) {  if (c) tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, 2); }
 void dspclear() { 
   tft.fillScreen(dspbgcolor); 
   dspfgcolor = dspdefaultfgcolor; 
@@ -1513,7 +1515,7 @@ dspcolor_t dsptmpcolor = 0;
 uint8_t dspfgvgacolor = dspdefaultfgvgacolor;
 uint8_t dsptmpvgacolor = 0;
 void dspbegin() { tft.InitLCD(); tft.setFont(BigFont); tft.clrScr(); dspsetscrollmode(1, 4); }
-void dspprintchar(char c, mem_t col, mem_t row) { tft.printChar(c, col*dspfontsize, row*dspfontsize); }
+void dspprintchar(char c, mem_t col, mem_t row) { if (c) tft.printChar(c, col*dspfontsize, row*dspfontsize); }
 void dspclear() { 
   tft.clrScr();  
   dspfgcolor = dspdefaultfgcolor; 
@@ -1836,8 +1838,8 @@ char kbdread() {
 #endif
 #ifdef HASKEYPAD
 	c=keypadread();
-/* if you uncommend this we wait for key release on a keypad */
-	while(kbdavailable()) byield();
+/* if the keypad is in non repeat mode, block */
+	if (!kbdrepeat) while(kbdavailable()) byield();
 #endif	
 	if (c == 13) c=10;
 	return c;
@@ -1942,10 +1944,12 @@ int dspstat(char c) { return 0; }
 
 void dspsetcursorx(mem_t c) {
   if (c>=0 && c<dsp_columns) dspmycol=c;
+  dspprintchar(0, dspmycol, dspmyrow); /* needed to really position the cursor if there is a hardware cursor */
 }
 
 void dspsetcursory(mem_t r) {
   if (r>=0 && r<dsp_rows) dspmyrow=r;
+    dspprintchar(0, dspmycol, dspmyrow); /* needed to really position the cursor if there is a hardware cursor */
 }
 
 mem_t dspgetcursorx() { return dspmycol; }
@@ -2691,25 +2695,38 @@ mem_t vt52avail() { return 0; }
 #endif
 
 /* 
- * Arduino Real Time clock. The interface here 
- * offers the values as number_t plus a string, 
+ * Arduino Real Time clock. The interface here offers the values as number_t 
  * combining all values. 
  * 
- * The code does not use an RTC library any more
- * all the rtc support is builtin now. 
+ * The code does not use an RTC library any more all the rtc support is 
+ * builtin now. 
  * 
- * Supported clocks DS1307, DS3231, and DS3232 (not tested)
+ * A clock must activate the macro #define HASCLOCK to make the clock 
+ * available in BASIC.
+ * 
+ * Four software models are supported
+ *  - Built-in clocks of STM32, MKR, and ESP32 are supported by default
+ *  - I2C clocks can be activated: DS1307, DS3231, and DS3232 
+ *  - A Real Time Clock emulation is possible using millis()
  * 
  * rtcget accesses the internal registers of the clock. 
  * Registers 0-6 are bcd transformed to return 
  * seconds, minutes, hours, day of week, day, month, year
  * 
- * Registers 7-255 are returned as memory cells
+ * On I2C clocks registers 7-255 are returned as memory cells
  */
 
 #ifdef ARDUINORTC
 #define HASCLOCK
+/*
+ * I2C clocks DS1307, DS3231, and DS3232 using Wire directly
+ * no buffering of values, access directly to the clock registers
+ */
+
+/* No begin method needed */
 void rtcbegin() {}
+
+/* get the time from the registers */
 short rtcget(short i) {
   
     /* set the address of the read */
@@ -2740,6 +2757,7 @@ short rtcget(short i) {
    }
 }
 
+/* set the registers */
 void rtcset(uint8_t i, short v) { 
   uint8_t b;
 
@@ -2771,9 +2789,17 @@ void rtcset(uint8_t i, short v) {
 #else 
 #if defined(HASBUILTINRTC) 
 #define HASCLOCK
+/*
+ * Built-in clocks of STM32 and MKR are based on the RTCZero interface
+ * an rtc object is created after loading the libraries
+ */
+
+/* begin method */
 void rtcbegin() {
   rtc.begin(); /* 24 hours mode */
 }
+
+/* get the time */
 short rtcget(short i) { 
     switch (i) {
     case 0: 
@@ -2794,6 +2820,8 @@ short rtcget(short i) {
       return 0;
    }
 }
+
+/* set the time */
 void rtcset(uint8_t i, short v) { 
   switch (i) {
     case 0: 
@@ -2822,25 +2850,39 @@ void rtcset(uint8_t i, short v) {
    }
 }
 #else
-/* the default clock is simple millis() based */
 #ifdef ARDUINORTCEMULATION
 #define HASCLOCK
+/* 
+ * A millis() based real time clock emulation. It creates a 32bit Unix time 
+ * variable and adds millis()/1000 
+ */
+
+/* the begin method - standard interface to BASIC*/
 void rtcbegin() {}
+
 /* the current unix time - initialized to the begin of the epoch */
 long rtcutime = 0; 
+
 /* the offset of millis()/1000 when we last set the clock */
 long rtcutimeoffset = 0;
+
 /* the current unix date - initialized to the begin of the epoch */
 struct { uint8_t second; uint8_t minute; uint8_t hour; uint8_t weekday; uint8_t day; uint8_t month; uint16_t year; } 
   rtctime = { 0, 0, 0, 4, 1, 1, 1970 };
+
+/* the number of days per month */
 const int rtcmonthdays[12] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
-/* Algorithm taken from https://de.wikipedia.org/wiki/Unixzeit */
+
+
+/* convert the time to a unix time number from https://de.wikipedia.org/wiki/Unixzeit  */
 void rtctimetoutime() {
   int leapyear = ((rtctime.year-1)-1968)/4 - ((rtctime.year-1)-1900)/100 + ((rtctime.year-1)-1600)/400;
   long epochdays = (rtctime.year-1970)*365 + leapyear + rtcmonthdays[rtctime.month-1] + rtctime.day - 1;
   if ((rtctime.month > 2) && (rtctime.year%4 == 0 && (rtctime.year%100 != 0 || rtctime.year%400 == 0))) epochdays+=1;
   rtcutime = rtctime.second + 60*(rtctime.minute + 60*(rtctime.hour + 24*epochdays));
 }
+
+/* convert the unix time to time and date from https://de.wikipedia.org/wiki/Unixzeit */
 void rtcutimetotime() {
   const unsigned long int secondsperday   =  86400ul; /*  24* 60 * 60 */
   const unsigned long int daysperyear     =    365ul; /* no leap year */
@@ -2883,6 +2925,7 @@ void rtcutimetotime() {
     rtctime.second = secondssincemidnight % 60;
 }
 
+/* get the time elements -> standard interface to BASIC */
 short rtcget(short i) { 
 /* add to the last time we set the clock and subtract the offset*/
   rtcutime = millis()/1000 + rtcutimeoffset;
@@ -2908,6 +2951,8 @@ short rtcget(short i) {
       return 0;
    }
 }
+
+/* set the time elements -> standard interface to BASIC */
 void rtcset(uint8_t i, short v) {
 /* how much time has elapsed since we last set the clock */
   rtcutime = millis()/1000 + rtcutimeoffset;
@@ -2918,25 +2963,25 @@ void rtcset(uint8_t i, short v) {
 /* set the clock */
   switch (i) {
     case 0: 
-      rtctime.second=v%60;
+      if (v>=0 && v<60) rtctime.second=v;
       break;
     case 1:
-      rtctime.minute=v%60;
+      if (v>=0 && v<60) rtctime.minute=v;
       break;     
     case 2:
-      rtctime.hour=v%24;
+      if (v>=0 && v<24) rtctime.hour=v;
       break;
     case 3:
-      rtctime.weekday=v%7;
+      if (v>=0 && v<7) rtctime.weekday=v;
       break;
     case 4:
-      rtctime.day=v;
+      if (v>0 && v<32) rtctime.day=v;
       break;
     case 5:
-      rtctime.month=v;
+      if (v>0 && v<13) rtctime.month=v;
       break;
     case 6:
-      rtctime.year=v;
+      if (v>=1970 && v<2100) rtctime.year=v;
       break;
     default:
       return;
@@ -2949,10 +2994,17 @@ void rtcset(uint8_t i, short v) {
   rtcutimeoffset = rtcutime - millis()/1000;  
 }
 #else
-/* on ESP32 we use the builtin clock */
 #if defined(ARDUINO_ARCH_ESP32)
 #define HASCLOCK
+/* 
+ * On ESP32 we use the builtin clock, this is a generic Unix time mechanism equivalent
+ * to the code in hardware-posix.h
+ */
+
+/* no begin needed */
 void rtcbegin() {}
+
+/* get the time */
 short rtcget(short i) { 
   struct tm rtctime;
   time_t now;
@@ -2980,6 +3032,8 @@ short rtcget(short i) {
 
   return 0; 
 }
+
+/* set the time */
 void rtcset(uint8_t i, short v) { 
   struct tm rtctime;
   struct timeval tv;
@@ -3027,7 +3081,7 @@ void rtcset(uint8_t i, short v) {
   settimeofday(&tv, NULL);
 }
 #else
-/* no clock at all */
+/* no clock at all, no operations */
 void rtcbegin() {}
 short rtcget(short i) { return 0; }
 void rtcset(uint8_t i, short v) { }
@@ -3649,8 +3703,8 @@ void byield() {
   	lastlongyield=millis();
   }
  #endif
- /* delay 0 blocks XMC unlike other boards where it is either yield() or no operation. delay(0) is needed on ESP8266! */
- #if !defined(ARDUINO_ARCH_XMC)
+ /* delay(0) is only needed on ESP8266! */
+ #if defined(ARDUINO_ARCH_ESP8266)
   delay(0);
  #endif
 }
@@ -3666,13 +3720,7 @@ void yieldfunction() {
 #ifdef ARDUINOZX81KBD
   (void) keyboard.peek(); /* scan once and set lastkey properly every 32 ms */
 #endif
-#ifdef ARDUINOMQTT
-#ifdef ARDUINO_ARCH_ESP8266
-  delay(YIELDTIME); /* ESP8266 heuristics, needed for Wifi stability */
-#else
-  delay(0);
-#endif
-#endif
+/* this was delay(YIELDTIME) originally - removed now  */
 }
 
 /* everything that needs to be done not so often - 1 second */

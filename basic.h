@@ -993,7 +993,8 @@ const char* rootfilename();
 int rootfilesize();
 void rootfileclose();
 void rootclose();
-void formatdisk(short i);
+void removefile(char*);
+void formatdisk(short);
 
 /* low level serial code */
 void picogetchar(char);
@@ -1271,7 +1272,7 @@ void dumpmem(address_t, address_t, char);
 void stringtobuffer();
 void getfilename(char*, char);
 void xsave();
-void xload(const char* f);
+void xload(const char*);
 void xget();
 void xput();
 void xset();
