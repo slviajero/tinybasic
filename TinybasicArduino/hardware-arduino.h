@@ -2966,7 +2966,7 @@ void rtcset(uint8_t i, short v) {
       if (v>=0 && v<60) rtctime.second=v;
       break;
     case 1:
-      if (v>=0 && v<60) rtctime.minute;
+      if (v>=0 && v<60) rtctime.minute=v;
       break;     
     case 2:
       if (v>=0 && v<24) rtctime.hour=v;
