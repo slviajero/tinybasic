@@ -6421,7 +6421,6 @@ enddatarecord:
 
 /*
  *	READ - find data records and insert them to variables
- *	this code resembles get - generic stream read code needed later
  */
 void xread(){
 	mem_t t, t0;	/* remember the left hand side token until the end of the statement, type of the lhs */
@@ -6434,6 +6433,9 @@ void xread(){
 	address_t lendest, lensource, newlength;
 	int k;
 	
+
+nextdata: 
+/* look for the variable */	
 	nexttoken();
 
 /* this code evaluates the left hand side - remember type and name */
@@ -6447,10 +6449,14 @@ void xread(){
 	lefthandside(&i, &i2, &j, &ps);
 	if (er != 0) return;
 
-/* if the token after lhs is not a termsymbol, something is wrong */
-	if (! termsymbol()) {error(EUNKNOWN); return; }
+/* if the token after lhs is not a termsymbol or a comma, something is wrong */
+	if (!termsymbol() && token != ',') { error(EUNKNOWN); return; }
+
+
+/* remember the token we have draw from the stream */
 	t0=token;
 
+/* find the data and assign */ 
 	nextdatarecord();
 	if (er != 0) return;
 
@@ -6524,12 +6530,17 @@ void xread(){
 			return;
 	}
 
+/* next list item */
+	if (t0 == ',') goto nextdata;
+
 /* no nexttoken here as we have already a termsymbol */
 	if (DEBUG) {
 		outsc("** leaving xread with "); outnumber(token); outcr();
 		outsc("** at here "); outnumber(here); outcr();
 		outsc("** and data pointer "); outnumber(data); outcr();
 	}
+
+/* restore the token for further processing */
 	token=t0;
 }
 
