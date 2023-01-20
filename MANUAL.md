@@ -1690,6 +1690,8 @@ SET 11,1 sets the TAB command to Microsoft mode. In this mode the TAB position i
 
 SET 12,0 sets the lower bound of all arrays to 0. This means that arrays with 8 elements DIMed with DIM A(8) go from 0 to 7 instead of 1 to 8. SET 12, 1 resets the value. This command does not change the array or anything in memory. It merely adds an offset. Any positive value can be used as an argument.
 
+SET 13, 1 sets the keypad to repeat mode. This setting is only used in analog keypads of LCD shields. These keypads normally block on key press until the key is released. This makes GET a semi blocking function. With SET 13, 1 the GET command does not block. It directly returns the pressed key and does not wait for key release. SET 13, 0 resets to blocking mode.
+
 More SET parameter will be implemented in the future.
 
 ### USR
