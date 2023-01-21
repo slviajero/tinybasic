@@ -808,6 +808,7 @@ static mem_t debuglevel = 0;
 /* data pointer */
 #ifdef HASDARTMOUTH
 static address_t data = 0;
+static address_t datarc = 1;
 #endif
     
 /* 

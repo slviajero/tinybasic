@@ -813,6 +813,30 @@ From BASIC v1.4 on argument lists are also supported in READ.
 
 In READ, the two index substring notation like A\$(3,3) is not yet supported. READ will interpret this as A\$(3) and append the read string. 
 
+RESTORE can also be used with an argument. In the code segment
+
+10 RESTORE 3
+
+20 READ A: PRINT A
+
+30 DATA 1, 4, 9, 16
+
+the READ statement will access the third argument of the DATA list, hence the output will be 9. 
+
+DATA can be used in expressions. After the code above has run
+
+PRINT DATA
+
+will output 4 indicating that the data pointer will read the 4th argument after the next read. This feature can be used to store a position of the DATA list and then return to it.
+
+10 R=DATA
+
+20 ... some lines doing many READs
+
+100 RESTORE R
+
+the data pointer will be reset to the original position before reading was done.
+
 Tutorial: readdata.bas
 
 ### DEF FN

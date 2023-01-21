@@ -3725,6 +3725,10 @@ void factor(){
 		case TFN:
 			xfn();
 			break;
+/* an arcane feature, DATA evaluates to the data record number */
+		case TDATA:
+			push(datarc);
+			break;
 #endif
 #ifdef HASDARKARTS
 		case TMALLOC:
@@ -6351,6 +6355,7 @@ void xdata() {
 /* 
  * for READ find the next data record, helper of READ
  */
+#define DEBUG 0
 void nextdatarecord() {
 	address_t h;
 	mem_t s=1;
@@ -6363,6 +6368,7 @@ void nextdatarecord() {
 		here=0;
 		while (here<top && token!=TDATA) gettoken();
 		data=here;
+		datarc=1;
 	} 
 
 processdata:
@@ -6381,7 +6387,7 @@ processdata:
 		return;
 	}
 	
-/* we process the data record */
+/* we process the data record by setting the here pointer to data and search with gettoken */
 	here=data;
 	gettoken();
 	if (token == '-') {s=-1; gettoken();}
@@ -6389,7 +6395,7 @@ processdata:
 	if (token == ',') {
 		gettoken();
 		if (token == '-') {s=-1; gettoken();}
-		if (token!=NUMBER && token!=STRING) {
+		if (token != NUMBER && token != STRING) {
 			error(EUNKNOWN);  
 			here=h;
 			return;
@@ -6409,6 +6415,7 @@ processdata:
 enddatarecord:
 	if (token == NUMBER && s == -1) {x=-x; s=1; }
 	data=here;
+	datarc++;
 	here=h;
 
 	if (DEBUG) { 
@@ -6419,9 +6426,10 @@ enddatarecord:
 
 }
 
+#define DEBUG 0
+
 /*
  *	READ - find data records and insert them to variables
- *	this code resembles get - generic stream read code needed later
  */
 void xread(){
 	mem_t t, t0;	/* remember the left hand side token until the end of the statement, type of the lhs */
@@ -6434,6 +6442,9 @@ void xread(){
 	address_t lendest, lensource, newlength;
 	int k;
 	
+
+nextdata: 
+/* look for the variable */	
 	nexttoken();
 
 /* this code evaluates the left hand side - remember type and name */
@@ -6447,10 +6458,14 @@ void xread(){
 	lefthandside(&i, &i2, &j, &ps);
 	if (er != 0) return;
 
-/* if the token after lhs is not a termsymbol, something is wrong */
-	if (! termsymbol()) {error(EUNKNOWN); return; }
+/* if the token after lhs is not a termsymbol or a comma, something is wrong */
+	if (!termsymbol() && token != ',') { error(EUNKNOWN); return; }
+
+
+/* remember the token we have draw from the stream */
 	t0=token;
 
+/* find the data and assign */ 
 	nextdatarecord();
 	if (er != 0) return;
 
@@ -6524,12 +6539,17 @@ void xread(){
 			return;
 	}
 
+/* next list item */
+	if (t0 == ',') goto nextdata;
+
 /* no nexttoken here as we have already a termsymbol */
 	if (DEBUG) {
 		outsc("** leaving xread with "); outnumber(token); outcr();
 		outsc("** at here "); outnumber(here); outcr();
 		outsc("** and data pointer "); outnumber(data); outcr();
 	}
+
+/* restore the token for further processing */
 	token=t0;
 }
 
@@ -6537,10 +6557,37 @@ void xread(){
  *	RESTORE sets the data pointer to zero right now 
  */
 void xrestore(){
-	data=0;
-	nexttoken();
-}
+short rec;
 
+	nexttoken();
+
+/* a plain restore */
+	if (termsymbol()) {
+		data=0;
+		datarc=1;
+		return;
+	}
+
+/* something with an argument */
+	expression();
+	if (er != 0) return;
+
+/* we search a record */
+	rec=pop();
+
+/* if we need to search backward, back to the beginning */
+	if (rec < datarc) {
+		data=0;
+		datarc=1;
+	}
+
+/* advance to the record or top */
+	while (datarc < rec && data < top) nextdatarecord();
+
+/* token is poisoned after nextdatarecord, need to cure this here */
+	nexttoken();
+
+}
 
 /*
  *	DEF a function, functions are tokenized as FN Arrayvar
