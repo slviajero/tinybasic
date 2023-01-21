@@ -726,6 +726,7 @@ typedef short index_t; /* this type counts at least 16 bit */
  *	debuglevel is the statement loop debug level
  *
  *	data is the data pointer of the READ/DATA mechanism
+ *  datarc is the counter of the read data record
  *
  * static keyword here is obsolete on most platforms
  *
@@ -808,6 +809,7 @@ static mem_t debuglevel = 0;
 /* data pointer */
 #ifdef HASDARTMOUTH
 static address_t data = 0;
+static address_t datarc = 1;
 #endif
     
 /* 

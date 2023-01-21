@@ -3725,6 +3725,10 @@ void factor(){
 		case TFN:
 			xfn();
 			break;
+/* an arcane feature, DATA evaluates to the data record number */
+		case TDATA:
+			push(datarc);
+			break;
 #endif
 #ifdef HASDARKARTS
 		case TMALLOC:
@@ -6351,6 +6355,7 @@ void xdata() {
 /* 
  * for READ find the next data record, helper of READ
  */
+#define DEBUG 0
 void nextdatarecord() {
 	address_t h;
 	mem_t s=1;
@@ -6363,6 +6368,7 @@ void nextdatarecord() {
 		here=0;
 		while (here<top && token!=TDATA) gettoken();
 		data=here;
+		datarc=1;
 	} 
 
 processdata:
@@ -6381,7 +6387,7 @@ processdata:
 		return;
 	}
 	
-/* we process the data record */
+/* we process the data record by setting the here pointer to data and search with gettoken */
 	here=data;
 	gettoken();
 	if (token == '-') {s=-1; gettoken();}
@@ -6389,7 +6395,7 @@ processdata:
 	if (token == ',') {
 		gettoken();
 		if (token == '-') {s=-1; gettoken();}
-		if (token!=NUMBER && token!=STRING) {
+		if (token != NUMBER && token != STRING) {
 			error(EUNKNOWN);  
 			here=h;
 			return;
@@ -6409,6 +6415,7 @@ processdata:
 enddatarecord:
 	if (token == NUMBER && s == -1) {x=-x; s=1; }
 	data=here;
+	datarc++;
 	here=h;
 
 	if (DEBUG) { 
@@ -6418,6 +6425,8 @@ enddatarecord:
 	}
 
 }
+
+#define DEBUG 0
 
 /*
  *	READ - find data records and insert them to variables
@@ -6548,10 +6557,37 @@ nextdata:
  *	RESTORE sets the data pointer to zero right now 
  */
 void xrestore(){
-	data=0;
-	nexttoken();
-}
+short rec;
 
+	nexttoken();
+
+/* a plain restore */
+	if (termsymbol()) {
+		data=0;
+		datarc=1;
+		return;
+	}
+
+/* something with an argument */
+	expression();
+	if (er != 0) return;
+
+/* we search a record */
+	rec=pop();
+
+/* if we need to search backward, back to the beginning */
+	if (rec < datarc) {
+		data=0;
+		datarc=1;
+	}
+
+/* advance to the record or top */
+	while (datarc < rec && data < top) nextdatarecord();
+
+/* token is poisoned after nextdatarecord, need to cure this here */
+	nexttoken();
+
+}
 
 /*
  *	DEF a function, functions are tokenized as FN Arrayvar
