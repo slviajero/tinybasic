@@ -75,12 +75,11 @@ These two languages are the core of the BASIC interpreter. Additional feature ca
 
 I/O handling and some of the microcontroller BASIC features are new and are not compatible to the BASIC dialects above. They resemble the iostream library of Arduinos. Enterprise BASIC had something similar.
 
-
 The main difference to the old BASIC interpreters is that data objects remain in the same memory location once they are defined. There is no garbage collection. This makes the behaviour of the BASIC interpreter deterministic, real time capable and fast. 
 
 Programs are always fully tokenized at input. This includes keywords, numbers, strings and variables names. No lexical analysis is done or needed at runtime. The stored BASIC program resembles more a byte code language than a stored interpreter code. This is the concept Steve Wozniak used on the Apple 1. 
 
-The core interpreter loop runs at approximately one token every 40 microseconds on an Arduino. ESP are a bit faster but not much as the memory bandwidth limits the performance in the loop. ESPs are much faster in calulations, though.
+The core interpreter loop runs at approximately one token every 20 microseconds on an Arduino. Some modern platforms like STM32 can do up to 2 microseconds. These computers execute BASIC commands as fast the a 6502 CPU has executed its machine language. BASIC is fast enough to do most microcontroller tasks.
 
 For further information, please look at: https://github.com/slviajero/tinybasic/wiki
 
@@ -103,7 +102,7 @@ EEPROM emulations on XMC needs the XMCEEPROM library.
 
 Displays, filesystem, networking, and sensors need libraries. 
 
-lease consult the wiki https://github.com/slviajero/tinybasic/wiki/Hardware-Platforms for this.
+Please consult the wiki https://github.com/slviajero/tinybasic/wiki/Hardware-Platforms for this.
 
 
 ## What's next
