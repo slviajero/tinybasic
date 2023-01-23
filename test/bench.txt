@@ -1,0 +1,45 @@
+LGT with float
+
+Token time: 74
+Assigment time: 66 362
+Loop time: 259
+
+LGT without float
+
+Token time: 62
+Assigment time: 7 255
+Loop time: 151
+
+XMC with float (BASICFULL)
+
+Token time: 103
+Assigment time: 257 669
+Loop time: 431
+
+XMC with float (BASICTINYWITHFLOAT)
+
+Token time: 103
+Assigment time: 256 668
+Loop time: 431
+
+XMC without float (BASICMINIMAL)
+
+Token time: 90
+Assigment time: 243 603
+Loop time: 283
+
+UNO without float
+
+Token time: 192
+Assigment time: 107 875
+Loop time: 434
+
+ESP32 with float (No network function)
+
+Token time: 174
+Assigment time: -303 393
+Loop time: 189
+
+
+
+

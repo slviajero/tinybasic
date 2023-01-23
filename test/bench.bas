@@ -1,0 +1,7 @@
+10 T=MILLIS(1): FOR I=1 TO 10000000: A=5: NEXT: T=MILLIS(1)-T
+20 S=MILLIS(1): FOR I=1 TO 10000000: NEXT: S=MILLIS(1)-S
+30 U=MILLIS(1): FOR I=1 TO 10000000: : NEXT: U=MILLIS(1)-U
+35 PRINT "Times in 0.1 micro seconds units"
+40 PRINT "Token time:",U-S
+50 PRINT "Assigment time:",T-S-(U-S)*4, T-S
+60 PRINT "Loop time:",S

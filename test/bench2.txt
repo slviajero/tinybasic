@@ -1,0 +1,80 @@
+Uno Integer - Simple 
+
+Loop time 43
+Token time 18
+Assignment time 68
+Multiplication time 34
+
+LGT8 Integer - Simple
+
+Loop time 15
+Token time 6
+Assignment time 19
+Multiplication time 10
+
+Uno Float - Simple with float 
+
+Loop time 69.9
+Token time 21.1
+Assignment time 83.5
+Multiplication time 52.2
+
+STM32V4VE
+
+Loop time 5.3
+Token time 1.7
+Assignment time 10.3
+Multiplication time 3.7
+
+XMC
+
+Loop time 43
+Token time 10.3
+Assignment time 56
+Multiplication time 34.2
+
+ESP8266
+
+Loop time 32.5
+Token time 23.2
+Assignment time 54.6
+Multiplication time 10.6
+
+ESP8266 (streamlined Wifi)
+
+Loop time 29.89999
+Token time 21.5
+Assignment time 36.9
+Multiplication time 9.6
+
+ESP32
+
+Loop time 18.9
+Token time 17.4
+Assignment time 21.8
+Multiplication time 2.6
+
+ESP32 (streamlined Wifi)
+
+Loop time 11.3
+Token time 9.89999
+Assignment time 14
+Multiplication time 2.59999
+
+ESP32-C3 (streamlined Wifi)
+
+Loop time 12.3
+Token time 9.39999
+Assignment time 14
+Multiplication time 3.59999
+
+RP2040 (Pi Pico)
+
+Loop time 12.6
+Token time 12.89999
+Assignment time 18.5
+Multiplication time 5.59999
+
+
+
+
