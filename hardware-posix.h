@@ -252,7 +252,8 @@ void pinm(number_t p, number_t m){
 }
 #endif
 
-/* handling time - raspberry take delay function from wiring */
+/* handling time - raspberry take delay function from wiring, 
+	this function is not needed any more, done in bdelay */
 #if ! defined(MSDOS) && ! defined(MINGW) && ! defined(RASPPI)
 void delay(number_t t) {usleep(t*1000);}
 #endif
@@ -277,13 +278,10 @@ long millis() { push(1); bmillis(); return pop(); }
 void bpulsein() { pop(); pop(); pop(); push(0); }
 void btone(short a) { pop(); pop(); if (a == 3) pop(); }
 
-/* 
- *	the byield function is called after every statement
- *	it allows two levels of background tasks. 
- */
-void byield() {}
-
-
+/* the POSIX code has no yield as it runs on an OS */
+void yieldfunction() {}
+void longyieldfunction() {}
+void yieldschedule() {}
 /* 
  *	The file system driver - all methods needed to support BASIC fs access
  *	MSDOS to be done 

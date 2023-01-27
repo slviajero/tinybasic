@@ -531,6 +531,10 @@ const mem_t bsystype = SYSTYPE_ESP32;
 const mem_t bsystype = SYSTYPE_RP2040;
 #elif defined(ARDUINO_ARCH_SAM) && defined(ARDUINO_ARCH_SAMD)
 const mem_t bsystype = SYSTYPE_SAM;
+#elif defined(ARDUINO_ARCH_XMC)
+const mem_t bsystype = SYSTYPE_XMC;
+#elif defined(ARDUINO_ARCH_SMT32)
+const mem_t bsystype = SYSTYPE_SMT32;
 #else
 const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif 
@@ -1809,7 +1813,7 @@ char kbdavailable(){
 #ifdef HASKEYPAD
 /* a poor man's debouncer, unstable state returns 0 */
   char c=keypadread();
-  if (c) delay(2); else return 0;
+  if (c) bdelay(2); else return 0;
   if (c == keypadread()) return 1; else return 0;
 	/* return keypadread()!=0; */
 #endif	
@@ -3233,11 +3237,11 @@ void netreconnect() {
 #else 
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   WiFi.reconnect(); 
-  delay(1000); 
+  bdelay(1000); 
 #elif defined(ARDUINO_ARCH_SAMD)
   WiFi.end();
   WiFi.begin(ssid, password);
-  delay(1000);
+  bdelay(1000);
 #endif  
 #endif
 }
@@ -3303,7 +3307,7 @@ char mqttreconnect() {
 	if (bmqtt.connected()) return 1;
 
 /* try to reconnect the network */
-  if (!netconnected()) { netreconnect(); delay(5000); }
+  if (!netconnected()) { netreconnect(); bdelay(5000); }
   if (!netconnected()) return 0;
 	
 /* create a new random name right now */
@@ -3312,7 +3316,7 @@ char mqttreconnect() {
 /* try to reconnect assuming that the network is connected */
 	while (!bmqtt.connected() && timer < 400) {
 		bmqtt.connect(mqttname);
-		delay(timer);
+		bdelay(timer);
 		timer=timer*2;
     reconnect=1;
 	}
@@ -3524,7 +3528,7 @@ void eupdate(address_t a, short c) {
     Wire.write((int)c);
     ert=Wire.endTransmission();
   /* wait the max time */
-    delay(5);
+    bdelay(5);
   }
 #endif
 }
@@ -3605,7 +3609,7 @@ void bmillis() {
 /* millis is processed as integer and is cyclic mod maxnumber and not cast to float!! */
 	m=(number_t) (millis()/(unsigned long)pop() % (unsigned long)maxnum);
 	push(m); 
-};
+}
 
 void bpulsein() { 
   unsigned long t, pt;
@@ -3692,27 +3696,11 @@ void btone(short a) {
  *	(after each statement) in RUN mode. BASIC DELAY calls 
  * 	this every YIELDTIME ms. 
  */
-void byield() {	
-#if defined(ARDUINOBGTASK)
-	if (millis()-lastyield > YIELDINTERVAL-1) {
-		yieldfunction();
-		lastyield=millis();
-  }
-  if (millis()-lastlongyield > LONGYIELDINTERVAL-1) {
-  	longyieldfunction();
-  	lastlongyield=millis();
-  }
- #endif
- /* delay(0) is only needed on ESP8266! */
- #if defined(ARDUINO_ARCH_ESP8266)
-  delay(0);
- #endif
-}
 
 /* everything that needs to be done often - 32 ms */
 void yieldfunction() {
 #ifdef ARDUINOMQTT
-	bmqtt.loop();
+  bmqtt.loop();
 #endif
 #ifdef ARDUINOUSBKBD
   usb.Task();
@@ -3729,6 +3717,13 @@ void longyieldfunction() {
   Ethernet.maintain();
 #endif 
 }
+
+void yieldschedule() {
+/* delay(0) is only needed on ESP8266! it calls the scheduler - no bdelay here!! */
+ #if defined(ARDUINO_ARCH_ESP8266)
+  delay(0);
+ #endif
+ }
 
 /* 
  *	The file system driver - all methods needed to support BASIC fs access
@@ -3832,7 +3827,7 @@ void fsbegin(char v) {
   int i = 1;
   while (i<100) {
     if (SD.begin(SD_DETECT_PIN)) {fsbegins=i; break; } else fsbegins=0; 
-    delay(20); 
+    bdelay(20); 
     i++;
   } 
 #endif
@@ -4353,7 +4348,7 @@ void serialbegin() {
 #else
 	SERIALPORT.begin(serial_baudrate);
 #endif
-	delay(1000);
+	bdelay(1000);
 }
 
 /* state information on the serial port */

@@ -233,6 +233,11 @@ typedef unsigned char uint8_t;
 #define TSENSOR	-26
 #define TWIRE	-25
 #define TSLEEP	-24
+/* events and interrupts, part of IoT for now */
+#define TAFTER -23
+#define TEVERY -22
+#define TEVENT -21
+/* end of tokens */
 /* constants used for some obscure purposes */
 #define TBUFFER -2
 /* UNKNOWN is not used in the current code, the 
@@ -241,7 +246,7 @@ typedef unsigned char uint8_t;
 #define UNKNOWN -1
 
 /* the number of keywords, and the base index of the keywords */
-#define NKEYWORDS	3+19+13+12+11+5+2+7+7+7+12
+#define NKEYWORDS	3+19+13+12+11+5+2+7+7+7+12+3
 #define BASEKEYWORD -121
 
 /*
@@ -421,6 +426,10 @@ const char snetstat[]	PROGMEM  = "NETSTAT";
 const char ssensor[]	PROGMEM  = "SENSOR";
 const char swire[]		PROGMEM  = "WIRE";
 const char ssleep[]		PROGMEM  = "SLEEP";
+/* events and interrupts */
+const char safter[]		PROGMEM  = "AFTER";
+const char severy[]		PROGMEM  = "EVERY";
+const char sevent[]		PROGMEM  = "EVENT";
 #endif
 
 /* zero terminated keyword storage */
@@ -477,6 +486,7 @@ const char* const keyword[] PROGMEM = {
 #ifdef HASIOT
 	sassign, savail, sstr, sinstr, sval, 
 	snetstat, ssensor, swire, ssleep, 
+	safter, severy, sevent,
 #endif
 	0
 };
@@ -533,6 +543,7 @@ const signed char tokens[] PROGMEM = {
 #ifdef HASIOT
 	TASSIGN, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
 	TSENSOR, TWIRE, TSLEEP,
+	TAFTER, TEVERY, TEVENT,
 #endif
 	0
 };
@@ -670,6 +681,8 @@ typedef short index_t; /* this type counts at least 16 bit */
 #define SYSTYPE_ESP32	3
 #define SYSTYPE_RP2040  4
 #define SYSTYPE_SAM     5
+#define SYSTYPE_XMC		6
+#define SYSTYPE_SMT32	7
 #define SYSTYPE_POSIX	32
 #define SYSTYPE_MSDOS	33
 
@@ -852,9 +865,16 @@ static mem_t bfindc, bfindd, bfindt;
 static address_t bfinda, bfindz;
 #endif
 
-/* the interrupt vector - not yet implemented */
+/* the interrupt code - not yet implemented */
 #ifdef HASINTERRUPTS
-static short interruptvector;
+static short interruptready;
+void handleinterrupt();
+#endif
+
+
+/* the timer code */
+#ifdef HASTIMER 
+static short timerready;
 #endif
 
 /* the string for real time clocks */
@@ -973,6 +993,8 @@ void btone(short);
 
 /* timing control for ESP and network */
 void byield();
+void bdelay(unsigned long);
+void fastticker();
 void yieldfunction();
 void longyieldfunction();
 
@@ -1307,6 +1329,8 @@ void xassign();
 void xavail();
 void xfsensor();
 void xsleep();
+void xafter();
+void xevent();
 
 /* File I/O functions */
 char streq(const char*, char*);
