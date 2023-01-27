@@ -291,7 +291,7 @@ void bdelay(unsigned long t) {
 	unsigned long i;
 	if (t>0) {
 		i=millis();
-		while (millis() < i+x) byield();
+		while (millis() < i+t) byield();
 	}	
 }
 
