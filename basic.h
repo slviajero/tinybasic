@@ -872,9 +872,20 @@ void handleinterrupt();
 #endif
 
 
-/* the timer code */
-#ifdef HASTIMER 
-static short timerready;
+/* the timer code - very simple needs to to to a struct */
+#ifdef HASTIMER
+/* data for after */
+unsigned long after_last=0;
+unsigned long after_interval=0;
+mem_t after_type=0;
+address_t after_linenumber=0;
+mem_t after_enabled=0;
+/* data for every */
+unsigned long every_last=0;
+unsigned long every_interval=0;
+mem_t every_type=0;
+address_t every_linenumber=0;
+mem_t every_enabled=0;
 #endif
 
 /* the string for real time clocks */

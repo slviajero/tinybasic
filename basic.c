@@ -32,6 +32,9 @@
 #undef MSDOS
 #undef RASPPI
 
+
+#define HASTIMER
+
 /*
 	interpreter feature sets, choose one of the predefines 
   or undefine all predefines and set the features in custom settings
@@ -297,6 +300,14 @@ void bdelay(unsigned long t) {
 
 /* fastticker is the hook for all timing functions */
 void fastticker() {}
+
+/* the millis function for BASIC */
+void bmillis() {
+	number_t m;
+/* millis is processed as integer and is cyclic mod maxnumber and not cast to float!! */
+	m=(number_t) (millis()/(unsigned long)pop() % (unsigned long)maxnum);
+	push(m); 
+}
 
 /*
  *  Determine the possible basic memory size.
@@ -1518,6 +1529,11 @@ void error(mem_t e){
 	clearst();
 	clrforstack();
 	clrgosubstack();
+/* switch off all timers and interrupts */
+#ifdef HASTIMER
+	after_enabled=0;
+	every_enabled=0;
+#endif
 }
 
 void reseterror() {
@@ -4564,6 +4580,7 @@ void xgoto() {
  */
 void xreturn(){ 
 	popgosubstack();
+	if (DEBUG) { outsc("** restored location "); outnumber(here); outcr(); }
 	if (er != 0) return;
 	nexttoken();
 }
@@ -4701,6 +4718,7 @@ void xfor(){
 	yc=ycl;
 	x=e;
 	y=s;
+	if (DEBUG) { outsc("** for loop target location"); outnumber(here); outcr(); }
 	pushforstack();
 	if (er != 0) return;
 
@@ -4762,6 +4780,7 @@ void xnext(){
 	h=here;
 	popforstack();
 	if (er != 0) return;
+
 /* a variable argument in next clears the for stack 
 		down as BASIC programs can and do jump out to an outer next */
 	if (xcl) {
@@ -4785,7 +4804,7 @@ void xnext(){
 		here=h;
 	}
 	nexttoken();
-	if (DEBUG) {outsc("** after next found token "); debugtoken(); }
+	if (DEBUG) { outsc("** after next found token "); debugtoken(); }
 }
 
 /* 
@@ -4965,6 +4984,12 @@ void resetbasicstate() {
 
 /* interactive mode */
 	st=SINT;
+
+/* switch off timers and interrupts */
+#ifdef HASTIMER
+	after_enabled=0;
+	every_enabled=0;
+#endif
   
 }
  
@@ -6014,11 +6039,54 @@ void xassign() {
  */
 
 void xafter() {
-	nexttoken();
+	mem_t t;
+
+	/* one argument expected, the time intervall */
+	if (!expectexpr()) return;
+
+	/* after that, a command GOTO or GOSUB with a line number
+			more commands thinkable */
+	switch(token) {
+		case TGOSUB:
+		case TGOTO:
+			t=token;
+			if (!expectexpr()) return;
+			after_last=millis();
+			after_type=t;
+			after_linenumber=pop();
+			after_interval=pop();
+			after_enabled=1;
+			break;
+		default:
+			error(EUNKNOWN);
+			return;
+	}	
 }
 
+/* same stuff as after, should be one function but not right now */
 void xevery() {
-	nexttoken();
+	mem_t t;
+
+	/* one argument expected, the time intervall */
+	if (!expectexpr()) return;
+
+	/* after that, a command GOTO or GOSUB with a line number
+			more commands thinkable */
+	switch(token) {
+		case TGOSUB:
+		case TGOTO:
+			t=token;
+			if (!expectexpr()) return;
+			every_last=millis();
+			every_type=t;
+			every_linenumber=pop();
+			every_interval=pop();
+			every_enabled=1;
+			break;
+		default:
+			error(EUNKNOWN);
+			return;
+	}	
 }
 
 #endif
@@ -6853,6 +6921,7 @@ void statement(){
 		if (debuglevel == 1) { debugtoken(); outcr(); }
 #endif
 		switch(token){
+			case ':':
 			case LINENUMBER:
 				nexttoken();
 				break;
@@ -7074,9 +7143,6 @@ void statement(){
 				xevery();
 				break;
 #endif
-			case ':':
-				nexttoken();
-				break;
 			default:
 /*  strict syntax checking */
 				error(EUNKNOWN);
@@ -7101,20 +7167,37 @@ void statement(){
 #endif		
 
 /* yield after each statement which is a 10-100 microsecond cycle 
-		on Arduinos and the like, aLL backgriund tasks are handled in byield */
+		on Arduinos and the like, all background tasks are handled in byield */
 		byield();
-
-/* interrupt handling - not yet implemented, only stubs*/
-#ifdef HASINTERRUPTS
-		if (interruptready) {
-			handleinterrupt();
-			interruptready=0;
-    	}
-#endif
-
 
 /* when an error is encountred the statement loop is ended */
 		if (er) return;
+
+/* if we run error free, interrupts and times can be processed */		
+#ifdef HASTIMER
+/* after is always processed before every */
+		if ((st == SERUN || st == SRUN) && after_enabled ) {
+			if (millis() > after_last + after_interval) {
+				after_enabled=0;
+				if (after_type == TGOSUB) {
+					pushgosubstack();
+				}
+				findline(after_linenumber);
+			}
+		}
+/* periodic events */
+		if ((st == SERUN || st == SRUN) && every_enabled ) {
+			if (millis() > every_last + every_interval) {
+				every_last=millis();
+				if (every_type == TGOSUB) {
+					outsc("** saving here for return: "); outnumber(here); outcr();
+					pushgosubstack();
+				}
+				findline(every_linenumber);
+			}
+		}
+#endif
+
 	}
 }
 
