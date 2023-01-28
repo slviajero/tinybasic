@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.c,v 1.139 2022/11/19 16:43:24 stefan Exp stefan $ 
+ *	$Id: basic.c,v 1.141 2023/01/28 19:26:45 stefan Exp stefan $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -4572,7 +4572,8 @@ void xgoto() {
 		no clearing of variables and stacks */
 	if (st == SINT) st=SRUN;
 
-	nexttoken();
+	/* this was always there but is not needed, we let statement() do this now */
+	/* nexttoken(); */
 }
 
 /*
@@ -4818,6 +4819,7 @@ void outputtoken() {
 		spaceafterkeyword=0;
 	}
 
+
 	switch (token) {
 		case NUMBER:
 			outnumber(x);
@@ -4829,6 +4831,7 @@ void outputtoken() {
 		case ARRAYVAR:
 		case STRINGVAR:
 		case VARIABLE:
+			if (lastouttoken == NUMBER) outspc(); 
 			outch(xc); 
 			if (yc != 0) outch(yc);
 			if (token == STRINGVAR) outch('$');
@@ -4847,7 +4850,9 @@ void outputtoken() {
 					token == TGOTO || 
 					token == TGOSUB ||
 					token == TOR ||
-					token == TAND ) && lastouttoken != LINENUMBER) outspc(); 
+					token == TAND ) && lastouttoken != LINENUMBER) outspc();
+				else 
+					if (lastouttoken == NUMBER) outspc(); 
 				for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 				outsc(getkeyword(i)); 
 				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) spaceafterkeyword=1;
