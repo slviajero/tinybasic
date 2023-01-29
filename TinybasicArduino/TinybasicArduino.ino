@@ -2388,6 +2388,8 @@ void nexttoken() {
 /* RUN mode vs. INT mode, in RUN mode we read from mem via gettoken() */
 	if (st == SRUN || st == SERUN) {
 		gettoken();
+/* in the token stream we call the fastticker - all fast timing functions are in stream*/
+    fastticker();
 		if (debuglevel>1) { debugtoken(); outcr(); }
 		return;
 	}
