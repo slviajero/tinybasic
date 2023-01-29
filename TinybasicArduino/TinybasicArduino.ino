@@ -299,7 +299,12 @@ void bdelay(unsigned long t) {
 }
 
 /* fastticker is the hook for all timing functions */
-void fastticker() {}
+void fastticker() {
+/* toggle the tone pin */
+#ifdef ARDUINOTONEEMULATION
+  tonetoggle();
+#endif
+}
 
 /* the millis function for BASIC */
 void bmillis() {

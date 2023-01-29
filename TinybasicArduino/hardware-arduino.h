@@ -89,6 +89,7 @@
 #undef STM32SDIO
 #undef ARDUINORTC
 #undef ARDUINORTCEMULATION
+#define ARDUINOTONEEMULATION
 #undef ARDUINOWIRE
 #undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
@@ -3657,9 +3658,10 @@ void btone(short a) {
       soundGenerator.playSound(sqw, x, d, v); 
   }
 #else
-	return;
+  return;
 #endif
 #else 
+#ifndef ARDUINOTONEEMULATION
   if (x == 0) {
     noTone(y);
   } else if (a == 2) {
@@ -3667,6 +3669,15 @@ void btone(short a) {
 	} else {
 		tone(y, x, d);
 	}
+#else 
+  if (x == 0) {
+    playtone(0, 0, 0);
+  } else if (a == 2) {
+    playtone(y, x, 32767);
+  } else {
+    playtone(y, x, d);
+  }
+#endif
 #endif	
 }
 
@@ -5108,5 +5119,66 @@ char spistrbuf1[SPIRAMSBSIZE];
 char spistrbuf2[SPIRAMSBSIZE];
 #endif
 
+/*
+ * A tone emulation based on the byield loop. The maximum frequency depends 
+ * on the byield call speed. 10-20 kHz is possible. Will be unreliable if 
+ * the loop functions need a lot of CPU cycles.
+ */
+#ifdef ARDUINOTONEEMULATION
+static mem_t tone_enabled;
+static mem_t tone_pinstate = 0;
+static unsigned long tone_intervall;
+static unsigned long tone_micros;
+static int tone_duration;
+static unsigned long tone_start;
+static mem_t tone_pin;
+
+void playtone(int pin, int frequency, int duration){
+
+/* the pin we are using is reset every time this is called*/
+  tone_pin=pin;
+  pinMode(tone_pin, OUTPUT);
+  digitalWrite(tone_pin, LOW);
+  tone_pinstate=0;
+
+ /* duration 0 or frequency 0 stops playing */ 
+  if (duration == 0 || frequency == 0) {
+    tone_enabled=0;
+    return;
+  }
+
+/* calculate the toggle intervall in micros and remember where we are */
+  tone_intervall=1000000/frequency/2;
+  tone_micros=micros();
+
+/* set the duration and remember where we are*/
+  tone_duration=duration;
+  tone_start=millis();
+
+/* start the play */
+  tone_enabled=1;
+}
+
+void tonetoggle() {
+
+/* is this active? */
+  if (!tone_enabled) return;
+
+/* check if we are done playing */
+  if (millis() > tone_duration+tone_start) {
+    tone_enabled=0;
+    digitalWrite(tone_pin, LOW);
+    tone_pinstate=0;
+    return;
+  }
+
+/* if not, check if the intervall is over */
+  if (micros() > tone_intervall+tone_micros) {
+    tone_pinstate=!tone_pinstate;
+    digitalWrite(tone_pin, tone_pinstate);
+    tone_micros=micros();
+  }
+}
+#endif
 // defined HARDWARE_H
 #endif

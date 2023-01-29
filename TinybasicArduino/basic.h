@@ -1369,6 +1369,10 @@ void xon();
 void xtimer();
 void resettimer();
 
+/* the emulation of tone using the byield loop */
+void toggletone();
+void playtone(int, int, int);
+
 /* the statement loop */
 void statement();
 
