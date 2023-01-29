@@ -48,9 +48,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#undef	BASICFULL
+#define	BASICFULL
 #undef  BASICINTEGER
-#define	BASICSIMPLE
+#undef	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef  BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
@@ -6042,18 +6042,20 @@ void xassign() {
 /*
  * After and every trigger timing GOSUBS and GOTOS 
  */
-
-void resettimer(timer_t* t) {
+#ifdef HASTIMER 
+void resettimer(btimer_t* t) {
 	t->enabled=0;
 	t->interval=0;
 	t->last=0;
 	t->type=0;
 	t->linenumber=0;
 }
+#endif
 
 void xtimer() {
+#ifdef HASTIMER
 	mem_t t;
-	timer_t* timer;
+	btimer_t* timer;
 
 /* do we deal with every or after */
 	if (token == TEVERY) timer=&every_timer; else timer=&after_timer;
@@ -6090,7 +6092,10 @@ void xtimer() {
 			} else 
 				error(EUNKNOWN);
 			return;
-	}	
+	}
+#else 
+  nexttoken();
+#endif	
 }
 #endif
 

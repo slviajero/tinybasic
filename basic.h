@@ -882,10 +882,10 @@ typedef struct {
     unsigned long interval; 
     mem_t type;
     address_t linenumber;
-} timer_t;
+} btimer_t;
 
-static timer_t after_timer = {0, 0, 0, 0, 0};
-static timer_t every_timer = {0, 0, 0, 0, 0};
+static btimer_t after_timer = {0, 0, 0, 0, 0};
+static btimer_t every_timer = {0, 0, 0, 0, 0};
 #endif
 
 /* the string for real time clocks */

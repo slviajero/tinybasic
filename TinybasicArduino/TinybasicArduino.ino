@@ -32,7 +32,7 @@
 #undef MSDOS
 #undef RASPPI
 
-
+/* test features */
 #define HASTIMER
 
 /*
@@ -1531,8 +1531,8 @@ void error(mem_t e){
 	clrgosubstack();
 /* switch off all timers and interrupts */
 #ifdef HASTIMER
-	after_enabled=0;
-	every_enabled=0;
+	resettimer(&after_timer);
+	resettimer(&every_timer);
 #endif
 }
 
@@ -4992,8 +4992,8 @@ void resetbasicstate() {
 
 /* switch off timers and interrupts */
 #ifdef HASTIMER
-	after_enabled=0;
-	every_enabled=0;
+	resettimer(&after_timer);
+	resettimer(&every_timer);
 #endif
   
 }
@@ -6040,11 +6040,25 @@ void xassign() {
 }
 
 /*
- * After and every trigger timing GOSUBS
+ * After and every trigger timing GOSUBS and GOTOS 
  */
+#ifdef HASTIMER 
+void resettimer(btimer_t* t) {
+	t->enabled=0;
+	t->interval=0;
+	t->last=0;
+	t->type=0;
+	t->linenumber=0;
+}
+#endif
 
-void xafter() {
+void xtimer() {
+#ifdef HASTIMER
 	mem_t t;
+	btimer_t* timer;
+
+/* do we deal with every or after */
+	if (token == TEVERY) timer=&every_timer; else timer=&after_timer;
 
 	/* one argument expected, the time intervall */
 	if (!expectexpr()) return;
@@ -6056,44 +6070,33 @@ void xafter() {
 		case TGOTO:
 			t=token;
 			if (!expectexpr()) return;
-			after_last=millis();
-			after_type=t;
-			after_linenumber=pop();
-			after_interval=pop();
-			after_enabled=1;
+			timer->last=millis();
+			timer->type=t;
+			timer->linenumber=pop();
+			timer->interval=pop();
+			timer->enabled=1;
 			break;
 		default:
-			error(EUNKNOWN);
+			if (termsymbol()) {
+				x=pop();
+				if (x == 0) 
+					timer->enabled=0;
+				else {
+					if (timer->linenumber) {
+						timer->enabled=1;
+						timer->interval=x;
+						timer->last=millis();	
+					} else 
+						error(EARGS);
+				}
+			} else 
+				error(EUNKNOWN);
 			return;
-	}	
+	}
+#else 
+  nexttoken();
+#endif	
 }
-
-/* same stuff as after, should be one function but not right now */
-void xevery() {
-	mem_t t;
-
-	/* one argument expected, the time intervall */
-	if (!expectexpr()) return;
-
-	/* after that, a command GOTO or GOSUB with a line number
-			more commands thinkable */
-	switch(token) {
-		case TGOSUB:
-		case TGOTO:
-			t=token;
-			if (!expectexpr()) return;
-			every_last=millis();
-			every_type=t;
-			every_linenumber=pop();
-			every_interval=pop();
-			every_enabled=1;
-			break;
-		default:
-			error(EUNKNOWN);
-			return;
-	}	
-}
-
 #endif
 
 
@@ -7142,10 +7145,8 @@ void statement(){
 				xsleep();
 				break;	
 			case TAFTER:
-				xafter();
-				break;
 			case TEVERY:
-				xevery();
+				xtimer();
 				break;
 #endif
 			default:
@@ -7197,27 +7198,27 @@ void statement(){
 #ifdef HASTIMER
 		if ((token == LINENUMBER || token == ':' || token == TNEXT) && (st == SERUN || st == SRUN)) {
 /* after is always processed before every */
-			if (after_enabled) {
-				if (millis() > after_last + after_interval) {
-					after_enabled=0;
-					if (after_type == TGOSUB) {
+			if (after_timer.enabled) {
+				if (millis() > after_timer.last + after_timer.interval) {
+					after_timer.enabled=0;
+					if (after_timer.type == TGOSUB) {
 						if (token == TNEXT || token == ':') here--;
 						if (token == LINENUMBER) here-=(1+sizeof(address_t));	
 						pushgosubstack();
 					}
-					findline(after_linenumber);
+					findline(after_timer.linenumber);
 				}
 		}
 /* periodic events */
-			if (every_enabled ) {
-				if (millis() > every_last + every_interval) {
-						every_last=millis();
-						if (every_type == TGOSUB) {
+			if (every_timer.enabled ) {
+				if (millis() > every_timer.last + every_timer.interval) {
+						every_timer.last=millis();
+						if (every_timer.type == TGOSUB) {
 							if (token == TNEXT || token == ':') here--;
 							if (token == LINENUMBER) here-=(1+sizeof(address_t));	
 							pushgosubstack();
 						}
-						findline(every_linenumber);
+						findline(every_timer.linenumber);
 					}
 				}
 			}

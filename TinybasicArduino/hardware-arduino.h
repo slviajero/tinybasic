@@ -3604,13 +3604,6 @@ void pinm(number_t p, number_t m){
   }
 }
 
-void bmillis() {
-	number_t m;
-/* millis is processed as integer and is cyclic mod maxnumber and not cast to float!! */
-	m=(number_t) (millis()/(unsigned long)pop() % (unsigned long)maxnum);
-	push(m); 
-}
-
 void bpulsein() { 
   unsigned long t, pt;
   t=((unsigned long) pop())*1000;

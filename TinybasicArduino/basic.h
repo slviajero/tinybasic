@@ -874,18 +874,18 @@ void handleinterrupt();
 
 /* the timer code - very simple needs to to to a struct */
 #ifdef HASTIMER
-/* data for after */
-unsigned long after_last=0;
-unsigned long after_interval=0;
-mem_t after_type=0;
-address_t after_linenumber=0;
-mem_t after_enabled=0;
-/* data for every */
-unsigned long every_last=0;
-unsigned long every_interval=0;
-mem_t every_type=0;
-address_t every_linenumber=0;
-mem_t every_enabled=0;
+
+/* timer type */
+typedef struct {
+    mem_t enabled;
+    unsigned long last;
+    unsigned long interval; 
+    mem_t type;
+    address_t linenumber;
+} btimer_t;
+
+static btimer_t after_timer = {0, 0, 0, 0, 0};
+static btimer_t every_timer = {0, 0, 0, 0, 0};
 #endif
 
 /* the string for real time clocks */
@@ -1364,6 +1364,10 @@ void xrestore();
 void xdef();
 void xfn();
 void xon();
+
+/* timers and interrupts */
+void xtimer();
+void resettimer();
 
 /* the statement loop */
 void statement();
