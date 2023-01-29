@@ -1024,6 +1024,37 @@ In command mode NETSTAT displays the network status. It is implemented for all W
 
 The network code is under active development.
 
+## Timers and interrupts
+
+BASIC can handle time interrupt right now. Interrupts of external sources are in preparation. There are two timers implemented. The AFTER timer causes an action once and is then reset. The EVERY timer triggers events periodically until stopped. Both timers use millis() as time source. Timer events are only processed if a program is running. In interactive mode both timers are stopped but continue running. 
+
+### AFTER
+
+The AFTER timer is started with the command 
+
+10 AFTER 1000 GOTO 100
+
+After 1000 milliseconds the interpreter branches to line 100. The command
+
+10 AFTER 500 GOSUB 200
+
+will GOSUB to line 200. A RETURN will resume program execution whereevery the program has been interrupted.
+
+AFTER 0 
+ 
+disables the execution of the after command. 
+
+AFTER 1000 
+
+will start the after timer again with a new time period of 1000 ms. The GOTO and GOSUB argument of the previous after are reused.
+
+### EVERY
+
+EVERY syntax is exactly like AFTER but the event is running periodically. 
+
+Both AFTER and EVERY have been taken from the legendary Locomotive BASIC. In this BASIC dialect, only GOSUB was available and the time scale was 20 ms. There were 4 individual timers. Full featured Locomotive BASIC timers are on the feature list fot future releases.
+
+
 ## Graphics language set
 
 ### Introduction
