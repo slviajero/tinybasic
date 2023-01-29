@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.h,v 1.9 2022/08/15 18:08:56 stefan Exp stefan $
+ *	$Id: basic.h,v 1.10 2023/01/28 19:26:45 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *

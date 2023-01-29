@@ -48,9 +48,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#define	BASICFULL
+#undef	BASICFULL
 #undef  BASICINTEGER
-#undef	BASICSIMPLE
+#define	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef  BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
@@ -7153,6 +7153,13 @@ void statement(){
 				error(EUNKNOWN);
 				return;
 		}
+
+/*
+		debugtoken(); outcr();
+		outnumber(here); outcr();
+*/
+
+
 /* after each statement we check on a break character 
 		on an Arduino entering "#" at runtime stops the program */
 #if defined(BREAKCHAR)
@@ -7178,31 +7185,43 @@ void statement(){
 /* when an error is encountred the statement loop is ended */
 		if (er) return;
 
-/* if we run error free, interrupts and times can be processed */		
+/* 
+ * if we run error free, interrupts and times can be processed 
+ * 
+ * We can savely interrupt and return only if here points either to 
+ * a termsymbol : or LINENUMBER. NEXT is a special case. We need to 
+ * catch this here because empty FOR loops never even have a termsymbol
+ * a : is swallowed after FOR.
+ *
+ */		
 #ifdef HASTIMER
+		if ((token == LINENUMBER || token == ':' || token == TNEXT) && (st == SERUN || st == SRUN)) {
 /* after is always processed before every */
-		if ((st == SERUN || st == SRUN) && after_enabled ) {
-			if (millis() > after_last + after_interval) {
-				after_enabled=0;
-				if (after_type == TGOSUB) {
-					pushgosubstack();
+			if (after_enabled) {
+				if (millis() > after_last + after_interval) {
+					after_enabled=0;
+					if (after_type == TGOSUB) {
+						if (token == TNEXT || token == ':') here--;
+						if (token == LINENUMBER) here-=(1+sizeof(address_t));	
+						pushgosubstack();
+					}
+					findline(after_linenumber);
 				}
-				findline(after_linenumber);
-			}
 		}
 /* periodic events */
-		if ((st == SERUN || st == SRUN) && every_enabled ) {
-			if (millis() > every_last + every_interval) {
-				every_last=millis();
-				if (every_type == TGOSUB) {
-					outsc("** saving here for return: "); outnumber(here); outcr();
-					pushgosubstack();
+			if (every_enabled ) {
+				if (millis() > every_last + every_interval) {
+						every_last=millis();
+						if (every_type == TGOSUB) {
+							if (token == TNEXT || token == ':') here--;
+							if (token == LINENUMBER) here-=(1+sizeof(address_t));	
+							pushgosubstack();
+						}
+						findline(every_linenumber);
+					}
 				}
-				findline(every_linenumber);
 			}
-		}
 #endif
-
 	}
 }
 

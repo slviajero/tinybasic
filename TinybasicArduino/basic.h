@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.h,v 1.9 2022/08/15 18:08:56 stefan Exp stefan $
+ *	$Id: basic.h,v 1.10 2023/01/28 19:26:45 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *
@@ -872,9 +872,20 @@ void handleinterrupt();
 #endif
 
 
-/* the timer code */
-#ifdef HASTIMER 
-static short timerready;
+/* the timer code - very simple needs to to to a struct */
+#ifdef HASTIMER
+/* data for after */
+unsigned long after_last=0;
+unsigned long after_interval=0;
+mem_t after_type=0;
+address_t after_linenumber=0;
+mem_t after_enabled=0;
+/* data for every */
+unsigned long every_last=0;
+unsigned long every_interval=0;
+mem_t every_type=0;
+address_t every_linenumber=0;
+mem_t every_enabled=0;
 #endif
 
 /* the string for real time clocks */
