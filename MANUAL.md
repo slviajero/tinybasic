@@ -1052,8 +1052,11 @@ will start the after timer again with a new time period of 1000 ms. The GOTO and
 
 EVERY syntax is exactly like AFTER but the event is running periodically. 
 
+### Credits and a word on timing
+
 Both AFTER and EVERY have been taken from the legendary Locomotive BASIC. In this BASIC dialect, only GOSUB was available and the time scale was 20 ms. There were 4 individual timers. Full featured Locomotive BASIC timers are on the feature list fot future releases.
 
+BASIC can handle 1ms interrupts even on an Arduino UNO if there is not much I/O going on. Typically, 35 BASIC commands are processed in a ms by the interpreter core. It is good practice to disable interrupts with EVERY 0 at the beginning of the interrupt subroutine and to reenable it with EVERY n immediately before return. 
 
 ## Graphics language set
 
@@ -1781,7 +1784,7 @@ If BREAKCHAR is defined in the BASIC code, this character will stop the program 
 
 If BREAKPIN is defined, the interpreter will stop once this pin is pulled to low. By default, BREAKPIN is not defined, i.e. there is no BREAKPIN. This mechanism is for use cases where using BREAKCHAR is not practical. One can implement a separate stop button with it. 
 
-### Extnding basic 
+### Extending basic 
 
 The BASIC interpreter has several mechanisms to extend the language set without having to work directly with the interpreter data structures. 
 
