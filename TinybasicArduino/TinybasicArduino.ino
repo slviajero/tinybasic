@@ -34,6 +34,7 @@
 
 /* test features */
 #define HASTIMER
+#define HASEVENTS
 
 /*
 	interpreter feature sets, choose one of the predefines 
@@ -300,6 +301,10 @@ void bdelay(unsigned long t) {
 
 /* fastticker is the hook for all timing functions */
 void fastticker() {
+/* fastticker profiling test code */
+#ifdef FASTTICKERPROFILE
+  fasttickerprofile();
+#endif
 /* toggle the tone pin */
 #ifdef ARDUINOTONEEMULATION
   tonetoggle();
@@ -6106,6 +6111,125 @@ void xtimer() {
   nexttoken();
 #endif	
 }
+
+#ifdef HASEVENTS
+/* the event BASIC commands */
+void xevent() {
+	mem_t pin, mode;
+	mem_t type=0;
+	address_t line=0;
+	
+/* in this version two arguments are neded, one is the pin, the second the mode */
+	nexttoken();
+	parsearguments();
+	if (er != 0) return;
+
+	switch(args) {
+		case 2:
+			mode=pop();
+      if (mode > 3) {
+        error(EARGS);
+        return;
+      }
+		case 1: 
+			pin=pop();
+			break;
+		default:
+			error(EARGS);
+	}
+
+/* followed by termsymbol, GOTO or GOSUB */
+	if (token == TGOTO || token == TGOSUB) {
+		type=token;
+
+/* which line to go to */
+		if (!expectexpr()) return;
+		line=pop();
+	} else 
+		nexttoken();
+/* all done either set the interrupt up or delete it*/
+	if (type) {
+		if (!addevent(pin, mode, type, line)) {
+			error(EARGS);
+			return;
+		}	
+	} else {
+		disableevent(pin);
+		deleteevent(pin);
+    return;
+	}
+
+/* enable the interrupt */
+	if (!enableevent(findevent(pin))) {
+		deleteevent(pin);
+		error(EARGS);
+		return;
+	}
+
+}
+
+/* handling the event list */
+mem_t addevent(mem_t pin, mem_t mode, mem_t type, address_t linenumber) {
+	volatile bevent_t* e;
+
+/* event already there */
+	e=findevent(pin);
+	if (e) {
+		e->pin=pin;
+		e->mode=mode;
+		e->type=type;
+		e->linenumber=linenumber;
+		e->enabled=0;
+		e->active=0;
+		return 1;
+	}
+
+/* do we have a free slot */
+	if (nevents >= EVENTLISTSIZE) return 0;
+
+/* then add it */
+	for(int i=0; i<EVENTLISTSIZE; i++) {
+		if (eventlist[i].pin == 0) {
+			eventlist[i].enabled=0;
+			eventlist[i].pin=pin;
+			eventlist[i].mode=mode;
+			eventlist[i].linenumber=linenumber;
+			eventlist[i].active=0;
+			nevents++;
+      break;
+		}
+	}
+	return 1;
+}
+
+void deleteevent(mem_t pin) {
+	volatile bevent_t* e;
+
+/* do we have the event? */
+	e=findevent(pin);
+
+/* then delete it */
+	if (e) {
+		e->pin=0;
+		e->mode=0;
+		e->type=0;
+		e->linenumber=0;
+		e->enabled=0;
+		e->active=0;
+	}
+}
+
+volatile bevent_t* findevent(mem_t pin) {
+	for(int i=0; i<EVENTLISTSIZE; i++ ) if (eventlist[i].pin == pin) return &eventlist[i]; 
+	return 0;
+}
+
+mem_t eventindex(mem_t pin) {
+	for(int i=0; i<EVENTLISTSIZE; i++ ) if (eventlist[i].pin == pin) return i; 
+	return 0;
+}
+
+#endif
 #endif
 
 
@@ -7157,17 +7281,15 @@ void statement(){
 			case TEVERY:
 				xtimer();
 				break;
+			case TEVENT:
+				xevent();
+				break;
 #endif
 			default:
 /*  strict syntax checking */
 				error(EUNKNOWN);
 				return;
 		}
-
-/*
-		debugtoken(); outcr();
-		outnumber(here); outcr();
-*/
 
 
 /* after each statement we check on a break character 
@@ -7217,7 +7339,7 @@ void statement(){
 					}
 					findline(after_timer.linenumber);
 				}
-		}
+			}
 /* periodic events */
 			if (every_timer.enabled ) {
 				if (millis() > every_timer.last + every_timer.interval) {
@@ -7228,10 +7350,31 @@ void statement(){
 							pushgosubstack();
 						}
 						findline(every_timer.linenumber);
-					}
 				}
 			}
+		}
 #endif
+
+/* the branch code for interrupts, we round robin through the event list */
+#ifdef HASEVENTS
+		if ((token == LINENUMBER || token == ':' || token == TNEXT) && (st == SERUN || st == SRUN)) {
+/* interrupts, implement EI, DI here */
+      if (events_enabled) {
+        for (ax=0; ax<EVENTLISTSIZE; ax++) {
+          if (eventlist[ievent].pin && eventlist[ievent].enabled && eventlist[ievent].active) {
+            if (eventlist[ievent].type == TGOSUB) {
+              if (token == TNEXT || token == ':') here--;
+							if (token == LINENUMBER) here-=(1+sizeof(address_t));	
+							pushgosubstack();
+            }
+            findline(eventlist[ievent].linenumber);   
+            eventlist[ievent].active=0;
+          }
+          ievent=(ievent+1)%EVENTLISTSIZE;
+        }
+      }
+    }
+#endif			
 	}
 }
 

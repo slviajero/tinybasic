@@ -89,7 +89,7 @@
 #undef STM32SDIO
 #undef ARDUINORTC
 #undef ARDUINORTCEMULATION
-#define ARDUINOTONEEMULATION
+#undef ARDUINOTONEEMULATION
 #undef ARDUINOWIRE
 #undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
@@ -3621,7 +3621,6 @@ void btone(short a) {
   if (a >= 3) d=pop();
 	x=pop();
 	y=pop();
-#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_ESP32)
 #if defined(ARDUINO_TTGO_T7_V14_Mini32) && defined(HASTONE)
 /* fabGL soundgenerator code of suggestes by testerrossa
  * pin numbers below 128 are real arduino pins while 
@@ -3657,10 +3656,9 @@ void btone(short a) {
       sqw.setDutyCycle(y);
       soundGenerator.playSound(sqw, x, d, v); 
   }
-#else
   return;
 #endif
-#else 
+
 #ifndef ARDUINOTONEEMULATION
   if (x == 0) {
     noTone(y);
@@ -3677,7 +3675,6 @@ void btone(short a) {
   } else {
     playtone(y, x, d);
   }
-#endif
 #endif	
 }
 
@@ -5174,11 +5171,109 @@ void tonetoggle() {
 
 /* if not, check if the intervall is over */
   if (micros() > tone_intervall+tone_micros) {
+    tone_micros=micros();
     tone_pinstate=!tone_pinstate;
     digitalWrite(tone_pin, tone_pinstate);
-    tone_micros=micros();
   }
 }
 #endif
+
+/* 
+ * the events API for Arduino with interrupt service routines
+ * analogous to the timer API
+ * 
+ * we use raw modes here 
+ *
+ * #define CHANGE 1
+ * #define FALLING 2
+ * #define RISING 3
+ *
+ */
+
+#ifdef HASEVENTS
+void bintroutine0() {
+  if (eventlist[0].enabled) eventlist[0].active=1;
+}
+void bintroutine1() {
+  if (eventlist[1].enabled) eventlist[1].active=1;
+}
+void bintroutine2() {
+  if (eventlist[2].enabled) eventlist[2].active=1;
+}  
+void bintroutine3() {
+  if (eventlist[3].enabled) eventlist[3].active=1;
+}
+
+mem_t enableevent(bevent_t* e) {
+  mem_t interrupt;
+
+/* do we have the data */
+  if (!e) return 0;
+
+/* can we use this pin */  
+  interrupt=digitalPinToInterrupt(e->pin);
+  if (interrupt < 0) return 0;
+
+/* attach the interrupt function to this pin */
+  switch(eventindex(e->pin)) {
+    case 0: 
+      attachInterrupt(interrupt, bintroutine0, e->mode); 
+      break;
+    case 1:
+      attachInterrupt(interrupt, bintroutine1, e->mode); 
+      break;
+    case 2:
+      attachInterrupt(interrupt, bintroutine2, e->mode); 
+      break;
+    case 3:
+      attachInterrupt(interrupt, bintroutine3, e->mode); 
+      break;
+    default:
+      return 0;
+  }
+
+/* on interrupt mode LOW set the pullup here */
+  if (e->mode == 0) 
+    pinMode(e->pin, INPUT_PULLUP);
+  else 
+    pinMode(e->pin, INPUT);
+
+/* now set it enabled in BASIC */
+  e->enabled=1; 
+  return 1;
+
+}
+
+void disableevent(mem_t pin) {
+  detachInterrupt(digitalPinToInterrupt(pin)); 
+}
+#endif
+
+
+/* 
+ * This code measures the fast ticker frequency in microseconds 
+ * It leaves the data in variable F. Activate this only for test 
+ * purposes.
+ */
+#undef FASTTICKERPROFILE
+
+#ifdef FASTTICKERPROFILE
+static unsigned long lastfasttick = 0;
+static unsigned long fasttickcalls = 0;
+static int avgfasttick = 0;
+static long devfasttick = 0;
+
+void fasttickerprofile() {
+  if (lastfasttick == 0) { lastfasttick=micros(); return; }
+  int delta=micros()-lastfasttick;
+  lastfasttick=micros();
+  avgfasttick=(avgfasttick*fasttickcalls+delta)/(fasttickcalls+1);
+  fasttickcalls++; 
+  vars[5]=avgfasttick;
+}
+#endif
+
+
+
 // defined HARDWARE_H
 #endif
