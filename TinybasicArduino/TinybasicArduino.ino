@@ -1693,10 +1693,13 @@ void clrforstack() {
 	fnc=0;
 }
 
-void pushgosubstack(){
+void pushgosubstack(mem_t a){
 	if (gosubsp < GOSUBDEPTH) {
 		gosubstack[gosubsp]=here;
-		gosubsp++;	
+#ifdef HASEVENTS
+    gosubarg[gosubsp]=a;
+#endif
+    gosubsp++;  
 	} else 
 		error(EGOSUB);
 }
@@ -4572,7 +4575,7 @@ void xgoto() {
 	mem_t t=token;
 
 	if (!expectexpr()) return;
-	if (t == TGOSUB) pushgosubstack();
+	if (t == TGOSUB) pushgosubstack(0);
 	if (er != 0) return;
 
 	x=pop();
@@ -4598,6 +4601,10 @@ void xreturn(){
 	if (DEBUG) { outsc("** restored location "); outnumber(here); outcr(); }
 	if (er != 0) return;
 	nexttoken();
+#ifdef HASEVENTS 
+/* we return from an interrupt and reenable them */
+  if (gosubarg[gosubsp] == TEVENT) events_enabled=1;
+#endif
 }
 
 
@@ -5678,6 +5685,11 @@ void xset(){
 			kbdrepeat=args;
 			break;
 #endif
+#ifdef HASEVENTS
+		case 14:
+			events_enabled=args;
+			break;
+#endif
 	}
 }
 
@@ -6121,6 +6133,25 @@ void xevent() {
 	
 /* in this version two arguments are neded, one is the pin, the second the mode */
 	nexttoken();
+  
+/* debug code, display the event list */
+  if (termsymbol()) {
+    for (ax=0; ax<EVENTLISTSIZE; ax++) {
+      if (eventlist[ax].enabled) {
+        outnumber(eventlist[ax].pin); outspc();
+        outnumber(eventlist[ax].mode); outspc();
+        outnumber(eventlist[ax].type); outspc();
+        outnumber(eventlist[ax].linenumber); outspc();
+        outcr();
+      }  
+    }
+    outnumber(nevents); outcr();
+    nexttoken();
+    return;
+  }
+
+
+/* argument parsing */  
 	parsearguments();
 	if (er != 0) return;
 
@@ -6147,6 +6178,8 @@ void xevent() {
 		line=pop();
 	} else 
 		nexttoken();
+
+    
 /* all done either set the interrupt up or delete it*/
 	if (type) {
 		if (!addevent(pin, mode, type, line)) {
@@ -6160,7 +6193,7 @@ void xevent() {
 	}
 
 /* enable the interrupt */
-	if (!enableevent(findevent(pin))) {
+	if (!enableevent(pin)) {
 		deleteevent(pin);
 		error(EARGS);
 		return;
@@ -6170,63 +6203,51 @@ void xevent() {
 
 /* handling the event list */
 mem_t addevent(mem_t pin, mem_t mode, mem_t type, address_t linenumber) {
-	volatile bevent_t* e;
 
-/* event already there */
-	e=findevent(pin);
-	if (e) {
-		e->pin=pin;
-		e->mode=mode;
-		e->type=type;
-		e->linenumber=linenumber;
-		e->enabled=0;
-		e->active=0;
-		return 1;
-	}
+/* is the event already there */
+  for (ax=0; ax<EVENTLISTSIZE; ax++) 
+    if (pin == eventlist[ax].pin) goto slotfound;
 
-/* do we have a free slot */
-	if (nevents >= EVENTLISTSIZE) return 0;
+/* if not, look for a free slot */
+  if (nevents >= EVENTLISTSIZE) return 0;
+  for (ax=0; ax<EVENTLISTSIZE; ax++) 
+    if (eventlist[ax].pin == 0) goto slotfound;
 
-/* then add it */
-	for(int i=0; i<EVENTLISTSIZE; i++) {
-		if (eventlist[i].pin == 0) {
-			eventlist[i].enabled=0;
-			eventlist[i].pin=pin;
-			eventlist[i].mode=mode;
-			eventlist[i].linenumber=linenumber;
-			eventlist[i].active=0;
-			nevents++;
-      break;
-		}
-	}
+/* no free event slot */
+  return 0;
+
+/* we have a slot */
+slotfound:
+	eventlist[ax].enabled=0;
+	eventlist[ax].pin=pin;
+	eventlist[ax].mode=mode;
+  eventlist[ax].type=type;
+  eventlist[ax].linenumber=linenumber;
+	eventlist[ax].active=0;
+	nevents++;
 	return 1;
 }
 
 void deleteevent(mem_t pin) {
-	volatile bevent_t* e;
 
 /* do we have the event? */
-	e=findevent(pin);
-
-/* then delete it */
-	if (e) {
-		e->pin=0;
-		e->mode=0;
-		e->type=0;
-		e->linenumber=0;
-		e->enabled=0;
-		e->active=0;
+  ax=eventindex(pin);
+	if (ax>0){
+    eventlist[ax].enabled=0;
+    eventlist[ax].pin=0;
+    eventlist[ax].mode=0;
+    eventlist[ax].type=0;
+    eventlist[ax].linenumber=0;
+    eventlist[ax].active=0;
+    nevents++;
 	}
 }
 
-volatile bevent_t* findevent(mem_t pin) {
-	for(int i=0; i<EVENTLISTSIZE; i++ ) if (eventlist[i].pin == pin) return &eventlist[i]; 
-	return 0;
-}
 
 mem_t eventindex(mem_t pin) {
-	for(int i=0; i<EVENTLISTSIZE; i++ ) if (eventlist[i].pin == pin) return i; 
-	return 0;
+  int i;
+	for(i=0; i<EVENTLISTSIZE; i++ ) if (eventlist[i].pin == pin) return i; 
+	return -1;
 }
 
 #endif
@@ -7026,7 +7047,7 @@ void xon(){
 	}
 
 /* prepare for the jump	*/
-	if (t == TGOSUB) pushgosubstack();
+	if (t == TGOSUB) pushgosubstack(0);
 	if (er != 0) return;
 
 	findline(line);
@@ -7335,9 +7356,10 @@ void statement(){
 					if (after_timer.type == TGOSUB) {
 						if (token == TNEXT || token == ':') here--;
 						if (token == LINENUMBER) here-=(1+sizeof(address_t));	
-						pushgosubstack();
+						pushgosubstack(0);
 					}
 					findline(after_timer.linenumber);
+          if (er) return; 
 				}
 			}
 /* periodic events */
@@ -7347,9 +7369,11 @@ void statement(){
 						if (every_timer.type == TGOSUB) {
 							if (token == TNEXT || token == ':') here--;
 							if (token == LINENUMBER) here-=(1+sizeof(address_t));	
-							pushgosubstack();
+							pushgosubstack(0);
+              if (er != 0) return;
 						}
 						findline(every_timer.linenumber);
+            if (er != 0) return; 
 				}
 			}
 		}
@@ -7358,17 +7382,21 @@ void statement(){
 /* the branch code for interrupts, we round robin through the event list */
 #ifdef HASEVENTS
 		if ((token == LINENUMBER || token == ':' || token == TNEXT) && (st == SERUN || st == SRUN)) {
-/* interrupts, implement EI, DI here */
+/* interrupts */
       if (events_enabled) {
         for (ax=0; ax<EVENTLISTSIZE; ax++) {
           if (eventlist[ievent].pin && eventlist[ievent].enabled && eventlist[ievent].active) {
             if (eventlist[ievent].type == TGOSUB) {
               if (token == TNEXT || token == ':') here--;
 							if (token == LINENUMBER) here-=(1+sizeof(address_t));	
-							pushgosubstack();
+							pushgosubstack(TEVENT);
+              if (er != 0) return;
             }
-            findline(eventlist[ievent].linenumber);   
+            findline(eventlist[ievent].linenumber);  
+            if (er != 0) return; 
             eventlist[ievent].active=0;
+            events_enabled=0; /* once we have jumped, we keep the events off */
+            break;
           }
           ievent=(ievent+1)%EVENTLISTSIZE;
         }

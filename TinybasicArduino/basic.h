@@ -543,7 +543,7 @@ const signed char tokens[] PROGMEM = {
 #ifdef HASIOT
 	TASSIGN, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
 	TSENSOR, TWIRE, TSLEEP,
-	TAFTER, TEVERY, TEVENT,
+	TAFTER, TEVERY, TEVENT, 
 #endif
 	0
 };
@@ -901,6 +901,9 @@ static int nevents = 0;
 static int ievent = 0;
 static mem_t events_enabled = 1;
 static volatile bevent_t eventlist[EVENTLISTSIZE];
+
+/* the extension of the GOSUB stack */
+static mem_t gosubarg[GOSUBDEPTH];
 
 /* handle the event list */
 mem_t addevent(mem_t, mem_t, mem_t, address_t);

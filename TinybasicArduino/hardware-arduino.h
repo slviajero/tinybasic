@@ -5204,42 +5204,38 @@ void bintroutine3() {
   if (eventlist[3].enabled) eventlist[3].active=1;
 }
 
-mem_t enableevent(bevent_t* e) {
+mem_t enableevent(int pin) {
   mem_t interrupt;
+  int i;
 
 /* do we have the data */
-  if (!e) return 0;
+  
+  if ((i=eventindex(pin))<0) return 0;
 
 /* can we use this pin */  
-  interrupt=digitalPinToInterrupt(e->pin);
+  interrupt=digitalPinToInterrupt(eventlist[i].pin);
   if (interrupt < 0) return 0;
 
 /* attach the interrupt function to this pin */
-  switch(eventindex(e->pin)) {
+  switch(i) {
     case 0: 
-      attachInterrupt(interrupt, bintroutine0, e->mode); 
+      attachInterrupt(interrupt, bintroutine0, eventlist[i].mode); 
       break;
     case 1:
-      attachInterrupt(interrupt, bintroutine1, e->mode); 
+      attachInterrupt(interrupt, bintroutine1, eventlist[i].mode); 
       break;
     case 2:
-      attachInterrupt(interrupt, bintroutine2, e->mode); 
+      attachInterrupt(interrupt, bintroutine2, eventlist[i].mode); 
       break;
     case 3:
-      attachInterrupt(interrupt, bintroutine3, e->mode); 
+      attachInterrupt(interrupt, bintroutine3, eventlist[i].mode); 
       break;
     default:
       return 0;
   }
 
-/* on interrupt mode LOW set the pullup here */
-  if (e->mode == 0) 
-    pinMode(e->pin, INPUT_PULLUP);
-  else 
-    pinMode(e->pin, INPUT);
-
 /* now set it enabled in BASIC */
-  e->enabled=1; 
+  eventlist[i].enabled=1; 
   return 1;
 
 }
