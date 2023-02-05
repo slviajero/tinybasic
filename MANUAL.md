@@ -1052,6 +1052,42 @@ will start the after timer again with a new time period of 1000 ms. The GOTO and
 
 EVERY syntax is exactly like AFTER but the event is running periodically. 
 
+### EVENT
+
+EVENT listens to an interrupt and branches to a line number. In the statement 
+
+EVENT 2,0 GOSUB 1000
+
+pin 2 is used as an interrupt pin with mode 0, which is interrupt on low. Every time the pin goes to low BASIC calls the subroutine at line 1000.
+
+EVENT 2,0 
+
+without the GOSUB argument deletes the interrupt. 
+
+After the event is processed, the interrupt is automatically disabled. The RETURN statement enables the interrupt again. 
+
+Allowed interrupt modes are 
+
+0: LOW
+
+1: CHANGE
+
+2: FALLING
+
+3: RISING
+
+The EVENT statement does not set the pin mode of the pin. This has to be done with PINM in the BASIC program. A typical program could look like this:
+
+10 PINM 2,2
+
+20 EVENT 2,2 GOSUB 1000
+
+30 Some code 
+
+1000 PRINT "Event triggered": RETURN
+
+The PINM command sets the pin to INPUT_PULLUP and the EVENT commands waits for the pin to be pulled down to low. It triggers the interrupt on the falling signal. While the PRINT statement is processed, no further interrupt is accepted. After return the interrupt is reenabled.
+
 ### Credits and a word on timing
 
 Both AFTER and EVERY have been taken from the legendary Locomotive BASIC. In this BASIC dialect, only GOSUB was available and the time scale was 20 ms. There were 4 individual timers. Full featured Locomotive BASIC timers are on the feature list fot future releases.

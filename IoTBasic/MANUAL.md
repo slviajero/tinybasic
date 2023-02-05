@@ -1024,6 +1024,76 @@ In command mode NETSTAT displays the network status. It is implemented for all W
 
 The network code is under active development.
 
+## Timers and interrupts
+
+BASIC can handle time interrupt right now. Interrupts of external sources are in preparation. There are two timers implemented. The AFTER timer causes an action once and is then reset. The EVERY timer triggers events periodically until stopped. Both timers use millis() as time source. Timer events are only processed if a program is running. In interactive mode both timers are stopped but continue running. 
+
+### AFTER
+
+The AFTER timer is started with the command 
+
+10 AFTER 1000 GOTO 100
+
+After 1000 milliseconds the interpreter branches to line 100. The command
+
+10 AFTER 500 GOSUB 200
+
+will GOSUB to line 200. A RETURN will resume program execution whereevery the program has been interrupted.
+
+AFTER 0 
+ 
+disables the execution of the after command. 
+
+AFTER 1000 
+
+will start the after timer again with a new time period of 1000 ms. The GOTO and GOSUB argument of the previous after are reused.
+
+### EVERY
+
+EVERY syntax is exactly like AFTER but the event is running periodically. 
+
+### EVENT
+
+EVENT listens to an interrupt and branches to a line number. In the statement 
+
+EVENT 2,0 GOSUB 1000
+
+pin 2 is used as an interrupt pin with mode 0, which is interrupt on low. Every time the pin goes to low BASIC calls the subroutine at line 1000.
+
+EVENT 2,0 
+
+without the GOSUB argument deletes the interrupt. 
+
+After the event is processed, the interrupt is automatically disabled. The RETURN statement enables the interrupt again. 
+
+Allowed interrupt modes are 
+
+0: LOW
+
+1: CHANGE
+
+2: FALLING
+
+3: RISING
+
+The EVENT statement does not set the pin mode of the pin. This has to be done with PINM in the BASIC program. A typical program could look like this:
+
+10 PINM 2,2
+
+20 EVENT 2,2 GOSUB 1000
+
+30 Some code 
+
+1000 PRINT "Event triggered": RETURN
+
+The PINM command sets the pin to INPUT_PULLUP and the EVENT commands waits for the pin to be pulled down to low. It triggers the interrupt on the falling signal. While the PRINT statement is processed, no further interrupt is accepted. After return the interrupt is reenabled.
+
+### Credits and a word on timing
+
+Both AFTER and EVERY have been taken from the legendary Locomotive BASIC. In this BASIC dialect, only GOSUB was available and the time scale was 20 ms. There were 4 individual timers. Full featured Locomotive BASIC timers are on the feature list fot future releases.
+
+BASIC can handle 1ms interrupts even on an Arduino UNO if there is not much I/O going on. Typically, 35 BASIC commands are processed in a ms by the interpreter core. It is good practice to disable interrupts with EVERY 0 at the beginning of the interrupt subroutine and to reenable it with EVERY n immediately before return. 
+
 ## Graphics language set
 
 ### Introduction
@@ -1750,7 +1820,7 @@ If BREAKCHAR is defined in the BASIC code, this character will stop the program 
 
 If BREAKPIN is defined, the interpreter will stop once this pin is pulled to low. By default, BREAKPIN is not defined, i.e. there is no BREAKPIN. This mechanism is for use cases where using BREAKCHAR is not practical. One can implement a separate stop button with it. 
 
-### Extnding basic 
+### Extending basic 
 
 The BASIC interpreter has several mechanisms to extend the language set without having to work directly with the interpreter data structures. 
 
