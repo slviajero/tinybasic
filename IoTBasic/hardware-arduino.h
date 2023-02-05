@@ -89,6 +89,7 @@
 #undef STM32SDIO
 #undef ARDUINORTC
 #undef ARDUINORTCEMULATION
+#undef ARDUINOTONEEMULATION
 #undef ARDUINOWIRE
 #undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
@@ -531,6 +532,10 @@ const mem_t bsystype = SYSTYPE_ESP32;
 const mem_t bsystype = SYSTYPE_RP2040;
 #elif defined(ARDUINO_ARCH_SAM) && defined(ARDUINO_ARCH_SAMD)
 const mem_t bsystype = SYSTYPE_SAM;
+#elif defined(ARDUINO_ARCH_XMC)
+const mem_t bsystype = SYSTYPE_XMC;
+#elif defined(ARDUINO_ARCH_SMT32)
+const mem_t bsystype = SYSTYPE_SMT32;
 #else
 const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif 
@@ -1809,7 +1814,7 @@ char kbdavailable(){
 #ifdef HASKEYPAD
 /* a poor man's debouncer, unstable state returns 0 */
   char c=keypadread();
-  if (c) delay(2); else return 0;
+  if (c) bdelay(2); else return 0;
   if (c == keypadread()) return 1; else return 0;
 	/* return keypadread()!=0; */
 #endif	
@@ -3233,11 +3238,11 @@ void netreconnect() {
 #else 
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   WiFi.reconnect(); 
-  delay(1000); 
+  bdelay(1000); 
 #elif defined(ARDUINO_ARCH_SAMD)
   WiFi.end();
   WiFi.begin(ssid, password);
-  delay(1000);
+  bdelay(1000);
 #endif  
 #endif
 }
@@ -3303,7 +3308,7 @@ char mqttreconnect() {
 	if (bmqtt.connected()) return 1;
 
 /* try to reconnect the network */
-  if (!netconnected()) { netreconnect(); delay(5000); }
+  if (!netconnected()) { netreconnect(); bdelay(5000); }
   if (!netconnected()) return 0;
 	
 /* create a new random name right now */
@@ -3312,7 +3317,7 @@ char mqttreconnect() {
 /* try to reconnect assuming that the network is connected */
 	while (!bmqtt.connected() && timer < 400) {
 		bmqtt.connect(mqttname);
-		delay(timer);
+		bdelay(timer);
 		timer=timer*2;
     reconnect=1;
 	}
@@ -3524,7 +3529,7 @@ void eupdate(address_t a, short c) {
     Wire.write((int)c);
     ert=Wire.endTransmission();
   /* wait the max time */
-    delay(5);
+    bdelay(5);
   }
 #endif
 }
@@ -3600,13 +3605,6 @@ void pinm(number_t p, number_t m){
   }
 }
 
-void bmillis() {
-	number_t m;
-/* millis is processed as integer and is cyclic mod maxnumber and not cast to float!! */
-	m=(number_t) (millis()/(unsigned long)pop() % (unsigned long)maxnum);
-	push(m); 
-};
-
 void bpulsein() { 
   unsigned long t, pt;
   t=((unsigned long) pop())*1000;
@@ -3623,7 +3621,6 @@ void btone(short a) {
   if (a >= 3) d=pop();
 	x=pop();
 	y=pop();
-#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_ESP32)
 #if defined(ARDUINO_TTGO_T7_V14_Mini32) && defined(HASTONE)
 /* fabGL soundgenerator code of suggestes by testerrossa
  * pin numbers below 128 are real arduino pins while 
@@ -3659,10 +3656,10 @@ void btone(short a) {
       sqw.setDutyCycle(y);
       soundGenerator.playSound(sqw, x, d, v); 
   }
-#else
-	return;
+  return;
 #endif
-#else 
+
+#ifndef ARDUINOTONEEMULATION
   if (x == 0) {
     noTone(y);
   } else if (a == 2) {
@@ -3670,6 +3667,14 @@ void btone(short a) {
 	} else {
 		tone(y, x, d);
 	}
+#else 
+  if (x == 0) {
+    playtone(0, 0, 0);
+  } else if (a == 2) {
+    playtone(y, x, 32767);
+  } else {
+    playtone(y, x, d);
+  }
 #endif	
 }
 
@@ -3692,27 +3697,11 @@ void btone(short a) {
  *	(after each statement) in RUN mode. BASIC DELAY calls 
  * 	this every YIELDTIME ms. 
  */
-void byield() {	
-#if defined(ARDUINOBGTASK)
-	if (millis()-lastyield > YIELDINTERVAL-1) {
-		yieldfunction();
-		lastyield=millis();
-  }
-  if (millis()-lastlongyield > LONGYIELDINTERVAL-1) {
-  	longyieldfunction();
-  	lastlongyield=millis();
-  }
- #endif
- /* delay(0) is only needed on ESP8266! */
- #if defined(ARDUINO_ARCH_ESP8266)
-  delay(0);
- #endif
-}
 
 /* everything that needs to be done often - 32 ms */
 void yieldfunction() {
 #ifdef ARDUINOMQTT
-	bmqtt.loop();
+  bmqtt.loop();
 #endif
 #ifdef ARDUINOUSBKBD
   usb.Task();
@@ -3729,6 +3718,13 @@ void longyieldfunction() {
   Ethernet.maintain();
 #endif 
 }
+
+void yieldschedule() {
+/* delay(0) is only needed on ESP8266! it calls the scheduler - no bdelay here!! */
+ #if defined(ARDUINO_ARCH_ESP8266)
+  delay(0);
+ #endif
+ }
 
 /* 
  *	The file system driver - all methods needed to support BASIC fs access
@@ -3832,7 +3828,7 @@ void fsbegin(char v) {
   int i = 1;
   while (i<100) {
     if (SD.begin(SD_DETECT_PIN)) {fsbegins=i; break; } else fsbegins=0; 
-    delay(20); 
+    bdelay(20); 
     i++;
   } 
 #endif
@@ -4353,7 +4349,7 @@ void serialbegin() {
 #else
 	SERIALPORT.begin(serial_baudrate);
 #endif
-	delay(1000);
+	bdelay(1000);
 }
 
 /* state information on the serial port */
@@ -5119,6 +5115,165 @@ void spiramrawwrite(address_t a, mem_t c) {
 char spistrbuf1[SPIRAMSBSIZE];
 char spistrbuf2[SPIRAMSBSIZE];
 #endif
+
+/*
+ * A tone emulation based on the byield loop. The maximum frequency depends 
+ * on the byield call speed. 10-20 kHz is possible. Will be unreliable if 
+ * the loop functions need a lot of CPU cycles.
+ */
+#ifdef ARDUINOTONEEMULATION
+static mem_t tone_enabled;
+static mem_t tone_pinstate = 0;
+static unsigned long tone_intervall;
+static unsigned long tone_micros;
+static int tone_duration;
+static unsigned long tone_start;
+static mem_t tone_pin;
+
+void playtone(int pin, int frequency, int duration){
+
+/* the pin we are using is reset every time this is called*/
+  tone_pin=pin;
+  pinMode(tone_pin, OUTPUT);
+  digitalWrite(tone_pin, LOW);
+  tone_pinstate=0;
+
+ /* duration 0 or frequency 0 stops playing */ 
+  if (duration == 0 || frequency == 0) {
+    tone_enabled=0;
+    return;
+  }
+
+/* calculate the toggle intervall in micros and remember where we are */
+  tone_intervall=1000000/frequency/2;
+  tone_micros=micros();
+
+/* set the duration and remember where we are*/
+  tone_duration=duration;
+  tone_start=millis();
+
+/* start the play */
+  tone_enabled=1;
+}
+
+void tonetoggle() {
+
+/* is this active? */
+  if (!tone_enabled) return;
+
+/* check if we are done playing */
+  if (millis() > tone_duration+tone_start) {
+    tone_enabled=0;
+    digitalWrite(tone_pin, LOW);
+    tone_pinstate=0;
+    return;
+  }
+
+/* if not, check if the intervall is over */
+  if (micros() > tone_intervall+tone_micros) {
+    tone_micros=micros();
+    tone_pinstate=!tone_pinstate;
+    digitalWrite(tone_pin, tone_pinstate);
+  }
+}
+#endif
+
+/* 
+ * the events API for Arduino with interrupt service routines
+ * analogous to the timer API
+ * 
+ * we use raw modes here 
+ *
+ * #define CHANGE 1
+ * #define FALLING 2
+ * #define RISING 3
+ *
+ */
+
+#ifdef HASEVENTS
+/* interrupts in BASIC fire once and then disable themselves, BASIC reenables them */
+void bintroutine0() {
+  eventlist[0].active=1;
+  detachInterrupt(digitalPinToInterrupt(eventlist[0].pin)); 
+}
+void bintroutine1() {
+  eventlist[1].active=1;
+  detachInterrupt(digitalPinToInterrupt(eventlist[1].pin)); 
+}
+void bintroutine2() {
+  eventlist[2].active=1;
+  detachInterrupt(digitalPinToInterrupt(eventlist[2].pin)); 
+}  
+void bintroutine3() {
+  eventlist[3].active=1;
+  detachInterrupt(digitalPinToInterrupt(eventlist[3].pin)); 
+}
+
+mem_t enableevent(int pin) {
+  mem_t interrupt;
+  int i;
+
+/* do we have the data */
+  if ((i=eventindex(pin))<0) return 0;
+
+/* can we use this pin */  
+  interrupt=digitalPinToInterrupt(eventlist[i].pin);
+  if (interrupt < 0) return 0;
+
+/* attach the interrupt function to this pin */
+  switch(i) {
+    case 0: 
+      attachInterrupt(interrupt, bintroutine0, eventlist[i].mode); 
+      break;
+    case 1:
+      attachInterrupt(interrupt, bintroutine1, eventlist[i].mode); 
+      break;
+    case 2:
+      attachInterrupt(interrupt, bintroutine2, eventlist[i].mode); 
+      break;
+    case 3:
+      attachInterrupt(interrupt, bintroutine3, eventlist[i].mode); 
+      break;
+    default:
+      return 0;
+  }
+
+/* now set it enabled in BASIC */
+  eventlist[i].enabled=1; 
+  return 1;
+
+}
+
+void disableevent(mem_t pin) {
+  detachInterrupt(digitalPinToInterrupt(pin)); 
+}
+#endif
+
+
+/* 
+ * This code measures the fast ticker frequency in microseconds 
+ * It leaves the data in variable F. Activate this only for test 
+ * purposes.
+ */
+#undef FASTTICKERPROFILE
+
+#ifdef FASTTICKERPROFILE
+static unsigned long lastfasttick = 0;
+static unsigned long fasttickcalls = 0;
+static int avgfasttick = 0;
+static long devfasttick = 0;
+
+void fasttickerprofile() {
+  if (lastfasttick == 0) { lastfasttick=micros(); return; }
+  int delta=micros()-lastfasttick;
+  lastfasttick=micros();
+  avgfasttick=(avgfasttick*fasttickcalls+delta)/(fasttickcalls+1);
+  fasttickcalls++; 
+  vars[5]=avgfasttick;
+}
+#endif
+
+
 
 // defined HARDWARE_H
 #endif

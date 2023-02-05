@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.h,v 1.9 2022/08/15 18:08:56 stefan Exp stefan $
+ *	$Id: basic.h,v 1.10 2023/01/28 19:26:45 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *
@@ -233,6 +233,11 @@ typedef unsigned char uint8_t;
 #define TSENSOR	-26
 #define TWIRE	-25
 #define TSLEEP	-24
+/* events and interrupts, part of IoT for now */
+#define TAFTER -23
+#define TEVERY -22
+#define TEVENT -21
+/* end of tokens */
 /* constants used for some obscure purposes */
 #define TBUFFER -2
 /* UNKNOWN is not used in the current code, the 
@@ -241,7 +246,7 @@ typedef unsigned char uint8_t;
 #define UNKNOWN -1
 
 /* the number of keywords, and the base index of the keywords */
-#define NKEYWORDS	3+19+13+12+11+5+2+7+7+7+12
+#define NKEYWORDS	3+19+13+12+11+5+2+7+7+7+12+3
 #define BASEKEYWORD -121
 
 /*
@@ -421,6 +426,10 @@ const char snetstat[]	PROGMEM  = "NETSTAT";
 const char ssensor[]	PROGMEM  = "SENSOR";
 const char swire[]		PROGMEM  = "WIRE";
 const char ssleep[]		PROGMEM  = "SLEEP";
+/* events and interrupts */
+const char safter[]		PROGMEM  = "AFTER";
+const char severy[]		PROGMEM  = "EVERY";
+const char sevent[]		PROGMEM  = "EVENT";
 #endif
 
 /* zero terminated keyword storage */
@@ -477,6 +486,7 @@ const char* const keyword[] PROGMEM = {
 #ifdef HASIOT
 	sassign, savail, sstr, sinstr, sval, 
 	snetstat, ssensor, swire, ssleep, 
+	safter, severy, sevent,
 #endif
 	0
 };
@@ -533,6 +543,7 @@ const signed char tokens[] PROGMEM = {
 #ifdef HASIOT
 	TASSIGN, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
 	TSENSOR, TWIRE, TSLEEP,
+	TAFTER, TEVERY, TEVENT, 
 #endif
 	0
 };
@@ -670,6 +681,8 @@ typedef short index_t; /* this type counts at least 16 bit */
 #define SYSTYPE_ESP32	3
 #define SYSTYPE_RP2040  4
 #define SYSTYPE_SAM     5
+#define SYSTYPE_XMC		6
+#define SYSTYPE_SMT32	7
 #define SYSTYPE_POSIX	32
 #define SYSTYPE_MSDOS	33
 
@@ -726,6 +739,7 @@ typedef short index_t; /* this type counts at least 16 bit */
  *	debuglevel is the statement loop debug level
  *
  *	data is the data pointer of the READ/DATA mechanism
+ *  datarc is the counter of the read data record
  *
  * static keyword here is obsolete on most platforms
  *
@@ -851,10 +865,53 @@ static mem_t bfindc, bfindd, bfindt;
 static address_t bfinda, bfindz;
 #endif
 
-/* the interrupt vector - not yet implemented */
-#ifdef HASINTERRUPTS
-static short interruptvector;
+/* the timer code - very simple needs to to to a struct */
+#ifdef HASTIMER
+
+/* timer type */
+typedef struct {
+    mem_t enabled;
+    unsigned long last;
+    unsigned long interval; 
+    mem_t type;
+    address_t linenumber;
+} btimer_t;
+
+static btimer_t after_timer = {0, 0, 0, 0, 0};
+static btimer_t every_timer = {0, 0, 0, 0, 0};
 #endif
+
+/* the event code */
+#ifdef HASEVENTS
+
+#define EVENTLISTSIZE 4
+
+/* event type */
+typedef struct {
+    mem_t enabled;
+    mem_t pin;
+    mem_t mode; 
+    mem_t type;
+    address_t linenumber;
+    mem_t active;
+} bevent_t;
+
+/* the event list */
+static int nevents = 0;
+static int ievent = 0;
+static mem_t events_enabled = 1;
+static volatile bevent_t eventlist[EVENTLISTSIZE];
+
+/* the extension of the GOSUB stack */
+static mem_t gosubarg[GOSUBDEPTH];
+
+/* handle the event list */
+mem_t addevent(mem_t, mem_t, mem_t, address_t);
+void deleteevent(mem_t);
+volatile bevent_t* findevent(mem_t);
+mem_t eventindex(mem_t);
+#endif
+
 
 /* the string for real time clocks */
 char rtcstring[20] = { 0 }; 
@@ -972,6 +1029,8 @@ void btone(short);
 
 /* timing control for ESP and network */
 void byield();
+void bdelay(unsigned long);
+void fastticker();
 void yieldfunction();
 void longyieldfunction();
 
@@ -1128,7 +1187,7 @@ void pushforstack();
 void popforstack();
 void dropforstack();
 void clrforstack();
-void pushgosubstack();
+void pushgosubstack(mem_t);
 void popgosubstack();
 void dropgosubstack();
 void clrgosubstack();
@@ -1306,6 +1365,8 @@ void xassign();
 void xavail();
 void xfsensor();
 void xsleep();
+void xafter();
+void xevent();
 
 /* File I/O functions */
 char streq(const char*, char*);
@@ -1328,6 +1389,14 @@ void xrestore();
 void xdef();
 void xfn();
 void xon();
+
+/* timers and interrupts */
+void xtimer();
+void resettimer();
+
+/* the emulation of tone using the byield loop */
+void toggletone();
+void playtone(int, int, int);
 
 /* the statement loop */
 void statement();

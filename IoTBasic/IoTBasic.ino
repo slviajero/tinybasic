@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.c,v 1.139 2022/11/19 16:43:24 stefan Exp stefan $ 
+ *	$Id: basic.c,v 1.141 2023/01/28 19:26:45 stefan Exp stefan $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -31,6 +31,12 @@
 #undef MINGW
 #undef MSDOS
 #undef RASPPI
+
+/* test features, disabled here */
+/*
+#define HASTIMER
+#define HASEVENTS
+*/
 
 /*
 	interpreter feature sets, choose one of the predefines 
@@ -237,6 +243,84 @@
 #include "hardware-posix.h"
 #endif
 
+
+/*
+ *
+ * BASIC timer stuff, this is a core interpreter function now
+ * 
+ */
+
+/* 
+ *	the byield function is called after every statement
+ *	it allows four levels of background tasks. 
+ * 
+ * fastticker() is used to trigger all fast timing functions of 
+ * the core interpreter. It can also be used to implement a 
+ * "tone without timer solution"
+ * 
+ * yieldfunction() triggers a 32ms timer which calls network 
+ * and USB handling functions
+ * 
+ * longyielfunction() is a 1s timer for long termin maintance 
+ * functions
+ * 
+ * yieldscheduler() is the hardware scheduler of some platforms
+ * 
+ */
+
+void byield() {	
+
+/* the fast ticker for all fast timing functions */
+	fastticker();
+
+#if defined(ARDUINOBGTASK)
+/* yield all 32 micro seconds */
+	if (millis()-lastyield > YIELDINTERVAL-1) {
+		yieldfunction();
+		lastyield=millis();
+  }
+
+/* yield every second */
+  if (millis()-lastlongyield > LONGYIELDINTERVAL-1) {
+  	longyieldfunction();
+  	lastlongyield=millis();
+  }
+ #endif
+ 
+ /* call the background task scheduler on some platforms implemented in hardware- */
+	yieldschedule();
+
+}
+
+/* delay must be implemented to use byield() while waiting */
+void bdelay(unsigned long t) { 
+	unsigned long i;
+	if (t>0) {
+		i=millis();
+		while (millis() < i+t) byield();
+	}	
+}
+
+/* fastticker is the hook for all timing functions */
+void fastticker() {
+/* fastticker profiling test code */
+#ifdef FASTTICKERPROFILE
+  fasttickerprofile();
+#endif
+/* toggle the tone pin */
+#ifdef ARDUINOTONEEMULATION
+  tonetoggle();
+#endif
+}
+
+/* the millis function for BASIC */
+void bmillis() {
+	number_t m;
+/* millis is processed as integer and is cyclic mod maxnumber and not cast to float!! */
+	m=(number_t) (millis()/(unsigned long)pop() % (unsigned long)maxnum);
+	push(m); 
+}
+
 /*
  *  Determine the possible basic memory size.
  *	using malloc causes some overhead which can be relevant on the smaller  
@@ -261,8 +345,9 @@ address_t ballocmem() {
 	if (mem != 0) return m-1;
 
 /* fallback if allocation failed, 128 bytes */
-		mem=(mem_t*)malloc(128);
-		if (mem != 0) return 128; else return 0;
+	mem=(mem_t*)malloc(128);
+	if (mem != 0) return 128; else return 0;
+
 }
 #else 
 address_t ballocmem(){ return MEMSIZE-1; };
@@ -321,7 +406,6 @@ void eload() {
 		a+=addrsize;
 
 		while (a < top+eheadersize){
-			/* mem[a-eheadersize]=eread(a); */
 			memwrite2(a-eheadersize, eread(a));
 			a++;
 		}
@@ -387,9 +471,9 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
  *		one byte for every string character
  */
 	switch(t) {
-  	case VARIABLE:
-    	vsize=numsize+3;
-    	break;
+  		case VARIABLE:
+			vsize=numsize+3;
+			break;
 #ifndef HASMULTIDIM
 		case ARRAYVAR:
 			vsize=numsize*l+addrsize+3;
@@ -411,7 +495,7 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 #ifndef EEPROMMEMINTERFACE
 	if ((himem-top) < vsize) { error(EOUTOFMEMORY); return 0;}
 #else
-  if (himem-(elength()-eheadersize) < vsize) { error(EOUTOFMEMORY); return 0;}
+	if (himem-(elength()-eheadersize) < vsize) { error(EOUTOFMEMORY); return 0;}
 #endif 
 
 /* here we could create a hash, currently simplified
@@ -855,7 +939,9 @@ address_t createarray(mem_t c, mem_t d, address_t i, address_t j) {
 #ifndef HASMULTIDIM
 	if (bfind(ARRAYVAR, c, d)) error(EVARIABLE); else return bmalloc(ARRAYVAR, c, d, i);
 #else
-	if (bfind(ARRAYVAR, c, d)) error(EVARIABLE); else {
+	if (bfind(ARRAYVAR, c, d)) 
+		error(EVARIABLE); 
+	else {
 		a=bmalloc(ARRAYVAR, c, d, i*j);
 		zat=z.a; /* preserve z.a because it is needed on autocreate later */
 		z.a=j;
@@ -910,9 +996,9 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 				break;
 #if defined(DISPLAYDRIVER) && defined(DISPLAYCANSCROLL)      
 			case 'D': 
-        if (m == 'g') *v=dspget(i-1); 
-        else if (m == 's') dspset(i-1, *v);
-        return;
+				if (m == 'g') *v=dspget(i-1); 
+				else if (m == 's') dspset(i-1, *v);
+				return;
 #endif
 #if defined(HASCLOCK) 
 			case 'T':
@@ -963,14 +1049,14 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 
 /* is the index in range */
 #ifdef HASMULTIDIM
-  if (DEBUG) { 
-  	outsc("** in array "); 
-  	outnumber(i); outspc(); 
-  	outnumber(j); outspc(); 
-  	outnumber(dim); outspc(); 
-  	outnumber(h); outspc();
-  	outnumber(a); outcr();
-  }
+	if (DEBUG) { 
+  		outsc("** in array "); 
+  		outnumber(i); outspc(); 
+  		outnumber(j); outspc(); 
+  		outnumber(dim); outspc(); 
+  		outnumber(h); outspc();
+  		outnumber(a); outcr();
+  	}
 	if ( (j < arraylimit) || (j >= dim + arraylimit) || (i < arraylimit) || (i >= h/dim + arraylimit)) { error(EORANGE); return; }
 #else
 	if (DEBUG) { outsc("** in array "); outnumber(i);  outspc(); outnumber(a); outcr(); }
@@ -1157,7 +1243,7 @@ char* getstring(char c, char d, address_t b, address_t j) {
 /* in case of a string array, this function finds the number 
 	of array elements */
 address_t strarraydim(char c, char d) {
-address_t a, b;
+	address_t a, b;
 #ifndef HASSTRINGARRAYS
 	return 1;
 #else 
@@ -1284,37 +1370,50 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 /* the BASIC string mechanism for real time clocks, create a string with the clock data */
 #ifdef HASCLOCK
 char* rtcmkstr() {
-  int cc = 2;
-  short t;
-  char ch;
-  t=rtcget(2);
-  rtcstring[cc++]=t/10+'0';
-  rtcstring[cc++]=t%10+'0';
-  rtcstring[cc++]=':';
-  t=rtcget(1);
-  rtcstring[cc++]=t/10+'0';
-  rtcstring[cc++]=t%10+'0';
-  rtcstring[cc++]=':';
-  t=rtcget(0);
-  rtcstring[cc++]=t/10+'0';
-  rtcstring[cc++]=t%10+'0';
-  rtcstring[cc++]='-';
-  t=rtcget(4);
-  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-  rtcstring[cc++]=t%10+'0';
-  rtcstring[cc++]='/';
-  t=rtcget(5);
-  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-  rtcstring[cc++]=t%10+'0';
-  rtcstring[cc++]='/';
-  t=rtcget(6)%100; /* only 100 years no 19xx epochs */
-  if (t/10 > 0) rtcstring[cc++]=t/10+'0';
-  rtcstring[cc++]=t%10+'0';
-  rtcstring[cc]=0;
-  /* needed for BASIC strings, reserve the first byte for two byte length handling in the upstream code */
-  rtcstring[1]=cc-2;
-  rtcstring[0]=0;
-  return rtcstring+1;
+	int cc = 2;
+	short t;
+	char ch;
+
+/* hours */
+  	t=rtcget(2);
+  	rtcstring[cc++]=t/10+'0';
+  	rtcstring[cc++]=t%10+'0';
+  	rtcstring[cc++]=':';
+
+/* minutes */
+	t=rtcget(1);
+	rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]=':';
+
+/* seconds */
+	t=rtcget(0);
+	rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]='-';
+
+/* days */	
+	t=rtcget(4);
+	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]='/';
+
+/* months */
+	t=rtcget(5);
+	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]='/';
+
+/* years */
+	t=rtcget(6)%100; /* only 100 years no 19xx epochs */
+	if (t/10 > 0) rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc]=0;
+
+/* needed for BASIC strings, reserve the first byte for two byte length handling in the upstream code */
+	rtcstring[1]=cc-2;
+	rtcstring[0]=0;
+	return rtcstring+1;
 }
 #endif
 
@@ -1353,7 +1452,7 @@ void makeusrstring() {
  * Always set sbuffer[0] to the string length, keep in mind that sbuffer 
  * is 32 bytes long by default
  */
- 	sbuffer[0]=0;
+	sbuffer[0]=0;
 }
 
 /* USR with arguments > 31 calls this */
@@ -1442,6 +1541,11 @@ void error(mem_t e){
 	clearst();
 	clrforstack();
 	clrgosubstack();
+/* switch off all timers and interrupts */
+#ifdef HASTIMER
+	resettimer(&after_timer);
+	resettimer(&every_timer);
+#endif
 }
 
 void reseterror() {
@@ -1591,10 +1695,13 @@ void clrforstack() {
 	fnc=0;
 }
 
-void pushgosubstack(){
+void pushgosubstack(mem_t a){
 	if (gosubsp < GOSUBDEPTH) {
 		gosubstack[gosubsp]=here;
-		gosubsp++;	
+#ifdef HASEVENTS
+    gosubarg[gosubsp]=a;
+#endif
+    gosubsp++;  
 	} else 
 		error(EGOSUB);
 }
@@ -1639,11 +1746,12 @@ void ioinit() {
 	odd = ODSP;
 #endif
 
+/* run standalone on second serial, set the right parameters */
 #ifdef STANDALONESECONDSERIAL
-  idd = ISERIAL1;
-  odd = OPRT;
-  blockmode = 0;
-  sendcr = 0;
+	idd = ISERIAL1;
+	odd = OPRT;
+	blockmode = 0;
+	sendcr = 0;
 #endif
 
 /* this is only for RASPBERRY - wiring has to be started explicitly */
@@ -1662,7 +1770,7 @@ void ioinit() {
 #endif
 
 /* filesystems and networks */
-  fsbegin(1);
+	fsbegin(1);
 #ifdef ARDUINOMQTT
 	netbegin();  
 	mqttbegin();
@@ -1680,7 +1788,7 @@ void ioinit() {
 	sensorbegin();
 #endif
 #if defined(HASCLOCK)
-  rtcbegin();
+	rtcbegin();
 #endif
 
 /* the eeprom dummy */
@@ -1731,8 +1839,8 @@ char inch() {
 			else return 0;
 #endif
 #ifdef ARDUINOMQTT
-    case IMQTT:
-    	return mqttinch();
+    	case IMQTT:
+    		return mqttinch();
 #endif
 #ifdef ARDUINOPRT
 		case ISERIAL1:
@@ -1741,7 +1849,7 @@ char inch() {
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)				
 		case IKEYBOARD:
 #if defined(HASVT52)
-      if (vt52avail()) return vt52read(); /* if the display has a message, read it */
+			if (vt52avail()) return vt52read(); /* if the display has a message, read it */
 #endif
 #if defined(HASKEYBOARD) || defined(HASKEYPAD)  
 			return kbdread();
@@ -1773,8 +1881,8 @@ char checkch(){
 			return 0;
 #endif
 #ifdef ARDUINOPRT
-			case ISERIAL1:
-				return prtcheckch(); 
+		case ISERIAL1:
+			return prtcheckch(); 
 #endif
 		case IKEYBOARD:
 #if defined(HASKEYBOARD)	|| defined(HASKEYPAD)
@@ -1788,38 +1896,38 @@ char checkch(){
 /* character availability */
 short availch(){
 	switch (id) {
-    case ISERIAL:
-      return serialavailable(); 
+		case ISERIAL:
+			return serialavailable(); 
 #ifdef FILESYSTEMDRIVER
-   	case IFILE:
-    	return fileavailable();
+		case IFILE:
+			return fileavailable();
 #endif
 #ifdef ARDUINORF24
-    case IRADIO:
-    	return radioavailable();
+		case IRADIO:
+    		return radioavailable();
 #endif    		
 #ifdef ARDUINOMQTT
-    case IMQTT:
-    	return mqtt_messagelength;
+		case IMQTT:
+			return mqtt_messagelength;
 #endif    		
 #ifdef ARDUINOWIRE
-    case IWIRE:
-    	return wireavailable();
+		case IWIRE:
+			return wireavailable();
 #endif
 #ifdef ARDUINOPRT
-    case ISERIAL1:
-      return prtavailable();
+		case ISERIAL1:
+      		return prtavailable();
 #endif
-    case IKEYBOARD:
+    	case IKEYBOARD:
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)
 #if defined(HASVT52)
-      if (vt52avail()) return vt52avail(); /* if the display has a message, read it */
+			if (vt52avail()) return vt52avail(); /* if the display has a message, read it */
 #endif
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) 
-      return kbdavailable();
+			return kbdavailable();
 #endif
 #endif
-	    break;
+			break;
 	}
 	return 0;
 }
@@ -1883,25 +1991,25 @@ void ins(char *b, address_t nb) {
   	switch(id) {
 #ifdef ARDUINOWIRE
   		case IWIRE:
-				wireins(b, nb);
-				break;
+			wireins(b, nb);
+			break;
 #endif
 #ifdef ARDUINOMQTT
-		  case IMQTT:
-				mqttins(b, nb);	
-				break;	
+		case IMQTT:
+			mqttins(b, nb);	
+			break;	
 #endif
 #ifdef ARDUINORF24
-			case IRADIO:
- 				radioins(b, nb);
- 				break;
+		case IRADIO:
+ 			radioins(b, nb);
+ 			break;
 #endif
-			default:
+		default:
 #ifdef ARDUINOPRT
 /* blockmode only implemented for ISERIAL1 right now */
-				if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
+			if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
 #endif
-				consins(b, nb);
+			consins(b, nb);
   	}  
 }
 
@@ -2109,31 +2217,32 @@ address_t writenumber(char *c, wnumber_t v){
  */
 
 address_t tinydtostrf(number_t v, int p, char* c) {  
-  int nd;
-  number_t f;
+	int nd;
+	number_t f;
+
 /* write the integer part */
-  nd=writenumber(c, (int)v); 
-  c[nd++]='.';
+	nd=writenumber(c, (int)v); 
+	c[nd++]='.';
 /* only the fraction to precision p */
-  f=fabs(v);
+	f=fabs(v);
 /* get p digits of the fraction */
-  for (int i=p; i>0; i--) {
-    f=f-floor(f);
-    f=f*10;
-    c[nd++]=(int)floor(f)+'0';
-  }
+	for (int i=p; i>0; i--) {
+    	f=f-floor(f);
+    	f=f*10;
+    	c[nd++]=(int)floor(f)+'0';
+  	}
 /* and a terminating 0 */
-  c[nd]=0;
-  return nd;
+	c[nd]=0;
+	return nd;
 }
  
 address_t writenumber2(char *c, number_t vi) {
 	index_t i;
-  index_t nd;
+	index_t nd;
 	number_t f;
 	index_t exponent = 0; 
 	mem_t eflag=0;
-  const int p = 5;
+	const int p = 5;
 
 /* pseudo integers are displayed as integer
 		zero trapped here */
@@ -2148,11 +2257,11 @@ address_t writenumber2(char *c, number_t vi) {
 #else
 
 /* on an Arduino we have gcc, we check if we have anything to write */
-  if (!isfinite(vi)) {
-    c[0]='*';
-    c[1]=0;
-    return 1; 
-  }
+	if (!isfinite(vi)) {
+    	c[0]='*';
+    	c[1]=0;
+    	return 1; 
+	}
 
 /* normalize the number and see which exponent we have to deal with */
 	f=vi;
@@ -2161,12 +2270,12 @@ address_t writenumber2(char *c, number_t vi) {
 
 /* there are platforms where dtostrf is broken, we do things by hand in a simple way */
 
-  if (exponent > -2 && exponent < 7) { 
-    tinydtostrf(vi, 5, c);
-  } else {
-    tinydtostrf(f, 5, c);
-    eflag=1;
-  }
+	if (exponent > -2 && exponent < 7) { 
+    	tinydtostrf(vi, 5, c);
+	} else {
+		tinydtostrf(f, 5, c);
+		eflag=1;
+	}
 
 /* small numbers - removed as not really portable */
 /*
@@ -2288,7 +2397,11 @@ void nexttoken() {
   
 /* RUN mode vs. INT mode, in RUN mode we read from mem via gettoken() */
 	if (st == SRUN || st == SERUN) {
+/* in the token stream we call the fastticker - all fast timing functions are in stream*/
+    fastticker(); 
+/* read the token from memory */
 		gettoken();
+/* show what we are doing */
 		if (debuglevel>1) { debugtoken(); outcr(); }
 		return;
 	}
@@ -2514,7 +2627,7 @@ char nomemory(number_t b){
 #ifndef EEPROMMEMINTERFACE
 	if (top >= himem-b) return 1; else return 0;
 #else
-  if (top >= elength()-eheadersize-b) return 1; else return 0;
+	if (top >= elength()-eheadersize-b) return 1; else return 0;
 #endif
 }
 
@@ -2598,29 +2711,29 @@ void memwrite2(address_t a, mem_t c) { mem[a]=c; }
 #ifdef SPIRAMINTERFACE
 mem_t memread(address_t a) {
 	if (st != SERUN) {
-    return spiram_robufferread(a);
+		return spiram_robufferread(a);
 	} else {
 		return eread(a+eheadersize);
 	}
 }
 
 mem_t memread2(address_t a) {
-  return spiram_rwbufferread(a);
+	return spiram_rwbufferread(a);
 }
 
 void memwrite2(address_t a, mem_t c) {
-  spiram_rwbufferwrite(a, c);
+	spiram_rwbufferwrite(a, c);
 }
 #else
 #ifdef EEPROMMEMINTERFACE
 mem_t memread(address_t a) {
-  if (a < elength()-eheadersize) return eread(a+eheadersize); else return mem[a-(elength()-eheadersize)];
+	if (a < elength()-eheadersize) return eread(a+eheadersize); else return mem[a-(elength()-eheadersize)];
 }
 
 mem_t memread2(address_t a) { return memread(a); }
 
 void memwrite2(address_t a, mem_t c) { 
-   if (a < elength()-eheadersize) eupdate(a+eheadersize, c); else mem[a-(elength()-eheadersize)]=c;
+	if (a < elength()-eheadersize) eupdate(a+eheadersize, c); else mem[a-(elength()-eheadersize)]=c;
 }
 #endif
 #endif
@@ -3332,8 +3445,8 @@ char stringvalue() {
 		ir2=ir;
 		push(x);
 #ifdef USEMEMINTERFACE
-    for(k=0; k<x && x<SPIRAMSBSIZE; k++ ) spistrbuf1[k]=ir[k];
-    ir2=spistrbuf1;
+		for(k=0; k<x && x<SPIRAMSBSIZE; k++ ) spistrbuf1[k]=ir[k];
+		ir2=spistrbuf1;
 #endif
 #ifdef HASAPPLE1
 	} else if (token == STRINGVAR) {
@@ -3359,7 +3472,7 @@ char stringvalue() {
 		if (ir2 == 0) ir2=spistrbuf1;
 #endif
 		if (y-x+1 > 0) push(y-x+1); else push(0);
-	  if (DEBUG) { outsc("** in stringvalue, length "); outnumber(y-x+1); outsc(" from "); outnumber(x); outspc(); outnumber(y); outcr(); }
+		if (DEBUG) { outsc("** in stringvalue, length "); outnumber(y-x+1); outsc(" from "); outnumber(x); outspc(); outnumber(y); outcr(); }
 		xc=xcl;
 		yc=ycl;
 	} else if (token == TSTR) {	
@@ -3603,10 +3716,10 @@ void factor(){
 			ert=0;
 			while(*ir2==' ' || *ir2=='\t') { ir2++; ert++; }
 			if(*ir2=='-') { y=-1; ir2++; ert++; } else y=1;
-      x=0;
+			x=0;
 #ifdef HASFLOAT
 			/* if (parsenumber2(ir2, &x) == 0) ert=1;	*/
-      ert+=parsenumber2(ir2, &x);
+			ert+=parsenumber2(ir2, &x);
 #else 
 			/* if (parsenumber(ir2, &x) == 0) ert=1; */
       ert+=parsenumber(ir2, &x);
@@ -3943,7 +4056,7 @@ void xprint(){
 processsymbol:
 
 	if (termsymbol()) {
-		if (! semicolon) outcr();
+		if (!semicolon) outcr();
 		od=oldod;
 		form=0;
 		return;
@@ -4464,7 +4577,7 @@ void xgoto() {
 	mem_t t=token;
 
 	if (!expectexpr()) return;
-	if (t == TGOSUB) pushgosubstack();
+	if (t == TGOSUB) pushgosubstack(0);
 	if (er != 0) return;
 
 	x=pop();
@@ -4478,7 +4591,8 @@ void xgoto() {
 		no clearing of variables and stacks */
 	if (st == SINT) st=SRUN;
 
-	nexttoken();
+	/* this was always there but is not needed, we let statement() do this now */
+	/* nexttoken(); */
 }
 
 /*
@@ -4486,8 +4600,13 @@ void xgoto() {
  */
 void xreturn(){ 
 	popgosubstack();
+	if (DEBUG) { outsc("** restored location "); outnumber(here); outcr(); }
 	if (er != 0) return;
 	nexttoken();
+#ifdef HASEVENTS 
+/* we return from an interrupt and reenable them */
+  if (gosubarg[gosubsp] == TEVENT) events_enabled=1;
+#endif
 }
 
 
@@ -4548,22 +4667,21 @@ void xelse() {
 void findnextcmd(){
 	while (1) {			
 		if (token == TNEXT) {
-	    if (fnc == 0) return;
-	    else fnc--;
+	    	if (fnc == 0) return; else fnc--;
 		}
-	  if (token == TFOR) fnc++;
+		if (token == TFOR) fnc++;
 /* no NEXT found - different for interactive and program mode */
-	  if (st == SRUN || st == SERUN) {
-	  	if (here >= top) {
-	    	error(TFOR);
-	    	return;
-	   	}
-	  } else {
-	  	if (bi-ibuffer > BUFSIZE) {
-	  		error(TFOR);
-	    	return;
+	  	if (st == SRUN || st == SERUN) {
+	  		if (here >= top) {
+	    		error(TFOR);
+	    		return;
+	   		}
+		} else {
+	  		if (bi-ibuffer > BUFSIZE) {
+	  			error(TFOR);
+	    		return;
+	  		}
 	  	}
-	  }
 		nexttoken(); 
 	}
 }
@@ -4624,6 +4742,7 @@ void xfor(){
 	yc=ycl;
 	x=e;
 	y=s;
+	if (DEBUG) { outsc("** for loop target location"); outnumber(here); outcr(); }
 	pushforstack();
 	if (er != 0) return;
 
@@ -4685,6 +4804,7 @@ void xnext(){
 	h=here;
 	popforstack();
 	if (er != 0) return;
+
 /* a variable argument in next clears the for stack 
 		down as BASIC programs can and do jump out to an outer next */
 	if (xcl) {
@@ -4708,7 +4828,7 @@ void xnext(){
 		here=h;
 	}
 	nexttoken();
-	if (DEBUG) {outsc("** after next found token "); debugtoken(); }
+	if (DEBUG) { outsc("** after next found token "); debugtoken(); }
 }
 
 /* 
@@ -4722,6 +4842,7 @@ void outputtoken() {
 		spaceafterkeyword=0;
 	}
 
+
 	switch (token) {
 		case NUMBER:
 			outnumber(x);
@@ -4733,6 +4854,7 @@ void outputtoken() {
 		case ARRAYVAR:
 		case STRINGVAR:
 		case VARIABLE:
+			if (lastouttoken == NUMBER) outspc(); 
 			outch(xc); 
 			if (yc != 0) outch(yc);
 			if (token == STRINGVAR) outch('$');
@@ -4745,13 +4867,15 @@ void outputtoken() {
 		default:
 			if (token < -3 && token > -122) {
 				if ((token == TTHEN || 
-						token == TELSE ||
-						token == TTO || 
-						token == TSTEP || 
-						token == TGOTO || 
-						token == TGOSUB ||
-						token == TOR ||
-						token == TAND ) && lastouttoken != LINENUMBER) outspc(); 
+					token == TELSE ||
+					token == TTO || 
+					token == TSTEP || 
+					token == TGOTO || 
+					token == TGOSUB ||
+					token == TOR ||
+					token == TAND ) && lastouttoken != LINENUMBER) outspc();
+				else 
+					if (lastouttoken == NUMBER) outspc(); 
 				for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 				outsc(getkeyword(i)); 
 				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) spaceafterkeyword=1;
@@ -4873,39 +4997,45 @@ void xrun(){
 void resetbasicstate() {
  
  /* all stacks are purged */
-  clearst();
-  clrgosubstack();
-  clrforstack();
-  clrdata();
-  clrvars();
-  clrlinecache();
+	clearst();
+	clrgosubstack();
+	clrforstack();
+	clrdata();
+	clrvars();
+	clrlinecache();
   
 /* error status reset */
-  reseterror();
+	reseterror();
 
 /* let here point to the beginning of the program */
-  here=0;
+	here=0;
 
 /* interactive mode */
-  st=SINT;
+	st=SINT;
+
+/* switch off timers and interrupts */
+#ifdef HASTIMER
+	resettimer(&after_timer);
+	resettimer(&every_timer);
+#endif
   
 }
  
 void xnew(){ 
 
 /* reset the state of the interpreter */
-  resetbasicstate();
+	resetbasicstate();
 
 /* program memory back to zero and variable heap cleared */
-  himem=memsize;
+	himem=memsize;
 	zeroblock(0, memsize);
 	top=0;
 
 /* on EEPROM systems also clear the stored state and top */
 #ifdef EEPROMMEMINTERFACE
-  eupdate(0, 0);
-  z.a=top;
-  esetnumber(1, addrsize);
+	eupdate(0, 0);
+	z.a=top;
+	esetnumber(1, addrsize);
 #endif
 }
 
@@ -5246,13 +5376,13 @@ void xsave() {
 		od=OFILE;
 		
 /* the core save - xlist() not used any more */
-    ert=0; /* reset error to trap file problems */
+		ert=0; /* reset error to trap file problems */
 		here2=here;
 		here=0;
 		gettoken();
 		while (here < top) {
 			outputtoken();
-      if (ert) break;
+			if (ert) break;
 			gettoken();
 			if (token == LINENUMBER) outcr();
 		}
@@ -5269,7 +5399,7 @@ void xsave() {
 		ofileclose();
 
 /* did an accident happen */
-    if (ert) { printmessage(EGENERAL); outcr();  ert=0; }
+    	if (ert) { printmessage(EGENERAL); outcr();  ert=0; }
 	}
 
 /* and continue remembering, where we were */
@@ -5337,8 +5467,8 @@ void xload(const char* f) {
 		ifileclose();
 /* after a successful load we save top to the EEPROM header */
 #ifdef EEPROMMEMINTERFACE
-    z.a=top;
-    esetnumber(1, addrsize);
+		z.a=top;
+		esetnumber(1, addrsize);
 #endif
 
 /* go back to run mode and start from the first line */
@@ -5377,7 +5507,7 @@ void xget(){
  	address_t i2=1; /* and the end of the destination string    */
 	address_t j=1;	/* the second dimension of the array if needed		*/
 	mem_t oid=id;   /* remember the input stream */
-  char ch;
+	char ch;
 
 	nexttoken();
 
@@ -5406,12 +5536,12 @@ void xget(){
 	if (availch()) ch=inch(); else ch=0;
 
 /* store the data element as a number expect for */
-  push(ch);
+	push(ch);
 	assignnumber(t, xcl, ycl, i, j, ps); 
 
 /* but then, strings where we deliver a string with length 0 if there is no data */
 #ifdef HASAPPLE1
-  if (t == STRINGVAR && ch == 0 && ps) setstringlength(xcl, ycl, 0, arraylimit);
+	if (t == STRINGVAR && ch == 0 && ps) setstringlength(xcl, ycl, 0, arraylimit);
 #endif
 
 /* restore the output device */
@@ -5534,28 +5664,33 @@ void xset(){
 #ifdef ARDUINORF24
 		case 9: 
 			radioset(args);
-      break;
+			break;
 #endif		
 /* display update control for paged displays */
-    case 10:
-      dspsetupdatemode(args);
-      break;
+		case 10:
+			dspsetupdatemode(args);
+			break;
 /* change the serial device to a true TAB */
 #ifdef HASMSTAB
-    case 11:
-      reltab=args;
-      break;
+		case 11:
+      		reltab=args;
+			break;
 #endif
 /* change the lower array limit */
 #ifdef HASARRAYLIMIT
-    case 12:
-      arraylimit=args;
-      break;
+		case 12:
+			arraylimit=args;
+			break;
 #endif
 #ifdef HASKEYPAD
-    case 13:
-      kbdrepeat=args;
-      break;
+		case 13:
+			kbdrepeat=args;
+			break;
+#endif
+#ifdef HASEVENTS
+		case 14:
+			events_enabled=args;
+			break;
 #endif
 	}
 }
@@ -5644,11 +5779,9 @@ void xpinm(){
 /*
  * DELAY in milliseconds
  *
- * if background tasks are needed by the hardware.
- * delay is broken down in 1 ms intervalls in 
- * order to call byield every YIELDINTERVAL ms. This is 
- * typically needed for network functions.
- * Otherwise just plain delay.
+ * this must call bdelay() and not delay() as bdelay()
+ * handles all the yielding and timing functions 
+ * 
  */
 void xdelay(){
 	unsigned long i;
@@ -5656,18 +5789,7 @@ void xdelay(){
 	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
-
-#ifdef ARDUINOBGTASK
-	x=pop();
-	if (x>0) {
-		for(i=0; i<x && i<maxnum; i++) {
-			delay(1);
-			if (i%YIELDINTERVAL == 0) byield();
-		}
-	}
-#else 
-	delay(pop());
-#endif
+	bdelay(pop());
 }
 
 /* tone if the platform has it -> BASIC command PLAY */
@@ -5945,7 +6067,194 @@ void xassign() {
 	nexttoken();
 }
 
+/*
+ * After and every trigger timing GOSUBS and GOTOS 
+ */
+#ifdef HASTIMER 
+void resettimer(btimer_t* t) {
+	t->enabled=0;
+	t->interval=0;
+	t->last=0;
+	t->type=0;
+	t->linenumber=0;
+}
+#endif
 
+void xtimer() {
+#ifdef HASTIMER
+	mem_t t;
+	btimer_t* timer;
+
+/* do we deal with every or after */
+	if (token == TEVERY) timer=&every_timer; else timer=&after_timer;
+
+	/* one argument expected, the time intervall */
+	if (!expectexpr()) return;
+
+	/* after that, a command GOTO or GOSUB with a line number
+			more commands thinkable */
+	switch(token) {
+		case TGOSUB:
+		case TGOTO:
+			t=token;
+			if (!expectexpr()) return;
+			timer->last=millis();
+			timer->type=t;
+			timer->linenumber=pop();
+			timer->interval=pop();
+			timer->enabled=1;
+			break;
+		default:
+			if (termsymbol()) {
+				x=pop();
+				if (x == 0) 
+					timer->enabled=0;
+				else {
+					if (timer->linenumber) {
+						timer->enabled=1;
+						timer->interval=x;
+						timer->last=millis();	
+					} else 
+						error(EARGS);
+				}
+			} else 
+				error(EUNKNOWN);
+			return;
+	}
+#else 
+  nexttoken();
+#endif	
+}
+
+#ifdef HASEVENTS
+/* the event BASIC commands */
+void xevent() {
+	mem_t pin, mode;
+	mem_t type=0;
+	address_t line=0;
+	
+/* in this version two arguments are neded, one is the pin, the second the mode */
+	nexttoken();
+  
+/* debug code, display the event list */
+  if (termsymbol()) {
+    for (ax=0; ax<EVENTLISTSIZE; ax++) {
+      if (eventlist[ax].pin) {
+        outnumber(eventlist[ax].pin); outspc();
+        outnumber(eventlist[ax].mode); outspc();
+        outnumber(eventlist[ax].type); outspc();
+        outnumber(eventlist[ax].linenumber); outspc();
+        outcr();
+      }  
+    }
+    outnumber(nevents); outcr();
+    nexttoken();
+    return;
+  }
+
+
+/* argument parsing */  
+	parsearguments();
+	if (er != 0) return;
+
+	switch(args) {
+		case 2:
+			mode=pop();
+      if (mode > 3) {
+        error(EARGS);
+        return;
+      }
+		case 1: 
+			pin=pop();
+			break;
+		default:
+			error(EARGS);
+	}
+
+/* followed by termsymbol, GOTO or GOSUB */
+	if (token == TGOTO || token == TGOSUB) {
+		type=token;
+
+/* which line to go to */
+		if (!expectexpr()) return;
+		line=pop();
+	} 
+
+    
+/* all done either set the interrupt up or delete it*/
+	if (type) {
+		if (!addevent(pin, mode, type, line)) {
+			error(EARGS);
+			return;
+		}	
+	} else {
+		disableevent(pin);
+		deleteevent(pin);
+    return;
+	}
+
+/* enable the interrupt */
+	if (!enableevent(pin)) {
+		deleteevent(pin);
+		error(EARGS);
+		return;
+	}
+
+}
+
+/* handling the event list */
+mem_t addevent(mem_t pin, mem_t mode, mem_t type, address_t linenumber) {
+	int i;
+
+/* is the event already there */
+  for (i=0; i<EVENTLISTSIZE; i++) 
+    if (pin == eventlist[i].pin) goto slotfound;
+
+/* if not, look for a free slot */
+  if (nevents >= EVENTLISTSIZE) return 0;
+  for (i=0; i<EVENTLISTSIZE; i++) 
+    if (eventlist[i].pin == 0) goto slotfound;
+
+/* no free event slot */
+  return 0;
+
+/* we have a slot */
+slotfound:
+	eventlist[i].enabled=0;
+	eventlist[i].pin=pin;
+	eventlist[i].mode=mode;
+  eventlist[i].type=type;
+  eventlist[i].linenumber=linenumber;
+	eventlist[i].active=0;
+	nevents++;
+	return 1;
+}
+
+void deleteevent(mem_t pin) {
+	int i;
+
+/* do we have the event? */
+  i=eventindex(pin);
+
+	if (i>=0){
+    eventlist[i].enabled=0;
+    eventlist[i].pin=0;
+    eventlist[i].mode=0;
+    eventlist[i].type=0;
+    eventlist[i].linenumber=0;
+    eventlist[i].active=0;
+    nevents--;
+	}
+}
+
+
+mem_t eventindex(mem_t pin) {
+  int i;
+	for(i=0; i<EVENTLISTSIZE; i++ ) if (eventlist[i].pin == pin) return i; 
+	return -1;
+}
+
+#endif
 #endif
 
 
@@ -6237,7 +6546,7 @@ void xusr() {
 				case 15: push(SBUFSIZE); break;
 				case 16: push(ARRAYSIZEDEF); break;
 				case 17: push(STRSIZEDEF); break;
-/* - 24 reserved */
+/* - 24 reserved, don't use */
 				case 24: push(top); break;
 				case 25: push(here); break;
 				case 26: push(himem); break;
@@ -6253,7 +6562,7 @@ void xusr() {
 				case 33: push(0); break;
 #endif
         case 34: push(0); break;
-/* - 48 reserved */
+/* - 48 reserved, don't use */
 				case 48: push(id); break;
 				case 49: push(idd); break;
 				case 50: push(od); break;
@@ -6331,9 +6640,9 @@ void xcall() {
 			restartsystem();
 			break;
 /* restart the filesystem - only test code */
-    case 1:
-      fsbegin(1);
-      break;
+		case 1:
+			fsbegin(1);
+			break;
 /* call values to 31 reserved! */
 		default:
 /* your custom code into usrcall() */
@@ -6557,7 +6866,7 @@ nextdata:
  *	RESTORE sets the data pointer to zero right now 
  */
 void xrestore(){
-short rec;
+	short rec;
 
 	nexttoken();
 
@@ -6742,7 +7051,7 @@ void xon(){
 	}
 
 /* prepare for the jump	*/
-	if (t == TGOSUB) pushgosubstack();
+	if (t == TGOSUB) pushgosubstack(0);
 	if (er != 0) return;
 
 	findline(line);
@@ -6778,6 +7087,7 @@ void statement(){
 		if (debuglevel == 1) { debugtoken(); outcr(); }
 #endif
 		switch(token){
+			case ':':
 			case LINENUMBER:
 				nexttoken();
 				break;
@@ -6992,15 +7302,21 @@ void statement(){
 			case TSLEEP:
 				xsleep();
 				break;	
-#endif
-			case ':':
-				nexttoken();
+			case TAFTER:
+			case TEVERY:
+				xtimer();
 				break;
+			case TEVENT:
+				xevent();
+				break;
+#endif
 			default:
 /*  strict syntax checking */
 				error(EUNKNOWN);
 				return;
 		}
+
+
 /* after each statement we check on a break character 
 		on an Arduino entering "#" at runtime stops the program */
 #if defined(BREAKCHAR)
@@ -7020,19 +7336,78 @@ void statement(){
 #endif		
 
 /* yield after each statement which is a 10-100 microsecond cycle 
-		on Arduinos and the like, aLL backgriund tasks are handled in byield */
+		on Arduinos and the like, all background tasks are handled in byield */
 		byield();
-
-/* interrupt handling - not yet implemented, only stubs*/
-#ifdef HASINTERRUPTS
-    if (interruptvector) {
-      handleinterrupt();
-      interruptvector=0;
-    }
-#endif
 
 /* when an error is encountred the statement loop is ended */
 		if (er) return;
+
+/* 
+ * if we run error free, interrupts and times can be processed 
+ * 
+ * We can savely interrupt and return only if here points either to 
+ * a termsymbol : or LINENUMBER. NEXT is a special case. We need to 
+ * catch this here because empty FOR loops never even have a termsymbol
+ * a : is swallowed after FOR.
+ *
+ */		
+#ifdef HASTIMER
+		if ((token == LINENUMBER || token == ':' || token == TNEXT) && (st == SERUN || st == SRUN)) {
+/* after is always processed before every */
+			if (after_timer.enabled) {
+				if (millis() > after_timer.last + after_timer.interval) {
+					after_timer.enabled=0;
+					if (after_timer.type == TGOSUB) {
+						if (token == TNEXT || token == ':') here--;
+						if (token == LINENUMBER) here-=(1+sizeof(address_t));	
+						pushgosubstack(0);
+					}
+					findline(after_timer.linenumber);
+          if (er) return; 
+				}
+			}
+/* periodic events */
+			if (every_timer.enabled ) {
+				if (millis() > every_timer.last + every_timer.interval) {
+						every_timer.last=millis();
+						if (every_timer.type == TGOSUB) {
+							if (token == TNEXT || token == ':') here--;
+							if (token == LINENUMBER) here-=(1+sizeof(address_t));	
+							pushgosubstack(0);
+              if (er != 0) return;
+						}
+						findline(every_timer.linenumber);
+            if (er != 0) return; 
+				}
+			}
+		}
+#endif
+
+/* the branch code for interrupts, we round robin through the event list */
+#ifdef HASEVENTS
+		if ((token == LINENUMBER || token == ':' || token == TNEXT) && (st == SERUN || st == SRUN)) {
+/* interrupts */
+      if (events_enabled) {
+        for (ax=0; ax<EVENTLISTSIZE; ax++) {
+          if (eventlist[ievent].pin && eventlist[ievent].enabled && eventlist[ievent].active) {
+            if (eventlist[ievent].type == TGOSUB) {
+              if (token == TNEXT || token == ':') here--;
+							if (token == LINENUMBER) here-=(1+sizeof(address_t));	
+							pushgosubstack(TEVENT);
+              if (er != 0) return;
+            }
+            findline(eventlist[ievent].linenumber);  
+            if (er != 0) return; 
+            eventlist[ievent].active=0;
+            enableevent(eventlist[ievent].pin); /* events are disabled in the interrupt function, here they are activated again */
+            events_enabled=0; /* once we have jumped, we keep the events in BASIC off until reenabled by the program*/
+            break;
+          }
+          ievent=(ievent+1)%EVENTLISTSIZE;
+        }
+      }
+    }
+#endif			
 	}
 }
 
@@ -7060,7 +7435,7 @@ void setup() {
  *  for an EEPROMMEM system, the memory consists of the 
  *  EEPROM from 0 to elength()-eheadersize and then the RAM.
  */
-  himem=memsize=ballocmem()+(elength()-eheadersize);
+	himem=memsize=ballocmem()+(elength()-eheadersize);
 #else
 	himem=memsize=ballocmem();
 #endif
@@ -7071,17 +7446,17 @@ void setup() {
  	xnew();	
 #else
 /* if we run on an EEPROM system, more work is needed */
-  if (eread(0) == 0 || eread(0) == 1) { /* have we stored a program and don't do new */
-    egetnumber(1, addrsize);
-    top=z.a;    
-    resetbasicstate(); /* the little brother of new, reset the state but let the program memory be */
-    for (address_t a=elength(); a<memsize; a++) memwrite2(a, 0); /* clear the heap i.e. the basic RAM*/
-  } else {
-    eupdate(0, 0); /* now we have stored a program of length 0 */
-    z.a=0;
-    esetnumber(1, addrsize);
-    xnew();
-  }
+	if (eread(0) == 0 || eread(0) == 1) { /* have we stored a program and don't do new */
+		egetnumber(1, addrsize);
+		top=z.a;    
+		resetbasicstate(); /* the little brother of new, reset the state but let the program memory be */
+		for (address_t a=elength(); a<memsize; a++) memwrite2(a, 0); /* clear the heap i.e. the basic RAM*/
+  	} else {
+		eupdate(0, 0); /* now we have stored a program of length 0 */
+		z.a=0;
+		esetnumber(1, addrsize);
+		xnew();
+	}
 #endif
 
 /* check if there is something to autorun and prepare 
@@ -7089,13 +7464,13 @@ void setup() {
  	if (!autorun()) {
 		printmessage(MGREET); outspc();
 		printmessage(EOUTOFMEMORY); outspc(); 
-    outnumber(memsize+1); outspc();
+		outnumber(memsize+1); outspc();
 		outnumber(elength()); outcr();
  	}
 
 /* activate the BREAKPIN */
 #if defined(BREAKPIN) && ( defined(ARDUINO) || defined(RASPPI) )
- 	pinMode(BREAKPIN, INPUT_PULLUP);
+	pinMode(BREAKPIN, INPUT_PULLUP);
 #endif
 }
 
@@ -7138,11 +7513,11 @@ void loop() {
 		storeline();	
 /* on an EEPROM system we store top after each succesful line insert */
 #ifdef EEPROMMEMINTERFACE
-    z.a=top;
-    esetnumber(1, addrsize);
+		z.a=top;
+		esetnumber(1, addrsize);
 #endif
 	} else {
- 		/* st=SINT; */
+		/* st=SINT; */
 		statement();   
 		st=SINT;
 	}
