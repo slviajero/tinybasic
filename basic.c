@@ -4980,6 +4980,9 @@ void xrun(){
 		clrdata();
 		clrlinecache();
 		ert=0;
+#ifdef HASEVENTS
+    events_enabled=1;
+#endif
 		nexttoken();
 	}
 
@@ -5695,11 +5698,6 @@ void xset(){
 			kbdrepeat=args;
 			break;
 #endif
-#ifdef HASEVENTS
-		case 14:
-			events_enabled=args;
-			break;
-#endif
 	}
 }
 
@@ -6157,6 +6155,18 @@ void xevent() {
     return;
   }
 
+/* control of events */
+  if (token == TSTOP) {
+    events_enabled=0;
+    nexttoken();
+    return; 
+  }
+
+  if (token == TCONT) {
+    events_enabled=1;
+    nexttoken();
+    return; 
+  }
 
 /* argument parsing */  
 	parsearguments();
