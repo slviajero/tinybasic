@@ -32,10 +32,6 @@
 #undef MSDOS
 #undef RASPPI
 
-/* test features */
-#define HASTIMER
-#define HASEVENTS
-
 /*
 	interpreter feature sets, choose one of the predefines 
   or undefine all predefines and set the features in custom settings
@@ -75,6 +71,8 @@
 #define HASIOT
 #define HASMULTIDIM
 #define HASSTRINGARRAYS
+#define HASTIMER
+#define HASEVENTS
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -93,6 +91,8 @@
 #undef HASIOT
 #undef HASMULTIDIM
 #undef HASSTRINGARRAYS
+#undef HASTIMER
+#undef HASEVENTS
 #endif
 
 /* all features minus float and tone */
@@ -112,6 +112,8 @@
 #define HASIOT
 #define HASMULTIDIM
 #define HASSTRINGARRAYS
+#define HASTIMER
+#define HASEVENTS
 #endif
 
 /* a simple integer basic for small systems (UNO etc) */
@@ -131,6 +133,8 @@
 #define HASIOT
 #undef  HASMULTIDIM
 #undef  HASSTRINGARRAYS
+#define HASTIMER
+#define HASEVENTS
 #endif
 
 /* all features activated */
@@ -150,6 +154,8 @@
 #define HASIOT
 #define HASMULTIDIM
 #define HASSTRINGARRAYS
+#define HASTIMER
+#define HASEVENTS
 #endif
 
 /* a simple BASIC with float support */
@@ -169,6 +175,8 @@
 #undef HASIOT
 #undef HASMULTIDIM
 #undef HASSTRINGARRAYS
+#undef HASTIMER
+#undef HASEVENTS
 #endif
 
 /* a Tinybasic with float support */
@@ -188,6 +196,8 @@
 #undef HASIOT
 #undef HASMULTIDIM
 #undef HASSTRINGARRAYS
+#undef HASTIMER
+#undef HASEVENTS
 #endif
 
 /*
@@ -6064,6 +6074,7 @@ void xsleep() {
 void xassign() {
 	nexttoken();
 }
+#endif
 
 /*
  * After and every trigger timing GOSUBS and GOTOS 
@@ -6076,10 +6087,8 @@ void resettimer(btimer_t* t) {
 	t->type=0;
 	t->linenumber=0;
 }
-#endif
 
 void xtimer() {
-#ifdef HASTIMER
 	mem_t t;
 	btimer_t* timer;
 
@@ -6118,11 +6127,9 @@ void xtimer() {
 			} else 
 				error(EUNKNOWN);
 			return;
-	}
-#else 
-  nexttoken();
-#endif	
+	}	
 }
+#endif
 
 #ifdef HASEVENTS
 /* the event BASIC commands */
@@ -6197,7 +6204,6 @@ void xevent() {
 		error(EARGS);
 		return;
 	}
-
 }
 
 /* handling the event list */
@@ -6252,7 +6258,6 @@ mem_t eventindex(mem_t pin) {
 	return -1;
 }
 
-#endif
 #endif
 
 
@@ -7300,10 +7305,14 @@ void statement(){
 			case TSLEEP:
 				xsleep();
 				break;	
+#endif
+#ifdef HASTIMER
 			case TAFTER:
 			case TEVERY:
 				xtimer();
 				break;
+#endif
+#ifdef HASEVENTS
 			case TEVENT:
 				xevent();
 				break;
