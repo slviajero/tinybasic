@@ -233,7 +233,7 @@ typedef unsigned char uint8_t;
 #define TSENSOR	-26
 #define TWIRE	-25
 #define TSLEEP	-24
-/* events and interrupts, part of IoT for now */
+/* events and interrupts */
 #define TAFTER -23
 #define TEVERY -22
 #define TEVENT -21
@@ -426,11 +426,17 @@ const char snetstat[]	PROGMEM  = "NETSTAT";
 const char ssensor[]	PROGMEM  = "SENSOR";
 const char swire[]		PROGMEM  = "WIRE";
 const char ssleep[]		PROGMEM  = "SLEEP";
-/* events and interrupts */
-const char safter[]		PROGMEM  = "AFTER";
-const char severy[]		PROGMEM  = "EVERY";
-const char sevent[]		PROGMEM  = "EVENT";
 #endif
+/* events and interrupts */
+#ifdef HASTIMER
+const char safter[]     PROGMEM  = "AFTER";
+const char severy[]     PROGMEM  = "EVERY";
+#endif
+#ifdef HASEVENTS
+const char sevent[]     PROGMEM  = "EVENT";
+#endif
+
+
 
 /* zero terminated keyword storage */
 const char* const keyword[] PROGMEM = {
@@ -486,7 +492,12 @@ const char* const keyword[] PROGMEM = {
 #ifdef HASIOT
 	sassign, savail, sstr, sinstr, sval, 
 	snetstat, ssensor, swire, ssleep, 
-	safter, severy, sevent,
+#endif
+#ifdef HASTIMER
+    safter, severy,
+#endif
+#ifdef HASEVENTS
+    sevent,
 #endif
 	0
 };
@@ -543,7 +554,12 @@ const signed char tokens[] PROGMEM = {
 #ifdef HASIOT
 	TASSIGN, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
 	TSENSOR, TWIRE, TSLEEP,
-	TAFTER, TEVERY, TEVENT, 
+#endif
+#ifdef HASTIMER
+    TAFTER, TEVERY,
+#endif
+#ifdef HASEVENTS
+    TEVENT, 
 #endif
 	0
 };
