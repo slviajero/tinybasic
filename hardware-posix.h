@@ -252,29 +252,16 @@ void pinm(number_t p, number_t m){
 }
 #endif
 
-/* handling time - raspberry take delay function from wiring, 
-	this function is not needed any more, done in bdelay */
-#if ! defined(MSDOS) && ! defined(MINGW) && ! defined(RASPPI)
-void delay(number_t t) {usleep(t*1000);}
-#endif
-// ms style stuff
-#if defined(MINGW)
-void delay(number_t t) {Sleep(t);}
+
+/* we need to to millis by hand except for RASPPI with wiring */
+#if ! defined(RASPPI)
+unsigned long millis() { 
+	struct timeb thetime;
+	ftime(&thetime);
+	return (thetime.time-start_time.time)*1000+(thetime.millitm-start_time.millitm);
+}
 #endif
 
-void bmillis() {
-	struct timeb thetime;
-	time_t dt;
-	number_t m;
-	ftime(&thetime);
-	dt=(thetime.time-start_time.time)*1000+(thetime.millitm-start_time.millitm);
-	m=(number_t) ( dt/(time_t)pop() % (time_t)maxnum);
-	push(m);
-}
-// we need to to millis by hand except for RASPPI with wiring
-#if ! defined(RASPPI)
-long millis() { push(1); bmillis(); return pop(); }
-#endif
 void bpulsein() { pop(); pop(); pop(); push(0); }
 void btone(short a) { pop(); pop(); if (a == 3) pop(); }
 
@@ -635,6 +622,19 @@ mem_t spiram_robufferread(address_t a) {return spiram[a];}
 #define SPIRAMSBSIZE 128
 char spistrbuf1[SPIRAMSBSIZE];
 char spistrbuf2[SPIRAMSBSIZE];
+#endif
+
+/* stub for events */
+#ifdef HASEVENTS
+mem_t enableevent(mem_t pin) {
+	int i;
+  if ((i=eventindex(pin))<0) return 0; 
+  else {
+  	eventlist[i].enabled=1; 
+  	return 1;
+  }
+}
+void disableevent(mem_t pin) {}
 #endif
 
 

@@ -543,7 +543,7 @@ const signed char tokens[] PROGMEM = {
 #ifdef HASIOT
 	TASSIGN, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
 	TSENSOR, TWIRE, TSLEEP,
-	TAFTER, TEVERY, TEVENT,
+	TAFTER, TEVERY, TEVENT, 
 #endif
 	0
 };
@@ -865,13 +865,6 @@ static mem_t bfindc, bfindd, bfindt;
 static address_t bfinda, bfindz;
 #endif
 
-/* the interrupt code - not yet implemented */
-#ifdef HASINTERRUPTS
-static short interruptready;
-void handleinterrupt();
-#endif
-
-
 /* the timer code - very simple needs to to to a struct */
 #ifdef HASTIMER
 
@@ -887,6 +880,38 @@ typedef struct {
 static btimer_t after_timer = {0, 0, 0, 0, 0};
 static btimer_t every_timer = {0, 0, 0, 0, 0};
 #endif
+
+/* the event code */
+#ifdef HASEVENTS
+
+#define EVENTLISTSIZE 4
+
+/* event type */
+typedef struct {
+    mem_t enabled;
+    mem_t pin;
+    mem_t mode; 
+    mem_t type;
+    address_t linenumber;
+    mem_t active;
+} bevent_t;
+
+/* the event list */
+static int nevents = 0;
+static int ievent = 0;
+static mem_t events_enabled = 1;
+static volatile bevent_t eventlist[EVENTLISTSIZE];
+
+/* the extension of the GOSUB stack */
+static mem_t gosubarg[GOSUBDEPTH];
+
+/* handle the event list */
+mem_t addevent(mem_t, mem_t, mem_t, address_t);
+void deleteevent(mem_t);
+volatile bevent_t* findevent(mem_t);
+mem_t eventindex(mem_t);
+#endif
+
 
 /* the string for real time clocks */
 char rtcstring[20] = { 0 }; 
@@ -1162,7 +1187,7 @@ void pushforstack();
 void popforstack();
 void dropforstack();
 void clrforstack();
-void pushgosubstack();
+void pushgosubstack(mem_t);
 void popgosubstack();
 void dropgosubstack();
 void clrgosubstack();
@@ -1368,6 +1393,10 @@ void xon();
 /* timers and interrupts */
 void xtimer();
 void resettimer();
+
+/* the emulation of tone using the byield loop */
+void toggletone();
+void playtone(int, int, int);
 
 /* the statement loop */
 void statement();

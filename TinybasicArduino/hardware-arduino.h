@@ -5191,17 +5191,22 @@ void tonetoggle() {
  */
 
 #ifdef HASEVENTS
+/* interrupts in BASIC fire once and then disable themselves, BASIC reenables them */
 void bintroutine0() {
-  if (eventlist[0].enabled) eventlist[0].active=1;
+  eventlist[0].active=1;
+  detachInterrupt(digitalPinToInterrupt(eventlist[0].pin)); 
 }
 void bintroutine1() {
-  if (eventlist[1].enabled) eventlist[1].active=1;
+  eventlist[1].active=1;
+  detachInterrupt(digitalPinToInterrupt(eventlist[1].pin)); 
 }
 void bintroutine2() {
-  if (eventlist[2].enabled) eventlist[2].active=1;
+  eventlist[2].active=1;
+  detachInterrupt(digitalPinToInterrupt(eventlist[2].pin)); 
 }  
 void bintroutine3() {
-  if (eventlist[3].enabled) eventlist[3].active=1;
+  eventlist[3].active=1;
+  detachInterrupt(digitalPinToInterrupt(eventlist[3].pin)); 
 }
 
 mem_t enableevent(int pin) {
@@ -5209,7 +5214,6 @@ mem_t enableevent(int pin) {
   int i;
 
 /* do we have the data */
-  
   if ((i=eventindex(pin))<0) return 0;
 
 /* can we use this pin */  

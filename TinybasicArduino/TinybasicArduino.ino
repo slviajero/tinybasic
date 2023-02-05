@@ -6137,7 +6137,7 @@ void xevent() {
 /* debug code, display the event list */
   if (termsymbol()) {
     for (ax=0; ax<EVENTLISTSIZE; ax++) {
-      if (eventlist[ax].enabled) {
+      if (eventlist[ax].pin) {
         outnumber(eventlist[ax].pin); outspc();
         outnumber(eventlist[ax].mode); outspc();
         outnumber(eventlist[ax].type); outspc();
@@ -6176,8 +6176,7 @@ void xevent() {
 /* which line to go to */
 		if (!expectexpr()) return;
 		line=pop();
-	} else 
-		nexttoken();
+	} 
 
     
 /* all done either set the interrupt up or delete it*/
@@ -6203,43 +6202,46 @@ void xevent() {
 
 /* handling the event list */
 mem_t addevent(mem_t pin, mem_t mode, mem_t type, address_t linenumber) {
+	int i;
 
 /* is the event already there */
-  for (ax=0; ax<EVENTLISTSIZE; ax++) 
-    if (pin == eventlist[ax].pin) goto slotfound;
+  for (i=0; i<EVENTLISTSIZE; i++) 
+    if (pin == eventlist[i].pin) goto slotfound;
 
 /* if not, look for a free slot */
   if (nevents >= EVENTLISTSIZE) return 0;
-  for (ax=0; ax<EVENTLISTSIZE; ax++) 
-    if (eventlist[ax].pin == 0) goto slotfound;
+  for (i=0; i<EVENTLISTSIZE; i++) 
+    if (eventlist[i].pin == 0) goto slotfound;
 
 /* no free event slot */
   return 0;
 
 /* we have a slot */
 slotfound:
-	eventlist[ax].enabled=0;
-	eventlist[ax].pin=pin;
-	eventlist[ax].mode=mode;
-  eventlist[ax].type=type;
-  eventlist[ax].linenumber=linenumber;
-	eventlist[ax].active=0;
+	eventlist[i].enabled=0;
+	eventlist[i].pin=pin;
+	eventlist[i].mode=mode;
+  eventlist[i].type=type;
+  eventlist[i].linenumber=linenumber;
+	eventlist[i].active=0;
 	nevents++;
 	return 1;
 }
 
 void deleteevent(mem_t pin) {
+	int i;
 
 /* do we have the event? */
-  ax=eventindex(pin);
-	if (ax>0){
-    eventlist[ax].enabled=0;
-    eventlist[ax].pin=0;
-    eventlist[ax].mode=0;
-    eventlist[ax].type=0;
-    eventlist[ax].linenumber=0;
-    eventlist[ax].active=0;
-    nevents++;
+  i=eventindex(pin);
+
+	if (i>=0){
+    eventlist[i].enabled=0;
+    eventlist[i].pin=0;
+    eventlist[i].mode=0;
+    eventlist[i].type=0;
+    eventlist[i].linenumber=0;
+    eventlist[i].active=0;
+    nevents--;
 	}
 }
 
@@ -7395,7 +7397,8 @@ void statement(){
             findline(eventlist[ievent].linenumber);  
             if (er != 0) return; 
             eventlist[ievent].active=0;
-            events_enabled=0; /* once we have jumped, we keep the events off */
+            enableevent(eventlist[ievent].pin); /* events are disabled in the interrupt function, here they are activated again */
+            events_enabled=0; /* once we have jumped, we keep the events in BASIC off until reenabled by the program*/
             break;
           }
           ievent=(ievent+1)%EVENTLISTSIZE;

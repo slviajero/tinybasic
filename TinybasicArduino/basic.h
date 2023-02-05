@@ -1187,7 +1187,7 @@ void pushforstack();
 void popforstack();
 void dropforstack();
 void clrforstack();
-void pushgosubstack();
+void pushgosubstack(mem_t);
 void popgosubstack();
 void dropgosubstack();
 void clrgosubstack();

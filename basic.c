@@ -34,6 +34,7 @@
 
 /* test features */
 #define HASTIMER
+#define HASEVENTS
 
 /*
 	interpreter feature sets, choose one of the predefines 
@@ -299,7 +300,16 @@ void bdelay(unsigned long t) {
 }
 
 /* fastticker is the hook for all timing functions */
-void fastticker() {}
+void fastticker() {
+/* fastticker profiling test code */
+#ifdef FASTTICKERPROFILE
+  fasttickerprofile();
+#endif
+/* toggle the tone pin */
+#ifdef ARDUINOTONEEMULATION
+  tonetoggle();
+#endif
+}
 
 /* the millis function for BASIC */
 void bmillis() {
@@ -1683,10 +1693,13 @@ void clrforstack() {
 	fnc=0;
 }
 
-void pushgosubstack(){
+void pushgosubstack(mem_t a){
 	if (gosubsp < GOSUBDEPTH) {
 		gosubstack[gosubsp]=here;
-		gosubsp++;	
+#ifdef HASEVENTS
+    gosubarg[gosubsp]=a;
+#endif
+    gosubsp++;  
 	} else 
 		error(EGOSUB);
 }
@@ -2382,7 +2395,11 @@ void nexttoken() {
   
 /* RUN mode vs. INT mode, in RUN mode we read from mem via gettoken() */
 	if (st == SRUN || st == SERUN) {
+/* in the token stream we call the fastticker - all fast timing functions are in stream*/
+    fastticker(); 
+/* read the token from memory */
 		gettoken();
+/* show what we are doing */
 		if (debuglevel>1) { debugtoken(); outcr(); }
 		return;
 	}
@@ -4558,7 +4575,7 @@ void xgoto() {
 	mem_t t=token;
 
 	if (!expectexpr()) return;
-	if (t == TGOSUB) pushgosubstack();
+	if (t == TGOSUB) pushgosubstack(0);
 	if (er != 0) return;
 
 	x=pop();
@@ -4584,6 +4601,10 @@ void xreturn(){
 	if (DEBUG) { outsc("** restored location "); outnumber(here); outcr(); }
 	if (er != 0) return;
 	nexttoken();
+#ifdef HASEVENTS 
+/* we return from an interrupt and reenable them */
+  if (gosubarg[gosubsp] == TEVENT) events_enabled=1;
+#endif
 }
 
 
@@ -5664,6 +5685,11 @@ void xset(){
 			kbdrepeat=args;
 			break;
 #endif
+#ifdef HASEVENTS
+		case 14:
+			events_enabled=args;
+			break;
+#endif
 	}
 }
 
@@ -6097,6 +6123,136 @@ void xtimer() {
   nexttoken();
 #endif	
 }
+
+#ifdef HASEVENTS
+/* the event BASIC commands */
+void xevent() {
+	mem_t pin, mode;
+	mem_t type=0;
+	address_t line=0;
+	
+/* in this version two arguments are neded, one is the pin, the second the mode */
+	nexttoken();
+  
+/* debug code, display the event list */
+  if (termsymbol()) {
+    for (ax=0; ax<EVENTLISTSIZE; ax++) {
+      if (eventlist[ax].pin) {
+        outnumber(eventlist[ax].pin); outspc();
+        outnumber(eventlist[ax].mode); outspc();
+        outnumber(eventlist[ax].type); outspc();
+        outnumber(eventlist[ax].linenumber); outspc();
+        outcr();
+      }  
+    }
+    outnumber(nevents); outcr();
+    nexttoken();
+    return;
+  }
+
+
+/* argument parsing */  
+	parsearguments();
+	if (er != 0) return;
+
+	switch(args) {
+		case 2:
+			mode=pop();
+      if (mode > 3) {
+        error(EARGS);
+        return;
+      }
+		case 1: 
+			pin=pop();
+			break;
+		default:
+			error(EARGS);
+	}
+
+/* followed by termsymbol, GOTO or GOSUB */
+	if (token == TGOTO || token == TGOSUB) {
+		type=token;
+
+/* which line to go to */
+		if (!expectexpr()) return;
+		line=pop();
+	} 
+
+    
+/* all done either set the interrupt up or delete it*/
+	if (type) {
+		if (!addevent(pin, mode, type, line)) {
+			error(EARGS);
+			return;
+		}	
+	} else {
+		disableevent(pin);
+		deleteevent(pin);
+    return;
+	}
+
+/* enable the interrupt */
+	if (!enableevent(pin)) {
+		deleteevent(pin);
+		error(EARGS);
+		return;
+	}
+
+}
+
+/* handling the event list */
+mem_t addevent(mem_t pin, mem_t mode, mem_t type, address_t linenumber) {
+	int i;
+
+/* is the event already there */
+  for (i=0; i<EVENTLISTSIZE; i++) 
+    if (pin == eventlist[i].pin) goto slotfound;
+
+/* if not, look for a free slot */
+  if (nevents >= EVENTLISTSIZE) return 0;
+  for (i=0; i<EVENTLISTSIZE; i++) 
+    if (eventlist[i].pin == 0) goto slotfound;
+
+/* no free event slot */
+  return 0;
+
+/* we have a slot */
+slotfound:
+	eventlist[i].enabled=0;
+	eventlist[i].pin=pin;
+	eventlist[i].mode=mode;
+  eventlist[i].type=type;
+  eventlist[i].linenumber=linenumber;
+	eventlist[i].active=0;
+	nevents++;
+	return 1;
+}
+
+void deleteevent(mem_t pin) {
+	int i;
+
+/* do we have the event? */
+  i=eventindex(pin);
+
+	if (i>=0){
+    eventlist[i].enabled=0;
+    eventlist[i].pin=0;
+    eventlist[i].mode=0;
+    eventlist[i].type=0;
+    eventlist[i].linenumber=0;
+    eventlist[i].active=0;
+    nevents--;
+	}
+}
+
+
+mem_t eventindex(mem_t pin) {
+  int i;
+	for(i=0; i<EVENTLISTSIZE; i++ ) if (eventlist[i].pin == pin) return i; 
+	return -1;
+}
+
+#endif
 #endif
 
 
@@ -6893,7 +7049,7 @@ void xon(){
 	}
 
 /* prepare for the jump	*/
-	if (t == TGOSUB) pushgosubstack();
+	if (t == TGOSUB) pushgosubstack(0);
 	if (er != 0) return;
 
 	findline(line);
@@ -7148,17 +7304,15 @@ void statement(){
 			case TEVERY:
 				xtimer();
 				break;
+			case TEVENT:
+				xevent();
+				break;
 #endif
 			default:
 /*  strict syntax checking */
 				error(EUNKNOWN);
 				return;
 		}
-
-/*
-		debugtoken(); outcr();
-		outnumber(here); outcr();
-*/
 
 
 /* after each statement we check on a break character 
@@ -7204,11 +7358,12 @@ void statement(){
 					if (after_timer.type == TGOSUB) {
 						if (token == TNEXT || token == ':') here--;
 						if (token == LINENUMBER) here-=(1+sizeof(address_t));	
-						pushgosubstack();
+						pushgosubstack(0);
 					}
 					findline(after_timer.linenumber);
+          if (er) return; 
 				}
-		}
+			}
 /* periodic events */
 			if (every_timer.enabled ) {
 				if (millis() > every_timer.last + every_timer.interval) {
@@ -7216,13 +7371,41 @@ void statement(){
 						if (every_timer.type == TGOSUB) {
 							if (token == TNEXT || token == ':') here--;
 							if (token == LINENUMBER) here-=(1+sizeof(address_t));	
-							pushgosubstack();
+							pushgosubstack(0);
+              if (er != 0) return;
 						}
 						findline(every_timer.linenumber);
-					}
+            if (er != 0) return; 
 				}
 			}
+		}
 #endif
+
+/* the branch code for interrupts, we round robin through the event list */
+#ifdef HASEVENTS
+		if ((token == LINENUMBER || token == ':' || token == TNEXT) && (st == SERUN || st == SRUN)) {
+/* interrupts */
+      if (events_enabled) {
+        for (ax=0; ax<EVENTLISTSIZE; ax++) {
+          if (eventlist[ievent].pin && eventlist[ievent].enabled && eventlist[ievent].active) {
+            if (eventlist[ievent].type == TGOSUB) {
+              if (token == TNEXT || token == ':') here--;
+							if (token == LINENUMBER) here-=(1+sizeof(address_t));	
+							pushgosubstack(TEVENT);
+              if (er != 0) return;
+            }
+            findline(eventlist[ievent].linenumber);  
+            if (er != 0) return; 
+            eventlist[ievent].active=0;
+            enableevent(eventlist[ievent].pin); /* events are disabled in the interrupt function, here they are activated again */
+            events_enabled=0; /* once we have jumped, we keep the events in BASIC off until reenabled by the program*/
+            break;
+          }
+          ievent=(ievent+1)%EVENTLISTSIZE;
+        }
+      }
+    }
+#endif			
 	}
 }
 
