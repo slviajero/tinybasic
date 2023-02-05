@@ -1088,6 +1088,14 @@ The EVENT statement does not set the pin mode of the pin. This has to be done wi
 
 The PINM command sets the pin to INPUT_PULLUP and the EVENT commands waits for the pin to be pulled down to low. It triggers the interrupt on the falling signal. While the PRINT statement is processed, no further interrupt is accepted. After return the interrupt is reenabled.
 
+Events can be disabled with the command 
+
+EVENT STOP
+
+Events can be reenabled with the command 
+
+EVENT CONT
+
 ### Credits and a word on timing
 
 Both AFTER and EVERY have been taken from the legendary Locomotive BASIC. In this BASIC dialect, only GOSUB was available and the time scale was 20 ms. There were 4 individual timers. Full featured Locomotive BASIC timers are on the feature list fot future releases.
