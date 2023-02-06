@@ -91,6 +91,7 @@ This language set is work in progress. There are a few string helper functions a
 BASIC has timers and interrupts build in. They can trigger a GOTO or GOSUB command on a time or external event.
 
 - Timer: timer.bas - blink while doing something in the background
+- Timestop: timestop.bas - stop a program after 10 seconds runtime
 
 ### Graphics
 
@@ -192,7 +193,9 @@ convert.bas: VAL and STR functions to convert numbers and strings
 
 splitstr.bas: INSTR function 
 
-timer.bas: EVERY command to trigger time functions
+timer.bas: EVERY command to trigger time subroutines
+
+timestop.bas: AFTER command to brach after a given time
 
 calc.bas: GOSUB with an expression, @S with READ and DATA, VAL
 

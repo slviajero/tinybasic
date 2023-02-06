@@ -1,0 +1,6 @@
+10 REM "Stopping after some time"
+100 AFTER 10000 GOTO 1000
+110 FOR I: NEXT
+120 END
+1000 PRINT "Program stopped"
+1010 STOP
