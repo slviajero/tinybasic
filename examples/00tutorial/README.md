@@ -86,6 +86,12 @@ This language set is work in progress. There are a few string helper functions a
 - Convert: convert.bas - convert strings to numbers and vice versa
 - Splitstring: splitstr.bas - split a string into substrings
 
+### Timers and Interrupts
+
+BASIC has timers and interrupts build in. They can trigger a GOTO or GOSUB command on a time or external event.
+
+- Timer: timer.bas - blink while doing something in the background
+
 ### Graphics
 
 BASIC graphics commands are plotting and setting colours.
@@ -185,6 +191,8 @@ eval.bas: EVAL command to modify a program
 convert.bas: VAL and STR functions to convert numbers and strings
 
 splitstr.bas: INSTR function 
+
+timer.bas: EVERY command to trigger time functions
 
 calc.bas: GOSUB with an expression, @S with READ and DATA, VAL
 
