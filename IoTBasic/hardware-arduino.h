@@ -65,7 +65,7 @@
  *	leave this unset if you use the definitions below
  */
 
-#undef USESPICOSERIAL 
+#define USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
@@ -1017,7 +1017,7 @@ void restartsystem() {
  * for this very simple implementation - needs to be improved (pass data from sleep
  * state to sleep state via EEPROM)
  */
-#if defined(ARDUINO_ARCH_SAMD)
+#if defined(ARDUINO_ARCH_SAMD) 
 #define HASBUILTINRTC
 #include "RTCZero.h"
 #include "ArduinoLowPower.h"
@@ -2814,7 +2814,8 @@ short rtcget(short i) {
     case 2:
       return rtc.getHours();
     case 3:
-      return rtc.getWeekDay();
+      // return rtc.getWeekDay();
+      return 0;
     case 4:
       return rtc.getDay();
     case 5:
@@ -2839,7 +2840,7 @@ void rtcset(uint8_t i, short v) {
       rtc.setHours(v);
       break;
     case 3:
-      rtc.setWeekDay(v);
+      // rtc.setWeekDay(v);
       break;
     case 4:
       rtc.setDay(v);
