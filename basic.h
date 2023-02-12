@@ -1417,5 +1417,6 @@ void playtone(int, int, int);
 /* the statement loop */
 void statement();
 
-/* stub for the interrupt code */
-void handleinterrupt();
+/* the extension functions */
+void bsetup();
+void bloop();

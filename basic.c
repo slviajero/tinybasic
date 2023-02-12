@@ -281,6 +281,9 @@ void byield() {
 /* the fast ticker for all fast timing functions */
 	fastticker();
 
+/* the loop function for non BASIC stuff */
+  bloop();
+
 #if defined(ARDUINOBGTASK)
 /* yield all 32 micro seconds */
 	if (millis()-lastyield > YIELDINTERVAL-1) {
@@ -1786,7 +1789,7 @@ void ioinit() {
 
 /* the displays */
 	kbdbegin();
-#ifdef DISPLAYDRIVER
+#if defined(DISPLAYDRIVER)
 	dspbegin();
 #endif
 #ifdef ARDUINOVGA
@@ -7439,8 +7442,8 @@ void setup() {
 /* init all io functions */
 	ioinit();
 
-/* timer stuff - experimental */
-/* rtcsqw(); */
+/* setup for all non BASIC stuff */
+  bsetup();
 
 /* get the BASIC memory, either as memory array with
 	ballocmem() or as an SPI serical memory */
@@ -7557,3 +7560,48 @@ int main(int argc, char* argv[]){
 		loop();
 }
 #endif
+
+/*
+ * Arduino style function for non BASIC code to run on the MCU. 
+ * All code that needs to run on the MCU independently can be put here.
+ * It works more or less just like the normal loop() and setup().
+ * 
+ * This is meant for robotics and other device control type of stuff.
+ * 
+ * Rules of the game: 
+ * - bsetup() is called once during interpreter startup after all 
+ *    IO subsystems are started and before the BASIC main memory is 
+ *    allocated. Allocate memory here. Do not allocate a lot of memory 
+ *    in bloop().
+ * - Never start or restart I/O functions of BASIC in bsetup(), 
+ *    no Wire.begin(), Serial.begin() etc. if BASIC also uses this
+ *    BASIC handles the I/O startup. Things that BASIC does not use 
+ *    can be started here.
+ * - bloop() is called after every token, during IO polling and in 
+ *    DELAY functions. 
+ * - The typical call frequency of bloop() is 20 microseconds or faster.
+ *    This is fairly constant and reliable.
+ * - The interpreter is robust against code in bloop() that needs a lot 
+ *    of CPU time. It will simply slow down but it will not break, 
+ *    unless(!) other I/O systems like network also need background CPU time 
+ *    and you block bloop for a long time. As a rule of thumb, on network systems
+ *    bloop() should return after 1 ms. After bloop() has returned, the interpreter
+ *    tries to handle network and USB update stuff. 
+ * - Never use delay() in bloop(). Set a counter. Look at the tone 
+ *    emulation code for examples. 
+ * - Never ever call BASIC functions from bloop(). BASIC function will 
+ *    eventually call byield() which calls bloop() and so forth. 
+ *    If you need to communicate data into BASIC, use the BASIC main 
+ *    memory, variables or the USR function mechanism.
+ * - Avoid allocating a lot of memory in bloop().
+ */
+
+ void bsetup() {
+  /* put your setup code here, to run once: */
+  
+ }
+
+ void bloop() {
+  /* put your main code here, to run repeatedly: */
+  
+ }
