@@ -65,7 +65,7 @@
  *	leave this unset if you use the definitions below
  */
 
-#define USESPICOSERIAL 
+#undef USESPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
@@ -76,6 +76,7 @@
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
 #undef ARDUINOMCUFRIEND
+#undef ARDUINOEDP47
 #undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
@@ -628,7 +629,7 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
  * language setting 
  * this is odd and can be removed later on
  */
-#if !defined(ARDUINOTFT) && !defined(ARDUINOVGA) && !defined(ARDUINOILI9488) && !defined(ARDUINONOKIA51) && !defined(ARDUINOSSD1306) && !defined(ARDUINOMCUFRIEND) && !defined(ARDUINOGRAPHDUMMY)
+#if !defined(ARDUINOTFT) && !defined(ARDUINOVGA) && !defined(ARDUINOILI9488) && !defined(ARDUINONOKIA51) && !defined(ARDUINOSSD1306) && !defined(ARDUINOMCUFRIEND) && !defined(ARDUINOGRAPHDUMMY) && !defined(ARDUINOEDP47)
 #undef HASGRAPH
 #endif
 
@@ -695,7 +696,11 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #ifdef ARDUINO_ARCH_XMC
 #include <XMCEEPROMLib.h>
 #else
+#ifdef ARDUINO_ARCH_SAMD
+//#include <FlashStorage_SAMD.h>
+#else
 #include <EEPROM.h>
+#endif
 #endif
 #endif
 
@@ -763,6 +768,18 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #include <memorysaver.h>
 #include <UTFT.h>
 #endif
+
+/*
+ * Lilygo EDP47 displays, 4.7 inch epapers using the respective library 
+ * from Lilygo
+ * https://github.com/Xinyuan-LilyGO/LilyGo-EPD47
+ * 
+ */
+#ifdef ARDUINOEDP47
+#include "epd_driver.h"
+#include "font/firasans.h"
+#endif
+
 
 /* 
  * experimental networking code 
@@ -1228,6 +1245,52 @@ void frect(int x0, int y0, int x1, int y1)  { u8g2.drawBox(x0, y0, x1-x0, y1-y0)
 void circle(int x0, int y0, int r) { u8g2.drawCircle(x0, y0, r); dspgraphupdate(); }
 void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate(); }
 #endif
+
+/*
+ * 4.7 inch epaper displays are derived from the NOKIA51 code, no grayscales 
+ * at the moment. Forcing the font into rectangles and hoping this works
+ */
+#ifdef ARDUINOEDP47
+#define DISPLAYDRIVER
+#define DISPLAYPAGEMODE
+#undef DISPLAYHASCOLOR /* display driver not color aware for this display */
+#define DISPLAYHASGRAPH
+const int dsp_rows=16;
+const int dsp_columns=40;
+typedef uint8_t dspcolor_t;
+dspcolor_t dspfgcolor = 1;
+dspcolor_t dspbgcolor = 0;
+char dspfontsize = 16;
+void dspbegin() { epd_init(); dspclear(); }
+void dspprintchar(char c, mem_t col, mem_t row) { 
+  epd_poweron();
+  char b[] = { 0, 0 }; b[0]=c; 
+  int cursor_x = col*dspfontsize;
+  int cursor_y = row*dspfontsize;
+  if (c) {
+    writeln((GFXfont *)&FiraSans, b, &cursor_x, &cursor_y, NULL);
+  } else {
+    /* here drawing a rectangle to clear a character position */
+  }
+  epd_poweroff();
+}
+void dspclear() { epd_poweron();  epd_clear(); epd_poweroff(); dspfgcolor=1; }
+void dspupdate() { }
+void dspsetcursor(mem_t c) {}
+void dspsetfgcolor(uint8_t c) {}
+void dspsetbgcolor(uint8_t c) {}
+void dspsetreverse(mem_t c) {}
+mem_t dspident() {return 0;}
+void rgbcolor(int r, int g, int b) {}
+void vgacolor(short c) { dspfgcolor=c%3; }
+void plot(int x, int y) { dspgraphupdate(); }
+void line(int x0, int y0, int x1, int y1)   { dspgraphupdate(); }
+void rect(int x0, int y0, int x1, int y1)   {  dspgraphupdate(); }
+void frect(int x0, int y0, int x1, int y1)  { dspgraphupdate(); }
+void circle(int x0, int y0, int r) { dspgraphupdate(); }
+void fcircle(int x0, int y0, int r) { dspgraphupdate(); }
+#endif
+ 
 
 /* 
  * Small SSD1306 OLED displays with I2C interface
