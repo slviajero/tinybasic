@@ -1169,9 +1169,7 @@ char* getstring(char c, char d, address_t b, address_t j) {
 /* the arguments string on POSIX systems */
 #ifndef ARDUINO
 	if ( c == '@' && d == 'A' ) {
-		k=0;
-		if (bargc > 1) while(k < SBUFSIZE && bargv[2][k] !=0) { sbuffer[k]=bargv[2][k]; k++; } 
- 		return sbuffer+b-1;
+		if (bargc > 2) return bargv[2]; else return 0;
 	}
 #endif
 
@@ -1294,7 +1292,7 @@ address_t stringdim(char c, char d) {
 /* the length of a string as in LEN(A$) */
 address_t lenstring(char c, char d, address_t j){
 	char* b;
-	address_t a;
+	int a;
 
 /* the input buffer, length is first byte */
 	if (c == '@' && d == 0) return ibuffer[0];
@@ -1320,7 +1318,7 @@ address_t lenstring(char c, char d, address_t j){
 #ifndef ARDUINO
 	if ( c == '@' && d == 'A' ) {
 		a=0;
-		if (bargc > 1) while(a < SBUFSIZE && bargv[2][a] !=0) a++;
+		if (bargc > 2) while(a < SBUFSIZE && bargv[2][a] != 0) a++;
 		return a;
 	}
 #endif
@@ -1386,10 +1384,10 @@ char* rtcmkstr() {
 	char ch;
 
 /* hours */
-  	t=rtcget(2);
-  	rtcstring[cc++]=t/10+'0';
-  	rtcstring[cc++]=t%10+'0';
-  	rtcstring[cc++]=':';
+  t=rtcget(2);
+  rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]=':';
 
 /* minutes */
 	t=rtcget(1);
