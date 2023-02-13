@@ -690,7 +690,7 @@ number_t getvar(mem_t c, mem_t d){
 				return rd;
 			case 'U':
 				return getusrvar();
-#ifdef DISPLAYDRIVER
+#if defined(DISPLAYDRIVER) || defined (GRAPHDISPLAYDRIVER)
 			case 'X':
 				return dspgetcursorx();
 			case 'Y':
@@ -747,7 +747,7 @@ void setvar(mem_t c, mem_t d, number_t v){
 			case 'U':
 				setusrvar(v);
 				return;
-#ifdef DISPLAYDRIVER
+#if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 			case 'X':
         dspsetcursorx((int)v);
 				return;
@@ -1171,7 +1171,7 @@ char* getstring(char c, char d, address_t b, address_t j) {
 	if ( c == '@' && d == 'A' ) {
 		k=0;
 		if (bargc > 1) while(k < SBUFSIZE && bargv[2][k] !=0) { sbuffer[k]=bargv[2][k]; k++; } 
- 		return sbuffer+b;
+ 		return sbuffer+b-1;
 	}
 #endif
 
@@ -1789,7 +1789,7 @@ void ioinit() {
 
 /* the displays */
 	kbdbegin();
-#if defined(DISPLAYDRIVER)
+#if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 	dspbegin();
 #endif
 #ifdef ARDUINOVGA
@@ -2048,7 +2048,7 @@ void outch(char c) {
 			vgawrite(c);
 			break;
 #else
-#ifdef DISPLAYDRIVER
+#if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 		case ODSP: 
 			dspwrite(c);
 			break;
@@ -2100,6 +2100,11 @@ void outs(char *ir, address_t l){
 #ifdef ARDUINOMQTT
 		case OMQTT:
 			mqttouts(ir, l);
+			break;
+#endif
+#ifdef GRAPHDISPLAYDRIVER
+		case ODSP:
+			dspouts(ir, l);
 			break;
 #endif
 		default:
@@ -6592,7 +6597,7 @@ void xusr() {
 			break;
 /* access to properties of stream 2 - display and keyboard */			
 		case 2: 
-#if defined(DISPLAYDRIVER)
+#if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 			push(dspstat(arg));
 #elif defined(ARDUINOVGA)
 			push(vgastat(arg));
@@ -7210,7 +7215,7 @@ void statement(){
 			case TCLS:
 				xc=od; 
 /* if we have a display it is the default for CLS */
-#if defined(DISPLAYDRIVER)			
+#if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)		
 				od=ODSP;
 #endif
 				outch(12);
