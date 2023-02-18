@@ -5,7 +5,7 @@ for file in *.bas
 do
   $BASIC $file > ${file}.tmp
   diff ${file}.tmp ${file}.res > /dev/null
-  if [ $? ] 
+  if [ $? -eq 0 ] 
   then
     echo "passed $file"
     rm ${file}.tmp
