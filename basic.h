@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.h,v 1.10 2023/01/28 19:26:45 stefan Exp stefan $
+ *	$Id: basic.h,v 1.11 2023/02/18 20:16:59 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *
@@ -884,6 +884,13 @@ static mem_t spaceafterkeyword;
 #ifdef HASAPPLE1
 static mem_t bfindc, bfindd, bfindt;
 static address_t bfinda, bfindz;
+#endif
+
+/*
+ * a variable for some string operations 
+ */
+#ifdef HASIOT
+static int vlength;
 #endif
 
 /* the timer code - very simple needs to to to a struct */

@@ -1,6 +1,6 @@
 /*
  *
- * $Id: hardware-arduino.h,v 1.7 2022/12/15 06:19:42 stefan Exp stefan $
+ * $Id: hardware-arduino.h,v 1.8 2023/02/18 20:16:59 stefan Exp stefan $
  *
  * Stefan's basic interpreter 
  *
@@ -76,7 +76,7 @@
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
 #undef ARDUINOMCUFRIEND
-#undef ARDUINOEDP47
+#define ARDUINOEDP47
 #undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
@@ -1248,30 +1248,30 @@ void fcircle(int x0, int y0, int r) { u8g2.drawDisc(x0, y0, r); dspgraphupdate()
 
 /*
  * 4.7 inch epaper displays are derived from the NOKIA51 code, no grayscales 
- * at the moment. Forcing the font into rectangles and hoping this works
+ * at the moment. Forcing the font into rectangles and hoping this works.
+ * 
+ * Epapers bypass the display driver here and use a graphics based display 
+ * mode instead
  */
 #ifdef ARDUINOEDP47
-#define DISPLAYDRIVER
+#define GRAPHDISPLAYDRIVER
 #define DISPLAYPAGEMODE
 #undef DISPLAYHASCOLOR /* display driver not color aware for this display */
 #define DISPLAYHASGRAPH
-const int dsp_rows=16;
-const int dsp_columns=40;
+const int dsp_width=960;
+const int dsp_height=540;
+const int dsp_rows=0;
+const int dsp_columns=0;
 typedef uint8_t dspcolor_t;
 dspcolor_t dspfgcolor = 1;
 dspcolor_t dspbgcolor = 0;
-char dspfontsize = 16;
+char dspfontsize = 24;
+int dspgraphcursor_x = 0;
+int dspgraphcursor_y = dspfontsize;
 void dspbegin() { epd_init(); dspclear(); }
-void dspprintchar(char c, mem_t col, mem_t row) { 
+void dspprintstring(char* s) { 
   epd_poweron();
-  char b[] = { 0, 0 }; b[0]=c; 
-  int cursor_x = col*dspfontsize;
-  int cursor_y = row*dspfontsize;
-  if (c) {
-    writeln((GFXfont *)&FiraSans, b, &cursor_x, &cursor_y, NULL);
-  } else {
-    /* here drawing a rectangle to clear a character position */
-  }
+  writeln((GFXfont *)&FiraSans, s, &dspgraphcursor_x, &dspgraphcursor_y, NULL);
   epd_poweroff();
 }
 void dspclear() { epd_poweron();  epd_clear(); epd_poweroff(); dspfgcolor=1; }
@@ -1283,12 +1283,12 @@ void dspsetreverse(mem_t c) {}
 mem_t dspident() {return 0;}
 void rgbcolor(int r, int g, int b) {}
 void vgacolor(short c) { dspfgcolor=c%3; }
-void plot(int x, int y) { dspgraphupdate(); }
-void line(int x0, int y0, int x1, int y1)   { dspgraphupdate(); }
-void rect(int x0, int y0, int x1, int y1)   {  dspgraphupdate(); }
-void frect(int x0, int y0, int x1, int y1)  { dspgraphupdate(); }
-void circle(int x0, int y0, int r) { dspgraphupdate(); }
-void fcircle(int x0, int y0, int r) { dspgraphupdate(); }
+void plot(int x, int y) {  }
+void line(int x0, int y0, int x1, int y1)   {  }
+void rect(int x0, int y0, int x1, int y1)   {   }
+void frect(int x0, int y0, int x1, int y1)  { }
+void circle(int x0, int y0, int r) {  }
+void fcircle(int x0, int y0, int r) {  }
 #endif
  
 
@@ -2747,6 +2747,52 @@ void dspvt52(char* c){
 #endif
 
 #else
+#ifdef GRAPHDISPLAYDRIVER
+/* a super simple display driver for graphics only systems, only handles drawing 
+  and graphics cursor stuff, experimental for epapers */
+#undef HASVT52
+#define GBUFFERSIZE 80
+static char gbuffer[GBUFFERSIZE];
+void dspouts(char* s, address_t l) {
+  int i;
+  for (i=0; i<l-1 && i<GBUFFERSIZE-1; i++) gbuffer[i]=s[i];
+  gbuffer[i]=0;
+  dspprintstring(gbuffer);
+}
+/* single character handling is triggered by PUT, it controls cursor movement */
+void dspwrite(char c) {
+  switch(c) {
+    case 0:
+      return;
+    case 10: // this is LF Unix style doing also a CR
+      dspgraphcursor_x=0;
+    case 11: // vertical tab - converted to line feed without carriage return
+      dspgraphcursor_y+=dspfontsize;
+      return; 
+    case 12: // form feed is clear screen plus home
+      dspclear();
+    case 2: // we abuse start of text as a home sequence, may also be needed for Epaper later
+      dspgraphcursor_x=0;
+      dspgraphcursor_y=dspfontsize;
+      return;
+    case 13: // classical carriage return, no form feed, we stay in the same line
+      dspgraphcursor_x=0;
+      return;
+    default: // eliminate all non printables
+      if (c<32) return;
+      break;
+  }
+  dspouts(&c, 1);
+}
+int dspstat(char c) { return 0; }
+int dspgetcursorx() { return dspgraphcursor_x; }
+int dspgetcursory() { return dspgraphcursor_y; }
+void dspsetcursorx(int v) { dspgraphcursor_x = v; }
+void dspsetcursory(int v) { dspgraphcursor_y = v; } 
+char dspwaitonscroll() { return 0; };
+char dspactive() {return 1; }
+void dspsetupdatemode(char c) {}
+#else
 /* stubs for systems without a display driver, BASIC uses these functions */
 const int dsp_rows=0;
 const int dsp_columns=0;
@@ -2760,6 +2806,7 @@ void dspsetscrollmode(char c, mem_t l) {}
 void dspscroll(mem_t a, mem_t b){}
 char vt52read() { return 0; }
 mem_t vt52avail() { return 0; }
+#endif
 #endif
 
 /* 
