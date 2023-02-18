@@ -1,0 +1,17 @@
+#!/bin/sh
+BASIC=../../basic
+
+for file in *.bas
+do
+  $BASIC $file > ${file}.tmp
+  diff ${file}.tmp ${file}.res > /dev/null
+  if [ $? ] 
+  then
+    echo "passed $file"
+    rm ${file}.tmp
+  else 
+    echo "failed $file"
+  fi
+done
+
+rm eeprom.dat
