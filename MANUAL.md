@@ -257,6 +257,10 @@ The program area is protected by BASIC. The maximum index prevents a program to 
 
 @S is the I/O error status. See the file I/O section for more information on it.
 
+@V is the number of characters processed in VAL(). 
+
+@U is the user variable. It can be used to extend BASIC. 
+
 The variables @O, @I, @C, and @A can be used for byte I/O on any stream. 
 
 The array @T() is the real time clock array. @T$ is a string containing date and time. See the hardware drivers section for more information.
