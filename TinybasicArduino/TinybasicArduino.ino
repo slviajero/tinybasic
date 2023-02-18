@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.c,v 1.141 2023/01/28 19:26:45 stefan Exp stefan $ 
+ *	$Id: basic.c,v 1.142 2023/02/18 20:16:59 stefan Exp stefan $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -690,6 +690,10 @@ number_t getvar(mem_t c, mem_t d){
 				return rd;
 			case 'U':
 				return getusrvar();
+#ifdef HASIOT
+			case 'V':
+				return vlength;
+#endif
 #if defined(DISPLAYDRIVER) || defined (GRAPHDISPLAYDRIVER)
 			case 'X':
 				return dspgetcursorx();
@@ -747,6 +751,10 @@ void setvar(mem_t c, mem_t d, number_t v){
 			case 'U':
 				setusrvar(v);
 				return;
+#ifdef HASIOT
+			case 'V':
+				return;
+#endif
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 			case 'X':
         dspsetcursorx((int)v);
@@ -3727,16 +3735,16 @@ void factor(){
 			if (er != 0) return;
 /* not super clean - handling of terminal symbol dirty
 		stringtobuffer needed !! */
-			ert=0;
-			while(*ir2==' ' || *ir2=='\t') { ir2++; ert++; }
-			if(*ir2=='-') { y=-1; ir2++; ert++; } else y=1;
+			vlength=0;
+			while(*ir2==' ' || *ir2=='\t') { ir2++; vlength++; }
+			if(*ir2=='-') { y=-1; ir2++; vlength++; } else y=1;
 			x=0;
 #ifdef HASFLOAT
 			/* if (parsenumber2(ir2, &x) == 0) ert=1;	*/
-			ert+=parsenumber2(ir2, &x);
+			if ((ax=parsenumber2(ir2, &x)) > 0) {vlength+=ax; ert=0; } else {vlength=0; ert=1;};
 #else 
 			/* if (parsenumber(ir2, &x) == 0) ert=1; */
-      ert+=parsenumber(ir2, &x);
+      if ((ax=parsenumber(ir2, &x)) > 0) {vlength+=ax; ert=0; } else {vlength=0; ert=1;};
 #endif			
 			(void) pop();
 			push(x*y);
