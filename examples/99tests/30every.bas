@@ -1,0 +1,7 @@
+10 REM "Doing things from time to time"
+100 EVERY 10 GOSUB 1000
+110 IF I>4 END
+120 GOTO 110
+1000 I=I+1
+1010 PRINT "Iteration", I
+1020 RETURN 

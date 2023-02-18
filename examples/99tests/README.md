@@ -4,7 +4,9 @@
 
 This folder contains a set of test porgrams for individual features of the interpreter. Run the tests after changes to see if anything is broken. Testing is supported on platforms with a UNIX command line and bash as the program testscripts is a simple shell script. It compares the output of a program with the stored result. If a test has failed the test output is preserved. 
 
-## Tests 
+## Elementary Tests 
+
+These tests check the language features. They are approximately ordered by language sets. Some overlap exists. Many of the tests have been written since the beginning of the project and are part of the tutorial. Floating point tests are written to work with BASICFULL on a MacOS X system with 32bit floats. 
 
 ### Core language set
 
@@ -19,3 +21,69 @@ This folder contains a set of test porgrams for individual features of the inter
 05gosub.bs - simple GOSUB and RETURN statements
 
 06for.bas - simple FOR loops including the extended features like BREAK and CONT 
+
+### Strings, arrays and the heap
+
+07array.bas - one dimensional arrays, including autodimension, memory array @() and EEPROM array @E()
+
+08string1.bas - simple string operations, autodimension and compare
+
+09string2.bas - substrings and concatenation
+
+10string3.bas - strings and character variables
+
+11string4.bas - string arrays 
+
+12clrvars.bas - clearing variables, heap sizes and one darkart feature 
+
+### Apple 1 and Stefan's extensions language set
+
+13cond.bas - simple IF THEN ELSE test
+
+14fibo.bas - testing integer arithemtic including the modulo operator % 
+
+15logic.bas - logic operators NOT, AND, OR
+
+16parable.bas - Apple 1 stype TAB
+
+### File I/O subsystem
+
+17fileio.bas - Open, close, write and read to a file 
+
+### Dartmouth language set
+
+18func.bas - DEF FN mechanism and READ DATA
+
+19readdata.bas - READ, DATA and RESTORE
+
+20ongo.bas - ON GOTO, READ and DATA
+
+21ongosub.bas - ON GOSUB, READ and DATA
+
+### Floating point numbers
+
+22trig.bas - a table of trigonometric functions SIN, COS, TAN and ATAN
+
+23stir.bas - calculate stirlings function, testing EXP, LOG, SQR, ATAN and DEF FN
+
+24mandel.bas - calculate the Mandelbrot set, iterations and float comparisons 
+
+### Darkarts language set 
+
+25malloc.bas - allocating memory with MALLOC, PEEK and POKE, FIND, CLR with argument
+
+26eval.bas - self modifying programs with EVAL
+
+### IoT language set
+
+27splitstr.bas - splitting a string with INSTR
+
+28convert.bas - converting a string to a number with VAL and back with STR
+
+
+
+
+
+
+
+

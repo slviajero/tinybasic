@@ -1,0 +1,12 @@
+10 REM "Table of trigonometric functions"
+20 REM ""
+100 REM "Calculate PI"
+110 P1=4*ATAN(1)
+200 PRINT "X";: TAB(4)    
+205 PRINT "SIN(X)";: TAB(7)
+210 PRINT "COS(X)";: TAB(7)
+215 PRINT "TAN(X)"
+220 FOR I=0 TO 89 STEP 5
+230 X=I/360*2*P1
+240 PRINT #4, I, #12, SIN(X), COS(X), TAN(X)
+250 NEXT 
