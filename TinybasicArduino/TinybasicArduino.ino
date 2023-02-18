@@ -445,7 +445,7 @@ char autorun() {
 			xload(bargv[1]);
 			st=SRUN;
 			ifileclose();
-			bnointafterrun=1;
+			bnointafterrun=TERMINATEAFTERRUN;
 			return 1;
 		}			
 	}
@@ -1169,7 +1169,7 @@ char* getstring(char c, char d, address_t b, address_t j) {
 /* the arguments string on POSIX systems */
 #ifndef ARDUINO
 	if ( c == '@' && d == 'A' ) {
-    if (bargc > 2) return bargv[2]; else return 0;
+		if (bargc > 2) return bargv[2]; else return 0;
 	}
 #endif
 
@@ -1292,7 +1292,7 @@ address_t stringdim(char c, char d) {
 /* the length of a string as in LEN(A$) */
 address_t lenstring(char c, char d, address_t j){
 	char* b;
-	address_t a;
+	int a;
 
 /* the input buffer, length is first byte */
 	if (c == '@' && d == 0) return ibuffer[0];
@@ -1318,7 +1318,7 @@ address_t lenstring(char c, char d, address_t j){
 #ifndef ARDUINO
 	if ( c == '@' && d == 'A' ) {
 		a=0;
-		if (bargc > 2) while(a < SBUFSIZE && bargv[2][a] !=0) a++;
+		if (bargc > 2) while(a < SBUFSIZE && bargv[2][a] != 0) a++;
 		return a;
 	}
 #endif
@@ -1384,10 +1384,10 @@ char* rtcmkstr() {
 	char ch;
 
 /* hours */
-  	t=rtcget(2);
-  	rtcstring[cc++]=t/10+'0';
-  	rtcstring[cc++]=t%10+'0';
-  	rtcstring[cc++]=':';
+  t=rtcget(2);
+  rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]=':';
 
 /* minutes */
 	t=rtcget(1);
@@ -5690,7 +5690,7 @@ void xset(){
 /* change the serial device to a true TAB */
 #ifdef HASMSTAB
 		case 11:
-      		reltab=args;
+      reltab=args;
 			break;
 #endif
 /* change the lower array limit */
@@ -6137,6 +6137,12 @@ void xtimer() {
 
 #ifdef HASEVENTS
 /* the event BASIC commands */
+void initevents() {
+	int i;
+	for(i=0; i<EVENTLISTSIZE; i++) eventlist[i].pin=-1;
+}
+
+
 void xevent() {
 	mem_t pin, mode;
 	mem_t type=0;
@@ -6148,7 +6154,7 @@ void xevent() {
 /* debug code, display the event list */
   if (termsymbol()) {
     for (ax=0; ax<EVENTLISTSIZE; ax++) {
-      if (eventlist[ax].pin) {
+      if (eventlist[ax].pin >= 0) {
         outnumber(eventlist[ax].pin); outspc();
         outnumber(eventlist[ax].mode); outspc();
         outnumber(eventlist[ax].type); outspc();
@@ -6233,7 +6239,7 @@ mem_t addevent(mem_t pin, mem_t mode, mem_t type, address_t linenumber) {
 /* if not, look for a free slot */
   if (nevents >= EVENTLISTSIZE) return 0;
   for (i=0; i<EVENTLISTSIZE; i++) 
-    if (eventlist[i].pin == 0) goto slotfound;
+    if (eventlist[i].pin == -1) goto slotfound;
 
 /* no free event slot */
   return 0;
@@ -6258,7 +6264,7 @@ void deleteevent(mem_t pin) {
 
 	if (i>=0){
     eventlist[i].enabled=0;
-    eventlist[i].pin=0;
+    eventlist[i].pin=-1;
     eventlist[i].mode=0;
     eventlist[i].type=0;
     eventlist[i].linenumber=0;
@@ -7442,6 +7448,11 @@ void setup() {
 /* start measureing time */
 	timeinit();
 
+/* initialize the event system */
+#ifdef HASEVENTS
+	initevents();
+#endif 
+
 /* init all io functions */
 	ioinit();
 
@@ -7569,7 +7580,11 @@ int main(int argc, char* argv[]){
  * All code that needs to run on the MCU independently can be put here.
  * It works more or less just like the normal loop() and setup().
  * 
- * This is meant for robotics and other device control type of stuff.
+ * This is meant for robotics and other device control type of stuff
+ * 	on the Arduino platform. 
+ *
+ * On POSIX systems I/O is blocking and therefore bloop() is not called
+ * 	consistently. 
  * 
  * Rules of the game: 
  * - bsetup() is called once during interpreter startup after all 
@@ -7577,10 +7592,10 @@ int main(int argc, char* argv[]){
  *    allocated. Allocate memory here. Do not allocate a lot of memory 
  *    in bloop().
  * - Never start or restart I/O functions of BASIC in bsetup(), 
- *    no Wire.begin(), Serial.begin() etc. if BASIC also uses this
+ *    no Wire.begin(), Serial.begin() etc. If BASIC also uses this
  *    BASIC handles the I/O startup. Things that BASIC does not use 
  *    can be started here.
- * - bloop() is called after every token, during IO polling and in 
+ * - bloop() is called after every token, during I/O polling and in 
  *    DELAY functions. 
  * - The typical call frequency of bloop() is 20 microseconds or faster.
  *    This is fairly constant and reliable.

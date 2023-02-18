@@ -108,6 +108,11 @@ typedef unsigned char uint8_t;
 /* the default EEPROM dummy size */
 #define EEPROMSIZE 1024
 
+/* after run behaviour on POSIX systems, 1 to terminate if started
+    on the command line with a file argument, 0 to stay active and 
+    show a BASIC prompt*/
+#define TERMINATEAFTERRUN 1
+
 /*
  * The tokens for the BASIC keywords
  *
