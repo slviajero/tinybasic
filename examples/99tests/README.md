@@ -80,6 +80,12 @@ These tests check the language features. They are approximately ordered by langu
 
 28convert.bas - converting a string to a number with VAL and back with STR
 
+### Timers 
+
+29timestop.bas - program stop with AFTER GOTO
+
+30every.bas - output with EVERY GOSUB
+
 
 
 
