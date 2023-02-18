@@ -261,6 +261,8 @@ The variables @O, @I, @C, and @A can be used for byte I/O on any stream.
 
 The array @T() is the real time clock array. @T$ is a string containing date and time. See the hardware drivers section for more information.
 
+The string @A$ is the command line argument on POSIX systems. See the hardware section for more details.
+
 ## Apple 1 language set
 
 ### Introduction
@@ -963,7 +965,7 @@ All variables defined after A() are also deleted. Example:
 
 40 DIM A(20)
 
-In this examples B$ is also deleted. All variables defined after the object to be clear are deleed as well. The heap is simply reset to the previous state. This mechanism can be used to define local variables in subroutines. Simply clear the first variable defined in the subroutine before calling RETURN.
+In this examples B$ is also deleted. All variables defined after the object to be clear are deleted as well. The heap is simply reset to the previous state. This mechanism can be used to define local variables in subroutines. Simply clear the first variable defined in the subroutine before calling RETURN.
 
 
 ## IOT language set
@@ -996,7 +998,7 @@ A\$="125"
 
 A=VAL(A$)
 
-VAL uses the error status to report back the number of characters in the number. If @S is 0 after a conversion, 0 characters have been handled which means no number was found. Error checks after VAL need to test if @S>0.
+VAL uses the special variable @V to report back the number of characters in the number. The status of the conversion is stored in @S. If @S is 0 after a conversion a number was found. Otherwise @S is 1. @V is set to the number of characters only if the conversion was succesful. 
 
 STR converts a number to a string. Example: 
 
@@ -1663,6 +1665,26 @@ For systems without a hardware clock ARDUINORTCEMULATION can be activated in har
 ### Introduction
 
 The hardware section of the interpreter contains mechanism to make the platform look the same. This works for many platforms but there are exceptions. BASIC language features work differently on these systems. In this chapter these exceptions are described.
+
+### POSIX systems
+
+Systems compiled with the POSIX hardware driver use the features of the OS for most I/O operations. They differ from Arduino's and other MCU in some aspects.
+
+Ususally BASIC is started from the command line on these systems. The BASIC interpreter can be started with a file argument. In this case the interpreter starts and runs the file and terminates after the program has ended. 
+
+./basic file.bas
+
+will run the program and after completion the OS shell command prompt will reappear.
+
+The compiler flag TERMINATEAFTERRUN controls this feature. It is set to 1 by default. If set to 0 in basic.h, BASIC will not terminate after the end of the program.
+
+./basic file.bas hello
+
+will pass the argument to the special string @A$. Only the first argument is processed and stored in the string. Multiple arguments need to be quoted
+
+./basic file.bas "hello world"
+
+will pass both words to @A$. 
 
 ### Wemos D1R1 systems and shields
 
