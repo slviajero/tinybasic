@@ -4921,7 +4921,7 @@ void outputtoken() {
 					token == TOR ||
 					token == TAND ) && lastouttoken != LINENUMBER) outspc();
 				else 
-					if (lastouttoken == NUMBER) outspc(); 
+					if (lastouttoken == NUMBER || lastouttoken == VARIABLE) outspc(); 
 				for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 				outsc(getkeyword(i)); 
 				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) spaceafterkeyword=1;

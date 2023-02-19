@@ -73,6 +73,7 @@
 #define HASSTRINGARRAYS
 #define HASTIMER
 #define HASEVENTS
+#define HASERRORHANDLING
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -93,6 +94,7 @@
 #undef HASSTRINGARRAYS
 #undef HASTIMER
 #undef HASEVENTS
+#undef HASERRORHANDLING
 #endif
 
 /* all features minus float and tone */
@@ -114,6 +116,7 @@
 #define HASSTRINGARRAYS
 #define HASTIMER
 #define HASEVENTS
+#define HASERRORHANDLING
 #endif
 
 /* a simple integer basic for small systems (UNO etc) */
@@ -135,6 +138,7 @@
 #undef  HASSTRINGARRAYS
 #define HASTIMER
 #define HASEVENTS
+#define HASERRORHANDLING
 #endif
 
 /* all features activated */
@@ -156,6 +160,7 @@
 #define HASSTRINGARRAYS
 #define HASTIMER
 #define HASEVENTS
+#define HASERRORHANDLING
 #endif
 
 /* a simple BASIC with float support */
@@ -177,6 +182,7 @@
 #undef HASSTRINGARRAYS
 #undef HASTIMER
 #undef HASEVENTS
+#undef HASERRORHANDLING
 #endif
 
 /* a Tinybasic with float support */
@@ -198,6 +204,7 @@
 #undef HASSTRINGARRAYS
 #undef HASTIMER
 #undef HASEVENTS
+#undef HASERRORHANDLING
 #endif
 
 /*
@@ -1539,10 +1546,30 @@ void printmessage(char i){
  * run loop.
 */ 
 void error(mem_t e){
+
+/* store the error number */
 	er=e;
+
+/* clear the stacks */
+	clearst();
+	clrforstack();
+	clrgosubstack();
+
+/* switch off all timers and interrupts */
+#ifdef HASTIMER
+	resettimer(&after_timer);
+	resettimer(&every_timer);
+#endif
+
+/* is the error handler active? then silently go if we do GOTO or CONT actions in it */
+#ifdef HASERRORHANDLING
+		if (st != SINT && (berrorh.type == TGOTO || berrorh.type == TCONT)) return;
+#endif
+
 /* set input and output device back to default */
 	iodefaults();
-/* find the line number */
+
+/* find the line number if in RUN modes */
 	if (st != SINT) {
 		outnumber(myline(here));
 		outch(':');
@@ -1553,16 +1580,8 @@ void error(mem_t e){
 	outspc();
 #endif
 	printmessage(EGENERAL);
-	/* outsc("** at "); outnumber(here); */
+	if (DEBUG) { outsc("** at "); outnumber(here); }
 	outcr();
-	clearst();
-	clrforstack();
-	clrgosubstack();
-/* switch off all timers and interrupts */
-#ifdef HASTIMER
-	resettimer(&after_timer);
-	resettimer(&every_timer);
-#endif
 }
 
 void reseterror() {
@@ -3137,7 +3156,7 @@ void storeline() {
 
 /* the terminal symbol it ends a statement list - ELSE is one too as it ends a statement list */
 char termsymbol() {
-	return ( token == LINENUMBER ||  token == ':' || token == EOL || token == TELSE);
+	return (token == LINENUMBER || token == ':' || token == EOL || token == TELSE);
 }
 
 /* a little helpers - one token expect */ 
@@ -3773,6 +3792,11 @@ void factor(){
 				error(EARGS);
 				return;	
 			}
+			break;
+#endif
+#ifdef HASERRORHANDLING
+		case TERROR:
+			push(erh);
 			break;
 #endif
 		case THIMEM:
@@ -4897,7 +4921,7 @@ void outputtoken() {
 					token == TOR ||
 					token == TAND ) && lastouttoken != LINENUMBER) outspc();
 				else 
-					if (lastouttoken == NUMBER) outspc(); 
+					if (lastouttoken == NUMBER || lastouttoken ==  VARIABLE) outspc(); 
 				for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 				outsc(getkeyword(i)); 
 				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) spaceafterkeyword=1;
@@ -6077,14 +6101,32 @@ void xsleep() {
 	if (er != 0) return; 
 	activatesleep(pop());
 }
+#endif
 
 /*
- * Low level assignment function to be done 
- * converts all kind of stuff
+ * Error handling function, should not be in IOT but currently is 
  */
+#ifdef HASERRORHANDLING
+void xerror() {
 
-void xassign() {
+	berrorh.type=0;
+	erh=0;
 	nexttoken();
+	switch (token) {
+		case TGOTO:
+			if (!expectexpr()) return;
+			berrorh.type=TGOTO;
+			berrorh.linenumber=pop();
+			break;
+		case TCONT:
+			berrorh.type=TCONT;
+		case TSTOP:		
+			nexttoken();
+			break;
+		default:
+			error(EARGS);
+			return;
+	}
 }
 #endif
 
@@ -7328,10 +7370,12 @@ void statement(){
 				xeval();
 				break;
 #endif
-#ifdef HASIOT
-			case TASSIGN:
-				xassign();
+#ifdef HASERRORHANDLING
+			case TERROR:
+				xerror();
 				break;
+#endif
+#ifdef HASIOT
 			case TSLEEP:
 				xsleep();
 				break;	
@@ -7376,8 +7420,32 @@ void statement(){
 		on Arduinos and the like, all background tasks are handled in byield */
 		byield();
 
-/* when an error is encountred the statement loop is ended */
+/* if error handling is compiled into the code, errors can be trapped here */
+#ifdef HASERRORHANDLING
+		if (er) {
+			if (st != SINT) {
+				erh=er;
+				er=0;
+				switch(berrorh.type) {
+					case TCONT:
+						while(!termsymbol()) nexttoken(); 
+						break;
+					case TGOTO:
+						findline(berrorh.linenumber);
+						berrorh.type=0;
+						berrorh.linenumber=0;
+						if (er) return;
+						break;
+					default:
+					nexttoken();
+				} 
+			}	else 
+				return;
+		}
+#else
+/* when an error is encountered the statement loop is ended */
 		if (er) return;
+#endif
 
 /* 
  * if we run error free, interrupts and times can be processed 

@@ -229,7 +229,7 @@ typedef unsigned char uint8_t;
 #define TFIND   -34
 #define TEVAL   -33
 /* iot extensions (9) */
-#define TASSIGN	-32
+#define TERROR	-32
 #define TAVAIL	-31
 #define TSTR	-30
 #define TINSTR	-29
@@ -420,9 +420,12 @@ const char smalloc[]	PROGMEM  = "MALLOC";
 const char sfind[]		PROGMEM  = "FIND";
 const char seval[]		PROGMEM  = "EVAL";
 #endif
+/* complex error handling */
+#ifdef HASERRORHANDLING
+const char serror[]     PROGMEM  = "ERROR";
+#endif
 /* iot extensions */
 #ifdef HASIOT
-const char sassign[]	PROGMEM  = "ASSIGN";
 const char savail[]		PROGMEM  = "AVAIL";
 const char sstr[]		PROGMEM  = "STR";
 const char sinstr[]		PROGMEM  = "INSTR";
@@ -494,8 +497,12 @@ const char* const keyword[] PROGMEM = {
 #ifdef HASDARKARTS
 	smalloc, sfind, seval, 
 #endif
+/* complex error handling */
+#ifdef HASERRORHANDLING
+    serror,
+#endif
 #ifdef HASIOT
-	sassign, savail, sstr, sinstr, sval, 
+	savail, sstr, sinstr, sval, 
 	snetstat, ssensor, swire, ssleep, 
 #endif
 #ifdef HASTIMER
@@ -556,8 +563,11 @@ const signed char tokens[] PROGMEM = {
 #ifdef HASDARKARTS
 	TMALLOC, TFIND, TEVAL, 
 #endif
+#ifdef HASERRORHANDLING
+    TERROR, 
+#endif
 #ifdef HASIOT
-	TASSIGN, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
+	TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
 	TSENSOR, TWIRE, TSLEEP,
 #endif
 #ifdef HASTIMER
@@ -940,6 +950,16 @@ volatile bevent_t* findevent(mem_t);
 mem_t eventindex(mem_t);
 #endif
 
+#ifdef HASERRORHANDLING
+/* the error handler type, very simple for now */
+typedef struct {
+    mem_t type;
+    address_t linenumber;
+} berrorh_t;
+
+static berrorh_t berrorh = {0 , 0};
+static mem_t erh = 0;
+#endif
 
 /* the string for real time clocks */
 char rtcstring[20] = { 0 }; 
