@@ -45,7 +45,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#define	BASICFULL
+#undef	BASICFULL
 #undef  BASICINTEGER
 #undef	BASICSIMPLE
 #undef	BASICMINIMAL
@@ -7436,8 +7436,10 @@ void statement(){
 						berrorh.linenumber=0;
 						if (er) return;
 						break;
+					case 0:
+						return;
 					default:
-					nexttoken();
+						nexttoken();
 				} 
 			}	else 
 				return;
