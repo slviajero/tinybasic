@@ -1102,9 +1102,77 @@ Events can be reenabled with the command
 
 EVENT CONT
 
+## Error handling
+
+### Errors in general
+
+In BASIC there are to types of error. Some conditions are just exceptions and the program will coninue normally. Examples are reading past the end of a file or reading past the last DATA item. These operations set the flag @S to an appropriate value. BASIC language errors clear the stacks, print an error message and the program is terminated. Variables and the program pointer are preserved. The program can be continued with CONT. Effectively, an error leads to a STOP of the program plus loss of GOSUB and FOR stack information by default.
+
+### Error trapping
+
+If BASIC is compiled with the HASERRORHANDLING option, error behaviour can be controlled with the ERROR command.
+
+The code line 
+
+10 ERROR GOTO 1000
+
+would jump to line 1000 when an error is encountered. As the FOR and GOSUB stacks are cleared on error, the code from 1000 on must handle all operations to restart the program if needed. After the jump, the error handling is reset to normal behaviour, i.e. stop on error. Using the keyword ERROR as a variable returns the error code. 
+
+ERROR STOP 
+
+will switch of error handling and go to normal behaviour. It also resets the error code to 0.
+
+ERROR CONT 
+
+causes the program to continue even in case of an error. 
+
+### Error codes
+
+Currently the following error codes are supported. 
+
+Syntax error: 10
+
+Number error: 11
+
+Division by zero: 12
+
+Unknown line: 13
+
+Return not possible: 14
+
+Next not possible: 15
+
+Gosub not possible: 16 
+
+For not possible: 17
+
+Out of memory: 18
+
+Stack error: 19
+
+Wrong dimensioning: 20
+
+Index or parameter out of range: 21
+
+String operation error: 22
+
+Error in variable handling: 23
+
+File errors: 24
+
+Function errors: 25
+
+Number or type of arguments wrong: 26
+
+EEPROM errors: 27
+
+SDcard errors: 28
+
+Some of the errors are technical errors and should never appear if the interpreter works properly. 
+
 ### Credits and a word on timing
 
-Both AFTER and EVERY have been taken from the legendary Locomotive BASIC. In this BASIC dialect, only GOSUB was available and the time scale was 20 ms. There were 4 individual timers. Full featured Locomotive BASIC timers are on the feature list fot future releases.
+Both AFTER and EVERY have been taken from the legendary Locomotive BASIC. In this BASIC dialect, only GOSUB was available and the time scale was 20 ms. There were 4 individual timers. Full featured Locomotive BASIC timers are on the feature list for future releases.
 
 BASIC can handle 1ms interrupts even on an Arduino UNO if there is not much I/O going on. Typically, 35 BASIC commands are processed in a ms by the interpreter core. It is good practice to disable interrupts with EVERY 0 at the beginning of the interrupt subroutine and to reenable it with EVERY n immediately before return. 
 
