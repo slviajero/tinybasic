@@ -86,10 +86,26 @@ These tests check the language features. They are approximately ordered by langu
 
 30every.bas - output with EVERY GOSUB
 
+31error.bas - trapping errors with the ERROR GOTO command
 
+### Complex tests
 
+These programs are longer test programs testing a group of features. 
 
+32euler9.bas - solution of the Euler 9 problem for 1008. Tests integer arithmetic and core BASIC features.
 
+33primes.bas - calculates the first 100 primes. Tests arrays and integer arithemtic.
 
+34primesl.bas - uses the memory array @() to store the prime table. 
+
+35math.bas - tests SQR, MAP and POW as well as DATA and READ
+
+36tictac.bas - runs a game of tic tac toe against the computer. Integer arithmetic and GOSUB.
+
+37love.bas - print a nice message. Tests array and character conversion.
+
+38poetry2.bas - write a poem. Test the random number generator and ON GOTO.
+
+39eliza.bas - the simple psycologist. Strings, READ DATA and a lot of commands.
 
 
