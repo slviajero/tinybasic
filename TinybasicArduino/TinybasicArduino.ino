@@ -4921,7 +4921,7 @@ void outputtoken() {
 					token == TOR ||
 					token == TAND ) && lastouttoken != LINENUMBER) outspc();
 				else 
-					if (lastouttoken == NUMBER || lastouttoken ==  VARIABLE) outspc(); 
+					if (lastouttoken == NUMBER || lastouttoken == VARIABLE) outspc(); 
 				for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 				outsc(getkeyword(i)); 
 				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) spaceafterkeyword=1;
@@ -7436,8 +7436,10 @@ void statement(){
 						berrorh.linenumber=0;
 						if (er) return;
 						break;
+					case 0:
+						return;
 					default:
-					nexttoken();
+						nexttoken();
 				} 
 			}	else 
 				return;
