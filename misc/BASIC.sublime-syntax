@@ -37,7 +37,7 @@ contexts:
       scope: keyword.graphics
     - match: \b(?i:scrn)(?=\()
       scope: support.function.graphics
-    - match: '\b(?i:tab|print|input|open|close|read|data|restore|delete|fdisk|netstat|load|save|put|get|pinm|awrite|dwrite|play)(?![$])\b'
+    - match: '\b(?i:tab|print|input|open|close|read|data|restore|delete|fdisk|netstat|load|save|put|get|pinm|awrite|dwrite|play|every|after|error)(?![$])\b'
       scope: keyword.io
     - match: '\b(?i:in|pr)#'
       scope: keyword.io.hash
