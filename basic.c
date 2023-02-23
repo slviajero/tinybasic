@@ -45,7 +45,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#undef	BASICFULL
+#define	BASICFULL
 #undef  BASICINTEGER
 #undef	BASICSIMPLE
 #undef	BASICMINIMAL
@@ -1359,6 +1359,7 @@ address_t lenstring(char c, char d, address_t j){
 /* set the length of a string */
 void setstringlength(char c, char d, address_t l, address_t j) {
 	address_t a, zt; 
+
 	if (DEBUG) {
 		outsc("** setstringlength "); 
 		outch(c); outch(d); 
@@ -1578,8 +1579,12 @@ void error(mem_t e){
 #ifdef HASERRORMSG
 	printmessage(e);
 	outspc();
-#endif
 	printmessage(EGENERAL);
+#else 
+	printmessage(EGENERAL);
+	outspc();
+	outnumber(er);
+#endif
 	if (DEBUG) { outsc("** at "); outnumber(here); }
 	outcr();
 }
@@ -1676,8 +1681,15 @@ void pushforstack(){
 	if (DEBUG) { outsc("** forsp and here in pushforstack "); outnumber(forsp); outspc(); outnumber(here); outcr(); }
 	
 /* before pushing into the for stack we check is an
-	 old for exists - this is on reentering a for loop */
+	 old for exists - this is on reentering a for loop 
+	 this code removes all loop inside the for loop as well */
 	for(i=0; i<forsp; i++) {
+		if (forstack[i].varx == xc && forstack[i].vary == yc) {
+			forsp=i;
+			break;
+		}
+/* this logic is probably wrong, it only removed the outer loop*/
+/*
 		if (forstack[i].varx == xc && forstack[i].vary == yc) {
 			for(j=i; j<forsp-1; j++) {
 				forstack[j].varx=forstack[j+1].varx;
@@ -1685,10 +1697,12 @@ void pushforstack(){
 				forstack[j].here=forstack[j+1].here;
 				forstack[j].to=forstack[j+1].to;
 				forstack[j].step=forstack[j+1].step;	
+
 			}
 			forsp--;
 			break;
 		}
+*/
 	}
 
 	if (forsp < FORDEPTH) {
@@ -4666,6 +4680,9 @@ void xif() {
 	x=pop();
 	if (DEBUG) { outnumber(x); outcr(); } 
 
+/* if can have a new line after the expression in this BASIC */
+	if (token == LINENUMBER) nexttoken();	
+
 /* on condition false skip the entire line and all : until a potential ELSE */
 	if (!x)  {
 		while(token != LINENUMBER && token != EOL && token != TELSE) nexttoken();
@@ -4682,12 +4699,13 @@ void xif() {
 				findline((address_t) x);
 				return;	
 			} 
-		} 	
+		} 
 #endif		
 	}	
 
 /* a THEN is interpreted as simple one statement goto	if it is followed by a line number*/
 #ifdef HASAPPLE1
+/* then can be on a new line */
 	if (token == TTHEN) {
 		nexttoken();
 		if (token == NUMBER) {
@@ -4758,7 +4776,8 @@ void xfor(){
 	if (token == '=') { 
 		if (!expectexpr()) return;
 		b=pop();
-	}
+		setvar(xcl, ycl, b); /* to have it hear makes FOR use the variable value as start */
+	}  
 
 	if (token == TTO) {
 		if (!expectexpr()) return;
@@ -4779,7 +4798,7 @@ void xfor(){
 		here=bi-ibuffer;
 
 /*  here we know everything to set up the loop */
-	setvar(xcl, ycl, b);
+	/* setvar(xcl, ycl, b); to have it hear makes FOR use 1 as start */
 	if (DEBUG) { 
 		outsc("** for loop with parameters var begin end step : ");
 		outch(xcl); outch(ycl); outspc(); outnumber(b); outspc(); outnumber(e); outspc(); outnumber(s); outcr(); 
@@ -4796,7 +4815,7 @@ void xfor(){
  *	this tests the condition and stops if it is fulfilled already from start 
  *	there is an apocryphal feature here: STEP 0 is legal triggers an infinite loop
  */
-	if ( (y > 0 && getvar(xc, yc)>x) || (y < 0 && getvar(xc, yc)<x ) ) { 
+	if ((y > 0 && getvar(xc, yc) > x) || (y < 0 && getvar(xc, yc) < x )) { 
 		dropforstack();
 		findnextcmd();
 		nexttoken();
@@ -4865,7 +4884,7 @@ void xnext(){
 	setvar(xc, yc, t);
 
 /* do we need another iteration, STEP 0 always triggers an infinite loop */
-	if ( (y==0) || (y > 0 && t <= x) || (y < 0 && t >= x) ) {
+	if ((y == 0) || (y > 0 && t <= x) || (y < 0 && t >= x)) {
 /* push the loop with the new values back to the for stack */
 		pushforstack();
 		if (st == SINT) bi=ibuffer+here;
@@ -7636,6 +7655,7 @@ void loop() {
 
 /* here, at last, all errors need to be catched and back to interactive input*/
 	if (er) reseterror();
+
 }
 
 /* if we are not on an Arduino */
