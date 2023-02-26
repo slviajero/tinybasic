@@ -22,10 +22,10 @@
 310 @S=0
 320 OPEN "daten.txt"
 330 IF @S<>0 THEN PRINT "OPEN failed" : END
-340 FOR I
+340 FOR I=1
 350 INPUT &16, A$
 360 IF @S=-1 THEN BREAK 
-370 PRINT "Line",I,"string '";A$; "' Status = " @S
+370 PRINT "Line",I,"string '";A$; "' Status = "; @S
 380 NEXT
 390 CLOSE 0
 400 PRINT I, "lines read"
