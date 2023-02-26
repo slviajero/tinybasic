@@ -7155,7 +7155,8 @@ void xon(){
 		no clearing of variables and stacks */
 	if (st == SINT) st=SRUN;
 
-	nexttoken();
+	/* removed to avoid blocking in AFTER, EVERY and EVENT infinite loops */
+	/* nexttoken(); */
 }
 #endif
 
@@ -7171,7 +7172,7 @@ void xon(){
  *	breaks causes an infinite loop.
  *
  *	statement is called once in interactive mode and terminates 
- *	at end of line. 
+ *	at end of a line. 
  */
 void statement(){
 	if (DEBUG) bdebug("statement \n"); 
@@ -7267,7 +7268,7 @@ void statement(){
 				break;
 			case TLOAD: 
 				xload(0);
-				if (st == SINT) return; // interactive load doesn't like break as the ibuffer is messed up; */
+				if (st == SINT) return; /* interactive load doesn't like break as the ibuffer is messed up; */
 				else break;
 #ifdef HASSTEFANSEXT
 			case TDUMP:
