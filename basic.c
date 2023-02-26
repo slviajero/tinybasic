@@ -4157,6 +4157,7 @@ processsymbol:
 separators:
 	if (token == ',')  {
 		if (!modifier) outspc(); 
+		semicolon=1;
 		nexttoken();	
 	}
 	if (token == ';') {
@@ -7130,7 +7131,7 @@ void xon(){
 /* do we have more arguments then the condition? */
 	if (cr > args && cr <= 0) ci=0; else ci=(int)cr;
 
-/* now find the line to jump to and clean the stack */
+/* now find the line to jump to and clean the stack, reuse cr*/
 	while (args) {
 		tmp=pop();
 		if (args == ci) line=tmp;
