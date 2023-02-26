@@ -5479,7 +5479,7 @@ void xsave() {
  */
 void xload(const char* f) {
 	char filename[SBUFSIZE];
-	address_t ch;
+	char ch;
 	address_t here2;
 	mem_t chain = 0;
 
@@ -5517,7 +5517,7 @@ void xload(const char* f) {
     	bi=ibuffer+1;
 		while (fileavailable()) {
       		ch=fileread();
-      		if (ch == '\n' || ch == '\r') {
+      		if (ch == '\n' || ch == '\r' || ch == -1) {
         		*bi=0;
         		bi=ibuffer+1;
         		nexttoken();
@@ -5527,7 +5527,7 @@ void xload(const char* f) {
       		} else {
         		*bi++=ch;
       		}
-      		if ( (bi-ibuffer) > BUFSIZE ) {
+      		if ((bi-ibuffer) > BUFSIZE) {
         		error(EOUTOFMEMORY);
         		break;
       		}
