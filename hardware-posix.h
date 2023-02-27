@@ -1,6 +1,6 @@
 /*
  *
- * $Id: hardware-posix.h,v 1.4 2022/11/29 07:50:03 stefan Exp stefan $
+ * $Id: hardware-posix.h,v 1.5 2023/02/18 20:16:59 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *
@@ -313,7 +313,7 @@ char ifileopen(const char* filename){
 
 void ifileclose(){
 	if (ifile) fclose(ifile);
-	ifile=NULL;	
+	ifile=0;	
 }
 
 char ofileopen(char* filename, const char* m){
@@ -321,7 +321,10 @@ char ofileopen(char* filename, const char* m){
 	return (int) ofile; 
 }
 
-void ofileclose(){ if (ofile) fclose(ofile); }
+void ofileclose(){ 
+	if (ofile) fclose(ofile); 
+	ofile=0;
+}
 
 int fileavailable(){ return !feof(ifile); }
 
