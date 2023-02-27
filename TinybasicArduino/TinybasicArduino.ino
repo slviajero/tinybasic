@@ -1359,6 +1359,7 @@ address_t lenstring(char c, char d, address_t j){
 /* set the length of a string */
 void setstringlength(char c, char d, address_t l, address_t j) {
 	address_t a, zt; 
+
 	if (DEBUG) {
 		outsc("** setstringlength "); 
 		outch(c); outch(d); 
@@ -1578,8 +1579,12 @@ void error(mem_t e){
 #ifdef HASERRORMSG
 	printmessage(e);
 	outspc();
-#endif
 	printmessage(EGENERAL);
+#else 
+	printmessage(EGENERAL);
+	outspc();
+	outnumber(er);
+#endif
 	if (DEBUG) { outsc("** at "); outnumber(here); }
 	outcr();
 }
@@ -1676,8 +1681,15 @@ void pushforstack(){
 	if (DEBUG) { outsc("** forsp and here in pushforstack "); outnumber(forsp); outspc(); outnumber(here); outcr(); }
 	
 /* before pushing into the for stack we check is an
-	 old for exists - this is on reentering a for loop */
+	 old for exists - this is on reentering a for loop 
+	 this code removes all loop inside the for loop as well */
 	for(i=0; i<forsp; i++) {
+		if (forstack[i].varx == xc && forstack[i].vary == yc) {
+			forsp=i;
+			break;
+		}
+/* this logic is probably wrong, it only removed the outer loop*/
+/*
 		if (forstack[i].varx == xc && forstack[i].vary == yc) {
 			for(j=i; j<forsp-1; j++) {
 				forstack[j].varx=forstack[j+1].varx;
@@ -1685,10 +1697,12 @@ void pushforstack(){
 				forstack[j].here=forstack[j+1].here;
 				forstack[j].to=forstack[j+1].to;
 				forstack[j].step=forstack[j+1].step;	
+
 			}
 			forsp--;
 			break;
 		}
+*/
 	}
 
 	if (forsp < FORDEPTH) {
@@ -4096,11 +4110,10 @@ void xprint(){
 
 	form=0;
 	oldod=od;
-
 	nexttoken();
 
 processsymbol:
-
+/* at the end of a print statement, do we need a newline, restore the defaults */
 	if (termsymbol()) {
 		if (!semicolon) outcr();
 		od=oldod;
@@ -4109,6 +4122,7 @@ processsymbol:
 	}
 	semicolon=0;
 
+/* output a string if we found it */
 	if (stringvalue()) {
 		if (er != 0) return;
  		outs(ir2, pop());
@@ -4131,7 +4145,7 @@ processsymbol:
 				od=pop();
 				break;
 		}
-		goto processsymbol;
+		goto separators;
 	}
 
 	if (token != ',' && token != ';') {
@@ -4141,13 +4155,18 @@ processsymbol:
 	}
 
 separators:
-	if (token == ',')  {
-		if (!modifier) outspc(); 
-		nexttoken();	
-	}
-	if (token == ';') {
-		semicolon=1;
-		nexttoken();
+	if (termsymbol()) goto processsymbol;
+
+	switch (token) {
+		case ',':
+			if (!modifier) outspc();
+		case ';':
+			semicolon=1;
+			nexttoken();
+			break;
+		default:
+			error(EUNKNOWN);
+			return;
 	}
 	modifier=0;
 
@@ -4666,6 +4685,9 @@ void xif() {
 	x=pop();
 	if (DEBUG) { outnumber(x); outcr(); } 
 
+/* if can have a new line after the expression in this BASIC */
+	if (token == LINENUMBER) nexttoken();	
+
 /* on condition false skip the entire line and all : until a potential ELSE */
 	if (!x)  {
 		while(token != LINENUMBER && token != EOL && token != TELSE) nexttoken();
@@ -4682,12 +4704,13 @@ void xif() {
 				findline((address_t) x);
 				return;	
 			} 
-		} 	
+		} 
 #endif		
 	}	
 
 /* a THEN is interpreted as simple one statement goto	if it is followed by a line number*/
 #ifdef HASAPPLE1
+/* then can be on a new line */
 	if (token == TTHEN) {
 		nexttoken();
 		if (token == NUMBER) {
@@ -4758,7 +4781,8 @@ void xfor(){
 	if (token == '=') { 
 		if (!expectexpr()) return;
 		b=pop();
-	}
+		setvar(xcl, ycl, b); /* to have it hear makes FOR use the variable value as start */
+	}  
 
 	if (token == TTO) {
 		if (!expectexpr()) return;
@@ -4779,7 +4803,7 @@ void xfor(){
 		here=bi-ibuffer;
 
 /*  here we know everything to set up the loop */
-	setvar(xcl, ycl, b);
+	/* setvar(xcl, ycl, b); to have it hear makes FOR use 1 as start */
 	if (DEBUG) { 
 		outsc("** for loop with parameters var begin end step : ");
 		outch(xcl); outch(ycl); outspc(); outnumber(b); outspc(); outnumber(e); outspc(); outnumber(s); outcr(); 
@@ -4796,7 +4820,7 @@ void xfor(){
  *	this tests the condition and stops if it is fulfilled already from start 
  *	there is an apocryphal feature here: STEP 0 is legal triggers an infinite loop
  */
-	if ( (y > 0 && getvar(xc, yc)>x) || (y < 0 && getvar(xc, yc)<x ) ) { 
+	if ((y > 0 && getvar(xc, yc) > x) || (y < 0 && getvar(xc, yc) < x )) { 
 		dropforstack();
 		findnextcmd();
 		nexttoken();
@@ -4865,7 +4889,7 @@ void xnext(){
 	setvar(xc, yc, t);
 
 /* do we need another iteration, STEP 0 always triggers an infinite loop */
-	if ( (y==0) || (y > 0 && t <= x) || (y < 0 && t >= x) ) {
+	if ((y == 0) || (y > 0 && t <= x) || (y < 0 && t >= x)) {
 /* push the loop with the new values back to the for stack */
 		pushforstack();
 		if (st == SINT) bi=ibuffer+here;
@@ -5460,7 +5484,7 @@ void xsave() {
  */
 void xload(const char* f) {
 	char filename[SBUFSIZE];
-	address_t ch;
+	char ch;
 	address_t here2;
 	mem_t chain = 0;
 
@@ -5498,7 +5522,7 @@ void xload(const char* f) {
     	bi=ibuffer+1;
 		while (fileavailable()) {
       		ch=fileread();
-      		if (ch == '\n' || ch == '\r') {
+      		if (ch == '\n' || ch == '\r' || ch == -1) {
         		*bi=0;
         		bi=ibuffer+1;
         		nexttoken();
@@ -5508,7 +5532,7 @@ void xload(const char* f) {
       		} else {
         		*bi++=ch;
       		}
-      		if ( (bi-ibuffer) > BUFSIZE ) {
+      		if ((bi-ibuffer) > BUFSIZE) {
         		error(EOUTOFMEMORY);
         		break;
       		}
@@ -7111,7 +7135,7 @@ void xon(){
 /* do we have more arguments then the condition? */
 	if (cr > args && cr <= 0) ci=0; else ci=(int)cr;
 
-/* now find the line to jump to and clean the stack */
+/* now find the line to jump to and clean the stack, reuse cr*/
 	while (args) {
 		tmp=pop();
 		if (args == ci) line=tmp;
@@ -7136,7 +7160,8 @@ void xon(){
 		no clearing of variables and stacks */
 	if (st == SINT) st=SRUN;
 
-	nexttoken();
+	/* removed to avoid blocking in AFTER, EVERY and EVENT infinite loops */
+	/* nexttoken(); */
 }
 #endif
 
@@ -7152,7 +7177,7 @@ void xon(){
  *	breaks causes an infinite loop.
  *
  *	statement is called once in interactive mode and terminates 
- *	at end of line. 
+ *	at end of a line. 
  */
 void statement(){
 	if (DEBUG) bdebug("statement \n"); 
@@ -7248,7 +7273,7 @@ void statement(){
 				break;
 			case TLOAD: 
 				xload(0);
-				if (st == SINT) return; // interactive load doesn't like break as the ibuffer is messed up; */
+				if (st == SINT) return; /* interactive load doesn't like break as the ibuffer is messed up; */
 				else break;
 #ifdef HASSTEFANSEXT
 			case TDUMP:
@@ -7636,6 +7661,7 @@ void loop() {
 
 /* here, at last, all errors need to be catched and back to interactive input*/
 	if (er) reseterror();
+
 }
 
 /* if we are not on an Arduino */

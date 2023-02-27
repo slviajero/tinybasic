@@ -4110,11 +4110,10 @@ void xprint(){
 
 	form=0;
 	oldod=od;
-
 	nexttoken();
 
 processsymbol:
-
+/* at the end of a print statement, do we need a newline, restore the defaults */
 	if (termsymbol()) {
 		if (!semicolon) outcr();
 		od=oldod;
@@ -4123,6 +4122,7 @@ processsymbol:
 	}
 	semicolon=0;
 
+/* output a string if we found it */
 	if (stringvalue()) {
 		if (er != 0) return;
  		outs(ir2, pop());
@@ -4145,7 +4145,7 @@ processsymbol:
 				od=pop();
 				break;
 		}
-		goto processsymbol;
+		goto separators;
 	}
 
 	if (token != ',' && token != ';') {
@@ -4155,14 +4155,18 @@ processsymbol:
 	}
 
 separators:
-	if (token == ',')  {
-		if (!modifier) outspc(); 
-		semicolon=1;
-		nexttoken();	
-	}
-	if (token == ';') {
-		semicolon=1;
-		nexttoken();
+	if (termsymbol()) goto processsymbol;
+
+	switch (token) {
+		case ',':
+			if (!modifier) outspc();
+		case ';':
+			semicolon=1;
+			nexttoken();
+			break;
+		default:
+			error(EUNKNOWN);
+			return;
 	}
 	modifier=0;
 
