@@ -45,9 +45,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#define	BASICFULL
+#undef	BASICFULL
 #undef  BASICINTEGER
-#undef	BASICSIMPLE
+#define	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef  BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
@@ -2425,7 +2425,7 @@ void outnumber(number_t n){
 	outs(sbuffer, nd);
 
 /* number formats in Palo Alto style, positive nimbers align left */
-	while (nd < form) {outspc(); nd++;};
+	if (form > 0) { while (nd < form) {outspc(); nd++;} }
 }
 
 /* 

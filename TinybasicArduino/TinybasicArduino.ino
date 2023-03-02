@@ -1564,7 +1564,7 @@ void error(mem_t e){
 
 /* is the error handler active? then silently go if we do GOTO or CONT actions in it */
 #ifdef HASERRORHANDLING
-		if (st != SINT && (berrorh.type == TGOTO || berrorh.type == TCONT)) return;
+	if (st != SINT && (berrorh.type == TGOTO || berrorh.type == TCONT)) return;
 #endif
 
 /* set input and output device back to default */
@@ -1954,7 +1954,7 @@ short availch(){
 #endif
 #ifdef ARDUINORF24
 		case IRADIO:
-    		return radioavailable();
+    	return radioavailable();
 #endif    		
 #ifdef ARDUINOMQTT
 		case IMQTT:
@@ -1966,18 +1966,18 @@ short availch(){
 #endif
 #ifdef ARDUINOPRT
 		case ISERIAL1:
-      		return prtavailable();
+      return prtavailable();
 #endif
     	case IKEYBOARD:
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)
 #if defined(HASVT52)
-			if (vt52avail()) return vt52avail(); /* if the display has a message, read it */
+				if (vt52avail()) return vt52avail(); /* if the display has a message, read it */
 #endif
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) 
-			return kbdavailable();
+				return kbdavailable();
 #endif
 #endif
-			break;
+				break;
 	}
 	return 0;
 }
@@ -2041,25 +2041,25 @@ void ins(char *b, address_t nb) {
   	switch(id) {
 #ifdef ARDUINOWIRE
   		case IWIRE:
-			wireins(b, nb);
-			break;
+				wireins(b, nb);
+				break;
 #endif
 #ifdef ARDUINOMQTT
-		case IMQTT:
-			mqttins(b, nb);	
-			break;	
+			case IMQTT:
+				mqttins(b, nb);	
+				break;	
 #endif
 #ifdef ARDUINORF24
-		case IRADIO:
- 			radioins(b, nb);
- 			break;
+			case IRADIO:
+ 				radioins(b, nb);
+ 				break;
 #endif
-		default:
+			default:
 #ifdef ARDUINOPRT
 /* blockmode only implemented for ISERIAL1 right now */
-			if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
+				if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
 #endif
-			consins(b, nb);
+				consins(b, nb);
   	}  
 }
 
@@ -2149,7 +2149,7 @@ void outs(char *ir, address_t l){
 		default:
 			for(i=0; i<l; i++) outch(ir[i]);
 	}
-	byield(); /* triggers yield on ESP8266 */
+	byield(); /* triggers yield after each character output */
 }
 
 /* output a zero terminated string at ir - c style */
@@ -2199,10 +2199,12 @@ address_t parsenumber2(char *c, number_t *r) {
 
 	*r=0;
 
+/* integer part */
 	i=parsenumber(c, r);
 	c+=i;
 	nd+=i;
 
+/* the fractional part */
 	if (*c == '.') {
 		c++; 
 		nd++;
@@ -2217,6 +2219,7 @@ address_t parsenumber2(char *c, number_t *r) {
 		} 
 	}
 
+/* the exponent */
 	if (*c == 'E' || *c == 'e') {
 		c++;
 		nd++;
@@ -2241,15 +2244,19 @@ address_t writenumber(char *c, wnumber_t v){
 	mem_t s = 1;
 	char c1;
   
+/* the sign */
 	if (v<0) s=-1; 
 
+/* the digits */
 	do {
 		c[nd++]=(v%10)*s+'0';
 		v=v/10;
 	} while (v != 0);
 
+/* print the minus */
 	if (s < 0 ) c[nd]='-'; else nd--;
 
+/* reverse the order of digits */
 	i=0; 
 	j=nd;
 	while (j>i) {
@@ -2278,14 +2285,17 @@ address_t tinydtostrf(number_t v, int p, char* c) {
 /* write the integer part */
 	nd=writenumber(c, (int)v); 
 	c[nd++]='.';
+
 /* only the fraction to precision p */
 	f=fabs(v);
+
 /* get p digits of the fraction */
 	for (int i=p; i>0; i--) {
     	f=f-floor(f);
     	f=f*10;
     	c[nd++]=(int)floor(f)+'0';
   	}
+
 /* and a terminating 0 */
 	c[nd]=0;
 	return nd;
@@ -2326,21 +2336,12 @@ address_t writenumber2(char *c, number_t vi) {
 /* there are platforms where dtostrf is broken, we do things by hand in a simple way */
 
 	if (exponent > -2 && exponent < 7) { 
-    	tinydtostrf(vi, 5, c);
+    tinydtostrf(vi, 5, c);
 	} else {
 		tinydtostrf(f, 5, c);
 		eflag=1;
 	}
 
-/* small numbers - removed as not really portable */
-/*
-	if (exponent > -2 && exponent < 7) { 
-		dtostrf(vi, 0, 5, c);
-	} else {
-		dtostrf(f, 0, 5, c);
-		eflag=1;
-	}
-*/
 /* remove trailing zeros */
 	for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
 	i--;
@@ -2409,17 +2410,22 @@ again:
 
 /* prints a number */
 void outnumber(number_t n){
-	address_t nd;
+	address_t nd, i;
 
 #ifndef HASFLOAT
 	nd=writenumber(sbuffer, n);
 #else
 	nd=writenumber2(sbuffer, n);
 #endif 
+
+/* negative number format aligns right */
+	if (form < 0) { i=nd; while(i < (-form)) {outspc(); i++;} }
+
+/* the number */
 	outs(sbuffer, nd);
 
-/* number formats in Palo Alto style */
-	while (nd < form) {outspc(); nd++; };
+/* number formats in Palo Alto style, positive nimbers align left */
+	if (form > 0){while (nd < form) {outspc(); nd++;}}
 }
 
 /* 
@@ -2772,13 +2778,9 @@ mem_t memread(address_t a) {
 	}
 }
 
-mem_t memread2(address_t a) {
-	return spiram_rwbufferread(a);
-}
+mem_t memread2(address_t a) { return spiram_rwbufferread(a); }
 
-void memwrite2(address_t a, mem_t c) {
-	spiram_rwbufferwrite(a, c);
-}
+void memwrite2(address_t a, mem_t c) { spiram_rwbufferwrite(a, c); }
 #else
 #ifdef EEPROMMEMINTERFACE
 mem_t memread(address_t a) {
@@ -6058,7 +6060,7 @@ void xeval(){
 
 /* the line to be stored */
 	nexttoken();
-	if (! stringvalue()) {
+	if (!stringvalue()) {
 		error(EARGS); return; 
 	}
 
