@@ -46,6 +46,8 @@ PRINT #6, A, B, C
 
 Tutorial programs: hello.bas and table.bas.
 
+A positive number aligns to the right Palo Alto BASIC style. A negative number aligns to the right side. Setting #0 removes the format.
+
 BASIC I/O is stream based. Streams are numbered. The console I/O on a POSIX system or Serial on an Arduino is stream number 1. Other prefefined stream numbers are 2 for displays, 4 for secondary serial and 16 for files. Please look at the file I/O section and the hardware driver chapter for more information. 
 
 Printing to a display would be done with 
