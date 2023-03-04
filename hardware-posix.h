@@ -78,7 +78,6 @@ long freeRam() {
 	return freememorysize();
 }
 
-
 /* 
  * the sleep and restart functions
  */
@@ -339,9 +338,17 @@ int fileavailable(){ return !feof(ifile); }
  *	rootfileclose()
  * rootclose()
  */
+#ifdef MSDOS
+#include <dos.h>
+#include <dir.h>
+struct ffblk *bffblk; 
+#endif
+
 void rootopen() {
 #ifndef MSDOS
 	root=opendir ("./");
+#else 
+	(void) findfirst("*.*", bffblk, 0);
 #endif
 }
 
@@ -350,7 +357,7 @@ int rootnextfile() {
   file = readdir(root);
   return (file != 0);
 #else 
-  return 0;
+  return (findnext(bffblk) == 0);
 #endif
 }
 
@@ -358,7 +365,7 @@ int rootisfile() {
 #ifndef MSDOS
   return (file->d_type == DT_REG);
 #else
-  return 0;
+  return 1;
 #endif
 }
 
@@ -366,11 +373,18 @@ const char* rootfilename() {
 #ifndef MSDOS
   return (file->d_name);
 #else
-  return 0;
+  return (bffblk->ff_name);
 #endif  
 }
 
-int rootfilesize() { return 0; }
+long rootfilesize() { 
+#ifndef MSDOS
+	return 0;
+#else
+	return (bffblk->ff_fsize);
+#endif
+}
+
 void rootfileclose() {}
 void rootclose(){
 #ifndef MSDOS
@@ -445,7 +459,9 @@ void consins(char *b, short nb) {
  */
 #ifdef ARDUINOPRT
 #include <fcntl.h>
+#ifndef MSDOS
 #include <termios.h>
+#endif
 
 /* the file name of the printer port */
 int prtfile;
@@ -457,6 +473,7 @@ char prtbuf = 0;
 void prtbegin() {}
 
 char prtopen(char* filename, int mode) {
+#ifndef MSDOS
 
 /* try to open the device file */
 	prtfile=open(filename, O_RDWR | O_NOCTTY);
@@ -496,6 +513,7 @@ char prtopen(char* filename, int mode) {
 
 /* set the termin attributes */
   tcsetattr(prtfile, TCSANOW, &opt);
+#endif
 
 	return 1;
 }

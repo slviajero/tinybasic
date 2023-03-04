@@ -4230,7 +4230,7 @@ const char* rootfilename() {
 	return 0; 
 }
 
-int rootfilesize() {
+long rootfilesize() {
 #if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
   return file.size();
 #endif  

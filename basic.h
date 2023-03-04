@@ -1098,7 +1098,7 @@ void rootopen();
 int rootnextfile();
 int rootisfile();
 const char* rootfilename();
-int rootfilesize();
+long rootfilesize();
 void rootfileclose();
 void rootclose();
 void removefile(char*);
@@ -1106,7 +1106,7 @@ void formatdisk(short);
 
 /* low level serial code */
 #ifdef MSDOS
-typedef uint32_t unsigned int;
+typedef unsigned int uint32_t;
 #endif
 void picogetchar(char);
 void picowrite(char);
