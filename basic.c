@@ -45,9 +45,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#undef	BASICFULL
+#define	BASICFULL
 #undef  BASICINTEGER
-#define	BASICSIMPLE
+#undef	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef  BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
@@ -2279,7 +2279,7 @@ address_t writenumber(char *c, wnumber_t v){
  */
 
 address_t tinydtostrf(number_t v, int p, char* c) {  
-	int nd;
+	int nd, i;
 	number_t f;
 
 /* write the integer part */
@@ -2290,7 +2290,7 @@ address_t tinydtostrf(number_t v, int p, char* c) {
 	f=fabs(v);
 
 /* get p digits of the fraction */
-	for (int i=p; i>0; i--) {
+	for (i=p; i>0; i--) {
     	f=f-floor(f);
     	f=f*10;
     	c[nd++]=(int)floor(f)+'0';

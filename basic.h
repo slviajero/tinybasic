@@ -1105,6 +1105,9 @@ void removefile(char*);
 void formatdisk(short);
 
 /* low level serial code */
+#ifdef MSDOS
+typedef uint32_t unsigned int;
+#endif
 void picogetchar(char);
 void picowrite(char);
 void picobegin(uint32_t);
