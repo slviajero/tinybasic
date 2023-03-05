@@ -459,7 +459,7 @@ void consins(char *b, short nb) {
  */
 #ifdef ARDUINOPRT
 #include <fcntl.h>
-#ifndef MSDOS
+#if !defined(MSDOS) && !defined(MINGW)
 #include <termios.h>
 #endif
 
@@ -473,7 +473,7 @@ char prtbuf = 0;
 void prtbegin() {}
 
 char prtopen(char* filename, int mode) {
-#ifndef MSDOS
+#if !defined(MSDOS) && !defined(MINGW)
 
 /* try to open the device file */
 	prtfile=open(filename, O_RDWR | O_NOCTTY);
