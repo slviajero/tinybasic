@@ -28,6 +28,9 @@
 /* use a serial port as printer interface - unfinished */
 #define ARDUINOPRT
 
+/* translate some ASCII control sequences to POSIX, tested on Mac */
+#define POSIXTERMINAL
+
 
 #if ! defined(ARDUINO) && ! defined(__HARDWAREH__)
 #define __HARDWAREH__ 
@@ -420,7 +423,23 @@ void serialwrite(char c) {
 	if (c > 31) charcount+=1;
 	if (c == 10) charcount=0;
 #endif
+#ifdef POSIXTERMINAL
+	switch (c) {
+/* form feed is clear screen - compatibility with Arduino code */
+		case 12:
+			putchar(27); putchar('['); /* CSI */
+			putchar('2'); putchar('J');
+/* home sequence in the arduino code */
+		case 2: 
+			putchar(27); putchar('['); /* CSI */
+			putchar('H');
+			break;
+		default:
+			putchar(c);
+	}
+#else
 	putchar(c); 
+#endif
 }
 char serialread() { return getchar(); }
 short serialcheckch(){ return 1; }
