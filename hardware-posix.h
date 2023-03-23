@@ -31,6 +31,10 @@
 /* translate some ASCII control sequences to POSIX, tested on Mac */
 #define POSIXTERMINAL
 
+/* the MINGW variants */
+#ifdef MINGW64
+#define MINGW
+#endif
 
 #if ! defined(ARDUINO) && ! defined(__HARDWAREH__)
 #define __HARDWAREH__ 
@@ -365,7 +369,7 @@ int rootnextfile() {
 }
 
 int rootisfile() {
-#ifndef MSDOS
+#if !defined(MSDOS) && !defined(MINGW64)
   return (file->d_type == DT_REG);
 #else
   return 1;
