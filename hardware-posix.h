@@ -80,6 +80,7 @@ void wiringbegin() {
 mem_t breaksignal = 0;
 void signalhandler(int sig){
 	breaksignal=1;
+	signal(SIGINT, signalhandler);
 }
 #endif
 
