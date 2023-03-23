@@ -31,6 +31,9 @@
 /* translate some ASCII control sequences to POSIX, tested on Mac */
 #define POSIXTERMINAL
 
+/* do we handle signals? */
+#define HASSIGNALS
+
 /* the MINGW variants */
 #ifdef MINGW64
 #define MINGW
@@ -68,6 +71,17 @@ void wiringbegin() {
 	wiringPiSetup();
 #endif
 }
+
+/*
+ * signal handling 
+ */
+#ifdef HASSIGNALS
+#include <signal.h>
+mem_t breaksignal = 0;
+void signalhandler(int sig){
+	breaksignal=1;
+}
+#endif
 
 /*
  * helper functions OS, heuristic on how much memory is 

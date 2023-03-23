@@ -1725,6 +1725,11 @@ void ioinit() {
 	sendcr = 0;
 #endif
 
+/* signal handling */ 
+#ifdef HASSIGNALS
+	signal(SIGINT, signalhandler);
+#endif
+
 /* this is only for RASPBERRY - wiring has to be started explicitly */
 	wiringbegin();
 
@@ -7359,7 +7364,16 @@ void statement(){
 			st=SINT; 
 			return;
 		}; 
-#endif		
+#endif	
+
+/* and then there is also signal handling on some platforms */
+#if defined(HASSIGNALS)
+		if (breaksignal) {
+			st=SINT; 
+			breaksignal=0;
+			return;
+		}
+#endif
 
 /* yield after each statement which is a 10-100 microsecond cycle 
 		on Arduinos and the like, all background tasks are handled in byield */
