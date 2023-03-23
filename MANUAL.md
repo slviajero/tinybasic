@@ -1920,9 +1920,11 @@ SLEEP n enters sleep mode. This is only implemented on ESPs and SAMD right now. 
 
 There are two mechanism implemented to stop programs. One listens to the default input stream, in general this is either default serial or the keyboard. The other monitors a pin.
 
-If BREAKCHAR is defined in the BASIC code, this character will stop the program if it is encountered in the input stream. It has to be found as a first character. Default BREAKCHAR is '#'.
+If BREAKCHAR is defined in the BASIC code, this character will stop the program if it is encountered in the input stream. It has to be found as a first character. Default BREAKCHAR is '#'. BREAKCHAR only works on Arduino implementations with keyboard and serial I/O. Posix systems cannot use BREAKCHAR as I/O is blocking on them.
 
 If BREAKPIN is defined, the interpreter will stop once this pin is pulled to low. By default, BREAKPIN is not defined, i.e. there is no BREAKPIN. This mechanism is for use cases where using BREAKCHAR is not practical. One can implement a separate stop button with it. 
+
+If HASSIGNALS is defined in hardware-posix.h then Ctrl-C will stop a running program. This does not work on Arduino because there is no POSIX signals on the platform. This feature is alpha and currently only briefly tested on Mac and Windows. 
 
 ### Extending basic 
 
