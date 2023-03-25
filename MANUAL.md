@@ -231,7 +231,9 @@ File names must be strings. To load a program you need to enter
 
 LOAD "myprog.bas"
 
-i.e. with the filename enclosed quotes.
+i.e. with the filename enclosed quotes. 
+
+Started from the command line, LOAD will merge a program loaded with the program already in memory. In RUN mode a LOAD replaces the program in memory, clears all FOR, GOSUB and DATA pointer but keeps the variables. This way a program can chain another program. 
 
 ### Special variables and arrays 
 
