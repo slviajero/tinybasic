@@ -8,8 +8,8 @@
 120 PINM Y, 0
 200 REM "loop() put your main code here, to run repeatedly:"
 210 FOR I
-220 A0=FNA(PULSEIN(X, 1, 1000))
-230 A1=FNA(PULSEIN(Y, 1, 1000))
+220 A0=FNA(PULSE(X, 1, 1000))
+230 A1=FNA(PULSE(Y, 1, 1000))
 240 PRINT #8, A0, A1
 250 DELAY 100
 260 NEXT

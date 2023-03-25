@@ -17,7 +17,7 @@ Using PRINT #8 for formatted printing in a 8 character wide box.
 
 Using the NOT operator in expressions.
 
-PULSEIN implementation in BASIC - see ping.bas as an example.
+PULSE implementation in BASIC - see ping.bas as an example.
 
 Using DEF FN to define functions.
 
