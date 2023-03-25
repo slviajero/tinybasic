@@ -46,6 +46,8 @@ PRINT #6, A, B, C
 
 Tutorial programs: hello.bas and table.bas.
 
+A positive number aligns to the right Palo Alto BASIC style. A negative number aligns to the right side. Setting #0 removes the format.
+
 BASIC I/O is stream based. Streams are numbered. The console I/O on a POSIX system or Serial on an Arduino is stream number 1. Other prefefined stream numbers are 2 for displays, 4 for secondary serial and 16 for files. Please look at the file I/O section and the hardware driver chapter for more information. 
 
 Printing to a display would be done with 
@@ -257,9 +259,15 @@ The program area is protected by BASIC. The maximum index prevents a program to 
 
 @S is the I/O error status. See the file I/O section for more information on it.
 
+@V is the number of characters processed in VAL(). 
+
+@U is the user variable. It can be used to extend BASIC. 
+
 The variables @O, @I, @C, and @A can be used for byte I/O on any stream. 
 
 The array @T() is the real time clock array. @T$ is a string containing date and time. See the hardware drivers section for more information.
+
+The string @A$ is the command line argument on POSIX systems. See the hardware section for more details.
 
 ## Apple 1 language set
 
@@ -655,11 +663,39 @@ B=MILLIS(1000)
 
 A contains the time since start in milliseconds. B is the time since start in seconds. The divisor can be used in 16 bit systems to control overflow of a variable.
 
-### PULSEIN and PLAY extensions
+### PULSE and PLAY extensions
 
 Two more compley Arduino I/O function are available from BASIC. 
 
-PULSEIN reads a pulse on a pin. The first argument is the pin number, the second whether a LOW=0 or HIGH=1 state is expected. The third argument is the timeout in milliseconds. Note the difference to the original Arduino pulseIN(). The low level Arduino commands delivers the pulse length in microseconds. PULSEIN delivers the pulse length in 10 microsecond units to be compatible with integer BASIC number ranges.
+PULSE reads a pulse on a pin if used as a function. The first argument is the pin number, the second whether a LOW=0 or HIGH=1 state is expected. The third argument is the timeout in milliseconds. Note the difference to the original Arduino pulseIN(). The low level Arduino commands delivers the pulse length in microseconds. PULSE delivers the pulse length in 10 microsecond units to be compatible with integer BASIC number ranges. Example:
+
+A=PULSE(4, 0, 100)
+
+PULSE was named PULSEIN in ealier vesions of BASIC. This was changed in version 1.4.
+
+As a command, PULSE writes pulses on a pin. Example:
+
+PULSE 4, 10
+
+writes a 100 microsecond pulse on pin 4. Optional arguments are the value the pin is to be changed. Default is 1 assuming that the pin has been set to 0 before. Example:
+
+DWRITE 4, 1
+
+PULSE 4, 10, 0
+
+writes a 100 microsecond LOW pulse to the pin and then sets the pin again to HIGH=1.
+
+An number of repetitions and an intervall can be specified as well. Example:
+
+PULSE 4, 1, 1, 10, 100
+
+writes 10 pulses with 1000 ms time difference of length 10 microseconds on pin 4.
+
+The time unit of PULSE can be changes with SET 14, timeunit. Example: 
+
+SET 14, 1 
+
+sets the unit PULSE uses to 1 microsecond.
 
 PLAY is a wrapper around the Arduino tone() function for Arduino systems. For ESP32 VGA systems it is mapped to the sound generator function of the FabGL library. More information on this can be found in the hardware section. 
 
@@ -963,7 +999,7 @@ All variables defined after A() are also deleted. Example:
 
 40 DIM A(20)
 
-In this examples B$ is also deleted. All variables defined after the object to be clear are deleed as well. The heap is simply reset to the previous state. This mechanism can be used to define local variables in subroutines. Simply clear the first variable defined in the subroutine before calling RETURN.
+In this examples B$ is also deleted. All variables defined after the object to be clear are deleted as well. The heap is simply reset to the previous state. This mechanism can be used to define local variables in subroutines. Simply clear the first variable defined in the subroutine before calling RETURN.
 
 
 ## IOT language set
@@ -996,7 +1032,7 @@ A\$="125"
 
 A=VAL(A$)
 
-VAL uses the error status to report back the number of characters in the number. If @S is 0 after a conversion, 0 characters have been handled which means no number was found. Error checks after VAL need to test if @S>0.
+VAL uses the special variable @V to report back the number of characters in the number. The status of the conversion is stored in @S. If @S is 0 after a conversion a number was found. Otherwise @S is 1. @V is set to the number of characters only if the conversion was succesful. 
 
 STR converts a number to a string. Example: 
 
@@ -1098,9 +1134,77 @@ EVENT CONT
 
 ### Credits and a word on timing
 
-Both AFTER and EVERY have been taken from the legendary Locomotive BASIC. In this BASIC dialect, only GOSUB was available and the time scale was 20 ms. There were 4 individual timers. Full featured Locomotive BASIC timers are on the feature list fot future releases.
+Both AFTER and EVERY have been taken from the legendary Locomotive BASIC. In this BASIC dialect, only GOSUB was available and the time scale was 20 ms. There were 4 individual timers. Full featured Locomotive BASIC timers are on the feature list for future releases.
 
 BASIC can handle 1ms interrupts even on an Arduino UNO if there is not much I/O going on. Typically, 35 BASIC commands are processed in a ms by the interpreter core. It is good practice to disable interrupts with EVERY 0 at the beginning of the interrupt subroutine and to reenable it with EVERY n immediately before return. 
+
+## Error handling
+
+### Errors in general
+
+In BASIC there are to types of error. Some conditions are just exceptions and the program will coninue normally. Examples are reading past the end of a file or reading past the last DATA item. These operations set the flag @S to an appropriate value. BASIC language errors clear the stacks, print an error message and the program is terminated. Variables and the program pointer are preserved. The program can be continued with CONT. Effectively, an error leads to a STOP of the program plus loss of GOSUB and FOR stack information by default.
+
+### Error trapping
+
+If BASIC is compiled with the HASERRORHANDLING option, error behaviour can be controlled with the ERROR command.
+
+The code line 
+
+10 ERROR GOTO 1000
+
+would jump to line 1000 when an error is encountered. As the FOR and GOSUB stacks are cleared on error, the code from 1000 on must handle all operations to restart the program if needed. After the jump, the error handling is reset to normal behaviour, i.e. stop on error. Using the keyword ERROR as a variable returns the error code. 
+
+ERROR STOP 
+
+will switch of error handling and go to normal behaviour. It also resets the error code to 0.
+
+ERROR CONT 
+
+causes the program to continue even in case of an error. 
+
+### Error codes
+
+Currently the following error codes are supported. 
+
+Syntax error: 10
+
+Number error: 11
+
+Division by zero: 12
+
+Unknown line: 13
+
+Return not possible: 14
+
+Next not possible: 15
+
+Gosub not possible: 16 
+
+For not possible: 17
+
+Out of memory: 18
+
+Stack error: 19
+
+Wrong dimensioning: 20
+
+Index or parameter out of range: 21
+
+String operation error: 22
+
+Error in variable handling: 23
+
+File errors: 24
+
+Function errors: 25
+
+Number or type of arguments wrong: 26
+
+EEPROM errors: 27
+
+SDcard errors: 28
+
+Some of the errors are technical errors and should never appear if the interpreter works properly. 
 
 ## Graphics language set
 
@@ -1664,6 +1768,26 @@ For systems without a hardware clock ARDUINORTCEMULATION can be activated in har
 
 The hardware section of the interpreter contains mechanism to make the platform look the same. This works for many platforms but there are exceptions. BASIC language features work differently on these systems. In this chapter these exceptions are described.
 
+### POSIX systems
+
+Systems compiled with the POSIX hardware driver use the features of the OS for most I/O operations. They differ from Arduino's and other MCU in some aspects.
+
+Ususally BASIC is started from the command line on these systems. The BASIC interpreter can be started with a file argument. In this case the interpreter starts and runs the file and terminates after the program has ended. 
+
+./basic file.bas
+
+will run the program and after completion the OS shell command prompt will reappear.
+
+The compiler flag TERMINATEAFTERRUN controls this feature. It is set to 1 by default. If set to 0 in basic.h, BASIC will not terminate after the end of the program.
+
+./basic file.bas hello
+
+will pass the argument to the special string @A$. Only the first argument is processed and stored in the string. Multiple arguments need to be quoted
+
+./basic file.bas "hello world"
+
+will pass both words to @A$. 
+
 ### Wemos D1R1 systems and shields
 
 These UNO form factor 8266 are really popular as they are cheap and powerful. BASIC supports these boards as datalogger and standalone systems. They are not really UNO hardware compatible, so some precautions are required. 
@@ -1824,9 +1948,11 @@ SLEEP n enters sleep mode. This is only implemented on ESPs and SAMD right now. 
 
 There are two mechanism implemented to stop programs. One listens to the default input stream, in general this is either default serial or the keyboard. The other monitors a pin.
 
-If BREAKCHAR is defined in the BASIC code, this character will stop the program if it is encountered in the input stream. It has to be found as a first character. Default BREAKCHAR is '#'.
+If BREAKCHAR is defined in the BASIC code, this character will stop the program if it is encountered in the input stream. It has to be found as a first character. Default BREAKCHAR is '#'. BREAKCHAR only works on Arduino implementations with keyboard and serial I/O. Posix systems cannot use BREAKCHAR as I/O is blocking on them.
 
 If BREAKPIN is defined, the interpreter will stop once this pin is pulled to low. By default, BREAKPIN is not defined, i.e. there is no BREAKPIN. This mechanism is for use cases where using BREAKCHAR is not practical. One can implement a separate stop button with it. 
+
+If HASSIGNALS is defined in hardware-posix.h then Ctrl-C will stop a running program. This does not work on Arduino because there are no POSIX signals on the platform. This feature is alpha and currently only briefly tested on Mac and Windows. 
 
 ### Extending basic 
 
