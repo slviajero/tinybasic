@@ -102,6 +102,8 @@ BASIC graphics commands are plotting and setting colours.
 ### More programs to play with
 
 - Calculator: calc.bas - RPN pocket calculator in BASIC
+- CalculatePI: cpinew1.bas - calculate PI to arbitrary precision (thanks to Guido for this program)
+- CalculatePI2: cpinew2.bas - using the dark arts feature and char / string conversion
 
 ### More BASIC features
 
