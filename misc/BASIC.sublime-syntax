@@ -1,6 +1,7 @@
 %YAML 1.2
 ---
 # http://www.sublimetext.com/docs/3/syntax.html
+# goes to ./Library/Application Support/Sublime Text 3/Packages/User
 name: IoT BASIC
 file_extensions:
   - bas
@@ -37,7 +38,7 @@ contexts:
       scope: keyword.graphics
     - match: \b(?i:scrn)(?=\()
       scope: support.function.graphics
-    - match: '\b(?i:tab|print|input|open|close|read|data|restore|delete|fdisk|netstat|load|save|put|get|pinm|awrite|dwrite|play|every|after|error)(?![$])\b'
+    - match: '\b(?i:tab|print|input|open|close|read|data|restore|delete|fdisk|netstat|load|save|put|get|pinm|awrite|dwrite|play|every|after|error|pulse)(?![$])\b'
       scope: keyword.io
     - match: '\b(?i:in|pr)#'
       scope: keyword.io.hash
