@@ -663,11 +663,13 @@ B=MILLIS(1000)
 
 A contains the time since start in milliseconds. B is the time since start in seconds. The divisor can be used in 16 bit systems to control overflow of a variable.
 
-### PULSEIN and PLAY extensions
+### PULSE and PLAY extensions
 
 Two more compley Arduino I/O function are available from BASIC. 
 
-PULSEIN reads a pulse on a pin. The first argument is the pin number, the second whether a LOW=0 or HIGH=1 state is expected. The third argument is the timeout in milliseconds. Note the difference to the original Arduino pulseIN(). The low level Arduino commands delivers the pulse length in microseconds. PULSEIN delivers the pulse length in 10 microsecond units to be compatible with integer BASIC number ranges.
+PULSE reads a pulse on a pin. The first argument is the pin number, the second whether a LOW=0 or HIGH=1 state is expected. The third argument is the timeout in milliseconds. Note the difference to the original Arduino pulseIN(). The low level Arduino commands delivers the pulse length in microseconds. PULSE delivers the pulse length in 10 microsecond units to be compatible with integer BASIC number ranges.
+
+PULSE was named PULSEIN in ealier vesions of BASIC. This was changed in version 1.4.
 
 PLAY is a wrapper around the Arduino tone() function for Arduino systems. For ESP32 VGA systems it is mapped to the sound generator function of the FabGL library. More information on this can be found in the hardware section. 
 
@@ -1924,7 +1926,7 @@ If BREAKCHAR is defined in the BASIC code, this character will stop the program 
 
 If BREAKPIN is defined, the interpreter will stop once this pin is pulled to low. By default, BREAKPIN is not defined, i.e. there is no BREAKPIN. This mechanism is for use cases where using BREAKCHAR is not practical. One can implement a separate stop button with it. 
 
-If HASSIGNALS is defined in hardware-posix.h then Ctrl-C will stop a running program. This does not work on Arduino because there is no POSIX signals on the platform. This feature is alpha and currently only briefly tested on Mac and Windows. 
+If HASSIGNALS is defined in hardware-posix.h then Ctrl-C will stop a running program. This does not work on Arduino because there are no POSIX signals on the platform. This feature is alpha and currently only briefly tested on Mac and Windows. 
 
 ### Extending basic 
 
