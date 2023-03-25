@@ -667,9 +667,35 @@ A contains the time since start in milliseconds. B is the time since start in se
 
 Two more compley Arduino I/O function are available from BASIC. 
 
-PULSE reads a pulse on a pin. The first argument is the pin number, the second whether a LOW=0 or HIGH=1 state is expected. The third argument is the timeout in milliseconds. Note the difference to the original Arduino pulseIN(). The low level Arduino commands delivers the pulse length in microseconds. PULSE delivers the pulse length in 10 microsecond units to be compatible with integer BASIC number ranges.
+PULSE reads a pulse on a pin if used as a function. The first argument is the pin number, the second whether a LOW=0 or HIGH=1 state is expected. The third argument is the timeout in milliseconds. Note the difference to the original Arduino pulseIN(). The low level Arduino commands delivers the pulse length in microseconds. PULSE delivers the pulse length in 10 microsecond units to be compatible with integer BASIC number ranges. Example:
+
+A=PULSE(4, 0, 100)
 
 PULSE was named PULSEIN in ealier vesions of BASIC. This was changed in version 1.4.
+
+As a command, PULSE writes pulses on a pin. Example:
+
+PULSE 4, 10
+
+writes a 100 microsecond pulse on pin 4. Optional arguments are the value the pin is to be changed. Default is 1 assuming that the pin has been set to 0 before. Example:
+
+DWRITE 4, 1
+
+PULSE 4, 10, 0
+
+writes a 100 microsecond LOW pulse to the pin and then sets the pin again to HIGH=1.
+
+An number of repetitions and an intervall can be specified as well. Example:
+
+PULSE 4, 1, 1, 10, 100
+
+writes 10 pulses with 1000 ms time difference of length 10 microseconds on pin 4.
+
+The time unit of PULSE can be changes with SET 14, timeunit. Example: 
+
+SET 14, 1 
+
+sets the unit PULSE uses to 1 microsecond.
 
 PLAY is a wrapper around the Arduino tone() function for Arduino systems. For ESP32 VGA systems it is mapped to the sound generator function of the FabGL library. More information on this can be found in the hardware section. 
 
