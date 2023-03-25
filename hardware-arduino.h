@@ -76,7 +76,7 @@
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
 #undef ARDUINOMCUFRIEND
-#define ARDUINOEDP47
+#undef ARDUINOEDP47
 #undef ARDUINOGRAPHDUMMY
 #undef LCDSHIELD
 #undef ARDUINOTFT
@@ -3716,13 +3716,33 @@ void pinm(number_t p, number_t m){
   }
 }
 
+/* read a pulse, units given by bpulseunit - default 10 microseconds */
 void bpulsein() { 
   unsigned long t, pt;
   t=((unsigned long) pop())*1000;
   y=pop(); 
   x=pop(); 
-  pt=pulseIn(x, y, t)/10; 
+  pt=pulseIn(x, y, t)/bpulseunit; 
   push(pt);
+}
+
+/* write a pulse in microsecond range */
+void bpulseout(short a) { 
+  short pin, duration;
+  short value = 1;
+  short intervall = 0;
+  short repetition = 1;
+  if (a == 5) { intervall=pop(); repetition=pop(); }
+  if (a > 2) value=pop();
+  duration=pop();
+  pin=pop();
+  
+  while (repetition--) {
+    digitalWrite(pin, value);
+    delayMicroseconds(duration*bpulseunit);
+    digitalWrite(pin, !value);
+    delayMicroseconds(intervall*bpulseunit);
+  }
 }
 
 void btone(short a) {

@@ -284,6 +284,7 @@ unsigned long millis() {
 #endif
 
 void bpulsein() { pop(); pop(); pop(); push(0); }
+void bpulseout(short a) { while (a--) pop(); }
 void btone(short a) { pop(); pop(); if (a == 3) pop(); }
 
 /* the POSIX code has no yield as it runs on an OS */

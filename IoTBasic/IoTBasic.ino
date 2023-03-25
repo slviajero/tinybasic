@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.c,v 1.141 2023/01/28 19:26:45 stefan Exp stefan $ 
+ *	$Id: basic.c,v 1.142 2023/02/18 20:16:59 stefan Exp stefan $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -11,7 +11,8 @@
  *	Author: Stefan Lenz, sl001@serverfabrik.de
  *
  *	The first set of definions define the target.
- *	- MINGW switches on Windows calls. 
+ *	- MINGW switches on Windows calls - this is the mingw.org version 
+ *  _ MINGW64 like MINGW but with the mingw 64 support 
  *	- MSDOS for MSDOS file access.
  *	- MAC doesn't need more settings here
  *	- RASPPI activates wiring code
@@ -29,6 +30,7 @@
  *
  */
 #undef MINGW
+#undef MINGW64
 #undef MSDOS
 #undef RASPPI
 
@@ -73,6 +75,7 @@
 #define HASSTRINGARRAYS
 #define HASTIMER
 #define HASEVENTS
+#define HASERRORHANDLING
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -93,6 +96,7 @@
 #undef HASSTRINGARRAYS
 #undef HASTIMER
 #undef HASEVENTS
+#undef HASERRORHANDLING
 #endif
 
 /* all features minus float and tone */
@@ -114,6 +118,7 @@
 #define HASSTRINGARRAYS
 #define HASTIMER
 #define HASEVENTS
+#define HASERRORHANDLING
 #endif
 
 /* a simple integer basic for small systems (UNO etc) */
@@ -135,6 +140,7 @@
 #undef  HASSTRINGARRAYS
 #define HASTIMER
 #define HASEVENTS
+#define HASERRORHANDLING
 #endif
 
 /* all features activated */
@@ -156,6 +162,7 @@
 #define HASSTRINGARRAYS
 #define HASTIMER
 #define HASEVENTS
+#define HASERRORHANDLING
 #endif
 
 /* a simple BASIC with float support */
@@ -177,6 +184,7 @@
 #undef HASSTRINGARRAYS
 #undef HASTIMER
 #undef HASEVENTS
+#undef HASERRORHANDLING
 #endif
 
 /* a Tinybasic with float support */
@@ -198,6 +206,7 @@
 #undef HASSTRINGARRAYS
 #undef HASTIMER
 #undef HASEVENTS
+#undef HASERRORHANDLING
 #endif
 
 /*
@@ -280,6 +289,9 @@ void byield() {
 
 /* the fast ticker for all fast timing functions */
 	fastticker();
+
+/* the loop function for non BASIC stuff */
+  bloop();
 
 #if defined(ARDUINOBGTASK)
 /* yield all 32 micro seconds */
@@ -442,7 +454,7 @@ char autorun() {
 			xload(bargv[1]);
 			st=SRUN;
 			ifileclose();
-			bnointafterrun=1;
+			bnointafterrun=TERMINATEAFTERRUN;
 			return 1;
 		}			
 	}
@@ -687,7 +699,11 @@ number_t getvar(mem_t c, mem_t d){
 				return rd;
 			case 'U':
 				return getusrvar();
-#ifdef DISPLAYDRIVER
+#ifdef HASIOT
+			case 'V':
+				return vlength;
+#endif
+#if defined(DISPLAYDRIVER) || defined (GRAPHDISPLAYDRIVER)
 			case 'X':
 				return dspgetcursorx();
 			case 'Y':
@@ -744,7 +760,11 @@ void setvar(mem_t c, mem_t d, number_t v){
 			case 'U':
 				setusrvar(v);
 				return;
-#ifdef DISPLAYDRIVER
+#ifdef HASIOT
+			case 'V':
+				return;
+#endif
+#if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 			case 'X':
         dspsetcursorx((int)v);
 				return;
@@ -838,55 +858,12 @@ void pgetnumber(address_t m, mem_t n){
   for (i=0; i<n; i++) z.c[i]=memread(m++);
 }
 
-/* removed - simplified */
-/*
-void pgetnumber(address_t m, mem_t n){
-  mem_t i;
-
-  z.i=0;
-
-  switch (n) {
-    case 1:
-      z.i=memread(m);
-      break;
-    case 2:
-      z.b.l=memread(m++);
-      z.b.h=memread(m);
-      break;
-    default:
-      for (i=0; i<n; i++) z.c[i]=memread(m++);
-  }
-}
-*/
-
 /* the eeprom memory access */
 void egetnumber(address_t m, mem_t n){
   mem_t i;
-
   z.i=0;
   for (i=0; i<n; i++) z.c[i]=eread(m++);
 }
-
-/* removed - simplified */
-/*
-void egetnumber(address_t m, mem_t n){
-	mem_t i;
-
-	z.i=0;
-
-	switch (n) {
-		case 1:
-			z.i=eread(m);
-			break;
-		case 2:
-			z.b.l=eread(m++);
-			z.b.h=eread(m);
-			break;
-		default:
-			for (i=0; i<n; i++) z.c[i]=eread(m++);
-	}
-}
-*/
 
 /* set a number at a memory location */
 void setnumber(address_t m, mem_t n){
@@ -894,49 +871,11 @@ void setnumber(address_t m, mem_t n){
   for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
 }
 
-/* removed - simplified */
-/*
-void setnumber(address_t m, mem_t n){
-  mem_t i;
-
-  switch (n) {
-    case 1:
-      memwrite2(m, z.i);
-      break;
-    case 2: 
-      memwrite2(m++, z.b.l);
-      memwrite2(m++, z.b.h);
-      break;
-    default:
-      for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
-  }
-}
-*/
-
 /* set a number at a eepromlocation */
 void esetnumber(address_t m, mem_t n){
   mem_t i; 
   for (i=0; i<n; i++) eupdate(m++, z.c[i]);
 }
-
-/* removed - simplified */
-/*
-void esetnumber(address_t m, mem_t n){
-	mem_t i; 
-
-	switch (n) {
-		case 1:
-			eupdate(m, z.i);
-			break;
-		case 2: 
-			eupdate(m++, z.b.l);
-			eupdate(m, z.b.h);
-			break;
-		default:
- 			for (i=0; i<n; i++) eupdate(m++, z.c[i]);
-	}
-}
-*/
 
 /* create an array */
 address_t createarray(mem_t c, mem_t d, address_t i, address_t j) {
@@ -1166,9 +1105,7 @@ char* getstring(char c, char d, address_t b, address_t j) {
 /* the arguments string on POSIX systems */
 #ifndef ARDUINO
 	if ( c == '@' && d == 'A' ) {
-		k=0;
-		if (bargc > 1) while(k < SBUFSIZE && bargv[2][k] !=0) { sbuffer[k]=bargv[2][k]; k++; } 
- 		return sbuffer+b;
+		if (bargc > 2) return bargv[2]; else return 0;
 	}
 #endif
 
@@ -1291,7 +1228,7 @@ address_t stringdim(char c, char d) {
 /* the length of a string as in LEN(A$) */
 address_t lenstring(char c, char d, address_t j){
 	char* b;
-	address_t a;
+	int a;
 
 /* the input buffer, length is first byte */
 	if (c == '@' && d == 0) return ibuffer[0];
@@ -1317,7 +1254,7 @@ address_t lenstring(char c, char d, address_t j){
 #ifndef ARDUINO
 	if ( c == '@' && d == 'A' ) {
 		a=0;
-		if (bargc > 1) while(a < SBUFSIZE && bargv[2][a] !=0) a++;
+		if (bargc > 2) while(a < SBUFSIZE && bargv[2][a] != 0) a++;
 		return a;
 	}
 #endif
@@ -1343,6 +1280,7 @@ address_t lenstring(char c, char d, address_t j){
 /* set the length of a string */
 void setstringlength(char c, char d, address_t l, address_t j) {
 	address_t a, zt; 
+
 	if (DEBUG) {
 		outsc("** setstringlength "); 
 		outch(c); outch(d); 
@@ -1383,10 +1321,10 @@ char* rtcmkstr() {
 	char ch;
 
 /* hours */
-  	t=rtcget(2);
-  	rtcstring[cc++]=t/10+'0';
-  	rtcstring[cc++]=t%10+'0';
-  	rtcstring[cc++]=':';
+  t=rtcget(2);
+  rtcstring[cc++]=t/10+'0';
+  rtcstring[cc++]=t%10+'0';
+  rtcstring[cc++]=':';
 
 /* minutes */
 	t=rtcget(1);
@@ -1528,12 +1466,32 @@ void printmessage(char i){
  * return after funtion calls with no further messages etc.
  * reseterror() sets the error state to normal and end the 
  * run loop.
-*/ 
+ */ 
 void error(mem_t e){
+
+/* store the error number */
 	er=e;
+
+/* clear the stacks */
+	clearst();
+	clrforstack();
+	clrgosubstack();
+
+/* switch off all timers and interrupts */
+#ifdef HASTIMER
+	resettimer(&after_timer);
+	resettimer(&every_timer);
+#endif
+
+/* is the error handler active? then silently go if we do GOTO or CONT actions in it */
+#ifdef HASERRORHANDLING
+	if (st != SINT && (berrorh.type == TGOTO || berrorh.type == TCONT)) return;
+#endif
+
 /* set input and output device back to default */
 	iodefaults();
-/* find the line number */
+
+/* find the line number if in RUN modes */
 	if (st != SINT) {
 		outnumber(myline(here));
 		outch(':');
@@ -1542,18 +1500,14 @@ void error(mem_t e){
 #ifdef HASERRORMSG
 	printmessage(e);
 	outspc();
-#endif
 	printmessage(EGENERAL);
-	/* outsc("** at "); outnumber(here); */
-	outcr();
-	clearst();
-	clrforstack();
-	clrgosubstack();
-/* switch off all timers and interrupts */
-#ifdef HASTIMER
-	resettimer(&after_timer);
-	resettimer(&every_timer);
+#else 
+	printmessage(EGENERAL);
+	outspc();
+	outnumber(er);
 #endif
+	if (DEBUG) { outsc("** at "); outnumber(here); }
+	outcr();
 }
 
 void reseterror() {
@@ -1648,8 +1602,15 @@ void pushforstack(){
 	if (DEBUG) { outsc("** forsp and here in pushforstack "); outnumber(forsp); outspc(); outnumber(here); outcr(); }
 	
 /* before pushing into the for stack we check is an
-	 old for exists - this is on reentering a for loop */
+	 old for exists - this is on reentering a for loop 
+	 this code removes all loop inside the for loop as well */
 	for(i=0; i<forsp; i++) {
+		if (forstack[i].varx == xc && forstack[i].vary == yc) {
+			forsp=i;
+			break;
+		}
+/* this logic is probably wrong, it only removed the outer loop*/
+/*
 		if (forstack[i].varx == xc && forstack[i].vary == yc) {
 			for(j=i; j<forsp-1; j++) {
 				forstack[j].varx=forstack[j+1].varx;
@@ -1657,10 +1618,12 @@ void pushforstack(){
 				forstack[j].here=forstack[j+1].here;
 				forstack[j].to=forstack[j+1].to;
 				forstack[j].step=forstack[j+1].step;	
+
 			}
 			forsp--;
 			break;
 		}
+*/
 	}
 
 	if (forsp < FORDEPTH) {
@@ -1762,6 +1725,11 @@ void ioinit() {
 	sendcr = 0;
 #endif
 
+/* signal handling */ 
+#ifdef HASSIGNALS
+	signal(SIGINT, signalhandler);
+#endif
+
 /* this is only for RASPBERRY - wiring has to be started explicitly */
 	wiringbegin();
 
@@ -1786,7 +1754,7 @@ void ioinit() {
 
 /* the displays */
 	kbdbegin();
-#ifdef DISPLAYDRIVER
+#if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 	dspbegin();
 #endif
 #ifdef ARDUINOVGA
@@ -1847,8 +1815,8 @@ char inch() {
 			else return 0;
 #endif
 #ifdef ARDUINOMQTT
-    	case IMQTT:
-    		return mqttinch();
+    case IMQTT:
+    	return mqttinch();
 #endif
 #ifdef ARDUINOPRT
 		case ISERIAL1:
@@ -1912,7 +1880,7 @@ short availch(){
 #endif
 #ifdef ARDUINORF24
 		case IRADIO:
-    		return radioavailable();
+    	return radioavailable();
 #endif    		
 #ifdef ARDUINOMQTT
 		case IMQTT:
@@ -1924,9 +1892,9 @@ short availch(){
 #endif
 #ifdef ARDUINOPRT
 		case ISERIAL1:
-      		return prtavailable();
+      return prtavailable();
 #endif
-    	case IKEYBOARD:
+    case IKEYBOARD:
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)
 #if defined(HASVT52)
 			if (vt52avail()) return vt52avail(); /* if the display has a message, read it */
@@ -1996,9 +1964,9 @@ void inb(char *b, short nb) {
  *	input until a terminal character is reached
  */
 void ins(char *b, address_t nb) {
-  	switch(id) {
+  switch(id) {
 #ifdef ARDUINOWIRE
-  		case IWIRE:
+  	case IWIRE:
 			wireins(b, nb);
 			break;
 #endif
@@ -2045,7 +2013,7 @@ void outch(char c) {
 			vgawrite(c);
 			break;
 #else
-#ifdef DISPLAYDRIVER
+#if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 		case ODSP: 
 			dspwrite(c);
 			break;
@@ -2099,10 +2067,15 @@ void outs(char *ir, address_t l){
 			mqttouts(ir, l);
 			break;
 #endif
+#ifdef GRAPHDISPLAYDRIVER
+		case ODSP:
+			dspouts(ir, l);
+			break;
+#endif
 		default:
 			for(i=0; i<l; i++) outch(ir[i]);
 	}
-	byield(); /* triggers yield on ESP8266 */
+	byield(); /* triggers yield after each character output */
 }
 
 /* output a zero terminated string at ir - c style */
@@ -2152,10 +2125,12 @@ address_t parsenumber2(char *c, number_t *r) {
 
 	*r=0;
 
+/* integer part */
 	i=parsenumber(c, r);
 	c+=i;
 	nd+=i;
 
+/* the fractional part */
 	if (*c == '.') {
 		c++; 
 		nd++;
@@ -2170,6 +2145,7 @@ address_t parsenumber2(char *c, number_t *r) {
 		} 
 	}
 
+/* the exponent */
 	if (*c == 'E' || *c == 'e') {
 		c++;
 		nd++;
@@ -2194,15 +2170,19 @@ address_t writenumber(char *c, wnumber_t v){
 	mem_t s = 1;
 	char c1;
   
+/* the sign */
 	if (v<0) s=-1; 
 
+/* the digits */
 	do {
 		c[nd++]=(v%10)*s+'0';
 		v=v/10;
 	} while (v != 0);
 
+/* print the minus */
 	if (s < 0 ) c[nd]='-'; else nd--;
 
+/* reverse the order of digits */
 	i=0; 
 	j=nd;
 	while (j>i) {
@@ -2225,20 +2205,23 @@ address_t writenumber(char *c, wnumber_t v){
  */
 
 address_t tinydtostrf(number_t v, int p, char* c) {  
-	int nd;
+	int nd, i;
 	number_t f;
 
 /* write the integer part */
 	nd=writenumber(c, (int)v); 
 	c[nd++]='.';
+
 /* only the fraction to precision p */
 	f=fabs(v);
+
 /* get p digits of the fraction */
-	for (int i=p; i>0; i--) {
-    	f=f-floor(f);
-    	f=f*10;
-    	c[nd++]=(int)floor(f)+'0';
-  	}
+	for (i=p; i>0; i--) {
+		f=f-floor(f);
+		f=f*10;
+		c[nd++]=(int)floor(f)+'0';
+  }
+
 /* and a terminating 0 */
 	c[nd]=0;
 	return nd;
@@ -2255,9 +2238,7 @@ address_t writenumber2(char *c, number_t vi) {
 /* pseudo integers are displayed as integer
 		zero trapped here */
 	f=floor(vi);
-	if (f == vi && fabs(vi) < maxnum) {
-		return writenumber(c, vi);
-	}
+	if (f == vi && fabs(vi) < maxnum) return writenumber(c, vi);
   
 /* floats are displayed using the libraries */
 #ifndef ARDUINO
@@ -2266,9 +2247,9 @@ address_t writenumber2(char *c, number_t vi) {
 
 /* on an Arduino we have gcc, we check if we have anything to write */
 	if (!isfinite(vi)) {
-    	c[0]='*';
-    	c[1]=0;
-    	return 1; 
+    c[0]='*';
+    c[1]=0;
+    return 1; 
 	}
 
 /* normalize the number and see which exponent we have to deal with */
@@ -2279,21 +2260,12 @@ address_t writenumber2(char *c, number_t vi) {
 /* there are platforms where dtostrf is broken, we do things by hand in a simple way */
 
 	if (exponent > -2 && exponent < 7) { 
-    	tinydtostrf(vi, 5, c);
+    tinydtostrf(vi, 5, c);
 	} else {
 		tinydtostrf(f, 5, c);
 		eflag=1;
 	}
 
-/* small numbers - removed as not really portable */
-/*
-	if (exponent > -2 && exponent < 7) { 
-		dtostrf(vi, 0, 5, c);
-	} else {
-		dtostrf(f, 0, 5, c);
-		eflag=1;
-	}
-*/
 /* remove trailing zeros */
 	for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
 	i--;
@@ -2362,17 +2334,22 @@ again:
 
 /* prints a number */
 void outnumber(number_t n){
-	address_t nd;
+	address_t nd, i;
 
 #ifndef HASFLOAT
 	nd=writenumber(sbuffer, n);
 #else
 	nd=writenumber2(sbuffer, n);
 #endif 
+
+/* negative number format aligns right */
+	if (form < 0) { i=nd; while(i < -form) {outspc(); i++;} }
+
+/* the number */
 	outs(sbuffer, nd);
 
-/* number formats in Palo Alto style */
-	while (nd < form) {outspc(); nd++; };
+/* number formats in Palo Alto style, positive nimbers align left */
+	if (form > 0) { while (nd < form) {outspc(); nd++;} }
 }
 
 /* 
@@ -2725,13 +2702,9 @@ mem_t memread(address_t a) {
 	}
 }
 
-mem_t memread2(address_t a) {
-	return spiram_rwbufferread(a);
-}
+mem_t memread2(address_t a) { return spiram_rwbufferread(a); }
 
-void memwrite2(address_t a, mem_t c) {
-	spiram_rwbufferwrite(a, c);
-}
+void memwrite2(address_t a, mem_t c) { spiram_rwbufferwrite(a, c); }
 #else
 #ifdef EEPROMMEMINTERFACE
 mem_t memread(address_t a) {
@@ -2930,10 +2903,8 @@ void moveblock(address_t b, address_t l, address_t d) {
 	if (d+l > himem) {
 		error(EOUTOFMEMORY);
 		return;
-	}
-	
-	if (l<1) 
-		return;
+	}	
+	if (l<1) return;
 
 	if (b < d)
 		for (i=l; i>0; i--)
@@ -3123,7 +3094,7 @@ void storeline() {
 
 /* the terminal symbol it ends a statement list - ELSE is one too as it ends a statement list */
 char termsymbol() {
-	return ( token == LINENUMBER ||  token == ':' || token == EOL || token == TELSE);
+	return (token == LINENUMBER || token == ':' || token == EOL || token == TELSE);
 }
 
 /* a little helpers - one token expect */ 
@@ -3497,7 +3468,7 @@ char stringvalue() {
 		ir2=sbuffer;
 		x=1;
 		if (er != 0) return 0;
-		if (token != ')') {error(EARGS);return 0;	}
+		if (token != ')') {error(EARGS); return 0;	}
 #endif
 	} else {
 		return 0;
@@ -3579,7 +3550,8 @@ neq:
 /* 
  * floating point arithmetic 
  * SIN, COS, TAN, ATAN, LOG, EXP, INT
- * INT is always there
+ * INT is always there and is nop in integer BASICs
+ * no handling of floating point errors yet.
  */
 void xsin() { push(sin(pop())); }
 void xcos() { push(cos(pop())); }
@@ -3721,16 +3693,16 @@ void factor(){
 			if (er != 0) return;
 /* not super clean - handling of terminal symbol dirty
 		stringtobuffer needed !! */
-			ert=0;
-			while(*ir2==' ' || *ir2=='\t') { ir2++; ert++; }
-			if(*ir2=='-') { y=-1; ir2++; ert++; } else y=1;
+			vlength=0;
+			while(*ir2==' ' || *ir2=='\t') { ir2++; vlength++; }
+			if(*ir2=='-') { y=-1; ir2++; vlength++; } else y=1;
 			x=0;
 #ifdef HASFLOAT
 			/* if (parsenumber2(ir2, &x) == 0) ert=1;	*/
-			ert+=parsenumber2(ir2, &x);
+			if ((ax=parsenumber2(ir2, &x)) > 0) {vlength+=ax; ert=0; } else {vlength=0; ert=1;};
 #else 
 			/* if (parsenumber(ir2, &x) == 0) ert=1; */
-      ert+=parsenumber(ir2, &x);
+      if ((ax=parsenumber(ir2, &x)) > 0) {vlength+=ax; ert=0; } else {vlength=0; ert=1;};
 #endif			
 			(void) pop();
 			push(x*y);
@@ -3759,6 +3731,11 @@ void factor(){
 				error(EARGS);
 				return;	
 			}
+			break;
+#endif
+#ifdef HASERRORHANDLING
+		case TERROR:
+			push(erh);
 			break;
 #endif
 		case THIMEM:
@@ -3798,7 +3775,7 @@ void factor(){
 			parsefunction(bmillis, 1);
 			break;	
 #ifdef HASPULSE
-		case TPULSEIN:
+		case TPULSE:
 			parsefunction(bpulsein, 3);
 			break;
 #endif
@@ -4058,11 +4035,10 @@ void xprint(){
 
 	form=0;
 	oldod=od;
-
 	nexttoken();
 
 processsymbol:
-
+/* at the end of a print statement, do we need a newline, restore the defaults */
 	if (termsymbol()) {
 		if (!semicolon) outcr();
 		od=oldod;
@@ -4071,6 +4047,7 @@ processsymbol:
 	}
 	semicolon=0;
 
+/* output a string if we found it */
 	if (stringvalue()) {
 		if (er != 0) return;
  		outs(ir2, pop());
@@ -4093,7 +4070,7 @@ processsymbol:
 				od=pop();
 				break;
 		}
-		goto processsymbol;
+		goto separators;
 	}
 
 	if (token != ',' && token != ';') {
@@ -4103,13 +4080,18 @@ processsymbol:
 	}
 
 separators:
-	if (token == ',')  {
-		if (!modifier) outspc(); 
-		nexttoken();	
-	}
-	if (token == ';') {
-		semicolon=1;
-		nexttoken();
+	if (termsymbol()) goto processsymbol;
+
+	switch (token) {
+		case ',':
+			if (!modifier) outspc();
+		case ';':
+			semicolon=1;
+			nexttoken();
+			break;
+		default:
+			error(EUNKNOWN);
+			return;
 	}
 	modifier=0;
 
@@ -4628,6 +4610,9 @@ void xif() {
 	x=pop();
 	if (DEBUG) { outnumber(x); outcr(); } 
 
+/* if can have a new line after the expression in this BASIC */
+	if (token == LINENUMBER) nexttoken();	
+
 /* on condition false skip the entire line and all : until a potential ELSE */
 	if (!x)  {
 		while(token != LINENUMBER && token != EOL && token != TELSE) nexttoken();
@@ -4644,12 +4629,13 @@ void xif() {
 				findline((address_t) x);
 				return;	
 			} 
-		} 	
+		} 
 #endif		
 	}	
 
 /* a THEN is interpreted as simple one statement goto	if it is followed by a line number*/
 #ifdef HASAPPLE1
+/* then can be on a new line */
 	if (token == TTHEN) {
 		nexttoken();
 		if (token == NUMBER) {
@@ -4720,7 +4706,8 @@ void xfor(){
 	if (token == '=') { 
 		if (!expectexpr()) return;
 		b=pop();
-	}
+		setvar(xcl, ycl, b); /* to have it hear makes FOR use the variable value as start */
+	}  
 
 	if (token == TTO) {
 		if (!expectexpr()) return;
@@ -4741,7 +4728,7 @@ void xfor(){
 		here=bi-ibuffer;
 
 /*  here we know everything to set up the loop */
-	setvar(xcl, ycl, b);
+	/* setvar(xcl, ycl, b); to have it hear makes FOR use 1 as start */
 	if (DEBUG) { 
 		outsc("** for loop with parameters var begin end step : ");
 		outch(xcl); outch(ycl); outspc(); outnumber(b); outspc(); outnumber(e); outspc(); outnumber(s); outcr(); 
@@ -4758,7 +4745,7 @@ void xfor(){
  *	this tests the condition and stops if it is fulfilled already from start 
  *	there is an apocryphal feature here: STEP 0 is legal triggers an infinite loop
  */
-	if ( (y > 0 && getvar(xc, yc)>x) || (y < 0 && getvar(xc, yc)<x ) ) { 
+	if ((y > 0 && getvar(xc, yc) > x) || (y < 0 && getvar(xc, yc) < x )) { 
 		dropforstack();
 		findnextcmd();
 		nexttoken();
@@ -4827,7 +4814,7 @@ void xnext(){
 	setvar(xc, yc, t);
 
 /* do we need another iteration, STEP 0 always triggers an infinite loop */
-	if ( (y==0) || (y > 0 && t <= x) || (y < 0 && t >= x) ) {
+	if ((y == 0) || (y > 0 && t <= x) || (y < 0 && t >= x)) {
 /* push the loop with the new values back to the for stack */
 		pushforstack();
 		if (st == SINT) bi=ibuffer+here;
@@ -4883,7 +4870,7 @@ void outputtoken() {
 					token == TOR ||
 					token == TAND ) && lastouttoken != LINENUMBER) outspc();
 				else 
-					if (lastouttoken == NUMBER) outspc(); 
+					if (lastouttoken == NUMBER || lastouttoken == VARIABLE) outspc(); 
 				for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 				outsc(getkeyword(i)); 
 				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) spaceafterkeyword=1;
@@ -5422,7 +5409,7 @@ void xsave() {
  */
 void xload(const char* f) {
 	char filename[SBUFSIZE];
-	address_t ch;
+	char ch;
 	address_t here2;
 	mem_t chain = 0;
 
@@ -5460,7 +5447,7 @@ void xload(const char* f) {
     	bi=ibuffer+1;
 		while (fileavailable()) {
       		ch=fileread();
-      		if (ch == '\n' || ch == '\r') {
+      		if (ch == '\n' || ch == '\r' || ch == -1) {
         		*bi=0;
         		bi=ibuffer+1;
         		nexttoken();
@@ -5470,7 +5457,7 @@ void xload(const char* f) {
       		} else {
         		*bi++=ch;
       		}
-      		if ( (bi-ibuffer) > BUFSIZE ) {
+      		if ((bi-ibuffer) > BUFSIZE) {
         		error(EOUTOFMEMORY);
         		break;
       		}
@@ -5684,7 +5671,7 @@ void xset(){
 /* change the serial device to a true TAB */
 #ifdef HASMSTAB
 		case 11:
-      		reltab=args;
+      reltab=args;
 			break;
 #endif
 /* change the lower array limit */
@@ -5696,6 +5683,11 @@ void xset(){
 #ifdef HASKEYPAD
 		case 13:
 			kbdrepeat=args;
+			break;
+#endif
+#ifdef HASPULSE
+		case 14:
+			bpulseunit=args;
 			break;
 #endif
 	}
@@ -5811,6 +5803,21 @@ void xtone(){
 	btone(args);	
 }
 #endif
+
+/* pulse output - pin, duration, [value], [repetitions, delay] */
+#ifdef HASPULSE
+void xpulse(){
+	nexttoken();
+	parsearguments();
+	if (er != 0) return;
+	if (args>5 || args<2) {
+		error(EARGS);
+		return;
+	}
+	bpulseout(args);	
+}
+#endif
+
 
 #ifdef HASGRAPH
 /*
@@ -5996,7 +6003,7 @@ void xeval(){
 
 /* the line to be stored */
 	nexttoken();
-	if (! stringvalue()) {
+	if (!stringvalue()) {
 		error(EARGS); return; 
 	}
 
@@ -6063,14 +6070,32 @@ void xsleep() {
 	if (er != 0) return; 
 	activatesleep(pop());
 }
+#endif
 
 /*
- * Low level assignment function to be done 
- * converts all kind of stuff
+ * Error handling function, should not be in IOT but currently is 
  */
+#ifdef HASERRORHANDLING
+void xerror() {
 
-void xassign() {
+	berrorh.type=0;
+	erh=0;
 	nexttoken();
+	switch (token) {
+		case TGOTO:
+			if (!expectexpr()) return;
+			berrorh.type=TGOTO;
+			berrorh.linenumber=pop();
+			break;
+		case TCONT:
+			berrorh.type=TCONT;
+		case TSTOP:		
+			nexttoken();
+			break;
+		default:
+			error(EARGS);
+			return;
+	}
 }
 #endif
 
@@ -6131,6 +6156,12 @@ void xtimer() {
 
 #ifdef HASEVENTS
 /* the event BASIC commands */
+void initevents() {
+	int i;
+	for(i=0; i<EVENTLISTSIZE; i++) eventlist[i].pin=-1;
+}
+
+
 void xevent() {
 	mem_t pin, mode;
 	mem_t type=0;
@@ -6142,7 +6173,7 @@ void xevent() {
 /* debug code, display the event list */
   if (termsymbol()) {
     for (ax=0; ax<EVENTLISTSIZE; ax++) {
-      if (eventlist[ax].pin) {
+      if (eventlist[ax].pin >= 0) {
         outnumber(eventlist[ax].pin); outspc();
         outnumber(eventlist[ax].mode); outspc();
         outnumber(eventlist[ax].type); outspc();
@@ -6227,7 +6258,7 @@ mem_t addevent(mem_t pin, mem_t mode, mem_t type, address_t linenumber) {
 /* if not, look for a free slot */
   if (nevents >= EVENTLISTSIZE) return 0;
   for (i=0; i<EVENTLISTSIZE; i++) 
-    if (eventlist[i].pin == 0) goto slotfound;
+    if (eventlist[i].pin == -1) goto slotfound;
 
 /* no free event slot */
   return 0;
@@ -6252,7 +6283,7 @@ void deleteevent(mem_t pin) {
 
 	if (i>=0){
     eventlist[i].enabled=0;
-    eventlist[i].pin=0;
+    eventlist[i].pin=-1;
     eventlist[i].mode=0;
     eventlist[i].type=0;
     eventlist[i].linenumber=0;
@@ -6589,7 +6620,7 @@ void xusr() {
 			break;
 /* access to properties of stream 2 - display and keyboard */			
 		case 2: 
-#if defined(DISPLAYDRIVER)
+#if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 			push(dspstat(arg));
 #elif defined(ARDUINOVGA)
 			push(vgastat(arg));
@@ -7049,7 +7080,7 @@ void xon(){
 /* do we have more arguments then the condition? */
 	if (cr > args && cr <= 0) ci=0; else ci=(int)cr;
 
-/* now find the line to jump to and clean the stack */
+/* now find the line to jump to and clean the stack, reuse cr*/
 	while (args) {
 		tmp=pop();
 		if (args == ci) line=tmp;
@@ -7074,7 +7105,8 @@ void xon(){
 		no clearing of variables and stacks */
 	if (st == SINT) st=SRUN;
 
-	nexttoken();
+	/* removed to avoid blocking in AFTER, EVERY and EVENT infinite loops */
+	/* nexttoken(); */
 }
 #endif
 
@@ -7090,7 +7122,7 @@ void xon(){
  *	breaks causes an infinite loop.
  *
  *	statement is called once in interactive mode and terminates 
- *	at end of line. 
+ *	at end of a line. 
  */
 void statement(){
 	if (DEBUG) bdebug("statement \n"); 
@@ -7186,7 +7218,7 @@ void statement(){
 				break;
 			case TLOAD: 
 				xload(0);
-				if (st == SINT) return; // interactive load doesn't like break as the ibuffer is messed up; */
+				if (st == SINT) return; /* interactive load doesn't like break as the ibuffer is messed up; */
 				else break;
 #ifdef HASSTEFANSEXT
 			case TDUMP:
@@ -7207,7 +7239,7 @@ void statement(){
 			case TCLS:
 				xc=od; 
 /* if we have a display it is the default for CLS */
-#if defined(DISPLAYDRIVER)			
+#if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)		
 				od=ODSP;
 #endif
 				outch(12);
@@ -7237,6 +7269,11 @@ void statement(){
 			case TTONE:
 				xtone();
 				break;	
+#endif
+#ifdef HASPULSE
+			case TPULSE:
+				xpulse();
+				break;
 #endif
 #endif
 /* BASIC DOS function */
@@ -7308,10 +7345,12 @@ void statement(){
 				xeval();
 				break;
 #endif
-#ifdef HASIOT
-			case TASSIGN:
-				xassign();
+#ifdef HASERRORHANDLING
+			case TERROR:
+				xerror();
 				break;
+#endif
+#ifdef HASIOT
 			case TSLEEP:
 				xsleep();
 				break;	
@@ -7350,14 +7389,49 @@ void statement(){
 			st=SINT; 
 			return;
 		}; 
-#endif		
+#endif	
+
+/* and then there is also signal handling on some platforms */
+#if defined(HASSIGNALS)
+		if (breaksignal) {
+			st=SINT; 
+			breaksignal=0;
+			return;
+		}
+#endif
 
 /* yield after each statement which is a 10-100 microsecond cycle 
 		on Arduinos and the like, all background tasks are handled in byield */
 		byield();
 
-/* when an error is encountred the statement loop is ended */
+/* if error handling is compiled into the code, errors can be trapped here */
+#ifdef HASERRORHANDLING
+		if (er) {
+			if (st != SINT) {
+				erh=er;
+				er=0;
+				switch(berrorh.type) {
+					case TCONT:
+						while(!termsymbol()) nexttoken(); 
+						break;
+					case TGOTO:
+						findline(berrorh.linenumber);
+						berrorh.type=0;
+						berrorh.linenumber=0;
+						if (er) return;
+						break;
+					case 0:
+						return;
+					default:
+						nexttoken();
+				} 
+			}	else 
+				return;
+		}
+#else
+/* when an error is encountered the statement loop is ended */
 		if (er) return;
+#endif
 
 /* 
  * if we run error free, interrupts and times can be processed 
@@ -7436,11 +7510,16 @@ void setup() {
 /* start measureing time */
 	timeinit();
 
+/* initialize the event system */
+#ifdef HASEVENTS
+	initevents();
+#endif 
+
 /* init all io functions */
 	ioinit();
 
-/* timer stuff - experimental */
-/* rtcsqw(); */
+/* setup for all non BASIC stuff */
+  bsetup();
 
 /* get the BASIC memory, either as memory array with
 	ballocmem() or as an SPI serical memory */
@@ -7541,6 +7620,7 @@ void loop() {
 
 /* here, at last, all errors need to be catched and back to interactive input*/
 	if (er) reseterror();
+
 }
 
 /* if we are not on an Arduino */
@@ -7557,3 +7637,52 @@ int main(int argc, char* argv[]){
 		loop();
 }
 #endif
+
+/*
+ * Arduino style function for non BASIC code to run on the MCU. 
+ * All code that needs to run on the MCU independently can be put here.
+ * It works more or less just like the normal loop() and setup().
+ * 
+ * This is meant for robotics and other device control type of stuff
+ * 	on the Arduino platform. 
+ *
+ * On POSIX systems I/O is blocking and therefore bloop() is not called
+ * 	consistently. 
+ * 
+ * Rules of the game: 
+ * - bsetup() is called once during interpreter startup after all 
+ *    IO subsystems are started and before the BASIC main memory is 
+ *    allocated. Allocate memory here. Do not allocate a lot of memory 
+ *    in bloop().
+ * - Never start or restart I/O functions of BASIC in bsetup(), 
+ *    no Wire.begin(), Serial.begin() etc. If BASIC also uses this
+ *    BASIC handles the I/O startup. Things that BASIC does not use 
+ *    can be started here.
+ * - bloop() is called after every token, during I/O polling and in 
+ *    DELAY functions. 
+ * - The typical call frequency of bloop() is 20 microseconds or faster.
+ *    This is fairly constant and reliable.
+ * - The interpreter is robust against code in bloop() that needs a lot 
+ *    of CPU time. It will simply slow down but it will not break, 
+ *    unless(!) other I/O systems like network also need background CPU time 
+ *    and you block bloop for a long time. As a rule of thumb, on network systems
+ *    bloop() should return after 1 ms. After bloop() has returned, the interpreter
+ *    tries to handle network and USB update stuff. 
+ * - Never use delay() in bloop(). Set a counter. Look at the tone 
+ *    emulation code for examples. 
+ * - Never ever call BASIC functions from bloop(). BASIC function will 
+ *    eventually call byield() which calls bloop() and so forth. 
+ *    If you need to communicate data into BASIC, use the BASIC main 
+ *    memory, variables or the USR function mechanism.
+ * - Avoid allocating a lot of memory in bloop().
+ */
+
+ void bsetup() {
+  /* put your setup code here, to run once: */
+  
+ }
+
+ void bloop() {
+  /* put your main code here, to run repeatedly: */
+  
+ }

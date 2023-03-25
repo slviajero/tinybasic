@@ -3775,7 +3775,7 @@ void factor(){
 			parsefunction(bmillis, 1);
 			break;	
 #ifdef HASPULSE
-		case TPULSEIN:
+		case TPULSE:
 			parsefunction(bpulsein, 3);
 			break;
 #endif
@@ -5685,6 +5685,11 @@ void xset(){
 			kbdrepeat=args;
 			break;
 #endif
+#ifdef HASPULSE
+		case 14:
+			bpulseunit=args;
+			break;
+#endif
 	}
 }
 
@@ -5798,6 +5803,21 @@ void xtone(){
 	btone(args);	
 }
 #endif
+
+/* pulse output - pin, duration, [value], [repetitions, delay] */
+#ifdef HASPULSE
+void xpulse(){
+	nexttoken();
+	parsearguments();
+	if (er != 0) return;
+	if (args>5 || args<2) {
+		error(EARGS);
+		return;
+	}
+	bpulseout(args);	
+}
+#endif
+
 
 #ifdef HASGRAPH
 /*
@@ -7249,6 +7269,11 @@ void statement(){
 			case TTONE:
 				xtone();
 				break;	
+#endif
+#ifdef HASPULSE
+			case TPULSE:
+				xpulse();
+				break;
 #endif
 #endif
 /* BASIC DOS function */

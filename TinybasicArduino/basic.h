@@ -187,7 +187,7 @@ typedef unsigned char uint8_t;
 #define TDELAY	-69
 #define TMILLIS	-68
 #define TTONE	-67
-#define TPULSEIN	-66
+#define TPULSE	-66
 #define TAZERO	-65
 #define TLED	-64
 /* the DOS functions (5) */
@@ -365,7 +365,7 @@ const char sled[]	PROGMEM = "LED";
 const char stone[]    PROGMEM = "PLAY";
 #endif
 #ifdef HASPULSE
-const char splusein[] PROGMEM = "PULSEIN";
+const char spulse[] PROGMEM = "PULSE";
 #endif
 /* DOS functions */
 #ifdef HASFILEIO
@@ -472,7 +472,7 @@ const char* const keyword[] PROGMEM = {
 	stone,
 #endif
 #ifdef HASPULSE
-	splusein,
+	spulse,
 #endif
 #ifdef HASFILEIO
     scatalog, sdelete, sfopen, sfclose, sfdisk,
@@ -538,7 +538,7 @@ const signed char tokens[] PROGMEM = {
 	TTONE, 
 #endif
 #ifdef HASPULSE
-	TPULSEIN, 
+	TPULSE, 
 #endif
 #ifdef HASFILEIO
 	TCATALOG, TDELETE, TOPEN, TCLOSE, TFDISK,
@@ -614,7 +614,7 @@ const signed char tokens[] PROGMEM = {
 
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "> ";
-const char mgreet[]		PROGMEM = "Stefan's Basic 1.4b";
+const char mgreet[]		PROGMEM = "Stefan's Basic 1.4";
 const char mline[]		PROGMEM = "LINE";
 const char mnumber[]	PROGMEM = "NUMBER";
 const char mvariable[]	PROGMEM = "VARIABLE";
@@ -964,6 +964,10 @@ static mem_t erh = 0;
 /* the string for real time clocks */
 char rtcstring[20] = { 0 }; 
 
+/* the units pulse operates on, in microseconds*/
+short bpulseunit = 10; 
+
+
 /* 
  * Function prototypes, ordered by layers
  * HAL - hardware abstraction
@@ -1073,6 +1077,8 @@ void dwrite(number_t, number_t);
 void pinm(number_t, number_t);
 void bmillis();
 void bpulsein();
+void xpulse();
+void bpulseout(short);
 void btone(short);
 
 /* timing control for ESP and network */
@@ -1098,13 +1104,16 @@ void rootopen();
 int rootnextfile();
 int rootisfile();
 const char* rootfilename();
-int rootfilesize();
+long rootfilesize();
 void rootfileclose();
 void rootclose();
 void removefile(char*);
 void formatdisk(short);
 
 /* low level serial code */
+#if !defined(ARDUINO) && ( !defined(MSDOS) || defined(MINGW) )
+typedef unsigned int uint32_t;
+#endif
 void picogetchar(char);
 void picowrite(char);
 void picobegin(uint32_t);

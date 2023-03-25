@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.h,v 1.10 2023/01/28 19:26:45 stefan Exp stefan $
+ *	$Id: basic.h,v 1.11 2023/02/18 20:16:59 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *
@@ -108,6 +108,11 @@ typedef unsigned char uint8_t;
 /* the default EEPROM dummy size */
 #define EEPROMSIZE 1024
 
+/* after run behaviour on POSIX systems, 1 to terminate if started
+    on the command line with a file argument, 0 to stay active and 
+    show a BASIC prompt*/
+#define TERMINATEAFTERRUN 1
+
 /*
  * The tokens for the BASIC keywords
  *
@@ -182,7 +187,7 @@ typedef unsigned char uint8_t;
 #define TDELAY	-69
 #define TMILLIS	-68
 #define TTONE	-67
-#define TPULSEIN	-66
+#define TPULSE	-66
 #define TAZERO	-65
 #define TLED	-64
 /* the DOS functions (5) */
@@ -224,7 +229,7 @@ typedef unsigned char uint8_t;
 #define TFIND   -34
 #define TEVAL   -33
 /* iot extensions (9) */
-#define TASSIGN	-32
+#define TERROR	-32
 #define TAVAIL	-31
 #define TSTR	-30
 #define TINSTR	-29
@@ -360,7 +365,7 @@ const char sled[]	PROGMEM = "LED";
 const char stone[]    PROGMEM = "PLAY";
 #endif
 #ifdef HASPULSE
-const char splusein[] PROGMEM = "PULSEIN";
+const char spulse[] PROGMEM = "PULSE";
 #endif
 /* DOS functions */
 #ifdef HASFILEIO
@@ -415,9 +420,12 @@ const char smalloc[]	PROGMEM  = "MALLOC";
 const char sfind[]		PROGMEM  = "FIND";
 const char seval[]		PROGMEM  = "EVAL";
 #endif
+/* complex error handling */
+#ifdef HASERRORHANDLING
+const char serror[]     PROGMEM  = "ERROR";
+#endif
 /* iot extensions */
 #ifdef HASIOT
-const char sassign[]	PROGMEM  = "ASSIGN";
 const char savail[]		PROGMEM  = "AVAIL";
 const char sstr[]		PROGMEM  = "STR";
 const char sinstr[]		PROGMEM  = "INSTR";
@@ -464,7 +472,7 @@ const char* const keyword[] PROGMEM = {
 	stone,
 #endif
 #ifdef HASPULSE
-	splusein,
+	spulse,
 #endif
 #ifdef HASFILEIO
     scatalog, sdelete, sfopen, sfclose, sfdisk,
@@ -489,8 +497,12 @@ const char* const keyword[] PROGMEM = {
 #ifdef HASDARKARTS
 	smalloc, sfind, seval, 
 #endif
+/* complex error handling */
+#ifdef HASERRORHANDLING
+    serror,
+#endif
 #ifdef HASIOT
-	sassign, savail, sstr, sinstr, sval, 
+	savail, sstr, sinstr, sval, 
 	snetstat, ssensor, swire, ssleep, 
 #endif
 #ifdef HASTIMER
@@ -526,7 +538,7 @@ const signed char tokens[] PROGMEM = {
 	TTONE, 
 #endif
 #ifdef HASPULSE
-	TPULSEIN, 
+	TPULSE, 
 #endif
 #ifdef HASFILEIO
 	TCATALOG, TDELETE, TOPEN, TCLOSE, TFDISK,
@@ -551,8 +563,11 @@ const signed char tokens[] PROGMEM = {
 #ifdef HASDARKARTS
 	TMALLOC, TFIND, TEVAL, 
 #endif
+#ifdef HASERRORHANDLING
+    TERROR, 
+#endif
 #ifdef HASIOT
-	TASSIGN, TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
+	TAVAIL, TSTR, TINSTR, TVAL, TNETSTAT,
 	TSENSOR, TWIRE, TSLEEP,
 #endif
 #ifdef HASTIMER
@@ -599,7 +614,7 @@ const signed char tokens[] PROGMEM = {
 
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "> ";
-const char mgreet[]		PROGMEM = "Stefan's Basic 1.4b";
+const char mgreet[]		PROGMEM = "Stefan's Basic 1.4";
 const char mline[]		PROGMEM = "LINE";
 const char mnumber[]	PROGMEM = "NUMBER";
 const char mvariable[]	PROGMEM = "VARIABLE";
@@ -881,6 +896,13 @@ static mem_t bfindc, bfindd, bfindt;
 static address_t bfinda, bfindz;
 #endif
 
+/*
+ * a variable for some string operations 
+ */
+#ifdef HASIOT
+static int vlength;
+#endif
+
 /* the timer code - very simple needs to to to a struct */
 #ifdef HASTIMER
 
@@ -928,9 +950,23 @@ volatile bevent_t* findevent(mem_t);
 mem_t eventindex(mem_t);
 #endif
 
+#ifdef HASERRORHANDLING
+/* the error handler type, very simple for now */
+typedef struct {
+    mem_t type;
+    address_t linenumber;
+} berrorh_t;
+
+static berrorh_t berrorh = {0 , 0};
+static mem_t erh = 0;
+#endif
 
 /* the string for real time clocks */
 char rtcstring[20] = { 0 }; 
+
+/* the units pulse operates on, in microseconds*/
+short bpulseunit = 10; 
+
 
 /* 
  * Function prototypes, ordered by layers
@@ -1041,6 +1077,8 @@ void dwrite(number_t, number_t);
 void pinm(number_t, number_t);
 void bmillis();
 void bpulsein();
+void xpulse();
+void bpulseout(short);
 void btone(short);
 
 /* timing control for ESP and network */
@@ -1066,13 +1104,16 @@ void rootopen();
 int rootnextfile();
 int rootisfile();
 const char* rootfilename();
-int rootfilesize();
+long rootfilesize();
 void rootfileclose();
 void rootclose();
 void removefile(char*);
 void formatdisk(short);
 
 /* low level serial code */
+#if !defined(ARDUINO) && ( !defined(MSDOS) || defined(MINGW) )
+typedef unsigned int uint32_t;
+#endif
 void picogetchar(char);
 void picowrite(char);
 void picobegin(uint32_t);
@@ -1417,5 +1458,6 @@ void playtone(int, int, int);
 /* the statement loop */
 void statement();
 
-/* stub for the interrupt code */
-void handleinterrupt();
+/* the extension functions */
+void bsetup();
+void bloop();

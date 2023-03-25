@@ -11,7 +11,8 @@
  *	Author: Stefan Lenz, sl001@serverfabrik.de
  *
  *	The first set of definions define the target.
- *	- MINGW switches on Windows calls. 
+ *	- MINGW switches on Windows calls - this is the mingw.org version 
+ *  _ MINGW64 like MINGW but with the mingw 64 support 
  *	- MSDOS for MSDOS file access.
  *	- MAC doesn't need more settings here
  *	- RASPPI activates wiring code
@@ -29,6 +30,7 @@
  *
  */
 #undef MINGW
+#undef MINGW64
 #undef MSDOS
 #undef RASPPI
 
@@ -856,55 +858,12 @@ void pgetnumber(address_t m, mem_t n){
   for (i=0; i<n; i++) z.c[i]=memread(m++);
 }
 
-/* removed - simplified */
-/*
-void pgetnumber(address_t m, mem_t n){
-  mem_t i;
-
-  z.i=0;
-
-  switch (n) {
-    case 1:
-      z.i=memread(m);
-      break;
-    case 2:
-      z.b.l=memread(m++);
-      z.b.h=memread(m);
-      break;
-    default:
-      for (i=0; i<n; i++) z.c[i]=memread(m++);
-  }
-}
-*/
-
 /* the eeprom memory access */
 void egetnumber(address_t m, mem_t n){
   mem_t i;
-
   z.i=0;
   for (i=0; i<n; i++) z.c[i]=eread(m++);
 }
-
-/* removed - simplified */
-/*
-void egetnumber(address_t m, mem_t n){
-	mem_t i;
-
-	z.i=0;
-
-	switch (n) {
-		case 1:
-			z.i=eread(m);
-			break;
-		case 2:
-			z.b.l=eread(m++);
-			z.b.h=eread(m);
-			break;
-		default:
-			for (i=0; i<n; i++) z.c[i]=eread(m++);
-	}
-}
-*/
 
 /* set a number at a memory location */
 void setnumber(address_t m, mem_t n){
@@ -912,49 +871,11 @@ void setnumber(address_t m, mem_t n){
   for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
 }
 
-/* removed - simplified */
-/*
-void setnumber(address_t m, mem_t n){
-  mem_t i;
-
-  switch (n) {
-    case 1:
-      memwrite2(m, z.i);
-      break;
-    case 2: 
-      memwrite2(m++, z.b.l);
-      memwrite2(m++, z.b.h);
-      break;
-    default:
-      for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
-  }
-}
-*/
-
 /* set a number at a eepromlocation */
 void esetnumber(address_t m, mem_t n){
   mem_t i; 
   for (i=0; i<n; i++) eupdate(m++, z.c[i]);
 }
-
-/* removed - simplified */
-/*
-void esetnumber(address_t m, mem_t n){
-	mem_t i; 
-
-	switch (n) {
-		case 1:
-			eupdate(m, z.i);
-			break;
-		case 2: 
-			eupdate(m++, z.b.l);
-			eupdate(m, z.b.h);
-			break;
-		default:
- 			for (i=0; i<n; i++) eupdate(m++, z.c[i]);
-	}
-}
-*/
 
 /* create an array */
 address_t createarray(mem_t c, mem_t d, address_t i, address_t j) {
@@ -1545,7 +1466,7 @@ void printmessage(char i){
  * return after funtion calls with no further messages etc.
  * reseterror() sets the error state to normal and end the 
  * run loop.
-*/ 
+ */ 
 void error(mem_t e){
 
 /* store the error number */
@@ -1804,6 +1725,11 @@ void ioinit() {
 	sendcr = 0;
 #endif
 
+/* signal handling */ 
+#ifdef HASSIGNALS
+	signal(SIGINT, signalhandler);
+#endif
+
 /* this is only for RASPBERRY - wiring has to be started explicitly */
 	wiringbegin();
 
@@ -1889,8 +1815,8 @@ char inch() {
 			else return 0;
 #endif
 #ifdef ARDUINOMQTT
-    	case IMQTT:
-    		return mqttinch();
+    case IMQTT:
+    	return mqttinch();
 #endif
 #ifdef ARDUINOPRT
 		case ISERIAL1:
@@ -1968,16 +1894,16 @@ short availch(){
 		case ISERIAL1:
       return prtavailable();
 #endif
-    	case IKEYBOARD:
+    case IKEYBOARD:
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)
 #if defined(HASVT52)
-				if (vt52avail()) return vt52avail(); /* if the display has a message, read it */
+			if (vt52avail()) return vt52avail(); /* if the display has a message, read it */
 #endif
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) 
-				return kbdavailable();
+			return kbdavailable();
 #endif
 #endif
-				break;
+			break;
 	}
 	return 0;
 }
@@ -2038,28 +1964,28 @@ void inb(char *b, short nb) {
  *	input until a terminal character is reached
  */
 void ins(char *b, address_t nb) {
-  	switch(id) {
+  switch(id) {
 #ifdef ARDUINOWIRE
-  		case IWIRE:
-				wireins(b, nb);
-				break;
+  	case IWIRE:
+			wireins(b, nb);
+			break;
 #endif
 #ifdef ARDUINOMQTT
-			case IMQTT:
-				mqttins(b, nb);	
-				break;	
+		case IMQTT:
+			mqttins(b, nb);	
+			break;	
 #endif
 #ifdef ARDUINORF24
-			case IRADIO:
- 				radioins(b, nb);
- 				break;
+		case IRADIO:
+ 			radioins(b, nb);
+ 			break;
 #endif
-			default:
+		default:
 #ifdef ARDUINOPRT
 /* blockmode only implemented for ISERIAL1 right now */
-				if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
+			if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
 #endif
-				consins(b, nb);
+			consins(b, nb);
   	}  
 }
 
@@ -2279,7 +2205,7 @@ address_t writenumber(char *c, wnumber_t v){
  */
 
 address_t tinydtostrf(number_t v, int p, char* c) {  
-	int nd;
+	int nd, i;
 	number_t f;
 
 /* write the integer part */
@@ -2290,11 +2216,11 @@ address_t tinydtostrf(number_t v, int p, char* c) {
 	f=fabs(v);
 
 /* get p digits of the fraction */
-	for (int i=p; i>0; i--) {
-    	f=f-floor(f);
-    	f=f*10;
-    	c[nd++]=(int)floor(f)+'0';
-  	}
+	for (i=p; i>0; i--) {
+		f=f-floor(f);
+		f=f*10;
+		c[nd++]=(int)floor(f)+'0';
+  }
 
 /* and a terminating 0 */
 	c[nd]=0;
@@ -2312,9 +2238,7 @@ address_t writenumber2(char *c, number_t vi) {
 /* pseudo integers are displayed as integer
 		zero trapped here */
 	f=floor(vi);
-	if (f == vi && fabs(vi) < maxnum) {
-		return writenumber(c, vi);
-	}
+	if (f == vi && fabs(vi) < maxnum) return writenumber(c, vi);
   
 /* floats are displayed using the libraries */
 #ifndef ARDUINO
@@ -2323,9 +2247,9 @@ address_t writenumber2(char *c, number_t vi) {
 
 /* on an Arduino we have gcc, we check if we have anything to write */
 	if (!isfinite(vi)) {
-    	c[0]='*';
-    	c[1]=0;
-    	return 1; 
+    c[0]='*';
+    c[1]=0;
+    return 1; 
 	}
 
 /* normalize the number and see which exponent we have to deal with */
@@ -2419,13 +2343,13 @@ void outnumber(number_t n){
 #endif 
 
 /* negative number format aligns right */
-	if (form < 0) { i=nd; while(i < (-form)) {outspc(); i++;} }
+	if (form < 0) { i=nd; while(i < -form) {outspc(); i++;} }
 
 /* the number */
 	outs(sbuffer, nd);
 
 /* number formats in Palo Alto style, positive nimbers align left */
-	if (form > 0){while (nd < form) {outspc(); nd++;}}
+	if (form > 0) { while (nd < form) {outspc(); nd++;} }
 }
 
 /* 
@@ -2979,10 +2903,8 @@ void moveblock(address_t b, address_t l, address_t d) {
 	if (d+l > himem) {
 		error(EOUTOFMEMORY);
 		return;
-	}
-	
-	if (l<1) 
-		return;
+	}	
+	if (l<1) return;
 
 	if (b < d)
 		for (i=l; i>0; i--)
@@ -3546,7 +3468,7 @@ char stringvalue() {
 		ir2=sbuffer;
 		x=1;
 		if (er != 0) return 0;
-		if (token != ')') {error(EARGS);return 0;	}
+		if (token != ')') {error(EARGS); return 0;	}
 #endif
 	} else {
 		return 0;
@@ -3628,7 +3550,8 @@ neq:
 /* 
  * floating point arithmetic 
  * SIN, COS, TAN, ATAN, LOG, EXP, INT
- * INT is always there
+ * INT is always there and is nop in integer BASICs
+ * no handling of floating point errors yet.
  */
 void xsin() { push(sin(pop())); }
 void xcos() { push(cos(pop())); }
@@ -3852,7 +3775,7 @@ void factor(){
 			parsefunction(bmillis, 1);
 			break;	
 #ifdef HASPULSE
-		case TPULSEIN:
+		case TPULSE:
 			parsefunction(bpulsein, 3);
 			break;
 #endif
@@ -5762,6 +5685,11 @@ void xset(){
 			kbdrepeat=args;
 			break;
 #endif
+#ifdef HASPULSE
+		case 14:
+			bpulseunit=args;
+			break;
+#endif
 	}
 }
 
@@ -5875,6 +5803,21 @@ void xtone(){
 	btone(args);	
 }
 #endif
+
+/* pulse output - pin, duration, [value], [repetitions, delay] */
+#ifdef HASPULSE
+void xpulse(){
+	nexttoken();
+	parsearguments();
+	if (er != 0) return;
+	if (args>5 || args<2) {
+		error(EARGS);
+		return;
+	}
+	bpulseout(args);	
+}
+#endif
+
 
 #ifdef HASGRAPH
 /*
@@ -7327,6 +7270,11 @@ void statement(){
 				xtone();
 				break;	
 #endif
+#ifdef HASPULSE
+			case TPULSE:
+				xpulse();
+				break;
+#endif
 #endif
 /* BASIC DOS function */
 #ifdef HASFILEIO
@@ -7441,7 +7389,16 @@ void statement(){
 			st=SINT; 
 			return;
 		}; 
-#endif		
+#endif	
+
+/* and then there is also signal handling on some platforms */
+#if defined(HASSIGNALS)
+		if (breaksignal) {
+			st=SINT; 
+			breaksignal=0;
+			return;
+		}
+#endif
 
 /* yield after each statement which is a 10-100 microsecond cycle 
 		on Arduinos and the like, all background tasks are handled in byield */
