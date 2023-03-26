@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.h,v 1.11 2023/02/18 20:16:59 stefan Exp stefan $
+ *	$Id: basic.h,v 1.12 2023/03/25 08:09:07 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *
@@ -884,6 +884,8 @@ static long lastlongyield=0;
 /* formaters lastouttoken and spaceafterkeyword to make a nice LIST */
 static mem_t lastouttoken;
 static mem_t spaceafterkeyword;
+static mem_t outliteral = 0;
+static mem_t lexliteral = 0; 
 
 /* 
  * the cache for the heap search - helps the string code 
@@ -1111,7 +1113,7 @@ void removefile(char*);
 void formatdisk(short);
 
 /* low level serial code */
-#if !defined(ARDUINO) && ( !defined(MSDOS) || defined(MINGW) )
+#if !defined(ARDUINO) && ( defined(MSDOS) || defined(MINGW) )
 typedef unsigned int uint32_t;
 #endif
 void picogetchar(char);
