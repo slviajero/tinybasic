@@ -1113,7 +1113,7 @@ void removefile(char*);
 void formatdisk(short);
 
 /* low level serial code */
-#if !defined(ARDUINO) && ( defined(MSDOS) || defined(MINGW) )
+#if !defined(ARDUINO) && ( defined(MSDOS) || defined(MINGW) || defined(MINGW64) )
 typedef unsigned int uint32_t;
 #endif
 void picogetchar(char);
