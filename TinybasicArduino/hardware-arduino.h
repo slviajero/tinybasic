@@ -4369,7 +4369,7 @@ volatile static short picoi = 1;
 const uint16_t MIN_2X_BAUD = F_CPU/(4*(2*0XFFF + 1)) + 1;
 
 /* the begin code */
-void picobegin(uint32_t baud) {
+void picobegin(unsigned long baud) {
     uint16_t baud_setting;
     cli();               
     if ((F_CPU != 16000000UL || baud != 57600) && baud > MIN_2X_BAUD) {

@@ -1113,12 +1113,9 @@ void removefile(char*);
 void formatdisk(short);
 
 /* low level serial code */
-#if !defined(ARDUINO) && ( defined(MSDOS) || defined(MINGW) )
-typedef unsigned int uint32_t;
-#endif
 void picogetchar(char);
 void picowrite(char);
-void picobegin(uint32_t);
+void picobegin(unsigned long);
 void picoins(char, short);
 void serialbegin();
 int serialstat(char);
