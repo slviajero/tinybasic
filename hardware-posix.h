@@ -439,7 +439,7 @@ void formatdisk(short i) {
  *	Primary serial code uses putchar / getchar
  */
 #ifdef POSIXNONBLOCKING
-#ifndef MSDOS
+#if !defined(MSDOS) && !defined(MINGW)
 #include <fcntl.h>
 
 /* we need to poll the serial port in non blocking mode 
@@ -492,12 +492,26 @@ void serialflush() {
 	while (getchar() != -1);
 }
 #else
-/* the non blocking MSDOS code - not yet implemented do getch() here */
+/* the non blocking MSDOS and MINGW code */
+#include <conio.h>
+/* we go way back in time here and do it like DOS did it */ 
 void serialbegin(){}
-char serialread() { return getchar(); }
-short serialcheckch(){ return 1; }
-short serialavailable() { return 1; }
-void serialflush() {}
+
+/* we either look in the shallow buffer or ask */
+char serialread() { 
+	return getchar();
+}
+
+/* see if we have something, check if a key is hit, get it and remember it */
+short serialcheckch(){ 
+	if (kbhit()) return getch();
+}
+
+short serialavailable() {
+	return 1;
+}
+
+void serialflush() { }
 #endif
 #else 
 void serialbegin(){}
