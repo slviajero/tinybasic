@@ -497,20 +497,22 @@ void serialflush() {
 /* we go way back in time here and do it like DOS did it */ 
 void serialbegin(){}
 
-/* we either look in the shallow buffer or ask */
+/* we go through the terminal on read */
 char serialread() { 
 	return getchar();
 }
 
-/* see if we have something, check if a key is hit, get it and remember it */
+/* check if a key is hit, get it and return it */
 short serialcheckch(){ 
 	if (kbhit()) return getch();
 }
 
+/* simple version */
 short serialavailable() {
 	return 1;
 }
 
+/* simple version */
 void serialflush() { }
 #endif
 #else 
