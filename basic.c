@@ -260,7 +260,6 @@
 #include "hardware-posix.h"
 #endif
 
-
 /*
  *
  * BASIC timer stuff, this is a core interpreter function now
@@ -309,7 +308,6 @@ void byield() {
  
  /* call the background task scheduler on some platforms implemented in hardware- */
 	yieldschedule();
-
 }
 
 /* delay must be implemented to use byield() while waiting */
@@ -5455,7 +5453,7 @@ void xload(const char* f) {
 				return;
 			} 
 
-    	bi=ibuffer+1;
+    bi=ibuffer+1;
 		while (fileavailable()) {
       		ch=fileread();
       		if (ch == '\n' || ch == '\r' || ch == -1) {
@@ -7389,7 +7387,8 @@ void statement(){
 #if defined(BREAKCHAR)
 		if (checkch() == BREAKCHAR) {
 			st=SINT; 
-			xc=inch(); 
+			// xc=inch(); 
+			serialflush();
 			return;
 		}; 
 #endif
@@ -7407,6 +7406,8 @@ void statement(){
 		if (breaksignal) {
 			st=SINT; 
 			breaksignal=0;
+			serialflush();
+			outcr();
 			return;
 		}
 #endif

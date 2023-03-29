@@ -1,6 +1,6 @@
 /*
  *
- * $Id: hardware-posix.h,v 1.5 2023/02/18 20:16:59 stefan Exp stefan $
+ * $Id: hardware-posix.h,v 1.6 2023/03/25 08:09:07 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *
@@ -33,6 +33,9 @@
 
 /* do we handle signals? */
 #define HASSIGNALS
+
+/* experimental code for non blocking I/0 */
+#define POSIXNONBLOCKING
 
 /* the MINGW variants */
 #ifdef MINGW64
@@ -80,6 +83,8 @@ void wiringbegin() {
 mem_t breaksignal = 0;
 void signalhandler(int sig){
 	breaksignal=1;
+#if !defined(MINGW)
+#endif
 	signal(SIGINT, signalhandler);
 }
 #endif
@@ -291,6 +296,7 @@ void btone(short a) { pop(); pop(); if (a == 3) pop(); }
 void yieldfunction() {}
 void longyieldfunction() {}
 void yieldschedule() {}
+
 /* 
  *	The file system driver - all methods needed to support BASIC fs access
  *	MSDOS to be done 
@@ -432,12 +438,81 @@ void formatdisk(short i) {
 /*
  *	Primary serial code uses putchar / getchar
  */
+#ifdef POSIXNONBLOCKING
+#ifndef MSDOS
+#include <fcntl.h>
+
+/* we need to poll the serial port in non blocking mode 
+		this slows it down so that we don't block an entire core 
+		read speed here is one character per millisecond which
+		is 8000 baud, no one can type that fast but tedious when
+		from stdin */
+void freecpu() {
+	struct timespec intervall;
+	struct timespec rtmp;
+	intervall.tv_sec=0;
+	intervall.tv_nsec=1000000;
+	nanosleep(&intervall, &rtmp);
+}
+
+/* for non blocking I/O try to modify the stdin file descriptor */
+void serialbegin() {
+ fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
+}
+
+/* get and unget the character */
+short serialcheckch(){ 
+	char ch=getchar();
+	ungetc(ch, stdin);
+	return ch;
+}
+
+/* check EOF, don't use feof()) here */
+short serialavailable() { 
+ if (serialcheckch() == -1) return 0; else return 1;
+}
+
+/* two versions of serialread */
+char serialread() { 
+	char ch;
+/* go back to blocking and let the OS handle the wait - this means: no call to byield() in interaction */
+	fcntl(0, F_SETFL, fcntl(0, F_GETFL) & ~O_NONBLOCK);
+	ch=getchar();
+	fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
+	return ch;
+/* this is the code that waits - calls byield() often just like on the Arduino */
+/*
+	while (serialcheckch() == -1) { byield(); freecpu(); }
+	return getchar(); 
+*/
+}
+
+/* flushes the serial code in non blocking mode */
+void serialflush() {
+	while (getchar() != -1);
+}
+#else
+/* the non blocking MSDOS code - not yet implemented do getch() here */
 void serialbegin(){}
+char serialread() { return getchar(); }
+short serialcheckch(){ return 1; }
+short serialavailable() { return 1; }
+void serialflush() {}
+#endif
+#else 
+void serialbegin(){}
+char serialread() { return getchar(); }
+short serialcheckch(){ return 1; }
+short serialavailable() { return 1; }
+void serialflush() {}
+#endif
+
 int serialstat(char c) {
 	if (c == 0) return 1;
   if (c == 1) return serial_baudrate;
   return 0;
 }
+
 void serialwrite(char c) { 
 #ifdef HASMSTAB
 	if (c > 31) charcount+=1;
@@ -461,9 +536,7 @@ void serialwrite(char c) {
 	putchar(c); 
 #endif
 }
-char serialread() { return getchar(); }
-short serialcheckch(){ return 1; }
-short serialavailable() {return 1; }
+
 
 /*
  * reading from the console with inch 
