@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.c,v 1.142 2023/02/18 20:16:59 stefan Exp stefan $ 
+ *	$Id: basic.c,v 1.143 2023/03/25 08:09:07 stefan Exp stefan $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -260,7 +260,6 @@
 #include "hardware-posix.h"
 #endif
 
-
 /*
  *
  * BASIC timer stuff, this is a core interpreter function now
@@ -309,7 +308,6 @@ void byield() {
  
  /* call the background task scheduler on some platforms implemented in hardware- */
 	yieldschedule();
-
 }
 
 /* delay must be implemented to use byield() while waiting */
@@ -2394,6 +2392,13 @@ void nexttoken() {
 /* after change in buffer logic the first byte is reserved for the length */
 	if (bi == ibuffer) bi++;
 
+/* literal mode - experimental - EOL ends literal mode*/
+	if (lexliteral) {
+		token=*bi;
+		if (*bi != '\0') bi++; else lexliteral=0;
+		return;
+	}
+
 /* remove whitespaces outside strings */
 	whitespaces();
 
@@ -2537,6 +2542,7 @@ void nexttoken() {
 		if (xc == 0) continue;
 		bi+=xc;
 		token=gettokenvalue(yc);
+		if (token == TREM) lexliteral=1;
 		if (DEBUG) debugtoken();
 		return;
 	}
@@ -4832,11 +4838,14 @@ void xnext(){
 void outputtoken() {
 	address_t i;
 
+	if (token == LINENUMBER) outliteral=0;
+
+	if (token == TREM) outliteral=1;
+
 	if (spaceafterkeyword) {
 		if (token != '(' && token != LINENUMBER && token !=':' ) outspc();
 		spaceafterkeyword=0;
 	}
-
 
 	switch (token) {
 		case NUMBER:
@@ -4858,7 +4867,7 @@ void outputtoken() {
 			outch('"'); 
 			outs(ir, x); 
 			outch('"');
-			break;;
+			break;
 		default:
 			if (token < -3 && token > -122) {
 				if ((token == TTHEN || 
@@ -4873,12 +4882,12 @@ void outputtoken() {
 					if (lastouttoken == NUMBER || lastouttoken == VARIABLE) outspc(); 
 				for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 				outsc(getkeyword(i)); 
-				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) spaceafterkeyword=1;
+				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL && token != TREM) spaceafterkeyword=1;
 				break;
 			}	
 			if (token >= 32) {
 				outch(token);
-				if (token == ':') outspc();
+				if (token == ':' && !outliteral) outspc();
 				break;
 			} 
 			outch(token); outspc(); outnumber(token);
@@ -5444,7 +5453,7 @@ void xload(const char* f) {
 				return;
 			} 
 
-    	bi=ibuffer+1;
+    bi=ibuffer+1;
 		while (fileavailable()) {
       		ch=fileread();
       		if (ch == '\n' || ch == '\r' || ch == -1) {
@@ -7378,7 +7387,7 @@ void statement(){
 #if defined(BREAKCHAR)
 		if (checkch() == BREAKCHAR) {
 			st=SINT; 
-			xc=inch(); 
+			if (od == 1) serialflush(); else xc=inch();
 			return;
 		}; 
 #endif
@@ -7396,6 +7405,8 @@ void statement(){
 		if (breaksignal) {
 			st=SINT; 
 			breaksignal=0;
+			serialflush();
+			outcr();
 			return;
 		}
 #endif

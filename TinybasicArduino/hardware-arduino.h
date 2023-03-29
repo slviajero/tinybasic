@@ -4510,7 +4510,7 @@ short serialcheckch() {
 #ifdef USESPICOSERIAL
 	return picochar;
 #else
-	if (SERIALPORT.available()) return SERIALPORT.peek(); else return 0;
+	if (SERIALPORT.available()) return SERIALPORT.peek(); else return 0; // should really be -1
 #endif	
 }
 
@@ -4522,6 +4522,16 @@ short serialavailable() {
 	return SERIALPORT.available();
 #endif	
 }
+
+/* flush serial */
+void serialflush() {
+#ifdef USESPICOSERIAL
+  return;
+#else
+  while (SERIALPORT.available()) SERIALPORT.read();
+#endif 
+}
+
 
 /*
  * reading from the console with inch or the picoserial callback
