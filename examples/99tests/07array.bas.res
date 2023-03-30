@@ -59,7 +59,7 @@ Autodimensioning C
 9 0.574448
 10 6.30035
 Testing B() and @()
-Size of memory array= 16076
+Size of memory array= 16075
 1   6   6   = 6  
 2   12  12  = 12 
 3   18  18  = 18 
