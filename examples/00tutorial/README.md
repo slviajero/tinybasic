@@ -98,6 +98,7 @@ BASIC has timers and interrupts build in. They can trigger a GOTO or GOSUB comma
 BASIC graphics commands are plotting and setting colours.
 
 - MandelVGA: mandelv.bas - plot the Mandelbrot set with VGA colours.
+- Plot: plot.bas - simple plot test program
 
 ### More programs to play with
 
