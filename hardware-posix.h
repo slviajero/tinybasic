@@ -34,7 +34,7 @@
 /* do we handle signals? */
 #define HASSIGNALS
 
-/* experimental code for non blocking I/0 */
+/* experimental code for non blocking I/0 - only supported on Mac and some MINGW*/
 #define POSIXNONBLOCKING
 
 /* the MINGW variants */
@@ -81,12 +81,21 @@ void wiringbegin() {
 #ifdef HASSIGNALS
 #include <signal.h>
 mem_t breaksignal = 0;
+
+/* simple signal handler */
 void signalhandler(int sig){
 	breaksignal=1;
-#if !defined(MINGW)
-#endif
 	signal(SIGINT, signalhandler);
 }
+
+/* activate signal handling */
+void signalon() {
+	signal(SIGINT, signalhandler);
+}
+
+/* deactivate signal handling unused and not yet done*/
+void signaloff() {}
+
 #endif
 
 /*
@@ -330,7 +339,7 @@ void filewrite(char c) { if (ofile) fputc(c, ofile); else ert=1;}
 char fileread(){
 	char c;
 	if (ifile) c=fgetc(ifile); else { ert=1; return 0; }
-	if (c == -1 ) ert=-1;
+	if (cheof(c)) ert=-1;
 	return c;
 }
 
@@ -436,7 +445,12 @@ void formatdisk(short i) {
 }
 
 /*
- *	Primary serial code uses putchar / getchar
+ * Primary serial code, if NONBLOCKING is set, 
+ * platform dependent I/O is used. This means that 
+ * UNIXes use fcntl() to implement a serialcheckch
+ * and MSDOS as well als WIndows use kbhit(). 
+ * This serves only to interrupt programs with 
+ * BREAKCHAR at the moment. 
  */
 #ifdef POSIXNONBLOCKING
 #if !defined(MSDOS) && !defined(MINGW)
@@ -447,6 +461,7 @@ void formatdisk(short i) {
 		read speed here is one character per millisecond which
 		is 8000 baud, no one can type that fast but tedious when
 		from stdin */
+/*
 void freecpu() {
 	struct timespec intervall;
 	struct timespec rtmp;
@@ -454,42 +469,48 @@ void freecpu() {
 	intervall.tv_nsec=1000000;
 	nanosleep(&intervall, &rtmp);
 }
+*/
 
 /* for non blocking I/O try to modify the stdin file descriptor */
 void serialbegin() {
+/* we keep I/O mostly blocking here */
+/*
  fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
+*/
 }
 
-/* get and unget the character */
+/* get and unget the character in a non blocking way */
 short serialcheckch(){ 
-	char ch=getchar();
+ 	fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
+	int ch=getchar();
 	ungetc(ch, stdin);
+	fcntl(0, F_SETFL, fcntl(0, F_GETFL) & ~O_NONBLOCK);
 	return ch;
 }
 
 /* check EOF, don't use feof()) here */
 short serialavailable() { 
- if (serialcheckch() == -1) return 0; else return 1;
+ if (cheof(serialcheckch())) return 0; else return 1;
 }
 
 /* two versions of serialread */
 char serialread() { 
 	char ch;
-/* go back to blocking and let the OS handle the wait - this means: no call to byield() in interaction */
-	fcntl(0, F_SETFL, fcntl(0, F_GETFL) & ~O_NONBLOCK);
+/* blocking to let the OS handle the wait - this means: no call to byield() in interaction */
 	ch=getchar();
-	fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
 	return ch;
 /* this is the code that waits - calls byield() often just like on the Arduino */
 /*
-	while (serialcheckch() == -1) { byield(); freecpu(); }
+	while (cheof(serialcheckch())) { byield(); freecpu(); }
 	return getchar(); 
 */
 }
 
 /* flushes the serial code in non blocking mode */
 void serialflush() {
-	while (getchar() != -1);
+	fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
+	while (!cheof(getchar()));
+	fcntl(0, F_SETFL, fcntl(0, F_GETFL) & ~O_NONBLOCK);
 }
 #else
 /* the non blocking MSDOS and MINGW code */
@@ -516,6 +537,7 @@ short serialavailable() {
 void serialflush() { }
 #endif
 #else 
+/* the blocking code only uses puchar and getchar */
 void serialbegin(){}
 char serialread() { return getchar(); }
 short serialcheckch(){ return 1; }
@@ -567,7 +589,7 @@ void consins(char *b, short nb) {
 	while(z.a < nb) {
 		c=inch();
 		if (c == '\r') c=inch();
-		if (c == '\n' || c == -1 ) { /* terminal character is either newline or EOF */
+		if (c == '\n' || cheof(c)) { /* terminal character is either newline or EOF */
 			break;
 		} else {
 			b[z.a++]=c;
