@@ -32,7 +32,7 @@
 #undef MINGW
 #undef MINGW64
 #undef MSDOS
-#undef RASPPI
+#define RASPPI
 
 /*
 	interpreter feature sets, choose one of the predefines 
@@ -1758,8 +1758,8 @@ void ioinit() {
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 	dspbegin();
 #endif
-#ifdef ARDUINOVGA
-	vgabegin();  /* mind this - the fablib code is special here */
+#if defined(ARDUINOVGA) || defined(POSIXFRAMEBUFFER)
+	vgabegin();  /* mind this - the fablib code and framebuffer is special here */
 #endif
 #ifdef ARDUINOSENSORS
 	sensorbegin();

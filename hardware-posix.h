@@ -37,9 +37,17 @@
 /* experimental code for non blocking I/0 - only supported on Mac and some MINGW*/
 #define POSIXNONBLOCKING
 
+/* try to use the frame buffer on linux rasbian */
+#define POSIXFRAMEBUFFER
+
 /* the MINGW variants */
 #ifdef MINGW64
 #define MINGW
+#endif
+
+/* frame bugger health check */ 
+#ifndef RASPPI
+#undef POSIXFRAMEBUFFER
 #endif
 
 #if ! defined(ARDUINO) && ! defined(__HARDWAREH__)
@@ -147,13 +155,16 @@ void spibegin() {}
 const int dsp_rows=0;
 const int dsp_columns=0;
 void dspsetupdatemode(char c) {}
-void dspwrite(char c){};
-void dspbegin() {};
+void dspwrite(char c){}
+void dspbegin() {}
 int dspstat(char c) {return 0; }
 char dspwaitonscroll() { return 0; }
 char dspactive() {return 0; }
 void dspsetscrollmode(char c, short l) {}
 void dspsetcursor(short c, short r) {}
+
+#ifndef POSIXFRAMEBUFFER
+/* these are the graphics commands */
 void rgbcolor(int r, int g, int b) {}
 void vgacolor(short c) {}
 void plot(int x, int y) {}
@@ -162,8 +173,110 @@ void rect(int x0, int y0, int x1, int y1)   {}
 void frect(int x0, int y0, int x1, int y1)  {}
 void circle(int x0, int y0, int r) {}
 void fcircle(int x0, int y0, int r) {}
+
+/* stubs for the vga code part analogous to ESP32 */
 void vgabegin(){}
 void vgawrite(char c){}
+#else
+/* code example from ... */
+#include <unistd.h>
+#include <sys/fcntl.h>
+#include <sys/ioctl.h>
+#include <linux/fb.h>
+#include <sys/mman.h>
+
+/* 'global' variables to store screen info */
+char *framemem = 0;
+int framedesc = 0;
+struct fb_var_screeninfo vinfo;
+struct fb_fix_screeninfo finfo;
+struct fb_var_screeninfo orig_vinfo;
+
+long framecolor = 0xffffff;
+long framescreensize = 0;
+
+void vgabegin() {
+
+/* see if we can open the framebuffer device */
+  framedesc = open("/dev/fb0", O_RDWR);
+  if (!framedesc) {
+	printf("** error opening frame buffer \n");
+	return;
+  } 
+
+/* now get the variable info of the screen */
+  if (ioctl(framedesc, FBIOGET_VSCREENINFO, &vinfo)) 
+  {
+	printf("** error reading screen information \n");
+	return;
+  }
+  printf("** detected screen %dx%d, %dbpp \n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
+
+/* this is unused at the moment, we take the screen as it is */
+/*
+  memcpy(&orig_vinfo, &vinfo, sizeof(struct fb_var_screeninfo)); 
+  vinfo.bits_per_pixel = 24; // Change variable info
+  if (ioctl(framedesc, FBIOPUT_VSCREENINFO, &vinfo)) {
+  	printf("** error setting variable information \n");
+	return;
+  }
+*/
+
+/* get the fixed information of the screen */
+  if (ioctl(framedesc, FBIOGET_FSCREENINFO, &finfo)) {
+ 	printf("Error reading fixed information.\n");
+	return;
+  }
+
+/* now ready to memory map the screen - evil, we assume 24 bit without checking */
+  framescreensize = 3 * vinfo.xres * vinfo.yres;  
+  framemem = (char*)mmap(0, framescreensize, PROT_READ | PROT_WRITE, MAP_SHARED, framedesc, 0);
+  if ((int)framemem == -1) {
+   	printf("** error failed to mmap.\n");
+	return;
+  }
+
+/* if all went well we have valid non -1 framemem and can continue */
+}
+
+/* this function does not exist in the ESP32 world because we don't care there */
+void vgaend() {
+  if ((int)framemem != -1) munmap(framemem, framescreensize); 
+/* not needed, we take the screen as it is */
+/*
+  if (ioctl(framedesc, FBIOPUT_VSCREENINFO, &orig_vinfo)) {
+  	printf("** error re-setting variable information \n");
+  }
+*/
+  close(framedesc);
+}
+
+/* set the color variable */
+void rgbcolor(int r, int g, int b) {
+      framecolor = (((long)r << 16) & 0x00ff0000) | (((long)g << 8) & 0x0000ff00) | ((long)b & 0x000000ff);
+}
+
+void vgacolor(short c) {}
+
+/* plot directly into the framebuffer */
+void plot(int x, int y) {
+  unsigned long pix_offset;
+  pix_offset = 3 * x + y * finfo.line_length;
+  *((char*)(framemem + pix_offset  )) = (unsigned char)(framecolor         & 0x000000ff);
+  *((char*)(framemem + pix_offset+1)) = (unsigned char)((framecolor >>  8) & 0x000000ff);
+  *((char*)(framemem + pix_offset+2)) = (unsigned char)((framecolor >> 16) & 0x000000ff);
+  return;
+}
+
+void line(int x0, int y0, int x1, int y1)   {}
+void rect(int x0, int y0, int x1, int y1)   {}
+void frect(int x0, int y0, int x1, int y1)  {}
+void circle(int x0, int y0, int r) {}
+void fcircle(int x0, int y0, int r) {}
+
+/* not needed really */
+void vgawrite(char c){}
+#endif
 
 /* 
  * Keyboard code stubs
