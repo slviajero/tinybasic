@@ -1723,10 +1723,13 @@ void ioinit() {
 	sendcr = 0;
 #endif
 
-/* signal handling */ 
-#ifdef HASSIGNALS
-	signal(SIGINT, signalhandler);
-#endif
+/* signal handling - by default SIGINT which is ^C is always caught and 
+	leads to program stop. Side effect: the interpreter cannot be stopped 
+	with ^C, it has to be left with CALL 0, works on Linux, Mac and MINGW
+	but not on DOSBOX MSDOS as DOSBOS does not handle CTRL BREAK correctly 
+	DOS can be interrupted with the CONIO mechanism using BREAKCHAR. 
+*/ 
+	signalon();
 
 /* this is only for RASPBERRY - wiring has to be started explicitly */
 	wiringbegin();
@@ -5456,7 +5459,7 @@ void xload(const char* f) {
     bi=ibuffer+1;
 		while (fileavailable()) {
       		ch=fileread();
-      		if (ch == '\n' || ch == '\r' || ch == -1) {
+      		if (ch == '\n' || ch == '\r' || cheof(ch)) {
         		*bi=0;
         		bi=ibuffer+1;
         		nexttoken();
@@ -6775,7 +6778,7 @@ processdata:
 	error(EUNKNOWN);
 
 enddatarecord:
-	if (token == NUMBER && s == -1) {x=-x; s=1; }
+	if (token == NUMBER && s == -1) { x=-x; s=1; }
 	data=here;
 	datarc++;
 	here=h;
@@ -7387,8 +7390,7 @@ void statement(){
 #if defined(BREAKCHAR)
 		if (checkch() == BREAKCHAR) {
 			st=SINT; 
-			// xc=inch(); 
-			serialflush();
+			if (od == 1) serialflush(); else xc=inch();
 			return;
 		}; 
 #endif

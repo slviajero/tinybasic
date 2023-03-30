@@ -940,6 +940,10 @@ void timeinit() {}
 /* starting wiring is only needed on raspberry */
 void wiringbegin() {}
 
+/* signal handling stubs, only needed on POSIX */
+void signalon() {}
+void signaloff() {}
+
 /*
  * helper functions OS, heuristic on how much memory is 
  * available in BASIC
@@ -4023,17 +4027,17 @@ char fileread(){
 	char c;
 #if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
 	if (ifile) c=ifile.read(); else { ert=1; return 0; }
-	if (c == -1 || c == 255) ert=-1;
+	if (cheof(c)) ert=-1;
 	return c;
 #endif
 #ifdef RP2040LITTLEFS
 	if (ifile) c=fgetc(ifile); else { ert=1; return 0; }
-	if (c == -1 || c == 255) ert=-1;
+	if (cheof(c)) ert=-1;
 	return c;
 #endif
 #ifdef ARDUINOEFS
 	if (ifile) c=EFS.fgetc(ifile); else { ert=1; return 0; }
-	if (c == -1|| c == 255) ert=-1;
+	if (cheof(c)) ert=-1;
 	return c;
 #endif
 	return 0;
@@ -4510,7 +4514,7 @@ short serialcheckch() {
 #ifdef USESPICOSERIAL
 	return picochar;
 #else
-	if (SERIALPORT.available()) return SERIALPORT.peek(); else return 0;
+	if (SERIALPORT.available()) return SERIALPORT.peek(); else return 0; // should really be -1
 #endif	
 }
 
@@ -4522,6 +4526,16 @@ short serialavailable() {
 	return SERIALPORT.available();
 #endif	
 }
+
+/* flush serial */
+void serialflush() {
+#ifdef USESPICOSERIAL
+  return;
+#else
+  while (SERIALPORT.available()) SERIALPORT.read();
+#endif 
+}
+
 
 /*
  * reading from the console with inch or the picoserial callback
@@ -4543,7 +4557,7 @@ void consins(char *b, short nb) {
   		c=inch();
   		if (id == ISERIAL || id == IKEYBOARD) outch(c); /* this is local echo */
   		if (c == '\r') c=inch(); 			/* skip carriage return */
-  		if (c == '\n' || c == -1 || c == 255) { 	/* terminal character is either newline or EOF */
+  		if (c == '\n' || cheof(c)) { 	/* terminal character is either newline or EOF */
     		break;
   		} else if (c == 127 || c == 8) {
         if (z.a>1) z.a--;
