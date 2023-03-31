@@ -178,104 +178,196 @@ void fcircle(int x0, int y0, int r) {}
 void vgabegin(){}
 void vgawrite(char c){}
 #else
-/* code example from ... */
-#include <unistd.h>
+/* 
+ * This is the first draft of the linux framebuffer code 
+ * currently very raw, works only if the framebuffer is 24 bit 
+ * very few checks, all kind of stuff can go wrong here.
+ * 
+ * Main ideas and some part of the code came from this
+ * article https://www.mikrocontroller.net/topic/379335
+ * by Andy W.
+ * 
+ * Bresenham's algorithm came from the Wikipedia article 
+ * and this very comprehensive discussion
+ * http://members.chello.at/~easyfilter/bresenham.html
+ * by Alois Zingl from the Vienna Technikum. I also recommend
+ * his thesis: http://members.chello.at/%7Eeasyfilter/Bresenham.pdf
+ * 
+ */
 #include <sys/fcntl.h>
 #include <sys/ioctl.h>
 #include <linux/fb.h>
 #include <sys/mman.h>
+#include <string.h>
 
 /* 'global' variables to store screen info */
 char *framemem = 0;
 int framedesc = 0;
+
+/* info from the frame buffer itself */
 struct fb_var_screeninfo vinfo;
 struct fb_fix_screeninfo finfo;
 struct fb_var_screeninfo orig_vinfo;
 
+/* the color variable of the frame buffer */
 long framecolor = 0xffffff;
+int  framevgacolor = 0x0f;
 long framescreensize = 0;
 
+
+/* prepare the framebuffer device */
 void vgabegin() {
 
 /* see if we can open the framebuffer device */
-  framedesc = open("/dev/fb0", O_RDWR);
-  if (!framedesc) {
-	printf("** error opening frame buffer \n");
-	return;
-  } 
+	framedesc = open("/dev/fb0", O_RDWR);
+	if (!framedesc) {
+		printf("** error opening frame buffer \n");
+		return;
+	} 
 
 /* now get the variable info of the screen */
-  if (ioctl(framedesc, FBIOGET_VSCREENINFO, &vinfo)) 
-  {
-	printf("** error reading screen information \n");
-	return;
-  }
-  printf("** detected screen %dx%d, %dbpp \n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
+	if (ioctl(framedesc, FBIOGET_VSCREENINFO, &vinfo)) {
+		printf("** error reading screen information \n");
+		return;
+	}
+	printf("** detected screen %dx%d, %dbpp \n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
 
-/* this is unused at the moment, we take the screen as it is */
-/*
-  memcpy(&orig_vinfo, &vinfo, sizeof(struct fb_var_screeninfo)); 
-  vinfo.bits_per_pixel = 24; // Change variable info
-  if (ioctl(framedesc, FBIOPUT_VSCREENINFO, &vinfo)) {
-  	printf("** error setting variable information \n");
-	return;
-  }
-*/
+/* BASIC currently does 24 bit color only */
+	memcpy(&orig_vinfo, &vinfo, sizeof(struct fb_var_screeninfo)); 
+	vinfo.bits_per_pixel = 24; 
+	if (ioctl(framedesc, FBIOPUT_VSCREENINFO, &vinfo)) {
+		printf("** error setting variable information \n");
+		return;
+	}
 
 /* get the fixed information of the screen */
-  if (ioctl(framedesc, FBIOGET_FSCREENINFO, &finfo)) {
- 	printf("Error reading fixed information.\n");
-	return;
-  }
+	if (ioctl(framedesc, FBIOGET_FSCREENINFO, &finfo)) {
+		printf("Error reading fixed information.\n");
+		return;
+	}
 
 /* now ready to memory map the screen - evil, we assume 24 bit without checking */
-  framescreensize = 3 * vinfo.xres * vinfo.yres;  
-  framemem = (char*)mmap(0, framescreensize, PROT_READ | PROT_WRITE, MAP_SHARED, framedesc, 0);
-  if ((int)framemem == -1) {
-   	printf("** error failed to mmap.\n");
-	return;
-  }
+	framescreensize = 3 * vinfo.xres * vinfo.yres;  
+	framemem = (char*)mmap(0, framescreensize, PROT_READ | PROT_WRITE, MAP_SHARED, framedesc, 0);
+	if ((int)framemem == -1) {
+		printf("** error failed to mmap.\n");
+		framemem=0;
+		return;
+	}
 
 /* if all went well we have valid non -1 framemem and can continue */
 }
 
 /* this function does not exist in the ESP32 world because we don't care there */
 void vgaend() {
-  if ((int)framemem != -1) munmap(framemem, framescreensize); 
-/* not needed, we take the screen as it is */
-/*
-  if (ioctl(framedesc, FBIOPUT_VSCREENINFO, &orig_vinfo)) {
-  	printf("** error re-setting variable information \n");
-  }
-*/
-  close(framedesc);
+	if ((int)framemem) munmap(framemem, framescreensize); 
+	if (ioctl(framedesc, FBIOPUT_VSCREENINFO, &orig_vinfo)) {
+		printf("** error re-setting variable information \n");
+	}
+	close(framedesc);
 }
 
 /* set the color variable */
 void rgbcolor(int r, int g, int b) {
-      framecolor = (((long)r << 16) & 0x00ff0000) | (((long)g << 8) & 0x0000ff00) | ((long)b & 0x000000ff);
+	framecolor = (((long)r << 16) & 0x00ff0000) | (((long)g << 8) & 0x0000ff00) | ((long)b & 0x000000ff);
 }
 
-void vgacolor(short c) {}
+/* this is taken from the Arduino TFT code */
+void vgacolor(short c) {
+  short base=128;
+  framevgacolor=c;
+  if (c==8) { rgbcolor(64, 64, 64); return; }
+  if (c>8) base=255;
+  rgbcolor(base*(c&1), base*((c&2)/2), base*((c&4)/4));  
+}
 
 /* plot directly into the framebuffer */
 void plot(int x, int y) {
-  unsigned long pix_offset;
-  pix_offset = 3 * x + y * finfo.line_length;
-  *((char*)(framemem + pix_offset  )) = (unsigned char)(framecolor         & 0x000000ff);
-  *((char*)(framemem + pix_offset+1)) = (unsigned char)((framecolor >>  8) & 0x000000ff);
-  *((char*)(framemem + pix_offset+2)) = (unsigned char)((framecolor >> 16) & 0x000000ff);
-  return;
+	unsigned long pix_offset;
+	pix_offset = 3 * x + y * finfo.line_length;
+	*((char*)(framemem + pix_offset  )) = (unsigned char)(framecolor         & 0x000000ff);
+	*((char*)(framemem + pix_offset+1)) = (unsigned char)((framecolor >>  8) & 0x000000ff);
+	*((char*)(framemem + pix_offset+2)) = (unsigned char)((framecolor >> 16) & 0x000000ff);
 }
 
-void line(int x0, int y0, int x1, int y1)   {}
-void rect(int x0, int y0, int x1, int y1)   {}
-void frect(int x0, int y0, int x1, int y1)  {}
-void circle(int x0, int y0, int r) {}
-void fcircle(int x0, int y0, int r) {}
+/* Bresenham's algorith from Wikipedia */
+void line(int x0, int y0, int x1, int y1) {
+	int dx, dy, sx, sy;
+	int error, e2;
+	
+	dx=abs(x0-x1);
+	sx=x0 < x1 ? 1 : -1;
+	dy=-abs(y1-y0);
+	sy=y0 < y1 ? 1 : -1;
+	error=dx+dy;
 
-/* not needed really */
-void vgawrite(char c){}
+	while(1) {
+		plot(x0, y0);
+		if (x0 == x1 && y0 == y1) break;
+		e2=2*error;
+		if (e2 > dy) {
+			if (x0 == x1) break;
+			error=error+dy;
+			x0=x0+sx;
+		}
+		if (e2 <= dx) {
+			if (y0 == y1) break;
+			error=error+dx;
+			y0=y0+sy;
+		}
+	}
+}
+
+/* rects could also be drawn with hline and vline */
+void rect(int x0, int y0, int x1, int y1) {
+	line(x0, y0, x1, y0);
+	line(x1, y0, x1, y1);
+	line(x1, y1, x0, y1);
+	line(x0, y1, x0, y0); 
+}
+
+/* filled rect, also just using line right now */
+void frect(int x0, int y0, int x1, int y1) {
+	int dx, sx;
+	int x;
+	sx=x0 < x1 ? 1 : -1;
+	for(x=x0; x != x1; x=x+sx) line(x, y0, x, y1);
+}
+
+/* Bresenham for circles, based on Alois Zingl's work */
+void circle(int x0, int y0, int r) {
+	int x, y, err;
+	x=-r;
+	y=0; 
+	err=2-2*r;
+	do {
+		plot(x0-x, y0+y);
+		plot(x0-y, y0-x);
+		plot(x0+x, y0-y);
+		plot(x0+y, y0+x);
+		r=err;
+		if (r <= y) err+=++y*2+1;
+		if (r > x || err > y) err+=++x*2+1;
+	} while (x < 0);
+}
+
+/* for filled circles draw lines instead of points */
+void fcircle(int x0, int y0, int r) {
+	int x, y, err;
+	x=-r;
+	y=0; 
+	err=2-2*r;
+	do {
+		line(x0-x, y0+y, x0+x, y0+y);
+		line(x0+x, y0-y, x0-x, y0-y);
+		r=err;
+		if (r <= y) err+=++y*2+1;
+		if (r > x || err > y) err+=++x*2+1;
+	} while (x < 0);
+}
+
+/* not needed really, now, later yes ;-) */
+void vgawrite(char c) {}
 #endif
 
 /* 

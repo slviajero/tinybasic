@@ -32,7 +32,7 @@
 #undef MINGW
 #undef MINGW64
 #undef MSDOS
-#define RASPPI
+#undef RASPPI
 
 /*
 	interpreter feature sets, choose one of the predefines 
@@ -6693,6 +6693,9 @@ void xcall() {
 /* flush the EEPROM dummy and the output file and then exit */
 			eflush();  
 			ofileclose();
+#if defined(POSIXFRAMEBUFFER)
+			vgaend();  /* clean up if you have played with the framebuffer */
+#endif
 			restartsystem();
 			break;
 /* restart the filesystem - only test code */
