@@ -9,12 +9,13 @@ useable on a number of architectures like Arduino AVR, ESP8266, ESP32, SAMD, RP2
 
 Arithmetic is 16 bit, 32bit or float depending on the compiler settings and the platform. The full set of Dartmouth language features like ON GOSUB and DEF FN is implemented. Strings are Apple 1 style. They are essentially integer arrays like in C. Conditions are also C style meaning part of the arithmetic.
 
-
 ## What is special - peripheral and Arduino I/O support
 
 Just like the home computer BASICs of the old times, IoTBasic is a small standalone operating system. It supports a number of peripherals and can be extended to new peripherals fast as there are generic device driver stubbs in the code.
 
 Supported platforms right now are all 8bit Arduino AVR systems, LGT8 systems, the various Arduino 32bit systems like the MKR and of cource the RP2040, plain Rasberry PI Pico, ESP8266 and ESP32, Infineon XMC, Seeeduino Xiao and STM32. A full list of supported platforms can be found here https://github.com/slviajero/tinybasic/wiki/Hardware-Platforms.
+
+For Raspberry PI with Linux, frame buffer graphics and wiring is supported just like on the microcontroller platforms.
 
 Filesystems like Arduino SD, SPIFFS and LittleFS are supported on microcontrollers. EEPROMS can be used
 as BASIC filesystem. This includes I2C external EEPROMS.
