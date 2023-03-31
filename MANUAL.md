@@ -1790,6 +1790,14 @@ will pass the argument to the special string @A$. Only the first argument is pro
 
 will pass both words to @A$. 
 
+### Raspberry PI special features
+
+On a Raspberry PI, frame buffer graphics is supported. The graphics commands COLOR, PLOT. LINE, RECT, FRECT, CIRCLE and FCIRCLE will write 24bit color pixels directly to the frame buffer. This feature is under development and will be fully supported in the 1.5 release after more testing. 
+
+Wiring is supported with the Arduino style commands PINM, DWRITE, AWRITE, DREAD and AREAD. 
+
+I2C and other wiring features like PULSE are not yet supported. 
+
 ### Wemos D1R1 systems and shields
 
 These UNO form factor 8266 are really popular as they are cheap and powerful. BASIC supports these boards as datalogger and standalone systems. They are not really UNO hardware compatible, so some precautions are required. 
