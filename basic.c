@@ -5702,6 +5702,11 @@ void xset(){
 			bpulseunit=args;
 			break;
 #endif
+#ifdef POSIXVT52TOANSI 
+		case 15:
+			vt52active=args;
+			break;
+#endif
 	}
 }
 

@@ -30,6 +30,8 @@
 
 /* translate some ASCII control sequences to POSIX, tested on Mac */
 #define POSIXTERMINAL
+/* use a pseudo VT52 to ANSI translation for compatibility with Arduino */
+#define POSIXVT52TOANSI
 
 /* do we handle signals? */
 #define HASSIGNALS
@@ -398,7 +400,6 @@ char vt52read() { return 0; }
 
 /* Display driver would be here, together with vt52 */
 
-
 /* 
  * Real Time clock code 
  */
@@ -760,32 +761,246 @@ void serialflush() {}
 
 int serialstat(char c) {
 	if (c == 0) return 1;
-  if (c == 1) return serial_baudrate;
-  return 0;
+	if (c == 1) return serial_baudrate;
+	return 0;
 }
 
+/* send the CSI sequence to start with ANSI */
+void sendcsi() {
+	putchar(27); putchar('['); /* CSI */
+}
+
+/* the vt52 state engine */
+#ifdef POSIXVT52TOANSI
+#include <stdlib.h>
+mem_t dspesc = 0;
+mem_t vt52s = 0;
+int cursory = 0;
+mem_t vt52active = 1;
+
+/* something little */
+uint8_t vt52number(char c) {
+	uint8_t b=c;
+	if (b>31) return b-32; else return 0;
+}
+
+/* set the cursor */
+void dspsetcursory(int i) {
+	cursory=i;
+}
+
+/* remember the position */
+void dspsetcursorx(int i) {
+	sendcsi();
+	printf("%d;%dH", abs(cursory)+1, abs(i)+1);
+}
+
+/* set colors, vga here */
+void dspsetfgcolor(int co) {
+	sendcsi();
+	if (co < 8) {
+		putchar('3');
+	} else {
+		putchar('9');
+		co=co-8;
+	}
+	putchar('0'+co);
+	putchar('m');
+}
+
+void dspsetbgcolor(int co) {
+	sendcsi();
+	if (co < 8) {
+		putchar('4');
+	} else {
+		putchar('1'); putchar('0');
+		co=co-8;
+	}
+	putchar('0'+co);
+	putchar('m');
+}
+
+/* vt52 state engine, a smaller version of the Arduino code*/
+void dspvt52(char* c){
+  
+/* reading and processing multi byte commands */
+  switch (vt52s) {
+    case 'Y':
+      if (dspesc == 2) { 
+        dspsetcursory(vt52number(*c));
+        dspesc=1; 
+        *c=0;
+        return;
+      }
+      if (dspesc == 1) { 
+        dspsetcursorx(vt52number(*c)); 
+        *c=0; 
+      }
+      vt52s=0; 
+      break;
+    case 'b':
+      dspsetfgcolor(vt52number(*c));
+      *c=0;
+      vt52s=0;
+      break;
+    case 'c':
+      dspsetbgcolor(vt52number(*c));
+      *c=0;
+      vt52s=0;
+      break;
+  }
+ 
+/* commands of the terminal in text mode */
+  switch (*c) {
+    case 'v': /* GEMDOS / TOS extension enable wrap */
+      break;
+    case 'w': /* GEMDOS / TOS extension disable wrap */
+      break;
+    case '^': /* Printer extensions - print on */
+      break;
+    case '_': /* Printer extensions - print off */
+      break;
+    case 'W': /* Printer extensions - print without display on */
+      break;
+    case 'X': /* Printer extensions - print without display off */
+      break;
+    case 'V': /* Printer extensions - print cursor line */
+      break;
+    case ']': /* Printer extension - print screen */
+      break;
+    case 'F': /* enter graphics mode */
+      break;
+    case 'G': /* exit graphics mode */
+      break;
+    case 'Z': // Ident 
+      break;
+    case '=': // alternate keypad on 
+    case '>': // alternate keypad off 
+      break;
+    case 'b': // GEMDOS / TOS extension text color 
+    case 'c': // GEMDOS / TOS extension background color 
+      vt52s=*c;
+      dspesc=1;
+      *c=0;
+      return;
+    case 'e': // GEMDOS / TOS extension enable cursor
+      break;
+    case 'f': // GEMDOS / TOS extension disable cursor 
+      break;
+    case 'p': // GEMDOS / TOS extension reverse video 
+      break;
+    case 'q': // GEMDOS / TOS extension normal video 
+      break;
+    case 'A': // cursor up
+    	sendcsi();
+    	putchar('A');
+      break;
+    case 'B': // cursor down 
+    	sendcsi();
+    	putchar('B');
+      break;
+    case 'C': // cursor right 
+    	sendcsi();
+    	putchar('C');
+      break; 
+    case 'D': // cursor left 
+    	sendcsi();
+    	putchar('D');
+      break;
+    case 'E': // GEMDOS / TOS extension clear screen 
+    	*c=12; 
+    	dspesc=0;
+      return;
+    case 'H': // cursor home 
+    	*c=2;
+    	dspesc=0;
+      return;  
+    case 'Y': // Set cursor position 
+      vt52s='Y';
+      dspesc=2;
+      *c=0;
+      return;
+    case 'J': // clear to end of screen 
+    	sendcsi();
+    	putchar('J');
+      break;
+    case 'd': // GEMDOS / TOS extension clear to start of screen 
+    	sendcsi();
+    	putchar('1'); putchar('J');
+      break;
+    case 'K': // clear to the end of line
+    	sendcsi();
+    	putchar('K');
+      break;
+    case 'l': // GEMDOS / TOS extension clear line 
+    	sendcsi();
+    	putchar('2'); putchar('K');
+      break;
+    case 'o': // GEMDOS / TOS extension clear to start of line
+    	sendcsi();
+    	putchar('1'); putchar('K');
+      break;
+    case 'k': // GEMDOS / TOS extension restore cursor
+      break;
+    case 'j': // GEMDOS / TOS extension save cursor
+      break;
+    case 'I': // reverse line feed
+    	putchar(27);
+    	putchar('M');
+      break;
+    case 'L': // Insert line
+      break;
+    case 'M': // Delete line - questionable 
+    	sendcsi();
+    	putchar('2'); putchar('K');
+      break;
+  }
+  dspesc=0;
+  *c=0;
+}
+#endif
+
 void serialwrite(char c) { 
+
+/* do we have a MS style tab command ? */
 #ifdef HASMSTAB
 	if (c > 31) charcount+=1;
 	if (c == 10) charcount=0;
 #endif
+
+/* the vt52 state engine */
+#ifdef POSIXVT52TOANSI
+  if (dspesc) { 
+    dspvt52(&c); 
+    if (c == 0) return;
+  }
+
+/* ESC is caught here and we only listen to VT52 not to ANSI */
+  if (c == 27 && vt52active) {
+  	dspesc=1;
+  	return;
+  }
+#endif
+
+/* this is the character translation routine to convert the Arduino 
+	style characters 12 for CLS and 2 for HOME to ANSI, makes 
+	BASIC programs more compatible */
 #ifdef POSIXTERMINAL
 	switch (c) {
 /* form feed is clear screen - compatibility with Arduino code */
 		case 12:
-			putchar(27); putchar('['); /* CSI */
+			sendcsi();
 			putchar('2'); putchar('J');
 /* home sequence in the arduino code */
 		case 2: 
-			putchar(27); putchar('['); /* CSI */
+			sendcsi();
 			putchar('H');
-			break;
-		default:
-			putchar(c);
+			return;
 	}
-#else
-	putchar(c); 
 #endif
+
+/* finally send the plain character */	
+	putchar(c);
 }
 
 
