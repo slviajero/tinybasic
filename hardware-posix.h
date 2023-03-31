@@ -284,7 +284,15 @@ void vgacolor(short c) {
 /* plot directly into the framebuffer */
 void plot(int x, int y) {
 	unsigned long pix_offset;
+
+/* is everything in range, no error here */
+	if (x < 0 || y < 0 || x >= vinfo.xres || y >= vinfo.yres) return; 
+
+/* find the memory location - currently only 24 bit supported */
 	pix_offset = 3 * x + y * finfo.line_length;
+	if (pix_offset < 0 || pix_offset+2 > framescreensize) return;
+
+/* write to the buffer */
 	*((char*)(framemem + pix_offset  )) = (unsigned char)(framecolor         & 0x000000ff);
 	*((char*)(framemem + pix_offset+1)) = (unsigned char)((framecolor >>  8) & 0x000000ff);
 	*((char*)(framemem + pix_offset+2)) = (unsigned char)((framecolor >> 16) & 0x000000ff);
