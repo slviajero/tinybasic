@@ -940,10 +940,6 @@ void timeinit() {}
 /* starting wiring is only needed on raspberry */
 void wiringbegin() {}
 
-/* signal handling stubs, only needed on POSIX */
-void signalon() {}
-void signaloff() {}
-
 /*
  * helper functions OS, heuristic on how much memory is 
  * available in BASIC
@@ -986,6 +982,12 @@ long freememorysize() {
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_LGT8F) 
   int overhead=192;
+#ifdef HASFLOAT 
+  overhead+=96;
+#endif
+#ifdef ARDUINO_AVR_MEGA2560
+  overhead+=96;
+#endif
 #ifdef ARDUINOWIRE
   overhead+=128;
 #endif
@@ -4027,17 +4029,17 @@ char fileread(){
 	char c;
 #if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
 	if (ifile) c=ifile.read(); else { ert=1; return 0; }
-	if (cheof(c)) ert=-1;
+	if (c == -1 || c == 255) ert=-1;
 	return c;
 #endif
 #ifdef RP2040LITTLEFS
 	if (ifile) c=fgetc(ifile); else { ert=1; return 0; }
-	if (cheof(c)) ert=-1;
+	if (c == -1 || c == 255) ert=-1;
 	return c;
 #endif
 #ifdef ARDUINOEFS
 	if (ifile) c=EFS.fgetc(ifile); else { ert=1; return 0; }
-	if (cheof(c)) ert=-1;
+	if (c == -1|| c == 255) ert=-1;
 	return c;
 #endif
 	return 0;
@@ -4557,7 +4559,7 @@ void consins(char *b, short nb) {
   		c=inch();
   		if (id == ISERIAL || id == IKEYBOARD) outch(c); /* this is local echo */
   		if (c == '\r') c=inch(); 			/* skip carriage return */
-  		if (c == '\n' || cheof(c)) { 	/* terminal character is either newline or EOF */
+  		if (c == '\n' || c == -1 || c == 255) { 	/* terminal character is either newline or EOF */
     		break;
   		} else if (c == 127 || c == 8) {
         if (z.a>1) z.a--;

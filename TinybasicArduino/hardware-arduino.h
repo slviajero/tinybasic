@@ -982,6 +982,12 @@ long freememorysize() {
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_LGT8F) 
   int overhead=192;
+#ifdef HASFLOAT 
+  overhead+=96;
+#endif
+#ifdef ARDUINO_AVR_MEGA2560
+  overhead+=96;
+#endif
 #ifdef ARDUINOWIRE
   overhead+=128;
 #endif
