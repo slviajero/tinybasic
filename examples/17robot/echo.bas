@@ -1,0 +1,11 @@
+300 REM "Echo variables"
+310 REM "TP is trigger pin, EP is echo pin"
+320 TP=5: EP=6
+9999 END
+13000 REM "Sensor code, return value in E"
+13010 PINM TP,1: PINM EP,0
+13020 DWRITE TP,0
+13030 PULSE TP,10
+13040 E=PULSE(EP,1,100)
+13050 E=E/29*100/2
+13060 RETURN
