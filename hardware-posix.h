@@ -25,29 +25,37 @@
 /* simulates SPI RAM, only test code, keep undefed if you don't want to do something special */
 #undef SPIRAMSIMULATOR
 
-/* use a serial port as printer interface - unfinished */
+/* use a serial port as printer interface - unfinished - similar to Arduino */
 #define ARDUINOPRT
 
-/* translate some ASCII control sequences to POSIX, tested on Mac */
+/* 
+ * Hardware flags of the POSIX systems 
+ * POSIXTERMINAL, POSIXVT52TOANSI: ensure compatibility of BASIC programs  
+ * 	control characters of BASIC are translated to ANSI, bringing the Aruino 
+ * 	VT52 commands to POSIX
+ * POSIXSIGNALS: enables signal handling of ^C interrupting programs
+ * POSIXNONBLOCKING: non blocking I/O to handle GET and the BREAKCHAR 
+ * 	tricky on DOS, not very portable
+ * POSIXFRAMEBUFFER: directly draw to the frame buffer of Raspberry PI
+ * 	only tested on this platform
+ */
+
 #define POSIXTERMINAL
-/* use a pseudo VT52 to ANSI translation for compatibility with Arduino */
 #define POSIXVT52TOANSI
-
-/* do we handle signals? */
-#define HASSIGNALS
-
-/* experimental code for non blocking I/0 - only supported on Mac and some MINGW*/
+#define POSIXSIGNALS
 #define POSIXNONBLOCKING
-
-/* try to use the frame buffer on linux rasbian */
 #define POSIXFRAMEBUFFER
 
-/* the MINGW variants */
-#ifdef MINGW64
-#define MINGW
-#endif
+/* used pins and other parameters */
 
-/* frame bugger health check */ 
+/* set this is you want pin 4 on low interrupting the interpreter */
+/* #define BREAKPIN 4 */
+#undef BREAKPIN
+
+/* the SIGNAL the interpreters listens to for interrupt */
+#define BREAKSIGNAL SIGINT
+
+/* frame buffer health check */ 
 #ifndef RASPPI
 #undef POSIXFRAMEBUFFER
 #endif
@@ -88,19 +96,19 @@ void wiringbegin() {
 /*
  * signal handling 
  */
-#ifdef HASSIGNALS
+#ifdef POSIXSIGNALS
 #include <signal.h>
 mem_t breaksignal = 0;
 
 /* simple signal handler */
 void signalhandler(int sig){
 	breaksignal=1;
-	signal(SIGINT, signalhandler);
+	signal(BREAKSIGNAL, signalhandler);
 }
 
 /* activate signal handling */
 void signalon() {
-	signal(SIGINT, signalhandler);
+	signal(BREAKSIGNAL, signalhandler);
 }
 
 /* deactivate signal handling unused and not yet done*/
@@ -127,9 +135,8 @@ long freeRam() {
 /* 
  * the sleep and restart functions
  */
-void restartsystem() {exit(0);}
+void restartsystem() { exit(0);}
 void activatesleep(long t) {}
-
 
 /* 
  * start the SPI bus 
@@ -394,7 +401,7 @@ char kbdavailable(){ return 0;}
 char kbdread() { return 0;}
 char kbdcheckch() { return 0;}
 
-/* vt52 code stubs */
+/* vt52 code stubs - unused here - needed for basic.c */
 mem_t vt52avail() {return 0;}
 char vt52read() { return 0; }
 
@@ -486,21 +493,25 @@ void pinm(number_t p, number_t m){}
 #else
 void aread(){ push(analogRead(pop())); }
 void dread(){ push(digitalRead(pop())); }
+
+
 void awrite(number_t p, number_t v){
 	if (v >= 0 && v<256) analogWrite(p, v);
 	else error(EORANGE);
 }
+
 void dwrite(number_t p, number_t v){
 	if (v == 0) digitalWrite(p, LOW);
 	else if (v == 1) digitalWrite(p, HIGH);
 	else error(EORANGE);
 }
+
+/* pin Modes without range check, values in wiringPi are different from Arduino*/
 void pinm(number_t p, number_t m){
-	if (m>=0 && m<=1) pinMode(p, m);
+	if (m>=0) pinMode(p, m);
 	else error(EORANGE); 
 }
 #endif
-
 
 /* we need to to millis by hand except for RASPPI with wiring */
 #if ! defined(RASPPI)
@@ -614,7 +625,7 @@ int rootnextfile() {
 }
 
 int rootisfile() {
-#if !defined(MSDOS) && !defined(MINGW64)
+#if !defined(MSDOS) && !defined(MINGW)
   return (file->d_type == DT_REG);
 #else
   return 1;
@@ -1162,6 +1173,8 @@ void wireopen(char s, char m) {}
 void wireins(char *b, uint8_t l) { b[0]=0; z.a=0; }
 void wireouts(char *b, uint8_t l) {}
 short wireavailable() { return 1; }
+short wirereadbyte(short port) { return 0; }
+void wirewritebyte(short port, short data) { return; }
 
 /* 
  *	Read from the radio interface, radio is always block 

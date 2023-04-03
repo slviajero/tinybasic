@@ -940,6 +940,9 @@ void timeinit() {}
 /* starting wiring is only needed on raspberry */
 void wiringbegin() {}
 
+/* POSIX signals - not needed here */
+void signalon() {}
+
 /*
  * helper functions OS, heuristic on how much memory is 
  * available in BASIC
@@ -4771,12 +4774,24 @@ void wireouts(char *b, uint8_t l) {
 #endif
   }
 }
+/* single byte access functions on Wire */
+short wirereadbyte(short port) { 
+    if (!Wire.requestFrom(port, 1)) ert=1;
+    return Wire.read();
+}
+void wirewritebyte(short port, short data) { 
+  Wire.beginTransmission(port); 
+  Wire.write(data);
+  Wire.endTransmission();
+}
 #else
 int wirestat(char c) {return 0; }
 void wireopen(char s, char m) {}
 void wireins(char *b, uint8_t l) { b[0]=0; z.a=0; }
 void wireouts(char *b, uint8_t l) {}
 short wireavailable() { return 0; }
+short wirereadbyte(short port) { return 0; }
+void wirewritebyte(short port, short data) { return; }
 #endif
 
 /* 

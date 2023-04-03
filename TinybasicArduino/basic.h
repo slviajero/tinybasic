@@ -263,7 +263,7 @@ typedef unsigned char uint8_t;
  *	BREAKCHAR is the character stopping the program on Ardunios
  *  BREAKPIN can be set, it is a pin that needs to go to low to stop a BASIC program
  *    This should be done in hardware*.h
- * 
+ *  BREAKSIGNAL can also be set, should be done in hardware*.h
  */
 #define SINT 0
 #define SRUN 1
@@ -271,7 +271,7 @@ typedef unsigned char uint8_t;
 #define BREAKCHAR '#'
 
 /* 
- *	Arduino input and output channels
+ *	Input and output channels
  */
 #define OSERIAL 1
 #define ODSP 2
@@ -373,7 +373,7 @@ const char scatalog[] PROGMEM = "CATALOG";
 const char sdelete[]  PROGMEM = "DELETE";
 const char sfopen[]   PROGMEM = "OPEN";
 const char sfclose[]  PROGMEM = "CLOSE";
-const char sfdisk[]  PROGMEM = "FDISK";
+const char sfdisk[]   PROGMEM = "FDISK";
 #endif
 /* low level access functions */
 #ifdef HASSTEFANSEXT
@@ -1123,6 +1123,7 @@ char serialread();
 void serialwrite(char);
 short serialcheckch();
 short serialavailable();
+void serialflush();
 void consins(char*, short);
 void prtbegin();
 int prtstat(char);
@@ -1141,6 +1142,8 @@ void wireopen(char, char);
 void wireins(char*, uint8_t);
 void wireouts(char*, uint8_t);
 short wireavailable();
+short wirereadbyte(short);
+void  wirewritebyte(short, short);
 
 /* RF24 radio input */
 int radiostat(char);
@@ -1252,7 +1255,16 @@ void clrgosubstack();
 void ioinit();
 void iodefaults();
 
+/* signal handling */
+void signalon();
+void signaloff();
+void signalhandler();
+
 /* character and string I/O functions */
+/* we live in world where char may be signed or unsigned and keep it 
+    that way on the lowest level, hence this function, fully defined here, 
+    mostly inlined anyway*/
+int cheof(int c) { if ((c == -1) || (c == 255)) return 1; else return 0; }
 /* input */
 char inch();
 char checkch();
@@ -1421,6 +1433,10 @@ void xassign();
 void xavail();
 void xfsensor();
 void xsleep();
+void xwire();
+void xfwire();
+
+/* timers */
 void xafter();
 void xevent();
 

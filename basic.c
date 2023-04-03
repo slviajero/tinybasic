@@ -30,7 +30,6 @@
  *
  */
 #undef MINGW
-#undef MINGW64
 #undef MSDOS
 #undef RASPPI
 
@@ -3741,6 +3740,9 @@ void factor(){
 				return;	
 			}
 			break;
+		case TWIRE:
+			parsefunction(xfwire, 1);
+			break;
 #endif
 #ifdef HASERRORHANDLING
 		case TERROR:
@@ -6087,6 +6089,30 @@ void xsleep() {
 	if (er != 0) return; 
 	activatesleep(pop());
 }
+
+/* 
+ * single byte wire access - keep it simple 
+ */
+
+void xwire() {
+	short port, data;
+	nexttoken();
+#ifdef ARDUINOWIRE
+	parsenarguments(2);
+	if (er != 0) return; 
+	data=pop();
+	port=pop();
+	wirewritebyte(port, data);
+#endif
+}
+
+void xfwire() {
+#ifdef ARDUINOWIRE
+	push(wirereadbyte(pop()));
+#else 
+#endif
+}
+
 #endif
 
 /*
@@ -7374,6 +7400,9 @@ void statement(){
 			case TSLEEP:
 				xsleep();
 				break;	
+			case TWIRE:
+				xwire();
+				break;
 #endif
 #ifdef HASTIMER
 			case TAFTER:
@@ -7412,7 +7441,7 @@ void statement(){
 #endif	
 
 /* and then there is also signal handling on some platforms */
-#if defined(HASSIGNALS)
+#if defined(POSIXSIGNALS)
 		if (breaksignal) {
 			st=SINT; 
 			breaksignal=0;

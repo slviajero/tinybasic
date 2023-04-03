@@ -30,7 +30,6 @@
  *
  */
 #undef MINGW
-#undef MINGW64
 #undef MSDOS
 #undef RASPPI
 
@@ -1723,10 +1722,13 @@ void ioinit() {
 	sendcr = 0;
 #endif
 
-/* signal handling */ 
-#ifdef HASSIGNALS
-	signal(SIGINT, signalhandler);
-#endif
+/* signal handling - by default SIGINT which is ^C is always caught and 
+	leads to program stop. Side effect: the interpreter cannot be stopped 
+	with ^C, it has to be left with CALL 0, works on Linux, Mac and MINGW
+	but not on DOSBOX MSDOS as DOSBOS does not handle CTRL BREAK correctly 
+	DOS can be interrupted with the CONIO mechanism using BREAKCHAR. 
+*/ 
+	signalon();
 
 /* this is only for RASPBERRY - wiring has to be started explicitly */
 	wiringbegin();
@@ -1755,8 +1757,8 @@ void ioinit() {
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 	dspbegin();
 #endif
-#ifdef ARDUINOVGA
-	vgabegin();  /* mind this - the fablib code is special here */
+#if defined(ARDUINOVGA) || defined(POSIXFRAMEBUFFER)
+	vgabegin();  /* mind this - the fablib code and framebuffer is special here */
 #endif
 #ifdef ARDUINOSENSORS
 	sensorbegin();
@@ -3738,6 +3740,9 @@ void factor(){
 				return;	
 			}
 			break;
+		case TWIRE:
+			parsefunction(xfwire, 1);
+			break;
 #endif
 #ifdef HASERRORHANDLING
 		case TERROR:
@@ -5456,7 +5461,7 @@ void xload(const char* f) {
     bi=ibuffer+1;
 		while (fileavailable()) {
       		ch=fileread();
-      		if (ch == '\n' || ch == '\r' || ch == -1) {
+      		if (ch == '\n' || ch == '\r' || cheof(ch)) {
         		*bi=0;
         		bi=ibuffer+1;
         		nexttoken();
@@ -5697,6 +5702,11 @@ void xset(){
 #ifdef HASPULSE
 		case 14:
 			bpulseunit=args;
+			break;
+#endif
+#ifdef POSIXVT52TOANSI 
+		case 15:
+			vt52active=args;
 			break;
 #endif
 	}
@@ -6079,6 +6089,30 @@ void xsleep() {
 	if (er != 0) return; 
 	activatesleep(pop());
 }
+
+/* 
+ * single byte wire access - keep it simple 
+ */
+
+void xwire() {
+	short port, data;
+	nexttoken();
+#ifdef ARDUINOWIRE
+	parsenarguments(2);
+	if (er != 0) return; 
+	data=pop();
+	port=pop();
+	wirewritebyte(port, data);
+#endif
+}
+
+void xfwire() {
+#ifdef ARDUINOWIRE
+	push(wirereadbyte(pop()));
+#else 
+#endif
+}
+
 #endif
 
 /*
@@ -6690,6 +6724,9 @@ void xcall() {
 /* flush the EEPROM dummy and the output file and then exit */
 			eflush();  
 			ofileclose();
+#if defined(POSIXFRAMEBUFFER)
+			vgaend();  /* clean up if you have played with the framebuffer */
+#endif
 			restartsystem();
 			break;
 /* restart the filesystem - only test code */
@@ -6775,7 +6812,7 @@ processdata:
 	error(EUNKNOWN);
 
 enddatarecord:
-	if (token == NUMBER && s == -1) {x=-x; s=1; }
+	if (token == NUMBER && s == -1) { x=-x; s=1; }
 	data=here;
 	datarc++;
 	here=h;
@@ -7363,6 +7400,9 @@ void statement(){
 			case TSLEEP:
 				xsleep();
 				break;	
+			case TWIRE:
+				xwire();
+				break;
 #endif
 #ifdef HASTIMER
 			case TAFTER:
@@ -7401,7 +7441,7 @@ void statement(){
 #endif	
 
 /* and then there is also signal handling on some platforms */
-#if defined(HASSIGNALS)
+#if defined(POSIXSIGNALS)
 		if (breaksignal) {
 			st=SINT; 
 			breaksignal=0;
