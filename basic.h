@@ -165,7 +165,7 @@ typedef unsigned char uint8_t;
 #define TTHEN   -89
 #define TEND    -88
 #define TPOKE	-87
-/* Stefan's tinybasic additions (12) */
+/* Stefan's tinybasic additions (14) */
 #define TCONT   -86
 #define TSQR	-85
 #define TPOW	-84
@@ -178,70 +178,70 @@ typedef unsigned char uint8_t;
 #define TPUT    -77
 #define TSET    -76
 #define TCLS    -75
+#define TLOCATE -74
+#define TELSE   -73
 /* Arduino functions (10) */
-#define TPINM	-74
-#define TDWRITE	-73
-#define TDREAD	-72
-#define TAWRITE	-71
-#define TAREAD	-70
-#define TDELAY	-69
-#define TMILLIS	-68
-#define TTONE	-67
-#define TPULSE	-66
-#define TAZERO	-65
-#define TLED	-64
+#define TPINM	-72
+#define TDWRITE	-71
+#define TDREAD	-70
+#define TAWRITE	-69
+#define TAREAD	-68
+#define TDELAY	-67
+#define TMILLIS	-66
+#define TTONE	-65
+#define TPULSE	-64
+#define TAZERO	-63
+#define TLED	-62
 /* the DOS functions (5) */
-#define TCATALOG	-63
-#define TDELETE	-62
-#define TOPEN 	-61
-#define TCLOSE 	-60
-#define TFDISK  -59
+#define TCATALOG    -61
+#define TDELETE -60
+#define TOPEN 	-59
+#define TCLOSE 	-58
+#define TFDISK  -57
 /* low level access of internal routines (2) */
-#define TUSR	-58
-#define TCALL 	-57
+#define TUSR	-56
+#define TCALL 	-55
 /* mathematical functions (7) */
-#define TSIN 	-56
-#define TCOS    -55
-#define TTAN 	-54
-#define TATAN   -53
-#define TLOG    -52
-#define TEXP    -51
-#define TINT    -50
+#define TSIN 	-54
+#define TCOS    -53
+#define TTAN 	-52
+#define TATAN   -51
+#define TLOG    -50
+#define TEXP    -49
+#define TINT    -48
 /* graphics - experimental - rudimentary (7) */
-#define TCOLOR 	-49
-#define TPLOT   -48
-#define TLINE 	-47
-#define TCIRCLE -46
-#define TRECT   -45
-#define TFCIRCLE -44
-#define TFRECT   -43
+#define TCOLOR 	-47
+#define TPLOT   -46
+#define TLINE 	-45
+#define TCIRCLE -44
+#define TRECT   -43
+#define TFCIRCLE -42
+#define TFRECT   -41
 /* the Dartmouth extensions (6) */
-#define TDATA	-42
-#define TREAD   -41
-#define TRESTORE -40
-#define TDEF	-39
-#define TFN 	-38
-#define TON     -37
-/* the latecomer ELSE */
-#define TELSE 	-36
+#define TDATA	-40
+#define TREAD   -39
+#define TRESTORE    -38
+#define TDEF	-37
+#define TFN 	-36
+#define TON     -35
 /* darkarts (3) */
-#define TMALLOC -35
-#define TFIND   -34
-#define TEVAL   -33
+#define TMALLOC -34
+#define TFIND   -33
+#define TEVAL   -32
 /* iot extensions (9) */
-#define TERROR	-32
-#define TAVAIL	-31
-#define TSTR	-30
-#define TINSTR	-29
-#define TVAL	-28
-#define TNETSTAT	-27
-#define TSENSOR	-26
-#define TWIRE	-25
-#define TSLEEP	-24
+#define TERROR	-31
+#define TAVAIL	-30
+#define TSTR	-29
+#define TINSTR	-28
+#define TVAL	-27
+#define TNETSTAT    -26
+#define TSENSOR	-25
+#define TWIRE	-24
+#define TSLEEP	-23
 /* events and interrupts */
-#define TAFTER -23
-#define TEVERY -22
-#define TEVENT -21
+#define TAFTER -22
+#define TEVERY -21
+#define TEVENT -20
 /* end of tokens */
 /* constants used for some obscure purposes */
 #define TBUFFER -2
@@ -251,7 +251,7 @@ typedef unsigned char uint8_t;
 #define UNKNOWN -1
 
 /* the number of keywords, and the base index of the keywords */
-#define NKEYWORDS	3+19+13+12+11+5+2+7+7+7+12+3
+#define NKEYWORDS	3+19+13+14+11+5+2+7+7+6+12+3
 #define BASEKEYWORD -121
 
 /*
@@ -348,6 +348,8 @@ const char sget[]    PROGMEM = "GET";
 const char sput[]    PROGMEM = "PUT";
 const char sset[]    PROGMEM = "SET";
 const char scls[]    PROGMEM = "CLS";
+const char slocate[]  PROGMEM  = "LOCATE";
+const char selse[]  PROGMEM  = "ELSE";
 #endif
 /* Arduino functions */
 #ifdef HASARDUINOIO
@@ -410,10 +412,6 @@ const char sdef[] 	PROGMEM  = "DEF";
 const char sfn[]   	PROGMEM  = "FN";
 const char son[]   	PROGMEM  = "ON";
 #endif
-/* a latecomer the ELSE command */
-#ifdef HASSTEFANSEXT
-const char selse[]	PROGMEM  = "ELSE";
-#endif
 /* The Darkarts commands unthinkable in Dartmouth */
 #ifdef HASDARKARTS
 const char smalloc[]	PROGMEM  = "MALLOC";
@@ -445,7 +443,6 @@ const char sevent[]     PROGMEM  = "EVENT";
 #endif
 
 
-
 /* zero terminated keyword storage */
 const char* const keyword[] PROGMEM = {
 	sge, sle, sne, sprint, slet, sinput, 
@@ -462,7 +459,7 @@ const char* const keyword[] PROGMEM = {
 #endif
 	ssave, sload, 
 #ifdef HASSTEFANSEXT
-	sget, sput, sset, scls,
+	sget, sput, sset, scls, slocate, selse,
 #endif
 #ifdef HASARDUINOIO
     spinm, sdwrite, sdread, sawrite, saread, 
@@ -490,9 +487,6 @@ const char* const keyword[] PROGMEM = {
 #endif
 #ifdef HASDARTMOUTH
 	sdata, sread, srestore, sdef, sfn, son,
-#endif
-#ifdef HASSTEFANSEXT
-	selse,
 #endif
 #ifdef HASDARKARTS
 	smalloc, sfind, seval, 
@@ -528,7 +522,7 @@ const signed char tokens[] PROGMEM = {
 #endif
 	TSAVE, TLOAD, 
 #ifdef HASSTEFANSEXT	
-	TGET, TPUT, TSET, TCLS,
+	TGET, TPUT, TSET, TCLS, TLOCATE, TELSE,
 #endif
 #ifdef HASARDUINOIO
 	TPINM, TDWRITE, TDREAD, TAWRITE, TAREAD, TDELAY, TMILLIS,
@@ -556,9 +550,6 @@ const signed char tokens[] PROGMEM = {
 #endif
 #ifdef HASDARTMOUTH
 	TDATA, TREAD, TRESTORE, TDEF, TFN, TON, 
-#endif
-#ifdef HASSTEFANSEXT
-	TELSE,
 #endif
 #ifdef HASDARKARTS
 	TMALLOC, TFIND, TEVAL, 
@@ -1395,6 +1386,7 @@ void xpoke();
 void xtab();
 void xdump();
 void dumpmem(address_t, address_t, char);
+void xlocate();
 
 /* file access and other i/o */
 void stringtobuffer();
