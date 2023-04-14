@@ -38,6 +38,9 @@
  * 	tricky on DOS, not very portable
  * POSIXFRAMEBUFFER: directly draw to the frame buffer of Raspberry PI
  * 	only tested on this platform
+ * POSIXWIRE: simple Raspberry PI wire code - not finished
+ * POSIXMQTT: analogous to ARDUINOMQTT, send and receive MQTT messages
+ * POSIXWIRING: use the (deprectated) wiring code for gpio on Raspberry Pi
  */
 
 #define POSIXTERMINAL
@@ -45,6 +48,9 @@
 #define POSIXSIGNALS
 #define POSIXNONBLOCKING
 #define POSIXFRAMEBUFFER
+#define POSIXWIRE
+#define POSIXMQTT
+#undef POSIXWIRING
 
 /* used pins and other parameters */
 
@@ -88,7 +94,7 @@ void timeinit() { ftime(&start_time); }
 
 /* starting wiring for raspberry */
 void wiringbegin() {
-#ifdef RASPPI
+#ifdef POSIXWIRING
 	wiringPiSetup();
 #endif
 }
@@ -222,7 +228,7 @@ struct fb_var_screeninfo orig_vinfo;
 long framecolor = 0xffffff;
 int  framevgacolor = 0x0f;
 long framescreensize = 0;
-
+int framecolordepth = 0;
 
 /* prepare the framebuffer device */
 void vgabegin() {
@@ -243,11 +249,16 @@ void vgabegin() {
 
 /* BASIC currently does 24 bit color only */
 	memcpy(&orig_vinfo, &vinfo, sizeof(struct fb_var_screeninfo)); 
+/*
 	vinfo.bits_per_pixel = 24; 
 	if (ioctl(framedesc, FBIOPUT_VSCREENINFO, &vinfo)) {
 		printf("** error setting variable information \n");
 		return;
 	}
+*/
+
+/* how much color have we got */
+	framecolordepth = vinfo.bits_per_pixel;
 
 /* get the fixed information of the screen */
 	if (ioctl(framedesc, FBIOGET_FSCREENINFO, &finfo)) {
@@ -256,7 +267,8 @@ void vgabegin() {
 	}
 
 /* now ready to memory map the screen - evil, we assume 24 bit without checking */
-	framescreensize = 3 * vinfo.xres * vinfo.yres;  
+
+	framescreensize = (framecolordepth/8) * vinfo.xres * vinfo.yres;  
 	framemem = (char*)mmap(0, framescreensize, PROT_READ | PROT_WRITE, MAP_SHARED, framedesc, 0);
 	if ((int)framemem == -1) {
 		printf("** error failed to mmap.\n");
@@ -276,9 +288,22 @@ void vgaend() {
 	close(framedesc);
 }
 
-/* set the color variable */
+/* set the color variable depending on the color depth*/
 void rgbcolor(int r, int g, int b) {
-	framecolor = (((long)r << 16) & 0x00ff0000) | (((long)g << 8) & 0x0000ff00) | ((long)b & 0x000000ff);
+	switch (framecolordepth/8) {
+	case 4:
+		framecolor = (((long)r << 16) & 0x00ff0000) | (((long)g << 8) & 0x0000ff00) | ((long)b & 0x000000ff); /* untested */
+		break;
+	case 3:
+		framecolor = (((long)r << 16) & 0x00ff0000) | (((long)g << 8) & 0x0000ff00) | ((long)b & 0x000000ff);
+		break;
+	case 2:
+		framecolor = ((long) (r & 0xff) >> 3) << 10 | ((long) (g & 0xff) >> 2) << 6 | ((long) (b & 0xff) >> 3); /* untested */
+		break;
+	case 1:
+		framecolor = ((long) (r & 0xff) >> 5) << 5 | ((long) (g & 0xff) >> 5) << 2 | ((long) (b & 0xff) >> 6); /* untested */
+		break;
+	}
 }
 
 /* this is taken from the Arduino TFT code */
@@ -297,14 +322,32 @@ void plot(int x, int y) {
 /* is everything in range, no error here */
 	if (x < 0 || y < 0 || x >= vinfo.xres || y >= vinfo.yres) return; 
 
-/* find the memory location - currently only 24 bit supported */
-	pix_offset = 3 * x + y * finfo.line_length;
-	if (pix_offset < 0 || pix_offset+2 > framescreensize) return;
+/* find the memory location */
+	pix_offset = (framecolordepth/8) * x + y * finfo.line_length;
+
+	if (pix_offset < 0 || pix_offset+ (framecolordepth/8-1) > framescreensize) return;
 
 /* write to the buffer */
-	*((char*)(framemem + pix_offset  )) = (unsigned char)(framecolor         & 0x000000ff);
-	*((char*)(framemem + pix_offset+1)) = (unsigned char)((framecolor >>  8) & 0x000000ff);
-	*((char*)(framemem + pix_offset+2)) = (unsigned char)((framecolor >> 16) & 0x000000ff);
+	switch (framecolordepth/8) {
+	case 4:
+		*((char*)(framemem + pix_offset  )) = (unsigned char)(framecolor         & 0x000000ff);
+		*((char*)(framemem + pix_offset+1)) = (unsigned char)((framecolor >>  8) & 0x000000ff);
+		*((char*)(framemem + pix_offset+3)) = (unsigned char)((framecolor >> 16) & 0x000000ff);
+		break;
+	case 3:
+		*((char*)(framemem + pix_offset  )) = (unsigned char)(framecolor         & 0x000000ff);
+		*((char*)(framemem + pix_offset+1)) = (unsigned char)((framecolor >>  8) & 0x000000ff);
+		*((char*)(framemem + pix_offset+2)) = (unsigned char)((framecolor >> 16) & 0x000000ff);
+		break;
+	case 2:
+		*((char*)(framemem + pix_offset  )) = (unsigned char)((framecolor & 0x1f) + (((framecolor >> 5) & 0x03) << 6) ;
+		*((char*)(framemem + pix_offset+1)) = (unsigned char)((framecolor >> 7) & 0xff);
+		break;
+	case 1:
+		*((char*)(framemem + pix_offset  )) = (unsigned char)(framecolor         & 0x000000ff);
+		break;
+	}
+
 }
 
 /* Bresenham's algorith from Wikipedia */
@@ -445,6 +488,7 @@ void rtcset(uint8_t i, short v) {}
 /* 
  * Wifi and MQTT code 
  */
+#ifndef POSIXMQTT
 void netbegin() {}
 char netconnected() { return 0; }
 void mqttbegin() {}
@@ -455,6 +499,22 @@ void mqttsettopic(char *t) {}
 void mqttouts(char *m, short l) {}
 void mqttins(char *b, short nb) { z.a=0; };
 char mqttinch() {return 0;};
+#else 
+/* we use mosquitto */
+#include <mosquitto.h>
+/* we assume to be on the network */
+void netbegin() {}
+char netconnected() { return 1; }
+/* the mqtt code */
+void mqttbegin() {}
+int mqttstat(char c) {return 0; }
+int  mqttstate() {return -1;}
+void mqttsubscribe(char *t) {}
+void mqttsettopic(char *t) {}
+void mqttouts(char *m, short l) {}
+void mqttins(char *b, short nb) { z.a=0; };
+char mqttinch() {return 0;};
+#endif
 
 /* 
  *	EEPROM handling, these function enable the @E array and 
@@ -484,7 +544,7 @@ short eread(address_t a) { if (a>=0 && a<EEPROMSIZE) return eeprom[a]; else retu
 /* 
  *	the wrappers of the arduino io functions, to avoid 
  */	
-#ifndef RASPPI
+#ifndef POSIXWIRING
 void aread(){ return; }
 void dread(){ return; }
 void awrite(number_t p, number_t v){}
@@ -514,7 +574,7 @@ void pinm(number_t p, number_t m){
 #endif
 
 /* we need to to millis by hand except for RASPPI with wiring */
-#if ! defined(RASPPI)
+#if ! defined(POSIXWIRING)
 unsigned long millis() { 
 	struct timeb thetime;
 	ftime(&thetime);
@@ -1167,6 +1227,7 @@ short prtavailable(){ return 0; }
 /* 
  * The wire code 
  */ 
+#ifndef POSIXWIRE
 void wirebegin() {}
 int wirestat(char c) {return 0; }
 void wireopen(char s, char m) {}
@@ -1175,6 +1236,19 @@ void wireouts(char *b, uint8_t l) {}
 short wireavailable() { return 1; }
 short wirereadbyte(short port) { return 0; }
 void wirewritebyte(short port, short data) { return; }
+void wirewriteword(short port, short data1, short data2) { return; }
+#else
+#define HASWIRE
+void wirebegin() {}
+int wirestat(char c) {return 0; }
+void wireopen(char s, char m) {}
+void wireins(char *b, uint8_t l) { b[0]=0; z.a=0; }
+void wireouts(char *b, uint8_t l) {}
+short wireavailable() { return 1; }
+short wirereadbyte(short port) { return 0; }
+void wirewritebyte(short port, short data) { return; }
+void wirewriteword(short port, short data1, short data2) { return; }
+#endif
 
 /* 
  *	Read from the radio interface, radio is always block 

@@ -1741,7 +1741,7 @@ void ioinit() {
 #ifdef ARDUINOSPI
 	spibegin();
 #endif
-#ifdef NEEDSWIRE
+#ifdef HASWIRE
 	wirebegin();
 #endif
 
@@ -1800,7 +1800,7 @@ char inch() {
 		case IFILE:
 			return fileread();
 #endif
-#ifdef ARDUINOWIRE
+#if (defined(HASWIRE) && defined(HASFILEIO))
 		case IWIRE:
 			ins(sbuffer, 1);
 			if (sbuffer[0]>0) return sbuffer[1]; 
@@ -1852,7 +1852,7 @@ char checkch(){
 		case IMQTT:
 			if (mqtt_messagelength>0) return mqtt_buffer[0]; else return 0;
 #endif   
-#ifdef ARDUINOWIRE
+#if (defined(HASWIRE) && defined(HASFILEIO))
 		case IWIRE:
 			return 0;
 #endif
@@ -1886,7 +1886,7 @@ short availch(){
 		case IMQTT:
 			return mqtt_messagelength;
 #endif    		
-#ifdef ARDUINOWIRE
+#if (defined(HASWIRE) && defined(HASFILEIO))
 		case IWIRE:
 			return wireavailable();
 #endif
@@ -1965,7 +1965,7 @@ void inb(char *b, short nb) {
  */
 void ins(char *b, address_t nb) {
   switch(id) {
-#ifdef ARDUINOWIRE
+#if (defined(HASWIRE) && defined(HASFILEIO))
   	case IWIRE:
 			wireins(b, nb);
 			break;
@@ -2057,7 +2057,7 @@ void outs(char *ir, address_t l){
 			radioouts(ir, l);
 			break;
 #endif
-#ifdef ARDUINOWIRE
+#if (defined(HASWIRE) && defined(HASFILEIO))
 		case OWIRE:
 			wireouts(ir, l);
 			break;
@@ -4427,7 +4427,7 @@ void xinput(){
 	}
 /* unlink print, form can appear only once in input after the
 		stream, it controls character counts in wire */
-#ifdef ARDUINOWIRE
+#if (defined(HASWIRE) && defined(HASFILEIO))
 	if (token == '#') {
 		if(!expectexpr()) return;
 		form=pop();
@@ -5237,6 +5237,26 @@ void xtab(){
 	while (x-- > 0) outspc();	
 }
 #endif
+
+/* 
+ * locate the curor on the screen 
+ */
+
+void xlocate() {
+	nexttoken();
+	parsenarguments(2);
+	if (er != 0) return;
+
+	y=pop();
+	x=pop();
+
+/* for locate we go through the VT52 interface */
+	if (x > 0 && y > 0 && x < 224 & y < 224) {
+		outch(27); outch('Y');
+		outch(31+(unsigned int) y); 
+		outch(31+(unsigned int) x);
+	}
+}
 
 /* 
  *	Stefan's additions to Palo Alto BASIC
@@ -6095,19 +6115,30 @@ void xsleep() {
  */
 
 void xwire() {
-	short port, data;
+	short port, data1, data2;
 	nexttoken();
-#ifdef ARDUINOWIRE
-	parsenarguments(2);
+#ifdef HASWIRE
+	parsearguments();
 	if (er != 0) return; 
-	data=pop();
-	port=pop();
-	wirewritebyte(port, data);
+
+	if (args == 3) {
+		data2=pop();
+		data1=pop();
+		port=pop();	
+		wirewriteword(port, data1, data2);
+	} else if (args == 2) {
+		data1=pop();
+		port=pop();	
+		wirewritebyte(port, data1);
+	} else {
+		error(EARGS);
+		return;
+	}
 #endif
 }
 
 void xfwire() {
-#ifdef ARDUINOWIRE
+#ifdef HASWIRE
 	push(wirereadbyte(pop()));
 #else 
 #endif
@@ -6411,7 +6442,7 @@ void xdelete() {
  *	OPEN a file or I/O stream - very raw mix of different functions
  */
 void xopen() {
-#if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE) 
+#if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || (defined(HASWIRE) && defined(HASFILEIO))
 	char stream = IFILE; // default is file operation
 	char filename[SBUFSIZE];
 	int mode;
@@ -6481,7 +6512,7 @@ void xopen() {
 			}
 			break;
 #endif
-#ifdef ARDUINOWIRE
+#if (defined(HASWIRE) && defined(HASFILEIO))
 		case IWIRE:
 			wireopen(filename[0], mode);
 			break;
@@ -6516,7 +6547,7 @@ void xfopen() {
  *	CLOSE a file or stream 
  */
 void xclose() {
-#if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE)
+#if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || (defined(HASWIRE) && defined(HASFILEIO))
 	char stream = IFILE;
 	char mode;
 
@@ -6678,7 +6709,7 @@ void xusr() {
 			break;			
 #endif	
 /* access to properties of stream 7 - wire */
-#ifdef ARDUINOWIRE		
+#if (defined(HASWIRE) && defined(HASFILEIO))		
 		case 7: 
 			push(wirestat(arg));	
 			break;			
@@ -7291,6 +7322,9 @@ void statement(){
 				outch(12);
 				od=xc;
 				nexttoken();
+				break;
+			case TLOCATE:
+				xlocate();
 				break;
 /* low level functions as part of Stefan's extension */
 			case TCALL:

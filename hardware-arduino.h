@@ -276,7 +276,7 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 
 
 #if defined(ARDUINOSHT) || defined(ARDUINOLMS6) || defined(ARDUINOAHT) || defined(ARDUINOBMP280) || defined(RDUINOBME280)
-#define NEEDSWIRE
+#define ARDUINOWIRE
 #endif
 
 /*
@@ -555,7 +555,7 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 /*
  * Some settings, defaults, and dependencies
  * 
- * NEEDSWIRE is set to start wire. Some libraries do this again.
+ * HASWIRE is set to start wire. Some libraries do this again.
  * 
  * Handling Wire and SPI is tricky as some of the libraries 
  * also include and start SPI and Wire code. 
@@ -563,27 +563,27 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 
 /* a clock needs wire */
 #ifdef ARDUINORTC
-#define NEEDSWIRE
+#define ARDUINOWIRE
 #endif
 
 /* a display needs wire */
 #if defined(ARDUINOLCDI2C) || defined(ARDUINOSSD1306) 
-#define NEEDSWIRE
+#define ARDUINOWIRE
 #endif
 
 /* EEPROM storage needs wire */
 #if defined(ARDUINOEFS)
-#define NEEDSWIRE
+#define ARDUINOWIRE
 #endif
 
 /* external EEPROMs also need wire */
 #if defined(ARDUINOI2CEEPROM)
-#define NEEDSWIRE
+#define ARDUINOWIRE
 #endif
 
 /* plain Wire support also needs wire ;-) */
 #if defined(ARDUINOWIRE)
-#define NEEDSWIRE
+#define HASWIRE
 #endif
 
 /* radio needs SPI */
@@ -709,8 +709,8 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #include <SPI.h>
 #endif
 
-/* Standard wire - triggered by the NEEDSWIRE macro now */
-#ifdef NEEDSWIRE
+/* Standard wire - triggered by the HASWIRE macro now */
+#ifdef HASWIRE
 #include <Wire.h>
 #endif
 
@@ -4639,7 +4639,7 @@ void prtset(int s) {
  */ 
 
 /* this is always here, if Wire is needed by a subsysem */
-#ifdef NEEDSWIRE
+#ifdef HASWIRE
 /* default begin is as a master 
  * This doesn't work properly on the ESP32C3 platform
  * See  https://github.com/espressif/arduino-esp32/issues/6376 
@@ -4652,12 +4652,10 @@ void wirebegin() {
   Wire.begin(SDA_PIN, SCL_PIN);
 #endif
 }
-#else
-void wirebegin() {}
 #endif
 
 /* this is code needed for the OPEN/CLOSE and wireslave mechanisms */
-#ifdef ARDUINOWIRE
+#if (defined(ARDUINOWIRE) && defined(HASFILEIO))
 uint8_t wire_slaveid = 0;
 uint8_t wire_myid = 0;
 #define ARDUINOWIREBUFFER 32
@@ -4774,6 +4772,10 @@ void wireouts(char *b, uint8_t l) {
 #endif
   }
 }
+#endif
+
+/* plain wire without FILE I/O functions */
+#if (defined(ARDUINOWIRE))
 /* single byte access functions on Wire */
 short wirereadbyte(short port) { 
     if (!Wire.requestFrom(port, 1)) ert=1;
@@ -4784,7 +4786,24 @@ void wirewritebyte(short port, short data) {
   Wire.write(data);
   Wire.endTransmission();
 }
-#else
+void wirewriteword(short port, short data1, short data2) {
+  Wire.beginTransmission(port); 
+  Wire.write(data1);
+  Wire.write(data2);
+  Wire.endTransmission();
+}
+#endif
+
+#if (defined(ARDUINOWIRE) && !defined(HASFILEIO))
+int wirestat(char c) {return 0; }
+void wireopen(char s, char m) {}
+void wireins(char *b, uint8_t l) { b[0]=0; z.a=0; }
+void wireouts(char *b, uint8_t l) {}
+short wireavailable() { return 0; }
+#endif
+
+#ifndef ARDUINOWIRE
+void wirebegin() {}
 int wirestat(char c) {return 0; }
 void wireopen(char s, char m) {}
 void wireins(char *b, uint8_t l) { b[0]=0; z.a=0; }
@@ -4792,6 +4811,7 @@ void wireouts(char *b, uint8_t l) {}
 short wireavailable() { return 0; }
 short wirereadbyte(short port) { return 0; }
 void wirewritebyte(short port, short data) { return; }
+void wirewriteword(short port, short data1, short data2) { return; }
 #endif
 
 /* 
@@ -5371,6 +5391,10 @@ void bintroutine3() {
   detachInterrupt(digitalPinToInterrupt(eventlist[3].pin)); 
 }
 
+#ifndef ARDUINO_ARCH_MBED_RP2040
+typedef int PinStatus;
+#endif
+
 mem_t enableevent(int pin) {
   mem_t interrupt;
   int i;
@@ -5385,16 +5409,16 @@ mem_t enableevent(int pin) {
 /* attach the interrupt function to this pin */
   switch(i) {
     case 0: 
-      attachInterrupt(interrupt, bintroutine0, eventlist[i].mode); 
+      attachInterrupt(interrupt, bintroutine0, (PinStatus) eventlist[i].mode); 
       break;
     case 1:
-      attachInterrupt(interrupt, bintroutine1, eventlist[i].mode); 
+      attachInterrupt(interrupt, bintroutine1, (PinStatus) eventlist[i].mode); 
       break;
     case 2:
-      attachInterrupt(interrupt, bintroutine2, eventlist[i].mode); 
+      attachInterrupt(interrupt, bintroutine2, (PinStatus) eventlist[i].mode); 
       break;
     case 3:
-      attachInterrupt(interrupt, bintroutine3, eventlist[i].mode); 
+      attachInterrupt(interrupt, bintroutine3, (PinStatus) eventlist[i].mode); 
       break;
     default:
       return 0;
