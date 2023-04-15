@@ -41,16 +41,18 @@
  * POSIXWIRE: simple Raspberry PI wire code - not finished
  * POSIXMQTT: analogous to ARDUINOMQTT, send and receive MQTT messages
  * POSIXWIRING: use the (deprectated) wiring code for gpio on Raspberry Pi
+ * POSIXPIGPIO: use the pigpio library on a Raspberry PI
  */
 
 #define POSIXTERMINAL
 #define POSIXVT52TOANSI
 #define POSIXSIGNALS
 #define POSIXNONBLOCKING
-#define POSIXFRAMEBUFFER
-#define POSIXWIRE
-#define POSIXMQTT
+#undef POSIXFRAMEBUFFER
+#undef POSIXWIRE
+#undef POSIXMQTT
 #undef POSIXWIRING
+#undef POSIXPIGPIO
 
 /* used pins and other parameters */
 
@@ -65,6 +67,18 @@
 #ifndef RASPPI
 #undef POSIXFRAMEBUFFER
 #endif
+
+/* Wiring Code, which library to use */
+#ifdef POSIXWIRING
+#include <wiringPi.h>
+#endif
+
+#ifdef POSIXPIGPIO
+#include <pigpiod_if2.h>
+#undef POSIXWIRING
+static int pigpio_pi = 0;
+#endif
+
 
 #if ! defined(ARDUINO) && ! defined(__HARDWAREH__)
 #define __HARDWAREH__ 
@@ -96,6 +110,12 @@ void timeinit() { ftime(&start_time); }
 void wiringbegin() {
 #ifdef POSIXWIRING
 	wiringPiSetup();
+#endif
+#ifdef POSIXPIGPIO
+	pigpio_pi=pigpio_start("localhost","8888");
+	printf("** GPIO started with result %d\n", pigpio_pi);
+	printf("** pigpio version %d.\n", get_pigpio_version(pigpio_pi));
+	printf("** Hardware revision %d.\n", get_hardware_revision(pigpio_pi));
 #endif
 }
 
@@ -340,7 +360,7 @@ void plot(int x, int y) {
 		*((char*)(framemem + pix_offset+2)) = (unsigned char)((framecolor >> 16) & 0x000000ff);
 		break;
 	case 2:
-		*((char*)(framemem + pix_offset  )) = (unsigned char)((framecolor & 0x1f) + (((framecolor >> 5) & 0x03) << 6) ;
+		*((char*)(framemem + pix_offset  )) = (unsigned char)((framecolor & 0x1f) + (((framecolor >> 5) & 0x03) << 6));
 		*((char*)(framemem + pix_offset+1)) = (unsigned char)((framecolor >> 7) & 0xff);
 		break;
 	case 1:
@@ -544,13 +564,15 @@ short eread(address_t a) { if (a>=0 && a<EEPROMSIZE) return eeprom[a]; else retu
 /* 
  *	the wrappers of the arduino io functions, to avoid 
  */	
-#ifndef POSIXWIRING
-void aread(){ return; }
-void dread(){ return; }
+#if !defined(POSIXWIRING) && !defined(POSIXPIGPIO)
+void aread(){ pop(); push(0); }
+void dread(){ pop(); push(0); }
 void awrite(number_t p, number_t v){}
 void dwrite(number_t p, number_t v){}
 void pinm(number_t p, number_t m){}
-#else
+#endif
+
+#ifdef POSIXWIRING
 void aread(){ push(analogRead(pop())); }
 void dread(){ push(digitalRead(pop())); }
 
@@ -573,8 +595,33 @@ void pinm(number_t p, number_t m){
 }
 #endif
 
+/* the pigpio library */
+#ifdef POSIXPIGPIO
+
+
+void aread(){ pop(); push(0); }
+
+
+void dread(){ 
+	push(gpio_read(pigpio_pi, pop()));
+}
+
+void awrite(number_t p, number_t v){
+	set_PWM_dutycycle(pigpio_pi, p, v);
+}
+
+
+void dwrite(number_t p, number_t v){
+	gpio_write(pigpio_pi, p, v);
+}
+
+void pinm(number_t p, number_t m){
+	set_mode(pigpio_pi, p, m);
+}
+#endif
+
 /* we need to to millis by hand except for RASPPI with wiring */
-#if ! defined(POSIXWIRING)
+#if !defined(POSIXWIRING)
 unsigned long millis() { 
 	struct timeb thetime;
 	ftime(&thetime);
