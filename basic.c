@@ -31,7 +31,7 @@
  */
 #undef MINGW
 #undef MSDOS
-#undef RASPPI
+#define RASPPI
 
 /*
 	interpreter feature sets, choose one of the predefines 

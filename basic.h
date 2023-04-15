@@ -59,9 +59,6 @@ typedef unsigned char uint8_t;
 #ifdef MINGW
 #include <windows.h>
 #endif
-#ifdef RASPPI
-#include <wiringPi.h>
-#endif
 #endif
 
 
