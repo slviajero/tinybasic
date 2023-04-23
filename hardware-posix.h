@@ -38,18 +38,18 @@
  * 	tricky on DOS, not very portable
  * POSIXFRAMEBUFFER: directly draw to the frame buffer of Raspberry PI
  * 	only tested on this platform
- * POSIXWIRE: simple Raspberry PI wire code - not finished
- * POSIXMQTT: analogous to ARDUINOMQTT, send and receive MQTT messages
+ * POSIXWIRE: simple Raspberry PI wire code
+ * POSIXMQTT: analogous to ARDUINOMQTT, send and receive MQTT messages (unfinished)
  * POSIXWIRING: use the (deprectated) wiring code for gpio on Raspberry Pi
- * POSIXPIGPIO: use the pigpio library on a Raspberry PI
+ * POSIXPIGPIO: use the pigpio library on a Raspberry PI 
  */
 
 #define POSIXTERMINAL
 #define POSIXVT52TOANSI
 #define POSIXSIGNALS
 #define POSIXNONBLOCKING
-#undef POSIXFRAMEBUFFER
-#undef POSIXWIRE
+#define POSIXFRAMEBUFFER
+#define POSIXWIRE
 #undef POSIXMQTT
 #undef POSIXWIRING
 #undef POSIXPIGPIO
@@ -67,6 +67,9 @@
 #ifndef RASPPI
 #undef POSIXFRAMEBUFFER
 #endif
+
+/* wire parameters */
+#define POSIXI2CBUS 1
 
 /* Wiring Code, which library to use */
 #ifdef POSIXWIRING
@@ -1274,18 +1277,126 @@ short prtavailable(){ return 0; }
 /* 
  * The wire code 
  */ 
-#ifndef POSIXWIRE
-void wirebegin() {}
-int wirestat(char c) {return 0; }
-void wireopen(char s, char m) {}
-void wireins(char *b, uint8_t l) { b[0]=0; z.a=0; }
-void wireouts(char *b, uint8_t l) {}
-short wireavailable() { return 1; }
-short wirereadbyte(short port) { return 0; }
-void wirewritebyte(short port, short data) { return; }
-void wirewriteword(short port, short data1, short data2) { return; }
-#else
+#if defined(POSIXWIRE) && defined(POSIXPIGPIO)
 #define HASWIRE
+uint8_t wire_slaveid = 0;
+
+/* open the wire connection in pigpio */
+void wirebegin() {
+}
+
+/* we return the handle here, inconsistent with the Arduino code */
+int wirestat(char c) {
+	return 1; 
+}
+
+void wireopen(char s, char m) {
+	if (m == 0) {
+		wire_slaveid=s;
+	} else if ( m == 1 ) { 
+		outsc("** wire slave mode not implemented"); outcr();
+	} else 
+		error(EORANGE);
+}
+
+
+/* read a number of bytes, depending on the string length */
+void wireins(char *b, uint8_t l) {
+	int handle;
+
+	handle=i2c_open(pigpio_pi, POSIXI2CBUS, wire_slaveid, 0);
+	if (handle < 0) { 
+		printf("** wire handle %d returned \n", handle);
+		ert=1; 
+	}
+
+	z.a=i2c_read_device(pigpio_pi, handle, b+1, l);
+
+	if (z.a < 0) {
+		ert=-1;
+		z.a=0;
+	} 
+	b[0]=z.a;
+
+	i2c_close(pigpio_pi, handle);
+}
+
+
+
+void wireouts(char *b, uint8_t l) {
+	int handle;
+
+	handle=i2c_open(pigpio_pi, POSIXI2CBUS, wire_slaveid, 0);
+	if (handle < 0) { 
+		printf("** wire handle %d returned \n", handle);
+		ert=1; 
+	}
+
+	if (i2c_write_device(pigpio_pi, handle, b, l) < 0) ert=-1;
+
+	i2c_close(pigpio_pi, handle);
+}
+
+short wireavailable() { return 1; }
+
+/* the register access functions */
+short wirereadbyte(short port) { 
+	int res, handle;
+	handle=i2c_open(pigpio_pi, POSIXI2CBUS, port, 0);
+	if (handle < 0) { 
+		printf("** wire handle %d returned \n", handle);
+		ert=1; 
+		return -1; 
+	}
+	
+	res=i2c_read_byte(pigpio_pi, handle);
+	i2c_close(pigpio_pi, handle);
+	return res; 
+}
+
+/* use the simple wire byte function */ 
+void wirewritebyte(short port, short data) { 
+	int res, handle;
+	handle=i2c_open(pigpio_pi, POSIXI2CBUS, port, 0);
+	if (handle < 0) { ert=1; return; }
+	
+	ert=i2c_write_byte(pigpio_pi, handle, data);
+
+	i2c_close(pigpio_pi, handle);
+}
+
+
+/* this code used the write byte function twice */
+/*
+void wirewriteword(short port, short data1, short data2) { 
+	int res, handle;
+	handle=i2c_open(pigpio_pi, POSIXI2CBUS, port, 0);
+	if (handle < 0) { ert=1; return; }
+	
+	ert=i2c_write_byte(pigpio_pi, handle, data1);
+	ert+=i2c_write_byte(pigpio_pi, handle, data2);
+
+	i2c_close(pigpio_pi, handle);
+}
+*/
+
+/* use the raw access function in a buffer */
+void wirewriteword(short port, short data1, short data2) { 
+	int res, handle;
+	mem_t buf[2];
+
+	handle=i2c_open(pigpio_pi, POSIXI2CBUS, port, 0);
+	if (handle < 0) { ert=1; return; }
+
+	buf[0]=data1;
+	buf[1]=data2;
+
+	if (i2c_write_device(pigpio_pi, handle, buf, 2) <0 ) ert=-1;
+
+	i2c_close(pigpio_pi, handle);
+}
+
+#else
 void wirebegin() {}
 int wirestat(char c) {return 0; }
 void wireopen(char s, char m) {}
