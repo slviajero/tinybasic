@@ -3351,12 +3351,22 @@ void xmap() {
 void rnd() {
 	number_t r;
 	r=pop();
+#ifdef HASFLOAT
+/* the original 16 bit congruence */
 	rd = (31421*rd + 6927) % 0x10000;
 	if (r>=0) 
 		push((long)rd*r/0x10000);
 	else 
 		push((long)rd*r/0x10000+1);
+#else
+	rd= (110351245*rd + 12345) % (1 << 31);
+	if (r>=0) 
+		push(rd*r/(unsigned long)(1 << 31));
+	else 
+		push(rd*r/(unsigned long)(1 << 31)+1);
+#endif
 }
+
 
 
 #ifndef HASFLOAT
