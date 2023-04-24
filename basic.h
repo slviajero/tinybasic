@@ -824,7 +824,11 @@ const static address_t arraylimit = 1;
 static mem_t args;
 
 /* this is unsigned hence address_t */
+#ifndef HASFLOAT
 static address_t rd;
+#else 
+static unsigned long rd;
+#endif
 
 /* output and input vector */
 static mem_t id;
