@@ -552,6 +552,13 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #define ARDUINO 100
 #endif
 
+/* 
+ *  DUE has no tone, we switch to emulation mode automatically
+ */
+#ifdef ARDUINO_SAM_DUE
+#define ARDUINOTONEEMULATION
+#endif
+
 /*
  * Some settings, defaults, and dependencies
  * 
@@ -3790,7 +3797,7 @@ void btone(short a) {
   return;
 #endif
 
-#ifndef ARDUINOTONEEMULATION
+#if !defined(ARDUINOTONEEMULATION) 
   if (x == 0) {
     noTone(y);
   } else if (a == 2) {

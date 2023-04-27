@@ -153,7 +153,7 @@
 #undef AVRLCD
 #undef WEMOSSHIELD
 #undef MEGASHIELD
-#undef TTGOVGA
+#define TTGOVGA
 #undef DUETFT
 #undef MEGATFT
 #undef NANOBOARD
@@ -550,6 +550,13 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 /* removed, unneeded, takes more space than it should */
 /* #include <avr/dtostrf.h> */
 #define ARDUINO 100
+#endif
+
+/* 
+ *  DUE has no tone, we switch to emulation mode automatically
+ */
+#ifdef ARDUINO_SAM_DUE
+#define ARDUINOTONEEMULATION
 #endif
 
 /*
