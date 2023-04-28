@@ -433,6 +433,7 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #define SDA_PIN 0
 #define SCL_PIN 2
 #endif
+
 /* see:  https://github.com/espressif/arduino-esp32/issues/6376 
  *  nothing should block the port, e.g. DHT or anything
  */
