@@ -961,6 +961,8 @@ char rtcstring[20] = { 0 };
 /* the units pulse operates on, in microseconds*/
 short bpulseunit = 10; 
 
+/* only needed for POSIXNONBLOCKING */
+static mem_t breakcondition = 0;
 
 /* 
  * Function prototypes, ordered by layers

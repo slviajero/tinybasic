@@ -22,11 +22,8 @@
  *
  */
 
-/* simulates SPI RAM, only test code, keep undefed if you don't want to do something special */
-#undef SPIRAMSIMULATOR
-
-/* use a serial port as printer interface - unfinished - similar to Arduino */
-#define ARDUINOPRT
+#if ! defined(ARDUINO) && ! defined(__HARDWAREH__)
+#define __HARDWAREH__ 
 
 /* 
  * Hardware flags of the POSIX systems 
@@ -35,7 +32,7 @@
  * 	VT52 commands to POSIX
  * POSIXSIGNALS: enables signal handling of ^C interrupting programs
  * POSIXNONBLOCKING: non blocking I/O to handle GET and the BREAKCHAR 
- * 	tricky on DOS, not very portable
+ * 	tricky on DOS, not very portable, experimental, use signals instead
  * POSIXFRAMEBUFFER: directly draw to the frame buffer of Raspberry PI
  * 	only tested on this platform
  * POSIXWIRE: simple Raspberry PI wire code
@@ -47,12 +44,18 @@
 #define POSIXTERMINAL
 #define POSIXVT52TOANSI
 #define POSIXSIGNALS
-#define POSIXNONBLOCKING
-#define POSIXFRAMEBUFFER
-#define POSIXWIRE
+#undef POSIXNONBLOCKING
+#undef POSIXFRAMEBUFFER
+#undef POSIXWIRE
 #undef POSIXMQTT
 #undef POSIXWIRING
 #undef POSIXPIGPIO
+
+/* simulates SPI RAM, only test code, keep undefed if you don't want to do something special */
+#undef SPIRAMSIMULATOR
+
+/* use a serial port as printer interface - unfinished - similar to Arduino */
+#define ARDUINOPRT
 
 /* used pins and other parameters */
 
@@ -63,12 +66,17 @@
 /* the SIGNAL the interpreters listens to for interrupt */
 #define BREAKSIGNAL SIGINT
 
-/* frame buffer health check */ 
+/* in case of non blocking IO turn on background tasks */
+#ifdef POSIXNONBLOCKING
+#define BASICBGTASK
+#endif
+
+/* frame buffer health check - currently only supported on Raspberry */ 
 #ifndef RASPPI
 #undef POSIXFRAMEBUFFER
 #endif
 
-/* wire parameters */
+/* wire parameters for Raspberry*/
 #define POSIXI2CBUS 1
 
 /* Wiring Code, which library to use */
@@ -81,10 +89,6 @@
 #undef POSIXWIRING
 static int pigpio_pi = 0;
 #endif
-
-
-#if ! defined(ARDUINO) && ! defined(__HARDWAREH__)
-#define __HARDWAREH__ 
 
 /* 
  * the system type and system capabilities
@@ -638,7 +642,16 @@ void btone(short a) { pop(); pop(); if (a == 3) pop(); }
 
 /* the POSIX code has no yield as it runs on an OS */
 void yieldfunction() {}
-void longyieldfunction() {}
+
+void longyieldfunction() {
+#ifdef BASICBGTASK
+/* polling for the BREAKCHAR */
+#ifdef POSIXNONBLOCKING
+	if (checkch() == BREAKCHAR) breakcondition=1;
+#endif
+#endif
+}
+
 void yieldschedule() {}
 
 /* 

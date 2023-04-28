@@ -291,7 +291,7 @@ void byield() {
 /* the loop function for non BASIC stuff */
   bloop();
 
-#if defined(ARDUINOBGTASK)
+#if defined(BASICBGTASK)
 /* yield all 32 micro seconds */
 	if (millis()-lastyield > YIELDINTERVAL-1) {
 		yieldfunction();
@@ -305,7 +305,7 @@ void byield() {
   }
  #endif
  
- /* call the background task scheduler on some platforms implemented in hardware- */
+ /* call the background task scheduler on some platforms implemented in hardware-* */
 	yieldschedule();
 }
 
@@ -7468,14 +7468,27 @@ void statement(){
 		}
 
 
-/* after each statement we check on a break character 
-		on an Arduino entering "#" at runtime stops the program */
+/* 
+ * after each statement we check on a break character 
+ * on an Arduino entering "#" at runtime stops the program 
+ * for POSIXNONBLOCKING we do this in the background loop
+ * to avoid slowing down 
+ */
 #if defined(BREAKCHAR)
+#ifndef POSIXNONBLOCKING
 		if (checkch() == BREAKCHAR) {
 			st=SINT; 
 			if (od == 1) serialflush(); else xc=inch();
 			return;
-		}; 
+		}
+#else 
+		if (breakcondition) {
+			breakcondition=0;
+			st=SINT; 
+			if (od == 1) serialflush(); else xc=inch();
+			return;
+		}
+#endif
 #endif
 
 /* and after each statement, check the break pin */
