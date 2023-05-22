@@ -153,7 +153,7 @@
 #undef AVRLCD
 #undef WEMOSSHIELD
 #undef MEGASHIELD
-#define TTGOVGA
+#undef TTGOVGA
 #undef DUETFT
 #undef MEGATFT
 #undef NANOBOARD

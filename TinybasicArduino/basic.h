@@ -59,9 +59,6 @@ typedef unsigned char uint8_t;
 #ifdef MINGW
 #include <windows.h>
 #endif
-#ifdef RASPPI
-#include <wiringPi.h>
-#endif
 #endif
 
 
@@ -73,12 +70,21 @@ typedef unsigned char uint8_t;
 #define FORDEPTH		4
 #define LINECACHESIZE	4
 #else 
-/* the for larger microcontrollers and real computers */
+/* the for larger microcontrollers */
+#ifdef ARDUINO
 #define BUFSIZE 		128
 #define STACKSIZE		64
 #define GOSUBDEPTH		8
 #define FORDEPTH		8
 #define LINECACHESIZE	16
+#else 
+/* for real computers */
+#define BUFSIZE         256
+#define STACKSIZE       256
+#define GOSUBDEPTH      64
+#define FORDEPTH        64
+#define LINECACHESIZE   64
+#endif
 #endif
 
 /* on the real small systems we remove the linecache and set a fixed memory size*/
@@ -707,6 +713,8 @@ typedef short index_t; /* this type counts at least 16 bit */
 #define SYSTYPE_SMT32	7
 #define SYSTYPE_POSIX	32
 #define SYSTYPE_MSDOS	33
+#define SYSTYPE_MINGW   34
+#define SYSTYPE_RASPPI  35
 
 /*
  *	The basic interpreter is implemented as a stack machine
@@ -827,7 +835,11 @@ const static address_t arraylimit = 1;
 static mem_t args;
 
 /* this is unsigned hence address_t */
+#ifndef HASFLOAT
 static address_t rd;
+#else 
+static unsigned long rd;
+#endif
 
 /* output and input vector */
 static mem_t id;
@@ -960,6 +972,8 @@ char rtcstring[20] = { 0 };
 /* the units pulse operates on, in microseconds*/
 short bpulseunit = 10; 
 
+/* only needed for POSIXNONBLOCKING */
+static mem_t breakcondition = 0;
 
 /* 
  * Function prototypes, ordered by layers
