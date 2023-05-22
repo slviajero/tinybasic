@@ -70,12 +70,21 @@ typedef unsigned char uint8_t;
 #define FORDEPTH		4
 #define LINECACHESIZE	4
 #else 
-/* the for larger microcontrollers and real computers */
+/* the for larger microcontrollers */
+#ifdef ARDUINO
 #define BUFSIZE 		128
 #define STACKSIZE		64
 #define GOSUBDEPTH		8
 #define FORDEPTH		8
 #define LINECACHESIZE	16
+#else 
+/* for real computers */
+#define BUFSIZE         256
+#define STACKSIZE       256
+#define GOSUBDEPTH      64
+#define FORDEPTH        64
+#define LINECACHESIZE   64
+#endif
 #endif
 
 /* on the real small systems we remove the linecache and set a fixed memory size*/
@@ -704,6 +713,8 @@ typedef short index_t; /* this type counts at least 16 bit */
 #define SYSTYPE_SMT32	7
 #define SYSTYPE_POSIX	32
 #define SYSTYPE_MSDOS	33
+#define SYSTYPE_MINGW   34
+#define SYSTYPE_RASPPI  35
 
 /*
  *	The basic interpreter is implemented as a stack machine
