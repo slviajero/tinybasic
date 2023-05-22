@@ -108,4 +108,27 @@ These programs are longer test programs testing a group of features.
 
 39eliza.bas - the simple psycologist. Strings, READ DATA and a lot of commands.
 
+## Errors and Error handling
+
+These tests stress test BASIC, provoke errors or go to limits.
+
+40forfor.bas - FOR loop stress test and error handling 
+
+41arrayfun.bas - Array test program with redim and range errors
+
+42gosub.bas - GOSUB stress test
+
+43gogogo.bas - GOTO, IF THEN ELSE stress tests
+
+44deffn.bas - DEF FN some function tests 
+
+45ongo.bas - a few ON GO oddities
+
+
+
+
+
+
+
+
 

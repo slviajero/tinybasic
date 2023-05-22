@@ -1,2 +1,3 @@
 #!/bin/sh
 python3 /Users/stefan/Documents/Technology/tinybasic/monitor.py
+python3 /Users/stefan/Documents/Technology/tinybasic/utility/monitor.py

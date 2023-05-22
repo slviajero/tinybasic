@@ -19,11 +19,11 @@
 # Set the port here 
 #
 #port = '/dev/cu.usbserial-1420'
-#port = '/dev/cu.wchusbserial1420'
+port = '/dev/cu.wchusbserial1420'
 #port = '/dev/cu.wchusbserial1410'
 #port = '/dev/cu.usbserial-1410'
 #port = '/dev/cu.usbmodem14201'
-port = '/dev/cu.usbmodem14101'
+#port = '/dev/cu.usbmodem14101'
 #port = '/dev/cu.usbserial-0001'
 #port = '/dev/ttyUSB0'
 #port = '/dev/cu.usbserial-A900f3Ty'
