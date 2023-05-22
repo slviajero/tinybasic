@@ -555,6 +555,11 @@ See math.bas in the tutorial for more information.
 
 Clears the screen on display systems. See VT52 capabilities for more information.
 
+### LOCATE 
+
+Locates the cursor to position X, Y on the screen. Locate goes through the VT52 interface. The underlying terminal must either be ANSI compatible on POSIX systems or use the HASVT52 extension. 
+
+
 ### Debugging with DUMP
 
 DUMP writes a memory and EEPROM range to the output. Example:
@@ -669,7 +674,7 @@ A contains the time since start in milliseconds. B is the time since start in se
 
 Two more compley Arduino I/O function are available from BASIC. 
 
-PULSE reads a pulse on a pin if used as a function. The first argument is the pin number, the second whether a LOW=0 or HIGH=1 state is expected. The third argument is the timeout in milliseconds. Note the difference to the original Arduino pulseIN(). The low level Arduino commands delivers the pulse length in microseconds. PULSE delivers the pulse length in 10 microsecond units to be compatible with integer BASIC number ranges. Example:
+PULSE reads a pulse on a pin if used as a function. The first argument is the pin number, the second whether a LOW=0 or HIGH=1 state is expected. The third argument is the timeout in milliseconds. Note the difference to the original Arduino pulseIN() where this is microseconds. The low level Arduino commands delivers the pulse length in microseconds. PULSE delivers the pulse length in 10 microsecond units to be compatible with Integer BASIC number ranges. Example:
 
 A=PULSE(4, 0, 100)
 
@@ -691,7 +696,7 @@ An number of repetitions and an intervall can be specified as well. Example:
 
 PULSE 4, 1, 1, 10, 100
 
-writes 10 pulses with 1000 ms time difference of length 10 microseconds on pin 4.
+writes 10 pulses with 1000 microseconds time difference of length 10 microseconds on pin 4.
 
 The time unit of PULSE can be changes with SET 14, timeunit. Example: 
 

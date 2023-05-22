@@ -33,12 +33,19 @@
  *
  */
 
+/* which serial port is used for terminal I/O */
+#define SERIALPORT Serial
+
+/* which serial port is used for printer IO */
+#define PRTSERIAL Serial3
+
 /* the only language feature of BASIC that we need is the VT52 component */
 #define HASVT52
 
-/* dummy memsize parameter */
-#define MEMSIZE 128
+/* should the VT52 also handle Wiring */
+#define VT52WIRING
 
+/* the device driver code from BASIC */
 #include "basic.h"
 #include "hardware-arduino.h"
 
@@ -46,13 +53,15 @@
 #define XON 0x11
 #define XOFF 0x13
 
+/* a shallow buffer */
+#define VT52BUFSIZE 64
+char vt52sbuf[VT52BUFSIZE];
+int vt52sbi = 0;
+
 void setup() {
 
-/* start the primary serial interface */
-  Serial.begin(9600);
-
 /* start the terminal interface */
-  Serial1.begin(9600);
+  SERIALPORT.begin(9600);
 
 /* start the display stream */
   dspbegin();  
@@ -81,15 +90,21 @@ void loop() {
 
 /* read a chunk of characters */
 /* display output is slow, it is an operation at the timescale of 10 ms per character, XOFF while we do it*/
-  if (Serial1.available()) {
-    Serial1.write(XOFF);
-    while (Serial1.available()) dspwrite(Serial1.read());
-    Serial1.write(XON);
+  if (SERIALPORT.available()) {
+/* send XOFF to hold the output */
+    SERIALPORT.write(XOFF);
+/* free the serial buffer immediately to be ready for characters sent before XOFF could be processes*/
+    while (SERIALPORT.available() && vt52bi < VT52BUFSIZE) vt52sbuf[vt52bi++]=SERIALPORT.read();
+/* now empty the buffer completely */
+    for (int i=0; i<vt52bi; i++) dspwrite(vt52sbuf[i]);
+    vt52bi=0;
+/* send XON to continue output */
+    SERIALPORT.write(XON);
   }
   
 /* send all characters from the display to the serial stream */
   while (kbdavailable()) {
     ch=kbdread();
-    Serial1.write(ch);
+    SERIALPORT.write(ch);
   } 
 }
