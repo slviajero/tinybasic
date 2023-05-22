@@ -94,10 +94,14 @@ static int pigpio_pi = 0;
  * the system type and system capabilities
  */
 
-#ifndef MSDOS
-const char bsystype = SYSTYPE_POSIX;
+#if defined(MSDOS)
+const char bsystype = SYSTYPE_MSDOS
+#elif defined(RASPPI)
+const char bsystype = SYSTYPE_PASPPI
+#elif defined(MINGW)
+const char bsystype = SYSTYPE_MINGW
 #else
-const char bsystype = SYSTYPE_MSDOS;
+const char bsystype = SYSTYPE_POSIX;
 #endif
 
 /* 
