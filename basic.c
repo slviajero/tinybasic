@@ -292,7 +292,7 @@ void byield() {
   bloop();
 
 #if defined(BASICBGTASK)
-/* yield all 32 micro seconds */
+/* yield all 32 milliseconds */
 	if (millis()-lastyield > YIELDINTERVAL-1) {
 		yieldfunction();
 		lastyield=millis();
