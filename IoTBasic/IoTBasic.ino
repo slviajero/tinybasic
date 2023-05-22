@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.c,v 1.142 2023/02/18 20:16:59 stefan Exp stefan $ 
+ *	$Id: basic.c,v 1.143 2023/03/25 08:09:07 stefan Exp stefan $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -30,7 +30,6 @@
  *
  */
 #undef MINGW
-#undef MINGW64
 #undef MSDOS
 #undef RASPPI
 
@@ -260,7 +259,6 @@
 #include "hardware-posix.h"
 #endif
 
-
 /*
  *
  * BASIC timer stuff, this is a core interpreter function now
@@ -309,7 +307,6 @@ void byield() {
  
  /* call the background task scheduler on some platforms implemented in hardware- */
 	yieldschedule();
-
 }
 
 /* delay must be implemented to use byield() while waiting */
@@ -1725,10 +1722,13 @@ void ioinit() {
 	sendcr = 0;
 #endif
 
-/* signal handling */ 
-#ifdef HASSIGNALS
-	signal(SIGINT, signalhandler);
-#endif
+/* signal handling - by default SIGINT which is ^C is always caught and 
+	leads to program stop. Side effect: the interpreter cannot be stopped 
+	with ^C, it has to be left with CALL 0, works on Linux, Mac and MINGW
+	but not on DOSBOX MSDOS as DOSBOS does not handle CTRL BREAK correctly 
+	DOS can be interrupted with the CONIO mechanism using BREAKCHAR. 
+*/ 
+	signalon();
 
 /* this is only for RASPBERRY - wiring has to be started explicitly */
 	wiringbegin();
@@ -1741,7 +1741,7 @@ void ioinit() {
 #ifdef ARDUINOSPI
 	spibegin();
 #endif
-#ifdef NEEDSWIRE
+#ifdef HASWIRE
 	wirebegin();
 #endif
 
@@ -1757,8 +1757,8 @@ void ioinit() {
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 	dspbegin();
 #endif
-#ifdef ARDUINOVGA
-	vgabegin();  /* mind this - the fablib code is special here */
+#if defined(ARDUINOVGA) || defined(POSIXFRAMEBUFFER)
+	vgabegin();  /* mind this - the fablib code and framebuffer is special here */
 #endif
 #ifdef ARDUINOSENSORS
 	sensorbegin();
@@ -1800,7 +1800,7 @@ char inch() {
 		case IFILE:
 			return fileread();
 #endif
-#ifdef ARDUINOWIRE
+#if (defined(HASWIRE) && defined(HASFILEIO))
 		case IWIRE:
 			ins(sbuffer, 1);
 			if (sbuffer[0]>0) return sbuffer[1]; 
@@ -1852,7 +1852,7 @@ char checkch(){
 		case IMQTT:
 			if (mqtt_messagelength>0) return mqtt_buffer[0]; else return 0;
 #endif   
-#ifdef ARDUINOWIRE
+#if (defined(HASWIRE) && defined(HASFILEIO))
 		case IWIRE:
 			return 0;
 #endif
@@ -1886,7 +1886,7 @@ short availch(){
 		case IMQTT:
 			return mqtt_messagelength;
 #endif    		
-#ifdef ARDUINOWIRE
+#if (defined(HASWIRE) && defined(HASFILEIO))
 		case IWIRE:
 			return wireavailable();
 #endif
@@ -1965,7 +1965,7 @@ void inb(char *b, short nb) {
  */
 void ins(char *b, address_t nb) {
   switch(id) {
-#ifdef ARDUINOWIRE
+#if (defined(HASWIRE) && defined(HASFILEIO))
   	case IWIRE:
 			wireins(b, nb);
 			break;
@@ -2057,7 +2057,7 @@ void outs(char *ir, address_t l){
 			radioouts(ir, l);
 			break;
 #endif
-#ifdef ARDUINOWIRE
+#if (defined(HASWIRE) && defined(HASFILEIO))
 		case OWIRE:
 			wireouts(ir, l);
 			break;
@@ -2394,6 +2394,13 @@ void nexttoken() {
 /* after change in buffer logic the first byte is reserved for the length */
 	if (bi == ibuffer) bi++;
 
+/* literal mode - experimental - EOL ends literal mode*/
+	if (lexliteral) {
+		token=*bi;
+		if (*bi != '\0') bi++; else lexliteral=0;
+		return;
+	}
+
 /* remove whitespaces outside strings */
 	whitespaces();
 
@@ -2537,6 +2544,7 @@ void nexttoken() {
 		if (xc == 0) continue;
 		bi+=xc;
 		token=gettokenvalue(yc);
+		if (token == TREM) lexliteral=1;
 		if (DEBUG) debugtoken();
 		return;
 	}
@@ -3338,17 +3346,29 @@ void xmap() {
 }
 
 /*
- * RND very basic random number generator with constant seed.
+ * RND very basic random number generator with constant seed in 16 bit
+ * for float systems, use glibc parameters https://en.wikipedia.org/wiki/Linear_congruential_generator
  */
 void rnd() {
 	number_t r;
 	r=pop();
+#ifndef HASFLOAT
+/* the original 16 bit congruence */
 	rd = (31421*rd + 6927) % 0x10000;
 	if (r>=0) 
 		push((long)rd*r/0x10000);
 	else 
 		push((long)rd*r/0x10000+1);
+#else
+/* glibc parameters */
+	rd= (110351245*rd + 12345) % (1 << 31);
+	if (r>=0) 
+		push(rd*r/(unsigned long)(1 << 31));
+	else 
+		push(rd*r/(unsigned long)(1 << 31)+1);
+#endif
 }
+
 
 
 #ifndef HASFLOAT
@@ -3731,6 +3751,9 @@ void factor(){
 				error(EARGS);
 				return;	
 			}
+			break;
+		case TWIRE:
+			parsefunction(xfwire, 1);
 			break;
 #endif
 #ifdef HASERRORHANDLING
@@ -4416,7 +4439,7 @@ void xinput(){
 	}
 /* unlink print, form can appear only once in input after the
 		stream, it controls character counts in wire */
-#ifdef ARDUINOWIRE
+#if (defined(HASWIRE) && defined(HASFILEIO))
 	if (token == '#') {
 		if(!expectexpr()) return;
 		form=pop();
@@ -4832,11 +4855,14 @@ void xnext(){
 void outputtoken() {
 	address_t i;
 
+	if (token == LINENUMBER) outliteral=0;
+
+	if (token == TREM) outliteral=1;
+
 	if (spaceafterkeyword) {
 		if (token != '(' && token != LINENUMBER && token !=':' ) outspc();
 		spaceafterkeyword=0;
 	}
-
 
 	switch (token) {
 		case NUMBER:
@@ -4858,7 +4884,7 @@ void outputtoken() {
 			outch('"'); 
 			outs(ir, x); 
 			outch('"');
-			break;;
+			break;
 		default:
 			if (token < -3 && token > -122) {
 				if ((token == TTHEN || 
@@ -4873,12 +4899,12 @@ void outputtoken() {
 					if (lastouttoken == NUMBER || lastouttoken == VARIABLE) outspc(); 
 				for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 				outsc(getkeyword(i)); 
-				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL) spaceafterkeyword=1;
+				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL && token != TREM) spaceafterkeyword=1;
 				break;
 			}	
 			if (token >= 32) {
 				outch(token);
-				if (token == ':') outspc();
+				if (token == ':' && !outliteral) outspc();
 				break;
 			} 
 			outch(token); outspc(); outnumber(token);
@@ -5225,6 +5251,26 @@ void xtab(){
 #endif
 
 /* 
+ * locate the curor on the screen 
+ */
+
+void xlocate() {
+	nexttoken();
+	parsenarguments(2);
+	if (er != 0) return;
+
+	y=pop();
+	x=pop();
+
+/* for locate we go through the VT52 interface */
+	if (x > 0 && y > 0 && x < 224 & y < 224) {
+		outch(27); outch('Y');
+		outch(31+(unsigned int) y); 
+		outch(31+(unsigned int) x);
+	}
+}
+
+/* 
  *	Stefan's additions to Palo Alto BASIC
  * DUMP, SAVE, LOAD, GET, PUT, SET
  *
@@ -5444,10 +5490,10 @@ void xload(const char* f) {
 				return;
 			} 
 
-    	bi=ibuffer+1;
+    bi=ibuffer+1;
 		while (fileavailable()) {
       		ch=fileread();
-      		if (ch == '\n' || ch == '\r' || ch == -1) {
+      		if (ch == '\n' || ch == '\r' || cheof(ch)) {
         		*bi=0;
         		bi=ibuffer+1;
         		nexttoken();
@@ -5688,6 +5734,11 @@ void xset(){
 #ifdef HASPULSE
 		case 14:
 			bpulseunit=args;
+			break;
+#endif
+#ifdef POSIXVT52TOANSI 
+		case 15:
+			vt52active=args;
 			break;
 #endif
 	}
@@ -6070,6 +6121,41 @@ void xsleep() {
 	if (er != 0) return; 
 	activatesleep(pop());
 }
+
+/* 
+ * single byte wire access - keep it simple 
+ */
+
+void xwire() {
+	short port, data1, data2;
+	nexttoken();
+#ifdef HASWIRE
+	parsearguments();
+	if (er != 0) return; 
+
+	if (args == 3) {
+		data2=pop();
+		data1=pop();
+		port=pop();	
+		wirewriteword(port, data1, data2);
+	} else if (args == 2) {
+		data1=pop();
+		port=pop();	
+		wirewritebyte(port, data1);
+	} else {
+		error(EARGS);
+		return;
+	}
+#endif
+}
+
+void xfwire() {
+#ifdef HASWIRE
+	push(wirereadbyte(pop()));
+#else 
+#endif
+}
+
 #endif
 
 /*
@@ -6368,7 +6454,7 @@ void xdelete() {
  *	OPEN a file or I/O stream - very raw mix of different functions
  */
 void xopen() {
-#if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE) 
+#if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || (defined(HASWIRE) && defined(HASFILEIO))
 	char stream = IFILE; // default is file operation
 	char filename[SBUFSIZE];
 	int mode;
@@ -6438,7 +6524,7 @@ void xopen() {
 			}
 			break;
 #endif
-#ifdef ARDUINOWIRE
+#if (defined(HASWIRE) && defined(HASFILEIO))
 		case IWIRE:
 			wireopen(filename[0], mode);
 			break;
@@ -6473,7 +6559,7 @@ void xfopen() {
  *	CLOSE a file or stream 
  */
 void xclose() {
-#if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || defined(ARDUINOWIRE)
+#if defined(FILESYSTEMDRIVER) || defined(ARDUINORF24) || defined(ARDUINOMQTT) || (defined(HASWIRE) && defined(HASFILEIO))
 	char stream = IFILE;
 	char mode;
 
@@ -6635,7 +6721,7 @@ void xusr() {
 			break;			
 #endif	
 /* access to properties of stream 7 - wire */
-#ifdef ARDUINOWIRE		
+#if (defined(HASWIRE) && defined(HASFILEIO))		
 		case 7: 
 			push(wirestat(arg));	
 			break;			
@@ -6681,6 +6767,9 @@ void xcall() {
 /* flush the EEPROM dummy and the output file and then exit */
 			eflush();  
 			ofileclose();
+#if defined(POSIXFRAMEBUFFER)
+			vgaend();  /* clean up if you have played with the framebuffer */
+#endif
 			restartsystem();
 			break;
 /* restart the filesystem - only test code */
@@ -6766,7 +6855,7 @@ processdata:
 	error(EUNKNOWN);
 
 enddatarecord:
-	if (token == NUMBER && s == -1) {x=-x; s=1; }
+	if (token == NUMBER && s == -1) { x=-x; s=1; }
 	data=here;
 	datarc++;
 	here=h;
@@ -7246,6 +7335,9 @@ void statement(){
 				od=xc;
 				nexttoken();
 				break;
+			case TLOCATE:
+				xlocate();
+				break;
 /* low level functions as part of Stefan's extension */
 			case TCALL:
 				xcall();
@@ -7354,6 +7446,9 @@ void statement(){
 			case TSLEEP:
 				xsleep();
 				break;	
+			case TWIRE:
+				xwire();
+				break;
 #endif
 #ifdef HASTIMER
 			case TAFTER:
@@ -7378,7 +7473,7 @@ void statement(){
 #if defined(BREAKCHAR)
 		if (checkch() == BREAKCHAR) {
 			st=SINT; 
-			xc=inch(); 
+			if (od == 1) serialflush(); else xc=inch();
 			return;
 		}; 
 #endif
@@ -7392,10 +7487,12 @@ void statement(){
 #endif	
 
 /* and then there is also signal handling on some platforms */
-#if defined(HASSIGNALS)
+#if defined(POSIXSIGNALS)
 		if (breaksignal) {
 			st=SINT; 
 			breaksignal=0;
+			serialflush();
+			outcr();
 			return;
 		}
 #endif
