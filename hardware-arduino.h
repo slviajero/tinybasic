@@ -153,7 +153,7 @@
 #undef AVRLCD
 #undef WEMOSSHIELD
 #undef MEGASHIELD
-#define TTGOVGA
+#undef TTGOVGA
 #undef DUETFT
 #undef MEGATFT
 #undef NANOBOARD
@@ -280,8 +280,8 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #endif
 
 /*
- * the hardware models
- *	These are predefined hardware configutations 
+ * The hardware models.
+ * These are predefined hardware configurations.
  */
 
 /* an AVR based Arduino with nothing else */
@@ -621,7 +621,7 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 
 /* Networking and keyboards need the background task capability */
 #if defined(ARDUINOMQTT) || defined(ARDUINOETH) || defined(ARDUINOUSBKBD) || defined(ARDUINOZX81KBD)
-#define ARDUINOBGTASK
+#define BASICBGTASK
 #endif
 
 /* picoserial is not a available on many platforms */
@@ -3829,7 +3829,7 @@ void btone(short a) {
  *	the byield function is called after every statement
  *	it allows two levels of background tasks. 
  *
- *	ARDUINOBGTASK controls if time for background tasks is 
+ *	BASICBGTASK controls if time for background tasks is 
  * 	needed, usually set by hardware features
  *
  * 	YIELDINTERVAL by default is 32, generating a 32 ms call
