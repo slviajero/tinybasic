@@ -66,7 +66,7 @@ typedef unsigned char uint8_t;
 /* the small memory model with shallow stacks and small buffers */
 #define BUFSIZE 		80
 #define STACKSIZE		15
-#define GOSUBDEPTH		4
+#define GOSUBDEPTH	4
 #define FORDEPTH		4
 #define LINECACHESIZE	4
 #else 
@@ -97,10 +97,10 @@ typedef unsigned char uint8_t;
 
 /* more duffers and vars */
 #define SBUFSIZE		32
-#define VARSIZE			26
+#define VARSIZE		26
 /* default sizes of arrays and strings if they are not DIMed */
 #define ARRAYSIZEDEF	10
-#define STRSIZEDEF		32
+#define STRSIZEDEF	32
 
 /*
  *	the time intervall in ms needed for 
@@ -248,6 +248,19 @@ typedef unsigned char uint8_t;
 #define TAFTER -22
 #define TEVERY -21
 #define TEVENT -20
+/* experimental structured commands, currently unimplemented */
+#define TWHILE -19
+#define TREPEAT -18
+#define TUNTIL -17
+#define TSWITCH -16
+#define TCASE -15
+#define TBEGIN -14
+/* these are multibyte token extension, currently unused */
+/* using them would allow over 1000 BASIC keywords */
+#define TEXT1 -6
+#define TEXT2 -5
+#define TEXT3 -4
+#define TEXT4 -3
 /* end of tokens */
 /* constants used for some obscure purposes */
 #define TBUFFER -2
@@ -257,7 +270,7 @@ typedef unsigned char uint8_t;
 #define UNKNOWN -1
 
 /* the number of keywords, and the base index of the keywords */
-#define NKEYWORDS	3+19+13+14+11+5+2+7+7+6+12+3
+#define NKEYWORDS	3+19+13+14+11+5+2+7+7+6+12+3+6
 #define BASEKEYWORD -121
 
 /*
@@ -385,38 +398,38 @@ const char sfdisk[]   PROGMEM = "FDISK";
 #endif
 /* low level access functions */
 #ifdef HASSTEFANSEXT
-const char susr[]  PROGMEM = "USR";
-const char scall[] PROGMEM = "CALL";
+const char susr[]   PROGMEM = "USR";
+const char scall[]  PROGMEM = "CALL";
 #endif
 /* mathematics */
 #ifdef HASFLOAT
-const char ssin[]  PROGMEM = "SIN";
-const char scos[]  PROGMEM = "COS";
-const char stan[]  PROGMEM = "TAN";
-const char satan[] PROGMEM = "ATAN";
-const char slog[]  PROGMEM = "LOG";
-const char sexp[]  PROGMEM = "EXP";
+const char ssin[]   PROGMEM = "SIN";
+const char scos[]   PROGMEM = "COS";
+const char stan[]   PROGMEM = "TAN";
+const char satan[]  PROGMEM = "ATAN";
+const char slog[]   PROGMEM = "LOG";
+const char sexp[]   PROGMEM = "EXP";
 #endif
 /* INT is always needed to make float/int programs compatible */
-const char sint[]  PROGMEM = "INT"; 
+const char sint[]   PROGMEM = "INT"; 
 /* elemetars graphics */
 #ifdef HASGRAPH
-const char scolor[]  PROGMEM  = "COLOR";
-const char splot[]   PROGMEM  = "PLOT";
-const char sline[]   PROGMEM  = "LINE";
-const char scircle[] PROGMEM  = "CIRCLE";
-const char srect[]   PROGMEM  = "RECT";
-const char sfcircle[] PROGMEM  = "FCIRCLE";
-const char sfrect[]   PROGMEM  = "FRECT";
+const char scolor[]     PROGMEM  = "COLOR";
+const char splot[]      PROGMEM  = "PLOT";
+const char sline[]      PROGMEM  = "LINE";
+const char scircle[]    PROGMEM  = "CIRCLE";
+const char srect[]      PROGMEM  = "RECT";
+const char sfcircle[]   PROGMEM  = "FCIRCLE";
+const char sfrect[]     PROGMEM  = "FRECT";
 #endif
 /* Dartmouth BASIC extensions */
 #ifdef HASDARTMOUTH
-const char sdata[]  	PROGMEM  = "DATA";
-const char sread[]  	PROGMEM  = "READ";
+const char sdata[]      PROGMEM  = "DATA";
+const char sread[]      PROGMEM  = "READ";
 const char srestore[]   PROGMEM  = "RESTORE";
-const char sdef[] 	PROGMEM  = "DEF";
-const char sfn[]   	PROGMEM  = "FN";
-const char son[]   	PROGMEM  = "ON";
+const char sdef[]       PROGMEM  = "DEF";
+const char sfn[]        PROGMEM  = "FN";
+const char son[]        PROGMEM  = "ON";
 #endif
 /* The Darkarts commands unthinkable in Dartmouth */
 #ifdef HASDARKARTS
@@ -446,6 +459,14 @@ const char severy[]     PROGMEM  = "EVERY";
 #endif
 #ifdef HASEVENTS
 const char sevent[]     PROGMEM  = "EVENT";
+#endif
+#ifdef HASSTRUCT
+const char swhile[]		PROGMEM	= "WHILE";
+const char srepeat[]	PROGMEM	= "REPEAT";
+const char suntil[]     PROGMEM	= "UNTIL";
+const char sswitch[]	PROGMEM	= "SWITCH";
+const char scase[]		PROGMEM	= "CASE";
+const char sbegin[]     PROGMEM = "BEGIN";
 #endif
 
 
@@ -511,6 +532,9 @@ const char* const keyword[] PROGMEM = {
 #ifdef HASEVENTS
     sevent,
 #endif
+#ifdef HASSTRUCT
+	swhile, srepeat, suntil, sswitch, scase, sbegin,	
+#endif 
 	0
 };
 
@@ -573,6 +597,9 @@ const signed char tokens[] PROGMEM = {
 #ifdef HASEVENTS
     TEVENT, 
 #endif
+#ifdef HASSTRUCT
+	TWHILE, TREPEAT, TUNTIL, TSWITCH, TCASE, TBEGIN,
+#endif
 	0
 };
 
@@ -606,8 +633,8 @@ const signed char tokens[] PROGMEM = {
 #define EFILE 		 24
 #define EFUN 		 25
 #define EARGS		 26
-#define EEEPROM		 27
-#define ESDCARD		 28
+#define EEEPROM	27
+#define ESDCARD	28
 
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "> ";
@@ -698,6 +725,7 @@ const int strindexsize=2; /* default in the meantime, strings up to unsigned 16 
 const address_t maxaddr=(address_t)(~0); 
 typedef signed char mem_t; /* a signed 8 bit type for the memory */
 typedef short index_t; /* this type counts at least 16 bit */
+typedef signed char token_t; /* the type of tokens, normally mem_t, this is a preparation for extensions */
 
 /* 
  * system type identifiers
@@ -809,7 +837,7 @@ struct twobytes {mem_t l; mem_t h;};
 static union accunumber { number_t i; address_t a; struct twobytes b; mem_t c[sizeof(number_t)]; } z;
 
 static char *ir, *ir2;
-static mem_t token;
+static token_t token;
 static mem_t er;
 static mem_t ert;
 
@@ -822,7 +850,7 @@ static address_t nvars = 0;
 static mem_t form = 0;
 
 #ifdef HASMSTAB
-static mem_t charcount = 0;
+static mem_t charcount[3]; /* devices 1-4 support tabing */
 static mem_t reltab = 0;
 #endif
 
@@ -1471,6 +1499,15 @@ void xon();
 /* timers and interrupts */
 void xtimer();
 void resettimer();
+
+/* structured BASIC extensions */
+void xwhile();
+void xwend(); 
+void xrepeat();
+void xuntil();
+void xswitch();
+void xcase();
+void xendswitch();
 
 /* the emulation of tone using the byield loop */
 void toggletone();

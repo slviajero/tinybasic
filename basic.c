@@ -47,10 +47,10 @@
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
 #define	BASICFULL
-#undef  BASICINTEGER
+#undef	BASICINTEGER
 #undef	BASICSIMPLE
 #undef	BASICMINIMAL
-#undef  BASICSIMPLEWITHFLOAT
+#undef	BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
 
 /*
@@ -75,6 +75,7 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
+#define HASSTRUCT
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -96,6 +97,7 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
+#undef HASSTRUCT
 #endif
 
 /* all features minus float and tone */
@@ -118,6 +120,7 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
+#define HASSTRUCT
 #endif
 
 /* a simple integer basic for small systems (UNO etc) */
@@ -140,6 +143,7 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
+#undef HASSTRUCT
 #endif
 
 /* all features activated */
@@ -162,6 +166,7 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
+#define HASSTRUCT
 #endif
 
 /* a simple BASIC with float support */
@@ -184,6 +189,7 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
+#undef HASSTRUCT
 #endif
 
 /* a Tinybasic with float support */
@@ -206,6 +212,7 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
+#undef HASSTRUCT
 #endif
 
 /*
@@ -764,6 +771,10 @@ void setvar(mem_t c, mem_t d, number_t v){
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 			case 'X':
         dspsetcursorx((int)v);
+/* set the charcount, this is half broken on escape sequences */
+#ifdef HASMSTAB
+				if (od > 0 && od <= OPRT) charcount[od-1]=v;
+#endif
 				return;
 			case 'Y':
 				dspsetcursory((int)v);
@@ -1994,6 +2005,17 @@ void ins(char *b, address_t nb) {
  * block oriented i/o like in radio not implemented here
  */
 void outch(char c) {
+
+/* do we have a MS style tab command, then count characters on stream 1-4 but not in fileio */
+/* this does not work for control characters - needs to go to vt52 later */
+
+#ifdef HASMSTAB
+	if (od > 0 && od <= OPRT) {
+		if (c > 31) charcount[od-1]+=1;
+		if (c == 10) charcount[od-1]=0;
+	}
+#endif
+
 	switch(od) {
 		case OSERIAL:
 			serialwrite(c);
@@ -3106,7 +3128,7 @@ char termsymbol() {
 }
 
 /* a little helpers - one token expect */ 
-char expect(mem_t t, mem_t e) {
+char expect(token_t t, mem_t e) {
 	nexttoken();
 	if (token != t) {error(e); return 0; } else return 1;
 }
@@ -3506,7 +3528,7 @@ char stringvalue() {
 void streval(){
 	char *irl;
 	address_t xl, x;
-	mem_t t;
+	token_t t;
 	address_t h1;
 	char* b1;
 	index_t k;
@@ -4276,7 +4298,7 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
  *	LET - the core assigment function, this is different from other BASICs
  */
 void assignment() {
-	mem_t t;  /* remember the left hand side token until the end of the statement, type of the lhs */
+	token_t t;  /* remember the left hand side token until the end of the statement, type of the lhs */
 	mem_t ps=1;  /* also remember if the left hand side is a pure string of something with an index */
 	mem_t xcl, ycl; /* to preserve the left hand side variable names */
 	address_t i=1; /* and the beginning of the destination string */
@@ -4587,7 +4609,7 @@ resetinput:
  *	GOTO and GOSUB function for a simple one statement goto
  */
 void xgoto() {
-	mem_t t=token;
+	token_t t=token;
 
 	if (!expectexpr()) return;
 	if (t == TGOSUB) pushgosubstack(0);
@@ -5144,7 +5166,7 @@ void xclr() {
  */
 void xdim(){
 	mem_t xcl, ycl; 
-	mem_t t;
+	token_t t;
 
 	nexttoken();
 
@@ -5242,8 +5264,8 @@ void xtab(){
 
 	x=pop();
 #ifdef HASMSTAB
-	if (reltab && od == OSERIAL) {
-		if (charcount >= x ) x=0; else x=x-charcount-1;
+	if (reltab && od <= OPRT && od > 0) {
+		if (charcount[od-1] >= x) x=0; else x=x-charcount[od-1]-1;
 	} 
 #endif	
 	while (x-- > 0) outspc();	
@@ -5262,12 +5284,18 @@ void xlocate() {
 	y=pop();
 	x=pop();
 
-/* for locate we go through the VT52 interface */
+/* for locate we go through the VT52 interface for cursor positioning*/
 	if (x > 0 && y > 0 && x < 224 & y < 224) {
 		outch(27); outch('Y');
 		outch(31+(unsigned int) y); 
 		outch(31+(unsigned int) x);
 	}
+
+/* set the charcount, this is half broken on escape sequences */
+#ifdef HASMSTAB
+	if (od > 0 && od <= OPRT) charcount[od-1]=x;
+#endif
+
 }
 
 /* 
@@ -5398,7 +5426,7 @@ void getfilename(char *buffer, char d) {
 void xsave() {
 	char filename[SBUFSIZE];
 	address_t here2;
-	mem_t t;
+	token_t t;
 
 	nexttoken();
 	getfilename(filename, 1);
@@ -5544,7 +5572,7 @@ void xload(const char* f) {
  *	GET just one character from input 
  */
 void xget(){
-	mem_t t;		/* remember the left hand side token until the end of the statement, type of the lhs */
+	token_t t;		/* remember the left hand side token until the end of the statement, type of the lhs */
 	mem_t ps=1;	/* also remember if the left hand side is a pure string or something with an index */
 	mem_t xcl, ycl;	/* to preserve the left hand side variable names	*/
 	address_t i=1;	/* and the beginning of the destination string  	*/
@@ -5714,7 +5742,7 @@ void xset(){
 		case 10:
 			dspsetupdatemode(args);
 			break;
-/* change the serial device to a true TAB */
+/* change the output device to a true TAB */
 #ifdef HASMSTAB
 		case 11:
       reltab=args;
@@ -6198,7 +6226,7 @@ void resettimer(btimer_t* t) {
 }
 
 void xtimer() {
-	mem_t t;
+	token_t t;
 	btimer_t* timer;
 
 /* do we deal with every or after */
@@ -6874,7 +6902,7 @@ enddatarecord:
  *	READ - find data records and insert them to variables
  */
 void xread(){
-	mem_t t, t0;	/* remember the left hand side token until the end of the statement, type of the lhs */
+	token_t t, t0;	/* remember the left hand side token until the end of the statement, type of the lhs */
 	mem_t ps=1;	/* also remember if the left hand side is a pure string of something with an index 	*/
 	mem_t xcl, ycl; /* to preserve the left hand side variable names	*/
 	address_t i=1;  /* and the beginning of the destination string */
@@ -7141,7 +7169,7 @@ void xfn() {
 void xon(){
 	number_t cr;
 	int ci;
-	mem_t t;
+	token_t t;
 	address_t tmp, line = 0;
 	
 	if(!expectexpr()) return;
@@ -7198,6 +7226,31 @@ void xon(){
 	/* nexttoken(); */
 }
 #endif
+
+/* the structured BASIC extensions, WHILE, UNTIL, and SWITCH */
+
+#ifdef HASSTRUCT
+void xwhile() {
+	nexttoken();
+}
+
+void xrepeat() {
+	nexttoken();
+}
+
+void xuntil() {
+	nexttoken();
+}
+
+void xswitch() {
+	nexttoken();
+}
+
+void xcase() {
+	nexttoken();
+}
+#endif
+
 
 /* 
  *	statement processes an entire basic statement until the end 
@@ -7263,9 +7316,9 @@ void statement(){
 				xbreak();
 				break;
 			case TSTOP:
-			case TEND:		/* return here because new input is needed */
+			case TEND:		/* return here because new input is needed, end as a block end is handles elsewhere */
 				*ibuffer=0;	/* clear ibuffer - this is a hack */
-				st=SINT;	/* switch to interactive mode */
+				st=SINT;		/* switch to interactive mode */
 				eflush(); 	/* if there is an EEPROM dummy, flush it here (protects flash storage!) */
 				ofileclose();
 				return;
@@ -7460,6 +7513,23 @@ void statement(){
 			case TEVENT:
 				xevent();
 				break;
+#endif
+#ifdef HASSTRUCT
+			case TWHILE:
+				xwhile();
+				break;
+			case TREPEAT:
+				xwhile();
+				break;				
+			case TUNTIL:
+				xwhile();
+				break;				
+			case TSWITCH:
+				xwhile();
+				break;	
+			case TCASE:
+				xwhile();
+				break;					
 #endif
 			default:
 /*  strict syntax checking */

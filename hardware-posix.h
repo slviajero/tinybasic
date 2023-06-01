@@ -1100,12 +1100,6 @@ void dspvt52(char* c){
 
 void serialwrite(char c) { 
 
-/* do we have a MS style tab command ? */
-#ifdef HASMSTAB
-	if (c > 31) charcount+=1;
-	if (c == 10) charcount=0;
-#endif
-
 /* the vt52 state engine */
 #ifdef POSIXVT52TOANSI
   if (dspesc) { 
