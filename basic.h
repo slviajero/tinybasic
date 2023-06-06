@@ -250,11 +250,12 @@ typedef unsigned char uint8_t;
 #define TEVENT -20
 /* experimental structured commands, currently unimplemented */
 #define TWHILE -19
-#define TREPEAT -18
-#define TUNTIL -17
-#define TSWITCH -16
-#define TCASE -15
-#define TBEGIN -14
+#define TWEND   -18
+#define TREPEAT -17
+#define TUNTIL -16
+#define TSWITCH -15
+#define TCASE -14
+#define TSWEND -13
 /* these are multibyte token extension, currently unused */
 /* using them would allow over 1000 BASIC keywords */
 #define TEXT1 -6
@@ -462,11 +463,12 @@ const char sevent[]     PROGMEM  = "EVENT";
 #endif
 #ifdef HASSTRUCT
 const char swhile[]		PROGMEM	= "WHILE";
+const char swend[]      PROGMEM = "WEND";
 const char srepeat[]	PROGMEM	= "REPEAT";
 const char suntil[]     PROGMEM	= "UNTIL";
 const char sswitch[]	PROGMEM	= "SWITCH";
 const char scase[]		PROGMEM	= "CASE";
-const char sbegin[]     PROGMEM = "BEGIN";
+const char sswend[]     PROGMEM = "SWEND";
 #endif
 
 
@@ -533,7 +535,7 @@ const char* const keyword[] PROGMEM = {
     sevent,
 #endif
 #ifdef HASSTRUCT
-	swhile, srepeat, suntil, sswitch, scase, sbegin,	
+	swhile, swend, srepeat, suntil, sswitch, scase, sswend,	
 #endif 
 	0
 };
@@ -598,7 +600,7 @@ const signed char tokens[] PROGMEM = {
     TEVENT, 
 #endif
 #ifdef HASSTRUCT
-	TWHILE, TREPEAT, TUNTIL, TSWITCH, TCASE, TBEGIN,
+	TWHILE, TWEND, TREPEAT, TUNTIL, TSWITCH, TCASE, TSWEND,
 #endif
 	0
 };
@@ -820,7 +822,11 @@ static mem_t* mem;
 #endif
 static address_t himem, memsize;
 
-static struct {mem_t varx; mem_t vary; address_t here; number_t to; number_t step;} forstack[FORDEPTH];
+static struct {mem_t varx; mem_t vary; address_t here; number_t to; number_t step; 
+#ifdef HASSTRUCT
+mem_t type;
+#endif
+} forstack[FORDEPTH];
 static index_t forsp = 0;
 static mem_t fnc; 
 
@@ -1409,12 +1415,17 @@ void xgoto();
 void xreturn();
 void xif();
 
-/* optional FOR NEXT loops */
+/* FOR NEXT loops */
 void findnextcmd();
 void xfor();
 void xbreak();
 void xcont();
 void xnext();
+
+/* WHILE WEND*/
+void findwendcmd();
+void xwhile();
+void xwend();
 
 /* control commands and misc */
 void outputtoken();

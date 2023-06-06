@@ -75,6 +75,8 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
+#define HASMSTAB
+#define HASARRAYLIMIT
 #define HASSTRUCT
 
 /* Palo Alto plus Arduino functions */
@@ -97,6 +99,8 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
+#undef HASMSTAB
+#undef HASARRAYLIMIT
 #undef HASSTRUCT
 #endif
 
@@ -120,6 +124,8 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
+#define HASMSTAB
+#define HASARRAYLIMIT
 #define HASSTRUCT
 #endif
 
@@ -143,7 +149,9 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
-#undef HASSTRUCT
+#undef 	HASMSTAB
+#undef 	HASARRAYLIMIT
+#undef 	HASSTRUCT
 #endif
 
 /* all features activated */
@@ -166,6 +174,8 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
+#define HASMSTAB
+#define HASARRAYLIMIT
 #define HASSTRUCT
 #endif
 
@@ -189,6 +199,8 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
+#undef HASMSTAB
+#undef HASARRAYLIMIT
 #undef HASSTRUCT
 #endif
 
@@ -212,18 +224,18 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
+#undef HASMSTAB
+#undef HASARRAYLIMIT
 #undef HASSTRUCT
 #endif
 
-/*
- * Experimental features, to be tested and not sure that the add
- * real value 
- *
- * HASMSTAB: make tab more like MS TAB then Apple 1 TAB
- * HASARRAYLIMIT: make the lower limit of an variable
+/* 
+ * hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point 
  */
-#define HASMSTAB
-#define HASARRAYLIMIT
+#define MEMSIZE 0
+
+/* debug mode switch, set to 1 for hard debug mode with many messages */
+#define DEBUG 0
 
 /* 
  *	Language feature dependencies
@@ -238,13 +250,6 @@
 #if defined(HASSTRINGARRAYS)
 #define HASMULTIDIM
 #endif
-
-/* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point 
- */
-#define MEMSIZE 0
-
-/* debug mode switch */
-#define DEBUG 0
 
 /*
  * the core basic language headers including some Arduino device stuff
@@ -771,7 +776,7 @@ void setvar(mem_t c, mem_t d, number_t v){
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 			case 'X':
         dspsetcursorx((int)v);
-/* set the charcount, this is half broken on escape sequences */
+/* set the charcount, this is half broken but works */
 #ifdef HASMSTAB
 				if (od > 0 && od <= OPRT) charcount[od-1]=v;
 #endif
@@ -1602,7 +1607,7 @@ void clrdata() {
 }
 
 /* 
- *	Stack handling for gosub and for
+ *	Stack handling for FOR
  */
 void pushforstack(){
 	index_t i, j;
@@ -1635,6 +1640,7 @@ void pushforstack(){
 	}
 
 	if (forsp < FORDEPTH) {
+		forstack[forsp].type=token;
 		forstack[forsp].varx=xc;
 		forstack[forsp].vary=yc;
 		forstack[forsp].here=here;
@@ -1653,6 +1659,7 @@ void popforstack(){
 		error(EFOR);
 		return;
 	} 
+	token=forstack[forsp].type;
 	xc=forstack[forsp].varx;
 	yc=forstack[forsp].vary;
 	here=forstack[forsp].here;
@@ -1669,11 +1676,21 @@ void dropforstack(){
 	} 
 }
 
+token_t peekforstack() {
+	if (forsp>0) {
+		return forstack[forsp-1].type;
+	} else {
+		error(EFOR);
+		return 0;
+	} 
+}
+
 void clrforstack() {
 	forsp=0;
 	fnc=0;
 }
 
+/* GOSUB stack handling */
 void pushgosubstack(mem_t a){
 	if (gosubsp < GOSUBDEPTH) {
 		gosubstack[gosubsp]=here;
@@ -4751,7 +4768,7 @@ void xfor(){
 	if (token == '=') { 
 		if (!expectexpr()) return;
 		b=pop();
-		setvar(xcl, ycl, b); /* to have it hear makes FOR use the variable value as start */
+		setvar(xcl, ycl, b); /* to have it here makes FOR use the variable value as start */
 	}  
 
 	if (token == TTO) {
@@ -4782,6 +4799,9 @@ void xfor(){
 	yc=ycl;
 	x=e;
 	y=s;
+#ifdef HASSTRUCT
+	token=TFOR;
+#endif
 	if (DEBUG) { outsc("** for loop target location"); outnumber(here); outcr(); }
 	pushforstack();
 	if (er != 0) return;
@@ -4801,6 +4821,25 @@ void xfor(){
 /*
  *	BREAK - an apocryphal feature here is the BREAK command ending a loop
  */
+#ifdef HASSTRUCT
+void xbreak(){
+	token_t t;
+	t=peekforstack(); 
+	if (er != 0) return;
+	dropforstack();
+	switch (t) {
+		case TFOR: 
+			findnextcmd();
+			nexttoken();	
+			if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
+			break;
+		case TWHILE: 
+			findwendcmd();
+			nexttoken();
+			break;
+	}
+}
+#else
 void xbreak(){
 	dropforstack();
 	if (er != 0) return;
@@ -4808,14 +4847,31 @@ void xbreak(){
 	nexttoken();	
 	if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
 }
+#endif
 
 /*
  * CONT as a loop control statement, as apocryphal as BREAK, simply 
  * advance to next and the continue to process
  */
+#ifdef HASSTRUCT
+void xcont() {
+	token_t t;
+	t=peekforstack(); 
+	if (er != 0) return;
+	switch (t) {
+		case TFOR: 
+			findnextcmd();
+			break;
+		case TWHILE: 
+			findwendcmd();
+			break;
+	}
+}
+#else
 void xcont() {
 	findnextcmd();
 }
+#endif
 
 /* 
  *	NEXT variable statement 
@@ -4853,6 +4909,10 @@ void xnext(){
 			if (er != 0) return;
 		} 
 	}
+
+#ifdef HASSTRUCT
+/* here comes the code to identify whiles and untils */
+#endif
 
 /* y=0 an infinite loop with step 0 */
 	t=getvar(xc, yc)+y;
@@ -7230,9 +7290,94 @@ void xon(){
 /* the structured BASIC extensions, WHILE, UNTIL, and SWITCH */
 
 #ifdef HASSTRUCT
-void xwhile() {
-	nexttoken();
+
+/* helper similar to for next, find the loop end */
+void findwendcmd(){
+	address_t loopc = 0;
+
+	while (1) {			
+		if (token == TWEND) {
+	    	if (loopc == 0) return; else loopc--;
+		}
+		if (token == TWHILE) loopc++;
+
+/* no WEND found - different for interactive and program mode */
+	  if (st == SRUN || st == SERUN) {
+	  	if (here >= top) {
+	    	error(TFOR);
+	    	return;
+	   	}
+		} else {
+	  	if (bi-ibuffer > BUFSIZE) {
+	  		error(TFOR);
+	    	return;
+	  	}
+	  }
+		nexttoken(); 
+	}
 }
+
+void xwhile() {
+
+/* what? */
+	if (DEBUG) { outsc("** in while "); outnumber(here); outspc(); outnumber(token); outcr(); }
+
+/* interactively we need to save the buffer location */
+	if (st == SINT) here=bi-ibuffer;
+
+/* save the current location and token type, here points to the condition */ 
+	pushforstack();
+
+/* is there a valid condition */
+	if (!expectexpr()) return;
+
+/* if false, seek WEND */
+	if (!pop()) {
+		popforstack();
+		if (st == SINT) bi=ibuffer+here;
+		findwendcmd();
+		nexttoken();
+	}
+}
+
+void xwend() {
+	address_t h;
+	char* b;
+
+/* remember where we are */
+	if (st == SINT) {
+		b=bi;
+	} else {
+		h=here;
+	}
+
+/* back to the condition */
+	popforstack();
+
+/* interactive run */
+	if (st == SINT) bi=ibuffer+here;
+
+/* is this a while loop */
+	if (token != TWHILE ) {
+		error(EFOR);
+		return;
+	}
+
+/* run the loop again - same code as xwhile */
+	if (st == SINT) here=bi-ibuffer;
+	pushforstack();
+
+/* is there a valid condition */
+	if (!expectexpr()) return;
+
+/* if false, seek WEND */
+	if (!pop()) {
+		popforstack();
+		if (st == SINT) bi=b; else here=h;
+		nexttoken();
+	}
+}
+
 
 void xrepeat() {
 	nexttoken();
@@ -7517,6 +7662,9 @@ void statement(){
 #ifdef HASSTRUCT
 			case TWHILE:
 				xwhile();
+				break;
+			case TWEND:
+				xwend();
 				break;
 			case TREPEAT:
 				xwhile();

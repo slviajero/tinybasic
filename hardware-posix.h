@@ -1468,8 +1468,6 @@ mem_t spiram_rwbufferread(address_t a) {return spiram[a];}
 
 mem_t spiram_robufferread(address_t a) {return spiram[a];}
 
-
-
 /* to handle strings in SPIRAM situations two more buffers are needed 
  * they store intermediate results of string operations. The buffersize 
  * limits the maximum string length indepents of how big strings are set
