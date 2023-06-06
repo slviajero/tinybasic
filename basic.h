@@ -1427,6 +1427,11 @@ void findwendcmd();
 void xwhile();
 void xwend();
 
+/* REPEAT UNTIL */
+void finduntilcmd();
+void xrepeat();
+void xuntil();
+
 /* control commands and misc */
 void outputtoken();
 void xlist();

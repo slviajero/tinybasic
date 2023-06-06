@@ -4837,6 +4837,10 @@ void xbreak(){
 			findwendcmd();
 			nexttoken();
 			break;
+		case TREPEAT:
+			finduntilcmd();
+			while (!termsymbol()) nexttoken();
+			break;	
 	}
 }
 #else
@@ -4864,6 +4868,9 @@ void xcont() {
 			break;
 		case TWHILE: 
 			findwendcmd();
+			break;
+		case TREPEAT:
+			finduntilcmd();
 			break;
 	}
 }
@@ -7291,7 +7298,7 @@ void xon(){
 
 #ifdef HASSTRUCT
 
-/* helper similar to for next, find the loop end */
+/* helper similar to for next, find the loop end of WHILE*/
 void findwendcmd(){
 	address_t loopc = 0;
 
@@ -7317,6 +7324,33 @@ void findwendcmd(){
 	}
 }
 
+/* and until - actually this should be one block scanning command later*/
+void finduntilcmd(){
+	address_t loopc = 0;
+
+	while (1) {			
+		if (token == TUNTIL) {
+	    	if (loopc == 0) return; else loopc--;
+		}
+		if (token == TREPEAT) loopc++;
+
+/* no WEND found - different for interactive and program mode */
+		if (st == SRUN || st == SERUN) {
+	  	if (here >= top) {
+	    	error(TFOR);
+	    	return;
+	   	}
+		} else {
+	  	if (bi-ibuffer > BUFSIZE) {
+	  		error(TFOR);
+	    	return;
+	  	}
+	  }
+		nexttoken(); 
+	}
+}
+
+
 void xwhile() {
 
 /* what? */
@@ -7331,7 +7365,7 @@ void xwhile() {
 /* is there a valid condition */
 	if (!expectexpr()) return;
 
-/* if false, seek WEND */
+/* if false, seek WEND and clear the stack*/
 	if (!pop()) {
 		popforstack();
 		if (st == SINT) bi=ibuffer+here;
@@ -7378,13 +7412,65 @@ void xwend() {
 	}
 }
 
-
 void xrepeat() {
+	/* what? */
+	if (DEBUG) { outsc("** in repeat "); outnumber(here); outspc(); outnumber(token); outcr(); }
+
+/* interactively we need to save the buffer location */
+	if (st == SINT) here=bi-ibuffer;
+
+/* save the current location and token type, here points statement after repeat */ 
+	pushforstack();
+
+/* we are done here */
 	nexttoken();
+
 }
 
 void xuntil() {
-	nexttoken();
+	address_t h;
+	char* b;
+
+/* is there a valid condition */
+	if (!expectexpr()) return;
+
+/* remember the location */
+	if (st == SINT) {
+		b=bi;
+	} else {
+		h=here;
+	}
+
+/* look on the stack */
+	popforstack();
+
+/* if false, go back to the repeat */
+	if (!pop()) {
+
+/* the right loop type ? */
+		if (token != TREPEAT) {
+			error(EFOR);
+			return;
+		}
+
+/* correct for interactive */
+		if (st == SINT) bi=ibuffer+here;
+
+/* write the stack back if we continue looping */
+		pushforstack();
+
+	} else {
+
+/* back to where we were */
+		if (st == SINT) {
+			bi=b;
+		} else {
+			here=h;
+		}
+	}
+
+	nexttoken(); /* a bit of evil here, hobling over termsymbols */
+
 }
 
 void xswitch() {
@@ -7667,10 +7753,10 @@ void statement(){
 				xwend();
 				break;
 			case TREPEAT:
-				xwhile();
+				xrepeat();
 				break;				
 			case TUNTIL:
-				xwhile();
+				xuntil();
 				break;				
 			case TSWITCH:
 				xwhile();
