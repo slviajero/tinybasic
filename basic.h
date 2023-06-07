@@ -248,7 +248,7 @@ typedef unsigned char uint8_t;
 #define TAFTER -22
 #define TEVERY -21
 #define TEVENT -20
-/* experimental structured commands, currently unimplemented */
+/* experimental structured commands, currently partially implemented */
 #define TWHILE -19
 #define TWEND   -18
 #define TREPEAT -17

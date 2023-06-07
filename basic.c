@@ -1724,6 +1724,33 @@ void clrgosubstack() {
 	gosubsp=0;
 }
 
+/* two helper commands for structured BASIC, using the GOSUB stack */
+
+void pushlocation() {
+	if (gosubsp < GOSUBDEPTH) {
+		if (st == SINT)
+			gosubstack[gosubsp]=bi-ibuffer;
+		else 
+			gosubstack[gosubsp]=here;
+    gosubsp++;  
+	} else 
+		error(EGOSUB);	/* needs to be changed together with the other struct error messages */
+}
+
+void poplocation() {
+	if (gosubsp>0) {
+		gosubsp--;
+	} else {
+		error(ERETURN);
+		return;
+	} 
+	if (st == SINT)
+		bi=ibuffer+gosubstack[gosubsp];
+	else 
+		here=gosubstack[gosubsp];	
+}
+
+
 /* 
  *	Input and output functions.
  * 
@@ -7474,11 +7501,37 @@ void xuntil() {
 }
 
 void xswitch() {
-	nexttoken();
+	number_t r;
+
+/* lets look at the condition */
+	if (!expectexpr()) return;
+	r=pop();
+
+	outsc("** switch evaluated result "); outnumber(r); outcr();
+
+/* remember where we are */
+	pushlocation();
+
+/* seek the first case to match the condition */
+	while (token != EOF) {
+		if (token == TSWEND) break;
+		if (token == TCASE) {
+
+			outsc("** case found at "); outnumber(here); outcr();
+
+			if (!expectexpr()) return;
+			if (r == pop()) return;
+		}
+		nexttoken();
+	}
+
+/* return to the original location and continue if no case is found */
+	poplocation(); 	
 }
 
+/* a nacked case statement always seeks the end of the switch */
 void xcase() {
-	nexttoken();
+		while (token != EOF && token != TSWEND) nexttoken();
 }
 #endif
 
@@ -7759,11 +7812,15 @@ void statement(){
 				xuntil();
 				break;				
 			case TSWITCH:
-				xwhile();
+				xswitch();
 				break;	
 			case TCASE:
-				xwhile();
-				break;					
+				xcase();
+				break;	
+			case TSWEND:
+				nexttoken();
+				break;
+
 #endif
 			default:
 /*  strict syntax checking */
