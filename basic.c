@@ -77,7 +77,7 @@
 #define HASERRORHANDLING
 #define HASMSTAB
 #define HASARRAYLIMIT
-#define HASSTRUCT
+#undef HASSTRUCT
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -126,7 +126,7 @@
 #define HASERRORHANDLING
 #define HASMSTAB
 #define HASARRAYLIMIT
-#define HASSTRUCT
+#undef HASSTRUCT
 #endif
 
 /* a simple integer basic for small systems (UNO etc) */
@@ -176,7 +176,7 @@
 #define HASERRORHANDLING
 #define HASMSTAB
 #define HASARRAYLIMIT
-#define HASSTRUCT
+#undef HASSTRUCT
 #endif
 
 /* a simple BASIC with float support */
@@ -1640,7 +1640,9 @@ void pushforstack(){
 	}
 
 	if (forsp < FORDEPTH) {
+#ifdef HASSTRUCT
 		forstack[forsp].type=token;
+#endif
 		forstack[forsp].varx=xc;
 		forstack[forsp].vary=yc;
 		forstack[forsp].here=here;
@@ -1659,7 +1661,9 @@ void popforstack(){
 		error(EFOR);
 		return;
 	} 
+#ifdef HASSTRUCT
 	token=forstack[forsp].type;
+#endif
 	xc=forstack[forsp].varx;
 	yc=forstack[forsp].vary;
 	here=forstack[forsp].here;
@@ -1678,7 +1682,11 @@ void dropforstack(){
 
 token_t peekforstack() {
 	if (forsp>0) {
+#ifdef HASSTRUCT
 		return forstack[forsp-1].type;
+#else
+		return 0;
+#endif
 	} else {
 		error(EFOR);
 		return 0;
@@ -4808,7 +4816,7 @@ void xfor(){
 		s=pop();
 	} 
 
-	if (! termsymbol()) {
+	if (!termsymbol()) {
 		error(EUNKNOWN);
 		return;
 	}
@@ -4826,9 +4834,7 @@ void xfor(){
 	yc=ycl;
 	x=e;
 	y=s;
-#ifdef HASSTRUCT
-	token=TFOR;
-#endif
+
 	if (DEBUG) { outsc("** for loop target location"); outnumber(here); outcr(); }
 	pushforstack();
 	if (er != 0) return;
@@ -7402,15 +7408,10 @@ void xwhile() {
 }
 
 void xwend() {
-	address_t h;
-	char* b;
+
 
 /* remember where we are */
-	if (st == SINT) {
-		b=bi;
-	} else {
-		h=here;
-	}
+	pushlocation();
 
 /* back to the condition */
 	popforstack();
@@ -7434,7 +7435,7 @@ void xwend() {
 /* if false, seek WEND */
 	if (!pop()) {
 		popforstack();
-		if (st == SINT) bi=b; else here=h;
+		poplocation();
 		nexttoken();
 	}
 }
@@ -7455,18 +7456,12 @@ void xrepeat() {
 }
 
 void xuntil() {
-	address_t h;
-	char* b;
 
 /* is there a valid condition */
 	if (!expectexpr()) return;
 
 /* remember the location */
-	if (st == SINT) {
-		b=bi;
-	} else {
-		h=here;
-	}
+	pushlocation();
 
 /* look on the stack */
 	popforstack();
@@ -7489,11 +7484,7 @@ void xuntil() {
 	} else {
 
 /* back to where we were */
-		if (st == SINT) {
-			bi=b;
-		} else {
-			here=h;
-		}
+		poplocation();
 	}
 
 	nexttoken(); /* a bit of evil here, hobling over termsymbols */
@@ -7507,8 +7498,6 @@ void xswitch() {
 	if (!expectexpr()) return;
 	r=pop();
 
-	outsc("** switch evaluated result "); outnumber(r); outcr();
-
 /* remember where we are */
 	pushlocation();
 
@@ -7516,9 +7505,6 @@ void xswitch() {
 	while (token != EOF) {
 		if (token == TSWEND) break;
 		if (token == TCASE) {
-
-			outsc("** case found at "); outnumber(here); outcr();
-
 			if (!expectexpr()) return;
 			if (r == pop()) return;
 		}
