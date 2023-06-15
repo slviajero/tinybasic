@@ -77,7 +77,7 @@
 #define HASERRORHANDLING
 #define HASMSTAB
 #define HASARRAYLIMIT
-#undef HASSTRUCT
+#define HASSTRUCT
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -126,7 +126,7 @@
 #define HASERRORHANDLING
 #define HASMSTAB
 #define HASARRAYLIMIT
-#undef HASSTRUCT
+#define HASSTRUCT
 #endif
 
 /* a simple integer basic for small systems (UNO etc) */
@@ -176,7 +176,7 @@
 #define HASERRORHANDLING
 #define HASMSTAB
 #define HASARRAYLIMIT
-#undef HASSTRUCT
+#define HASSTRUCT
 #endif
 
 /* a simple BASIC with float support */
@@ -1617,6 +1617,9 @@ void pushforstack(){
 /* before pushing into the for stack we check is an
 	 old for exists - this is on reentering a for loop 
 	 this code removes all loop inside the for loop as well */
+#ifdef HASSTRUCT
+	if (token != TWHILE && token != TREPEAT)
+#endif
 	for(i=0; i<forsp; i++) {
 		if (forstack[i].varx == xc && forstack[i].vary == yc) {
 			forsp=i;
@@ -1756,6 +1759,14 @@ void poplocation() {
 		bi=ibuffer+gosubstack[gosubsp];
 	else 
 		here=gosubstack[gosubsp];	
+}
+
+void droplocation() {
+	if (gosubsp>0) {
+		gosubsp--;
+	} else {
+		error(EGOSUB);
+	} 
 }
 
 
@@ -4861,11 +4872,6 @@ void xbreak(){
 	if (er != 0) return;
 	dropforstack();
 	switch (t) {
-		case TFOR: 
-			findnextcmd();
-			nexttoken();	
-			if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
-			break;
 		case TWHILE: 
 			findwendcmd();
 			nexttoken();
@@ -4873,6 +4879,11 @@ void xbreak(){
 		case TREPEAT:
 			finduntilcmd();
 			while (!termsymbol()) nexttoken();
+			break;	
+		default: /* a FOR loop is the default */
+			findnextcmd();
+			nexttoken();	
+			if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
 			break;	
 	}
 }
@@ -4896,14 +4907,14 @@ void xcont() {
 	t=peekforstack(); 
 	if (er != 0) return;
 	switch (t) {
-		case TFOR: 
-			findnextcmd();
-			break;
 		case TWHILE: 
 			findwendcmd();
 			break;
 		case TREPEAT:
 			finduntilcmd();
+			break;
+		default: /* a FOR loop is the default */
+			findnextcmd();
 			break;
 	}
 }
@@ -7409,7 +7420,6 @@ void xwhile() {
 
 void xwend() {
 
-
 /* remember where we are */
 	pushlocation();
 
@@ -7437,7 +7447,8 @@ void xwend() {
 		popforstack();
 		poplocation();
 		nexttoken();
-	}
+	} else 
+		droplocation(); /* clean up the location i.e. GOSUB stack */
 }
 
 void xrepeat() {
