@@ -46,7 +46,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#undef	BASICFULL
+#define	BASICFULL
 #undef	BASICINTEGER
 #undef	BASICSIMPLE
 #undef	BASICMINIMAL
@@ -7523,6 +7523,7 @@ void xuntil() {
 
 void xswitch() {
 	number_t r;
+	mem_t match = 0;
 
 /* lets look at the condition */
 	if (!expectexpr()) return;
@@ -7535,8 +7536,34 @@ void xswitch() {
 	while (token != EOF) {
 		if (token == TSWEND) break;
 		if (token == TCASE) {
+/* this is a simple one argument code */
+/*
 			if (!expectexpr()) return;
-			if (r == pop()) return;
+			if (r == pop()) {
+				droplocation();
+				return;
+			}
+*/
+/* more sophisticated, case can have an argument list */
+			nexttoken();
+			parsearguments();
+
+			if (DEBUG) { outsc("** in CASE found "); outnumber(args); outsc(" arguments"); outcr(); }
+
+			if (er != 0) return;
+			if (args == 0) {
+				error(TCASE);
+				return;
+			}
+			while (args > 0) {
+				if (pop() == r) match=1;
+				args--;
+			}
+
+			if (match) {
+				droplocation();
+				return;
+			}
 		}
 		nexttoken();
 	}
