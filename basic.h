@@ -622,21 +622,17 @@ const signed char tokens[] PROGMEM = {
 #define ENUMBER      11
 #define EDIVIDE		 12
 #define ELINE        13
-#define ERETURN      14
-#define ENEXT        15
-#define EGOSUB       16 
-#define EFOR         17
-#define EOUTOFMEMORY 18
-#define ESTACK 		 19
-#define EDIM         20
-#define EORANGE 	 21
-#define ESTRING      22
-#define EVARIABLE	 23
-#define EFILE 		 24
-#define EFUN 		 25
-#define EARGS		 26
-#define EEEPROM	27
-#define ESDCARD	28
+#define EOUTOFMEMORY 14
+#define ESTACK 		 15
+#define EORANGE 	 16
+#define ESTRING      17
+#define EVARIABLE	 18
+#define ELOOP        19
+#define EFILE 		 20
+#define EFUN 		 21
+#define EARGS       22
+#define EEEPROM	    23
+#define ESDCARD     24
 
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "> ";
@@ -653,16 +649,12 @@ const char eunknown[]  	PROGMEM = "Syntax";
 const char enumber[]	PROGMEM = "Number";
 const char edivide[]  	PROGMEM = "Div by 0";
 const char eline[]  	PROGMEM = "Unknown Line";
-const char ereturn[]    PROGMEM = "Return";
-const char enext[]		PROGMEM = "Next";
-const char egosub[] 	PROGMEM = "GOSUB";
-const char efor[]		PROGMEM = "FOR";
 const char emem[]  	   	PROGMEM = "Memory";
 const char estack[]    	PROGMEM = "Stack";
-const char edim[]		PROGMEM = "DIM";
 const char erange[]  	PROGMEM = "Range";
 const char estring[]	PROGMEM = "String";
 const char evariable[]  PROGMEM = "Variable";
+const char eloop[]      PROGMEM = "Loop";
 const char efile[]  	PROGMEM = "File";
 const char efun[] 	 	PROGMEM = "Function";
 const char eargs[]  	PROGMEM = "Args";
@@ -676,9 +668,9 @@ const char* const message[] PROGMEM = {
 	mstring, mstringv,
 	egeneral
 #ifdef HASERRORMSG
-	, eunknown, enumber, edivide, eline, ereturn, 
-	enext, egosub, efor, emem, estack, edim, erange,
-	estring, evariable, efile, efun, eargs, 
+	, eunknown, enumber, edivide, eline, 
+	emem, estack, erange,
+	estring, evariable, eloop, efile, efun, eargs, 
 	eeeprom, esdcard
 #endif
 };
@@ -844,7 +836,7 @@ static union accunumber { number_t i; address_t a; struct twobytes b; mem_t c[si
 
 static char *ir, *ir2;
 static token_t token;
-static mem_t er;
+static token_t er;
 static mem_t ert;
 
 static mem_t st; 
@@ -1266,7 +1258,7 @@ signed char gettokenvalue(char);
 void printmessage(char);
 
 /* error handling */
-void error(mem_t);
+void error(token_t);
 void reseterror();
 void debugtoken();
 void bdebug(const char*);

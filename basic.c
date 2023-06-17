@@ -46,7 +46,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#define	BASICFULL
+#undef	BASICFULL
 #undef	BASICINTEGER
 #undef	BASICSIMPLE
 #undef	BASICMINIMAL
@@ -1480,7 +1480,8 @@ void printmessage(char i){
  * reseterror() sets the error state to normal and end the 
  * run loop.
  */ 
-void error(mem_t e){
+void error(token_t e){
+	address_t i;
 
 /* store the error number */
 	er=e;
@@ -1510,8 +1511,15 @@ void error(mem_t e){
 		outch(':');
 		outspc();
 	}
+
+/* if we have error messages, display them */	
 #ifdef HASERRORMSG
-	printmessage(e);
+	if (e > 0)
+		printmessage(e);
+	else {
+		for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=e; i++);
+		outsc(getkeyword(i));
+	}
 	outspc();
 	printmessage(EGENERAL);
 #else 
@@ -1654,14 +1662,14 @@ void pushforstack(){
 		forsp++;	
 		return;	
 	} else 
-		error(EFOR);
+		error(ELOOP);
 }
 
 void popforstack(){
 	if (forsp>0) {
 		forsp--;
 	} else {
-		error(EFOR);
+		error(ELOOP);
 		return;
 	} 
 #ifdef HASSTRUCT
@@ -1678,7 +1686,7 @@ void dropforstack(){
 	if (forsp>0) {
 		forsp--;
 	} else {
-		error(EFOR);
+		error(ELOOP);
 		return;
 	} 
 }
@@ -1691,7 +1699,7 @@ token_t peekforstack() {
 		return 0;
 #endif
 	} else {
-		error(EFOR);
+		error(ELOOP);
 		return 0;
 	} 
 }
@@ -1710,14 +1718,14 @@ void pushgosubstack(mem_t a){
 #endif
     gosubsp++;  
 	} else 
-		error(EGOSUB);
+		error(TGOSUB);
 }
 
 void popgosubstack(){
 	if (gosubsp>0) {
 		gosubsp--;
 	} else {
-		error(ERETURN);
+		error(TRETURN);
 		return;
 	} 
 	here=gosubstack[gosubsp];
@@ -1727,7 +1735,7 @@ void dropgosubstack(){
 	if (gosubsp>0) {
 		gosubsp--;
 	} else {
-		error(EGOSUB);
+		error(TGOSUB);
 	} 
 }
 
@@ -1745,14 +1753,14 @@ void pushlocation() {
 			gosubstack[gosubsp]=here;
     gosubsp++;  
 	} else 
-		error(EGOSUB);	/* needs to be changed together with the other struct error messages */
+		error(EUNKNOWN);	/* needs to be changed together with the other struct error messages */
 }
 
 void poplocation() {
 	if (gosubsp>0) {
 		gosubsp--;
 	} else {
-		error(ERETURN);
+		error(EUNKNOWN);
 		return;
 	} 
 	if (st == SINT)
@@ -1765,7 +1773,7 @@ void droplocation() {
 	if (gosubsp>0) {
 		gosubsp--;
 	} else {
-		error(EGOSUB);
+		error(EUNKNOWN);
 	} 
 }
 
@@ -4952,6 +4960,14 @@ void xnext(){
 	popforstack();
 	if (er != 0) return;
 
+/* check if this is really a FOR loop */
+#ifdef HASSTRUCT
+	if (token == TWHILE || token == TREPEAT) {
+		error(ELOOP);
+		return;
+	}
+#endif
+
 /* a variable argument in next clears the for stack 
 		down as BASIC programs can and do jump out to an outer next */
 	if (xcl) {
@@ -4960,10 +4976,6 @@ void xnext(){
 			if (er != 0) return;
 		} 
 	}
-
-#ifdef HASSTRUCT
-/* here comes the code to identify whiles and untils */
-#endif
 
 /* y=0 an infinite loop with step 0 */
 	t=getvar(xc, yc)+y;
@@ -7355,12 +7367,12 @@ void findwendcmd(){
 /* no WEND found - different for interactive and program mode */
 	  if (st == SRUN || st == SERUN) {
 	  	if (here >= top) {
-	    	error(TFOR);
+	    	error(TWHILE);
 	    	return;
 	   	}
 		} else {
 	  	if (bi-ibuffer > BUFSIZE) {
-	  		error(TFOR);
+	  		error(TWHILE);
 	    	return;
 	  	}
 	  }
@@ -7378,15 +7390,15 @@ void finduntilcmd(){
 		}
 		if (token == TREPEAT) loopc++;
 
-/* no WEND found - different for interactive and program mode */
+/* no UNTIL found - different for interactive and program mode */
 		if (st == SRUN || st == SERUN) {
 	  	if (here >= top) {
-	    	error(TFOR);
+	    	error(TREPEAT);
 	    	return;
 	   	}
 		} else {
 	  	if (bi-ibuffer > BUFSIZE) {
-	  		error(TFOR);
+	  		error(TREPEAT);
 	    	return;
 	  	}
 	  }
@@ -7422,16 +7434,18 @@ void xwend() {
 
 /* remember where we are */
 	pushlocation();
+	if (er != 0) return;
 
 /* back to the condition */
 	popforstack();
+	if (er != 0) return;
 
 /* interactive run */
 	if (st == SINT) bi=ibuffer+here;
 
 /* is this a while loop */
 	if (token != TWHILE ) {
-		error(EFOR);
+		error(TWEND);
 		return;
 	}
 
@@ -7473,16 +7487,18 @@ void xuntil() {
 
 /* remember the location */
 	pushlocation();
+	if (er != 0) return;
 
 /* look on the stack */
 	popforstack();
+	if (er != 0) return;
 
 /* if false, go back to the repeat */
 	if (!pop()) {
 
 /* the right loop type ? */
 		if (token != TREPEAT) {
-			error(EFOR);
+			error(TUNTIL);
 			return;
 		}
 
@@ -7491,6 +7507,9 @@ void xuntil() {
 
 /* write the stack back if we continue looping */
 		pushforstack();
+
+/* and clean up locations */
+		droplocation();
 
 	} else {
 
