@@ -1181,37 +1181,29 @@ Division by zero: 12
 
 Unknown line: 13
 
-Return not possible: 14
+Out of memory: 14
 
-Next not possible: 15
+Stack error: 15
 
-Gosub not possible: 16 
+Index or parameter out of range: 16
 
-For not possible: 17
+String operation error: 17
 
-Out of memory: 18
+Error in variable handling: 18
 
-Stack error: 19
+Error in loop handling: 19
 
-Wrong dimensioning: 20
+File errors: 20
 
-Index or parameter out of range: 21
+Function errors: 21
 
-String operation error: 22
+Number or type of arguments wrong: 22
 
-Error in variable handling: 23
+EEPROM errors: 23
 
-File errors: 24
+SDcard errors: 24
 
-Function errors: 25
-
-Number or type of arguments wrong: 26
-
-EEPROM errors: 27
-
-SDcard errors: 28
-
-Some of the errors are technical errors and should never appear if the interpreter works properly. 
+Some of the errors are technical errors and should never appear if the interpreter works properly. In addition to this error codes all token values can appear here. This happens if a specific error in a command occurs. Typically this would be RETURN without a GOSUB or the loop commands.
 
 ## Graphics language set
 
