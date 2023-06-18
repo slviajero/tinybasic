@@ -47,10 +47,10 @@
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
 #undef	BASICFULL
-#undef  BASICINTEGER
+#undef	BASICINTEGER
 #define	BASICSIMPLE
 #undef	BASICMINIMAL
-#undef  BASICSIMPLEWITHFLOAT
+#undef	BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
 
 /*
@@ -75,6 +75,9 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
+#define HASMSTAB
+#define HASARRAYLIMIT
+#define HASSTRUCT
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -96,6 +99,9 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
+#undef HASMSTAB
+#undef HASARRAYLIMIT
+#undef HASSTRUCT
 #endif
 
 /* all features minus float and tone */
@@ -118,6 +124,9 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
+#define HASMSTAB
+#define HASARRAYLIMIT
+#define HASSTRUCT
 #endif
 
 /* a simple integer basic for small systems (UNO etc) */
@@ -140,6 +149,9 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
+#undef 	HASMSTAB
+#undef 	HASARRAYLIMIT
+#undef 	HASSTRUCT
 #endif
 
 /* all features activated */
@@ -162,6 +174,9 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
+#define HASMSTAB
+#define HASARRAYLIMIT
+#define HASSTRUCT
 #endif
 
 /* a simple BASIC with float support */
@@ -184,6 +199,9 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
+#undef HASMSTAB
+#undef HASARRAYLIMIT
+#undef HASSTRUCT
 #endif
 
 /* a Tinybasic with float support */
@@ -206,17 +224,18 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
+#undef HASMSTAB
+#undef HASARRAYLIMIT
+#undef HASSTRUCT
 #endif
 
-/*
- * Experimental features, to be tested and not sure that the add
- * real value 
- *
- * HASMSTAB: make tab more like MS TAB then Apple 1 TAB
- * HASARRAYLIMIT: make the lower limit of an variable
+/* 
+ * hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point 
  */
-#define HASMSTAB
-#define HASARRAYLIMIT
+#define MEMSIZE 0
+
+/* debug mode switch, set to 1 for hard debug mode with many messages */
+#define DEBUG 0
 
 /* 
  *	Language feature dependencies
@@ -231,13 +250,6 @@
 #if defined(HASSTRINGARRAYS)
 #define HASMULTIDIM
 #endif
-
-/* hardcoded memory size, set 0 for automatic malloc, don't redefine this beyond this point 
- */
-#define MEMSIZE 0
-
-/* debug mode switch */
-#define DEBUG 0
 
 /*
  * the core basic language headers including some Arduino device stuff
@@ -764,6 +776,10 @@ void setvar(mem_t c, mem_t d, number_t v){
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 			case 'X':
         dspsetcursorx((int)v);
+/* set the charcount, this is half broken but works */
+#ifdef HASMSTAB
+				if (od > 0 && od <= OPRT) charcount[od-1]=v;
+#endif
 				return;
 			case 'Y':
 				dspsetcursory((int)v);
@@ -1464,7 +1480,8 @@ void printmessage(char i){
  * reseterror() sets the error state to normal and end the 
  * run loop.
  */ 
-void error(mem_t e){
+void error(token_t e){
+	address_t i;
 
 /* store the error number */
 	er=e;
@@ -1494,8 +1511,15 @@ void error(mem_t e){
 		outch(':');
 		outspc();
 	}
+
+/* if we have error messages, display them */	
 #ifdef HASERRORMSG
-	printmessage(e);
+	if (e > 0)
+		printmessage(e);
+	else {
+		for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=e; i++);
+		outsc(getkeyword(i));
+	}
 	outspc();
 	printmessage(EGENERAL);
 #else 
@@ -1591,7 +1615,7 @@ void clrdata() {
 }
 
 /* 
- *	Stack handling for gosub and for
+ *	Stack handling for FOR
  */
 void pushforstack(){
 	index_t i, j;
@@ -1601,6 +1625,9 @@ void pushforstack(){
 /* before pushing into the for stack we check is an
 	 old for exists - this is on reentering a for loop 
 	 this code removes all loop inside the for loop as well */
+#ifdef HASSTRUCT
+	if (token != TWHILE && token != TREPEAT)
+#endif
 	for(i=0; i<forsp; i++) {
 		if (forstack[i].varx == xc && forstack[i].vary == yc) {
 			forsp=i;
@@ -1624,6 +1651,9 @@ void pushforstack(){
 	}
 
 	if (forsp < FORDEPTH) {
+#ifdef HASSTRUCT
+		forstack[forsp].type=token;
+#endif
 		forstack[forsp].varx=xc;
 		forstack[forsp].vary=yc;
 		forstack[forsp].here=here;
@@ -1632,16 +1662,19 @@ void pushforstack(){
 		forsp++;	
 		return;	
 	} else 
-		error(EFOR);
+		error(ELOOP);
 }
 
 void popforstack(){
 	if (forsp>0) {
 		forsp--;
 	} else {
-		error(EFOR);
+		error(ELOOP);
 		return;
 	} 
+#ifdef HASSTRUCT
+	token=forstack[forsp].type;
+#endif
 	xc=forstack[forsp].varx;
 	yc=forstack[forsp].vary;
 	here=forstack[forsp].here;
@@ -1653,8 +1686,21 @@ void dropforstack(){
 	if (forsp>0) {
 		forsp--;
 	} else {
-		error(EFOR);
+		error(ELOOP);
 		return;
+	} 
+}
+
+token_t peekforstack() {
+	if (forsp>0) {
+#ifdef HASSTRUCT
+		return forstack[forsp-1].type;
+#else
+		return 0;
+#endif
+	} else {
+		error(ELOOP);
+		return 0;
 	} 
 }
 
@@ -1663,6 +1709,7 @@ void clrforstack() {
 	fnc=0;
 }
 
+/* GOSUB stack handling */
 void pushgosubstack(mem_t a){
 	if (gosubsp < GOSUBDEPTH) {
 		gosubstack[gosubsp]=here;
@@ -1671,14 +1718,14 @@ void pushgosubstack(mem_t a){
 #endif
     gosubsp++;  
 	} else 
-		error(EGOSUB);
+		error(TGOSUB);
 }
 
 void popgosubstack(){
 	if (gosubsp>0) {
 		gosubsp--;
 	} else {
-		error(ERETURN);
+		error(TRETURN);
 		return;
 	} 
 	here=gosubstack[gosubsp];
@@ -1688,13 +1735,48 @@ void dropgosubstack(){
 	if (gosubsp>0) {
 		gosubsp--;
 	} else {
-		error(EGOSUB);
+		error(TGOSUB);
 	} 
 }
 
 void clrgosubstack() {
 	gosubsp=0;
 }
+
+/* two helper commands for structured BASIC, using the GOSUB stack */
+
+void pushlocation() {
+	if (gosubsp < GOSUBDEPTH) {
+		if (st == SINT)
+			gosubstack[gosubsp]=bi-ibuffer;
+		else 
+			gosubstack[gosubsp]=here;
+    gosubsp++;  
+	} else 
+		error(EUNKNOWN);	/* needs to be changed together with the other struct error messages */
+}
+
+void poplocation() {
+	if (gosubsp>0) {
+		gosubsp--;
+	} else {
+		error(EUNKNOWN);
+		return;
+	} 
+	if (st == SINT)
+		bi=ibuffer+gosubstack[gosubsp];
+	else 
+		here=gosubstack[gosubsp];	
+}
+
+void droplocation() {
+	if (gosubsp>0) {
+		gosubsp--;
+	} else {
+		error(EUNKNOWN);
+	} 
+}
+
 
 /* 
  *	Input and output functions.
@@ -1994,6 +2076,17 @@ void ins(char *b, address_t nb) {
  * block oriented i/o like in radio not implemented here
  */
 void outch(char c) {
+
+/* do we have a MS style tab command, then count characters on stream 1-4 but not in fileio */
+/* this does not work for control characters - needs to go to vt52 later */
+
+#ifdef HASMSTAB
+	if (od > 0 && od <= OPRT) {
+		if (c > 31) charcount[od-1]+=1;
+		if (c == 10) charcount[od-1]=0;
+	}
+#endif
+
 	switch(od) {
 		case OSERIAL:
 			serialwrite(c);
@@ -3106,7 +3199,7 @@ char termsymbol() {
 }
 
 /* a little helpers - one token expect */ 
-char expect(mem_t t, mem_t e) {
+char expect(token_t t, mem_t e) {
 	nexttoken();
 	if (token != t) {error(e); return 0; } else return 1;
 }
@@ -3506,7 +3599,7 @@ char stringvalue() {
 void streval(){
 	char *irl;
 	address_t xl, x;
-	mem_t t;
+	token_t t;
 	address_t h1;
 	char* b1;
 	index_t k;
@@ -4276,7 +4369,7 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
  *	LET - the core assigment function, this is different from other BASICs
  */
 void assignment() {
-	mem_t t;  /* remember the left hand side token until the end of the statement, type of the lhs */
+	token_t t;  /* remember the left hand side token until the end of the statement, type of the lhs */
 	mem_t ps=1;  /* also remember if the left hand side is a pure string of something with an index */
 	mem_t xcl, ycl; /* to preserve the left hand side variable names */
 	address_t i=1; /* and the beginning of the destination string */
@@ -4587,7 +4680,7 @@ resetinput:
  *	GOTO and GOSUB function for a simple one statement goto
  */
 void xgoto() {
-	mem_t t=token;
+	token_t t=token;
 
 	if (!expectexpr()) return;
 	if (t == TGOSUB) pushgosubstack(0);
@@ -4729,7 +4822,7 @@ void xfor(){
 	if (token == '=') { 
 		if (!expectexpr()) return;
 		b=pop();
-		setvar(xcl, ycl, b); /* to have it hear makes FOR use the variable value as start */
+		setvar(xcl, ycl, b); /* to have it here makes FOR use the variable value as start */
 	}  
 
 	if (token == TTO) {
@@ -4742,7 +4835,7 @@ void xfor(){
 		s=pop();
 	} 
 
-	if (! termsymbol()) {
+	if (!termsymbol()) {
 		error(EUNKNOWN);
 		return;
 	}
@@ -4760,6 +4853,7 @@ void xfor(){
 	yc=ycl;
 	x=e;
 	y=s;
+
 	if (DEBUG) { outsc("** for loop target location"); outnumber(here); outcr(); }
 	pushforstack();
 	if (er != 0) return;
@@ -4779,6 +4873,29 @@ void xfor(){
 /*
  *	BREAK - an apocryphal feature here is the BREAK command ending a loop
  */
+#ifdef HASSTRUCT
+void xbreak(){
+	token_t t;
+	t=peekforstack(); 
+	if (er != 0) return;
+	dropforstack();
+	switch (t) {
+		case TWHILE: 
+			findwendcmd();
+			nexttoken();
+			break;
+		case TREPEAT:
+			finduntilcmd();
+			while (!termsymbol()) nexttoken();
+			break;	
+		default: /* a FOR loop is the default */
+			findnextcmd();
+			nexttoken();	
+			if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
+			break;	
+	}
+}
+#else
 void xbreak(){
 	dropforstack();
 	if (er != 0) return;
@@ -4786,14 +4903,34 @@ void xbreak(){
 	nexttoken();	
 	if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
 }
+#endif
 
 /*
  * CONT as a loop control statement, as apocryphal as BREAK, simply 
  * advance to next and the continue to process
  */
+#ifdef HASSTRUCT
+void xcont() {
+	token_t t;
+	t=peekforstack(); 
+	if (er != 0) return;
+	switch (t) {
+		case TWHILE: 
+			findwendcmd();
+			break;
+		case TREPEAT:
+			finduntilcmd();
+			break;
+		default: /* a FOR loop is the default */
+			findnextcmd();
+			break;
+	}
+}
+#else
 void xcont() {
 	findnextcmd();
 }
+#endif
 
 /* 
  *	NEXT variable statement 
@@ -4822,6 +4959,14 @@ void xnext(){
 	h=here;
 	popforstack();
 	if (er != 0) return;
+
+/* check if this is really a FOR loop */
+#ifdef HASSTRUCT
+	if (token == TWHILE || token == TREPEAT) {
+		error(ELOOP);
+		return;
+	}
+#endif
 
 /* a variable argument in next clears the for stack 
 		down as BASIC programs can and do jump out to an outer next */
@@ -5144,7 +5289,7 @@ void xclr() {
  */
 void xdim(){
 	mem_t xcl, ycl; 
-	mem_t t;
+	token_t t;
 
 	nexttoken();
 
@@ -5242,8 +5387,8 @@ void xtab(){
 
 	x=pop();
 #ifdef HASMSTAB
-	if (reltab && od == OSERIAL) {
-		if (charcount >= x ) x=0; else x=x-charcount-1;
+	if (reltab && od <= OPRT && od > 0) {
+		if (charcount[od-1] >= x) x=0; else x=x-charcount[od-1]-1;
 	} 
 #endif	
 	while (x-- > 0) outspc();	
@@ -5262,12 +5407,18 @@ void xlocate() {
 	y=pop();
 	x=pop();
 
-/* for locate we go through the VT52 interface */
+/* for locate we go through the VT52 interface for cursor positioning*/
 	if (x > 0 && y > 0 && x < 224 & y < 224) {
 		outch(27); outch('Y');
 		outch(31+(unsigned int) y); 
 		outch(31+(unsigned int) x);
 	}
+
+/* set the charcount, this is half broken on escape sequences */
+#ifdef HASMSTAB
+	if (od > 0 && od <= OPRT) charcount[od-1]=x;
+#endif
+
 }
 
 /* 
@@ -5398,7 +5549,7 @@ void getfilename(char *buffer, char d) {
 void xsave() {
 	char filename[SBUFSIZE];
 	address_t here2;
-	mem_t t;
+	token_t t;
 
 	nexttoken();
 	getfilename(filename, 1);
@@ -5544,7 +5695,7 @@ void xload(const char* f) {
  *	GET just one character from input 
  */
 void xget(){
-	mem_t t;		/* remember the left hand side token until the end of the statement, type of the lhs */
+	token_t t;		/* remember the left hand side token until the end of the statement, type of the lhs */
 	mem_t ps=1;	/* also remember if the left hand side is a pure string or something with an index */
 	mem_t xcl, ycl;	/* to preserve the left hand side variable names	*/
 	address_t i=1;	/* and the beginning of the destination string  	*/
@@ -5714,7 +5865,7 @@ void xset(){
 		case 10:
 			dspsetupdatemode(args);
 			break;
-/* change the serial device to a true TAB */
+/* change the output device to a true TAB */
 #ifdef HASMSTAB
 		case 11:
       reltab=args;
@@ -6198,7 +6349,7 @@ void resettimer(btimer_t* t) {
 }
 
 void xtimer() {
-	mem_t t;
+	token_t t;
 	btimer_t* timer;
 
 /* do we deal with every or after */
@@ -6874,7 +7025,7 @@ enddatarecord:
  *	READ - find data records and insert them to variables
  */
 void xread(){
-	mem_t t, t0;	/* remember the left hand side token until the end of the statement, type of the lhs */
+	token_t t, t0;	/* remember the left hand side token until the end of the statement, type of the lhs */
 	mem_t ps=1;	/* also remember if the left hand side is a pure string of something with an index 	*/
 	mem_t xcl, ycl; /* to preserve the left hand side variable names	*/
 	address_t i=1;  /* and the beginning of the destination string */
@@ -7141,7 +7292,7 @@ void xfn() {
 void xon(){
 	number_t cr;
 	int ci;
-	mem_t t;
+	token_t t;
 	address_t tmp, line = 0;
 	
 	if(!expectexpr()) return;
@@ -7198,6 +7349,235 @@ void xon(){
 	/* nexttoken(); */
 }
 #endif
+
+/* the structured BASIC extensions, WHILE, UNTIL, and SWITCH */
+
+#ifdef HASSTRUCT
+
+/* helper similar to for next, find the loop end of WHILE*/
+void findwendcmd(){
+	address_t loopc = 0;
+
+	while (1) {			
+		if (token == TWEND) {
+	    	if (loopc == 0) return; else loopc--;
+		}
+		if (token == TWHILE) loopc++;
+
+/* no WEND found - different for interactive and program mode */
+	  if (st == SRUN || st == SERUN) {
+	  	if (here >= top) {
+	    	error(TWHILE);
+	    	return;
+	   	}
+		} else {
+	  	if (bi-ibuffer > BUFSIZE) {
+	  		error(TWHILE);
+	    	return;
+	  	}
+	  }
+		nexttoken(); 
+	}
+}
+
+/* and until - actually this should be one block scanning command later*/
+void finduntilcmd(){
+	address_t loopc = 0;
+
+	while (1) {			
+		if (token == TUNTIL) {
+	    	if (loopc == 0) return; else loopc--;
+		}
+		if (token == TREPEAT) loopc++;
+
+/* no UNTIL found - different for interactive and program mode */
+		if (st == SRUN || st == SERUN) {
+	  	if (here >= top) {
+	    	error(TREPEAT);
+	    	return;
+	   	}
+		} else {
+	  	if (bi-ibuffer > BUFSIZE) {
+	  		error(TREPEAT);
+	    	return;
+	  	}
+	  }
+		nexttoken(); 
+	}
+}
+
+
+void xwhile() {
+
+/* what? */
+	if (DEBUG) { outsc("** in while "); outnumber(here); outspc(); outnumber(token); outcr(); }
+
+/* interactively we need to save the buffer location */
+	if (st == SINT) here=bi-ibuffer;
+
+/* save the current location and token type, here points to the condition */ 
+	pushforstack();
+
+/* is there a valid condition */
+	if (!expectexpr()) return;
+
+/* if false, seek WEND and clear the stack*/
+	if (!pop()) {
+		popforstack();
+		if (st == SINT) bi=ibuffer+here;
+		findwendcmd();
+		nexttoken();
+	}
+}
+
+void xwend() {
+
+/* remember where we are */
+	pushlocation();
+	if (er != 0) return;
+
+/* back to the condition */
+	popforstack();
+	if (er != 0) return;
+
+/* interactive run */
+	if (st == SINT) bi=ibuffer+here;
+
+/* is this a while loop */
+	if (token != TWHILE ) {
+		error(TWEND);
+		return;
+	}
+
+/* run the loop again - same code as xwhile */
+	if (st == SINT) here=bi-ibuffer;
+	pushforstack();
+
+/* is there a valid condition */
+	if (!expectexpr()) return;
+
+/* if false, seek WEND */
+	if (!pop()) {
+		popforstack();
+		poplocation();
+		nexttoken();
+	} else 
+		droplocation(); /* clean up the location i.e. GOSUB stack */
+}
+
+void xrepeat() {
+	/* what? */
+	if (DEBUG) { outsc("** in repeat "); outnumber(here); outspc(); outnumber(token); outcr(); }
+
+/* interactively we need to save the buffer location */
+	if (st == SINT) here=bi-ibuffer;
+
+/* save the current location and token type, here points statement after repeat */ 
+	pushforstack();
+
+/* we are done here */
+	nexttoken();
+
+}
+
+void xuntil() {
+
+/* is there a valid condition */
+	if (!expectexpr()) return;
+
+/* remember the location */
+	pushlocation();
+	if (er != 0) return;
+
+/* look on the stack */
+	popforstack();
+	if (er != 0) return;
+
+/* if false, go back to the repeat */
+	if (!pop()) {
+
+/* the right loop type ? */
+		if (token != TREPEAT) {
+			error(TUNTIL);
+			return;
+		}
+
+/* correct for interactive */
+		if (st == SINT) bi=ibuffer+here;
+
+/* write the stack back if we continue looping */
+		pushforstack();
+
+/* and clean up locations */
+		droplocation();
+
+	} else {
+
+/* back to where we were */
+		poplocation();
+	}
+
+	nexttoken(); /* a bit of evil here, hobling over termsymbols */
+
+}
+
+void xswitch() {
+	number_t r;
+	mem_t match = 0;
+
+/* lets look at the condition */
+	if (!expectexpr()) return;
+	r=pop();
+
+/* remember where we are */
+	pushlocation();
+
+/* seek the first case to match the condition */
+	while (token != EOF) {
+		if (token == TSWEND) break;
+		if (token == TCASE) {
+/* this is a simple one argument code */
+/*
+			if (!expectexpr()) return;
+			if (r == pop()) {
+				droplocation();
+				return;
+			}
+*/
+/* more sophisticated, case can have an argument list */
+			nexttoken();
+			parsearguments();
+
+			if (DEBUG) { outsc("** in CASE found "); outnumber(args); outsc(" arguments"); outcr(); }
+
+			if (er != 0) return;
+			if (args == 0) {
+				error(TCASE);
+				return;
+			}
+			while (args > 0) {
+				if (pop() == r) match=1;
+				args--;
+			}
+
+			if (match) {
+				droplocation();
+				return;
+			}
+		}
+		nexttoken();
+	}
+
+/* return to the original location and continue if no case is found */
+	poplocation(); 	
+}
+
+/* a nacked case statement always seeks the end of the switch */
+void xcase() {
+		while (token != EOF && token != TSWEND) nexttoken();
+}
+#endif
+
 
 /* 
  *	statement processes an entire basic statement until the end 
@@ -7263,9 +7643,9 @@ void statement(){
 				xbreak();
 				break;
 			case TSTOP:
-			case TEND:		/* return here because new input is needed */
+			case TEND:		/* return here because new input is needed, end as a block end is handles elsewhere */
 				*ibuffer=0;	/* clear ibuffer - this is a hack */
-				st=SINT;	/* switch to interactive mode */
+				st=SINT;		/* switch to interactive mode */
 				eflush(); 	/* if there is an EEPROM dummy, flush it here (protects flash storage!) */
 				ofileclose();
 				return;
@@ -7460,6 +7840,30 @@ void statement(){
 			case TEVENT:
 				xevent();
 				break;
+#endif
+#ifdef HASSTRUCT
+			case TWHILE:
+				xwhile();
+				break;
+			case TWEND:
+				xwend();
+				break;
+			case TREPEAT:
+				xrepeat();
+				break;				
+			case TUNTIL:
+				xuntil();
+				break;				
+			case TSWITCH:
+				xswitch();
+				break;	
+			case TCASE:
+				xcase();
+				break;	
+			case TSWEND:
+				nexttoken();
+				break;
+
 #endif
 			default:
 /*  strict syntax checking */
