@@ -1253,6 +1253,50 @@ RECT and FRECT draw a rectangle or filled rectangle. The first pair of argument 
 
 RECT 100, 100, 200, 200
 
+## Structured Language Set
+
+### Introduction 
+
+The structured language set introduces a few loop and conditional statements into BASIC for a more GOTO free code. The curent implementation is not GOTO save. This means that jumping out of loops and into loops is possible but not handled by the interpreter in a save way. Nested loop errors are also not always detected.
+
+### WHILE and WEND
+
+WHILE starts the loop and tests a condition. The terminal statement is WEND. Loops can be advanced with the CONT command just like in FOR. BREAK ends the loop.
+
+Example:
+
+A=0: WHILE A<10: PRINT A: A=A+1: WEND
+
+### REPEAT and UNTIL
+
+For loops with a condition at the end, use REPEAT and UNTIL. 
+
+Example: 
+
+A=0: REPEAT: PRINT A: A=A+1: UNTIL A>10
+
+### SWITCH, CASE and SWEND
+
+BASIC has a construction similar to the C style switch. 
+
+Example: 
+
+10 INPUT A
+
+20 SWITCH A
+
+30 PRINT "default"
+
+40 CASE 1,2: PRINT "one or two"
+
+50 CASE 3: PRINT "three"
+
+60 SWEND
+
+Unlike C the default code has to come immediately after the SWITCH statement before the first CASE. CASES can have comma separated lists as arguments. All statement until the next CASE are executed if the variable A matches the argument. Unlike C no BREAK statement is needed. 
+
+Currently SWITCH statement cannot be nested. There cannot be a SWITCH in a SWITCH. 
+
 # Hardware drivers 
 
 ## I/O Streams
