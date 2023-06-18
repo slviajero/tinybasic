@@ -820,8 +820,7 @@ mem_t type;
 #endif
 } forstack[FORDEPTH];
 static index_t forsp = 0;
-static mem_t fnc; 
-
+ 
 static address_t gosubstack[GOSUBDEPTH];
 static index_t gosubsp = 0;
 

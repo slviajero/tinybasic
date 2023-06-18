@@ -1706,7 +1706,6 @@ token_t peekforstack() {
 
 void clrforstack() {
 	forsp=0;
-	fnc=0;
 }
 
 /* GOSUB stack handling */
@@ -4775,24 +4774,41 @@ void xelse() {
  * find the NEXT token or the end of the program
  */ 
 void findnextcmd(){
+	address_t fnc = 0;
+
 	while (1) {			
 		if (token == TNEXT) {
-	    	if (fnc == 0) return; else fnc--;
+	    	if (fnc == 0) {
+	    		return; 
+	    	} else fnc--;
 		}
 		if (token == TFOR) fnc++;
-/* no NEXT found - different for interactive and program mode */
-	  	if (st == SRUN || st == SERUN) {
-	  		if (here >= top) {
-	    		error(TFOR);
-	    		return;
-	   		}
-		} else {
-	  		if (bi-ibuffer > BUFSIZE) {
-	  			error(TFOR);
-	    		return;
-	  		}
-	  	}
-		nexttoken(); 
+/* no NEXT found - different for interactive and program mode, should never happen */
+		if (token == EOL) {
+			error(TFOR);
+	    return;
+		}
+		nexttoken();
+	}
+}
+
+/* the generic block scanner - a better version of findnextcmd, used for structured code*/
+void findbraket(token_t bra, token_t ket){
+	address_t fnc = 0;
+
+	while (1) {			
+		if (token == ket) {
+	    	if (fnc == 0) {
+	    		return; 
+	    	} else fnc--;
+		}
+		if (token == bra) fnc++;
+/* no NEXT found - different for interactive and program mode, should never happen */
+		if (token == EOL) {
+			error(bra);
+	    return;
+		}
+		nexttoken();
 	}
 }
 
@@ -4864,7 +4880,7 @@ void xfor(){
  */
 	if ((y > 0 && getvar(xc, yc) > x) || (y < 0 && getvar(xc, yc) < x )) { 
 		dropforstack();
-		findnextcmd();
+		findbraket(TFOR, TNEXT);
 		nexttoken();
 		if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
 	}
@@ -4881,15 +4897,15 @@ void xbreak(){
 	dropforstack();
 	switch (t) {
 		case TWHILE: 
-			findwendcmd();
+			findbraket(TWHILE, TWEND);
 			nexttoken();
 			break;
 		case TREPEAT:
-			finduntilcmd();
+			findbraket(TREPEAT, TUNTIL);
 			while (!termsymbol()) nexttoken();
 			break;	
 		default: /* a FOR loop is the default */
-			findnextcmd();
+			findbraket(TFOR, TNEXT);
 			nexttoken();	
 			if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
 			break;	
@@ -4916,13 +4932,13 @@ void xcont() {
 	if (er != 0) return;
 	switch (t) {
 		case TWHILE: 
-			findwendcmd();
+			findbraket(TWHILE, TWEND);
 			break;
 		case TREPEAT:
-			finduntilcmd();
+			findbraket(TREPEAT, TUNTIL);
 			break;
 		default: /* a FOR loop is the default */
-			findnextcmd();
+			findbraket(TFOR, TNEXT);
 			break;
 	}
 }
@@ -6835,7 +6851,7 @@ void xusr() {
 				case 28: push(freeRam()); break;
 				case 29: push(gosubsp); break;
 				case 30: push(forsp); break;
-				case 31: push(fnc); break;
+				case 31: push(0); break; /* fnc removed as interpreter variable */
 				case 32: push(sp); break;
 #ifdef HASDARTMOUTH
 				case 33: push(data); break;
@@ -7354,59 +7370,6 @@ void xon(){
 
 #ifdef HASSTRUCT
 
-/* helper similar to for next, find the loop end of WHILE*/
-void findwendcmd(){
-	address_t loopc = 0;
-
-	while (1) {			
-		if (token == TWEND) {
-	    	if (loopc == 0) return; else loopc--;
-		}
-		if (token == TWHILE) loopc++;
-
-/* no WEND found - different for interactive and program mode */
-	  if (st == SRUN || st == SERUN) {
-	  	if (here >= top) {
-	    	error(TWHILE);
-	    	return;
-	   	}
-		} else {
-	  	if (bi-ibuffer > BUFSIZE) {
-	  		error(TWHILE);
-	    	return;
-	  	}
-	  }
-		nexttoken(); 
-	}
-}
-
-/* and until - actually this should be one block scanning command later*/
-void finduntilcmd(){
-	address_t loopc = 0;
-
-	while (1) {			
-		if (token == TUNTIL) {
-	    	if (loopc == 0) return; else loopc--;
-		}
-		if (token == TREPEAT) loopc++;
-
-/* no UNTIL found - different for interactive and program mode */
-		if (st == SRUN || st == SERUN) {
-	  	if (here >= top) {
-	    	error(TREPEAT);
-	    	return;
-	   	}
-		} else {
-	  	if (bi-ibuffer > BUFSIZE) {
-	  		error(TREPEAT);
-	    	return;
-	  	}
-	  }
-		nexttoken(); 
-	}
-}
-
-
 void xwhile() {
 
 /* what? */
@@ -7425,7 +7388,7 @@ void xwhile() {
 	if (!pop()) {
 		popforstack();
 		if (st == SINT) bi=ibuffer+here;
-		findwendcmd();
+		findbraket(TWHILE, TWEND);
 		nexttoken();
 	}
 }
