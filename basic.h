@@ -824,6 +824,8 @@ static index_t forsp = 0;
 static address_t gosubstack[GOSUBDEPTH];
 static index_t gosubsp = 0;
 
+static address_t slocation;
+
 static number_t x, y;
 static mem_t xc, yc;
 
