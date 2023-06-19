@@ -151,7 +151,7 @@
 #define HASERRORHANDLING
 #undef 	HASMSTAB
 #undef 	HASARRAYLIMIT
-#undef 	HASSTRUCT
+#undef	HASSTRUCT
 #endif
 
 /* all features activated */
@@ -1742,40 +1742,21 @@ void clrgosubstack() {
 	gosubsp=0;
 }
 
-/* two helper commands for structured BASIC, using the GOSUB stack */
+/* two helper commands for structured BASIC, without the GOSUB stack */
 
 void pushlocation() {
-	if (gosubsp < GOSUBDEPTH) {
 		if (st == SINT)
-			gosubstack[gosubsp]=bi-ibuffer;
+			slocation=bi-ibuffer;
 		else 
-			gosubstack[gosubsp]=here;
-    gosubsp++;  
-	} else 
-		error(EUNKNOWN);	/* needs to be changed together with the other struct error messages */
+			slocation=here;
 }
 
 void poplocation() {
-	if (gosubsp>0) {
-		gosubsp--;
-	} else {
-		error(EUNKNOWN);
-		return;
-	} 
 	if (st == SINT)
-		bi=ibuffer+gosubstack[gosubsp];
+		bi=ibuffer+slocation;
 	else 
-		here=gosubstack[gosubsp];	
+		here=slocation;	
 }
-
-void droplocation() {
-	if (gosubsp>0) {
-		gosubsp--;
-	} else {
-		error(EUNKNOWN);
-	} 
-}
-
 
 /* 
  *	Input and output functions.
@@ -4792,7 +4773,7 @@ void findnextcmd(){
 	}
 }
 
-/* the generic block scanner - a better version of find*cmd */
+/* the generic block scanner - a better version of findnextcmd, used for structured code*/
 void findbraket(token_t bra, token_t ket){
 	address_t fnc = 0;
 
@@ -7370,45 +7351,6 @@ void xon(){
 
 #ifdef HASSTRUCT
 
-/* helper similar to for next, find the loop end of WHILE*/
-void findwendcmd(){
-	address_t loopc = 0;
-
-	while (1) {			
-		if (token == TWEND) {
-	    	if (loopc == 0) return; else loopc--;
-		}
-		if (token == TWHILE) loopc++;
-
-/* no UNTIL found - this is just a safeguard against a hanging interpreter */
-		if (token == EOL) {
-			error(TWHILE);
-	    return;
-		}
-		nexttoken(); 
-	}
-}
-
-/* and until - actually this should be one block scanning command later */
-void finduntilcmd(){
-	address_t loopc = 0;
-
-	while (1) {			
-		if (token == TUNTIL) {
-	    	if (loopc == 0) return; else loopc--;
-		}
-		if (token == TREPEAT) loopc++;
-
-/* no UNTIL found - this is just a safeguard against a hanging interpreter */
-		if (token == EOL) {
-			error(TREPEAT);
-	    return;
-		}
-		nexttoken(); 
-	}
-}
-
-
 void xwhile() {
 
 /* what? */
@@ -7436,7 +7378,6 @@ void xwend() {
 
 /* remember where we are */
 	pushlocation();
-	if (er != 0) return;
 
 /* back to the condition */
 	popforstack();
@@ -7463,8 +7404,7 @@ void xwend() {
 		popforstack();
 		poplocation();
 		nexttoken();
-	} else 
-		droplocation(); /* clean up the location i.e. GOSUB stack */
+	} 
 }
 
 void xrepeat() {
@@ -7489,7 +7429,6 @@ void xuntil() {
 
 /* remember the location */
 	pushlocation();
-	if (er != 0) return;
 
 /* look on the stack */
 	popforstack();
@@ -7509,9 +7448,6 @@ void xuntil() {
 
 /* write the stack back if we continue looping */
 		pushforstack();
-
-/* and clean up locations */
-		droplocation();
 
 	} else {
 
@@ -7538,14 +7474,7 @@ void xswitch() {
 	while (token != EOF) {
 		if (token == TSWEND) break;
 		if (token == TCASE) {
-/* this is a simple one argument code */
-/*
-			if (!expectexpr()) return;
-			if (r == pop()) {
-				droplocation();
-				return;
-			}
-*/
+
 /* more sophisticated, case can have an argument list */
 			nexttoken();
 			parsearguments();
@@ -7563,7 +7492,6 @@ void xswitch() {
 			}
 
 			if (match) {
-				droplocation();
 				return;
 			}
 		}
