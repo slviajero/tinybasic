@@ -1624,30 +1624,30 @@ void pushforstack(){
 	
 /* before pushing into the for stack we check is an
 	 old for exists - this is on reentering a for loop 
-	 this code removes all loop inside the for loop as well */
-#ifdef HASSTRUCT
-	if (token != TWHILE && token != TREPEAT)
-#endif
+	 this code removes all loop inside the for loop as well 
+	 for loops are identified by the variable name, anywhere
+	 the variable is found again, it cleans the for stack 
+	 this makes the code stable against GOTO mess, 
+	 WHILE and REPEAT are identified with the here location
+	 reentry cleans the stack */
+#ifndef HASSTRUCT
 	for(i=0; i<forsp; i++) {
 		if (forstack[i].varx == xc && forstack[i].vary == yc) {
 			forsp=i;
 			break;
 		}
-/* this logic is probably wrong, it only removed the outer loop*/
-/*
+#else 
+	if (token == TWHILE || token == TREPEAT)
+		for(i=0; i<forsp; i++) {
+			if (forstack[i].here == here) {forsp=i; break;}
+		}
+	else 
+			for(i=0; i<forsp; i++) {
 		if (forstack[i].varx == xc && forstack[i].vary == yc) {
-			for(j=i; j<forsp-1; j++) {
-				forstack[j].varx=forstack[j+1].varx;
-				forstack[j].vary=forstack[j+1].vary;
-				forstack[j].here=forstack[j+1].here;
-				forstack[j].to=forstack[j+1].to;
-				forstack[j].step=forstack[j+1].step;	
-
-			}
-			forsp--;
+			forsp=i;
 			break;
 		}
-*/
+#endif
 	}
 
 	if (forsp < FORDEPTH) {
@@ -4754,24 +4754,6 @@ void xelse() {
  *
  * find the NEXT token or the end of the program
  */ 
-void findnextcmd(){
-	address_t fnc = 0;
-
-	while (1) {			
-		if (token == TNEXT) {
-	    	if (fnc == 0) {
-	    		return; 
-	    	} else fnc--;
-		}
-		if (token == TFOR) fnc++;
-/* no NEXT found - different for interactive and program mode, should never happen */
-		if (token == EOL) {
-			error(TFOR);
-	    return;
-		}
-		nexttoken();
-	}
-}
 
 /* the generic block scanner - a better version of findnextcmd, used for structured code*/
 void findbraket(token_t bra, token_t ket){
@@ -4896,7 +4878,7 @@ void xbreak(){
 void xbreak(){
 	dropforstack();
 	if (er != 0) return;
-	findnextcmd();
+	findbraket(TFOR, TNEXT);
 	nexttoken();	
 	if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
 }
@@ -4925,7 +4907,7 @@ void xcont() {
 }
 #else
 void xcont() {
-	findnextcmd();
+	findbraket(TFOR, TNEXT);
 }
 #endif
 
