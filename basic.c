@@ -1745,10 +1745,10 @@ void clrgosubstack() {
 /* two helper commands for structured BASIC, without the GOSUB stack */
 
 void pushlocation() {
-		if (st == SINT)
-			slocation=bi-ibuffer;
-		else 
-			slocation=here;
+	if (st == SINT)
+		slocation=bi-ibuffer;
+	else 
+		slocation=here;
 }
 
 void poplocation() {
@@ -4759,19 +4759,28 @@ void xelse() {
 void findbraket(token_t bra, token_t ket){
 	address_t fnc = 0;
 
-	while (1) {			
+	while (1) {
+
 		if (token == ket) {
 	    	if (fnc == 0) {
 	    		return; 
 	    	} else fnc--;
 		}
+
 		if (token == bra) fnc++;
+
 /* no NEXT found - different for interactive and program mode, should never happen */
 		if (token == EOL) {
 			error(bra);
 	    return;
 		}
 		nexttoken();
+		if (DEBUG) { 
+			outsc("** skpping braket "); 
+			outputtoken(); outspc(); 
+			outnumber(here); outspc(); 
+			outnumber(fnc); outcr(); 
+		}
 	}
 }
 
@@ -7444,6 +7453,7 @@ void xuntil() {
 void xswitch() {
 	number_t r;
 	mem_t match = 0;
+	mem_t swcount = 0;
 
 /* lets look at the condition */
 	if (!expectexpr()) return;
@@ -7453,8 +7463,21 @@ void xswitch() {
 	pushlocation();
 
 /* seek the first case to match the condition */
-	while (token != EOF) {
+	while (token != EOL) {
 		if (token == TSWEND) break;
+		/* nested SWITCH - skip them all*/
+		if (token == TSWITCH) {
+
+			if (DEBUG) { outsc("** in SWITCH - nesting found "); outcr(); }
+
+			nexttoken();
+			findbraket(TSWITCH, TSWEND);
+
+			if (DEBUG) { outsc("** in SWITCH SWEND found at "); outnumber(here); outcr(); }
+
+			if (er != 0) return;
+		}
+		/* a true case */
 		if (token == TCASE) {
 
 /* more sophisticated, case can have an argument list */
@@ -7486,7 +7509,16 @@ void xswitch() {
 
 /* a nacked case statement always seeks the end of the switch */
 void xcase() {
-		while (token != EOF && token != TSWEND) nexttoken();
+		while (token != EOL) {
+			nexttoken();
+			if (token == TSWEND) break;
+/*
+			if (token == TSWITCH) {
+				nexttoken();
+				findbraket(TSWITCH, TSWEND);
+			}
+*/
+		}
 }
 #endif
 
