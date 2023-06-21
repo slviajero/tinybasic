@@ -6,3 +6,17 @@
 140 CASE 3: PRINT "three"
 150 SWEND
 160 NEXT
+210 REM "Nested switch"
+220 B=8
+230 FOR A=0 TO 4
+240 SWITCH A
+250 PRINT "default"
+260 CASE 1,2: PRINT "one or two"
+270 CASE 3: PRINT "three"
+280 SWITCH B
+290 PRINT "B: no case found"
+300 CASE 8: PRINT "B is eight"
+310 SWEND
+320 REM
+330 SWEND
+340 NEXT
