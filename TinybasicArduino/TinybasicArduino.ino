@@ -151,7 +151,7 @@
 #define HASERRORHANDLING
 #undef 	HASMSTAB
 #undef 	HASARRAYLIMIT
-#undef	HASSTRUCT
+#undef 	HASSTRUCT
 #endif
 
 /* all features activated */
@@ -1624,30 +1624,30 @@ void pushforstack(){
 	
 /* before pushing into the for stack we check is an
 	 old for exists - this is on reentering a for loop 
-	 this code removes all loop inside the for loop as well */
-#ifdef HASSTRUCT
-	if (token != TWHILE && token != TREPEAT)
-#endif
+	 this code removes all loop inside the for loop as well 
+	 for loops are identified by the variable name, anywhere
+	 the variable is found again, it cleans the for stack 
+	 this makes the code stable against GOTO mess, 
+	 WHILE and REPEAT are identified with the here location
+	 reentry cleans the stack */
+#ifndef HASSTRUCT
 	for(i=0; i<forsp; i++) {
 		if (forstack[i].varx == xc && forstack[i].vary == yc) {
 			forsp=i;
 			break;
 		}
-/* this logic is probably wrong, it only removed the outer loop*/
-/*
+#else 
+	if (token == TWHILE || token == TREPEAT)
+		for(i=0; i<forsp; i++) {
+			if (forstack[i].here == here) {forsp=i; break;}
+		}
+	else 
+			for(i=0; i<forsp; i++) {
 		if (forstack[i].varx == xc && forstack[i].vary == yc) {
-			for(j=i; j<forsp-1; j++) {
-				forstack[j].varx=forstack[j+1].varx;
-				forstack[j].vary=forstack[j+1].vary;
-				forstack[j].here=forstack[j+1].here;
-				forstack[j].to=forstack[j+1].to;
-				forstack[j].step=forstack[j+1].step;	
-
-			}
-			forsp--;
+			forsp=i;
 			break;
 		}
-*/
+#endif
 	}
 
 	if (forsp < FORDEPTH) {
@@ -1745,10 +1745,10 @@ void clrgosubstack() {
 /* two helper commands for structured BASIC, without the GOSUB stack */
 
 void pushlocation() {
-		if (st == SINT)
-			slocation=bi-ibuffer;
-		else 
-			slocation=here;
+	if (st == SINT)
+		slocation=bi-ibuffer;
+	else 
+		slocation=here;
 }
 
 void poplocation() {
@@ -4695,12 +4695,11 @@ void xreturn(){
 #endif
 }
 
-
 /* 
  *	IF statement together with THEN 
- * 		ELSE not implemented properly
  */
 void xif() {
+	mem_t nl=0;
 	
 	if (!expectexpr()) return;
 	x=pop();
@@ -4709,23 +4708,45 @@ void xif() {
 /* if can have a new line after the expression in this BASIC */
 	if (token == LINENUMBER) nexttoken();	
 
-/* on condition false skip the entire line and all : until a potential ELSE */
 	if (!x)  {
+#ifndef HASSTRUCT
+/* on condition false skip the entire line and all : until a potential ELSE */
 		while(token != LINENUMBER && token != EOL && token != TELSE) nexttoken();
+#else 
+/* in the structured language set, we need to look for a DO  close to the IF and skip it*/
+/* a THEN or not and then a line number expects a block */
+		if (token == TTHEN) nexttoken();
+		if (token == LINENUMBER) { nexttoken(); nl=1; }
+
+/* skip the block */
+		if (token == TDO) { 
+			nexttoken();
+			findbraket(TDO, TDEND); 
+			nexttoken();
+			goto processelse;
+		} 
+
+/* skip the line */
+		if (!nl) while(token != LINENUMBER && token != EOL && token != TELSE) nexttoken();
+
+processelse:		
+#endif
 
 /* if we have ELSE at this point we want to execute this part of the line as the condition 
-		was false, isolated ELSE is GOTO */
+		was false, isolated ELSE is GOTO, otherwise just execute the code */
+
 #ifdef HASSTEFANSEXT
 /* look if ELSE is at the next line */
 		if (token == LINENUMBER) nexttoken();
+
 /* now process ELSE */
 		if (token == TELSE) {
 			nexttoken();
 			if (token == NUMBER) {
 				findline((address_t) x);
 				return;	
-			} 
-		} 
+			}
+		}
 #endif		
 	}	
 
@@ -4745,7 +4766,29 @@ void xif() {
  		as else code execution is triggered in the xif function */
 #ifdef HASSTEFANSEXT
 void xelse() {
+	mem_t nl=0;
+
+#ifndef HASSTRUCT
+/* skip the entire line */
 	while(token != LINENUMBER && token != EOL) nexttoken();
+#else 
+	nexttoken();
+	/* else in a single line */
+	if (token == LINENUMBER) { 
+		nexttoken(); 
+		nl=1; 
+	}
+
+	/* the block after the else on a new line or the current line */
+	if (token == TDO) {
+		nexttoken();
+		findbraket(TDO, TDEND);
+	}
+
+	/* single line else, skip the line */
+	if (!nl) while(token != LINENUMBER && token != EOL) nexttoken();
+
+#endif
 }
 #endif
 
@@ -4754,42 +4797,35 @@ void xelse() {
  *
  * find the NEXT token or the end of the program
  */ 
-void findnextcmd(){
-	address_t fnc = 0;
-
-	while (1) {			
-		if (token == TNEXT) {
-	    	if (fnc == 0) {
-	    		return; 
-	    	} else fnc--;
-		}
-		if (token == TFOR) fnc++;
-/* no NEXT found - different for interactive and program mode, should never happen */
-		if (token == EOL) {
-			error(TFOR);
-	    return;
-		}
-		nexttoken();
-	}
-}
 
 /* the generic block scanner - a better version of findnextcmd, used for structured code*/
 void findbraket(token_t bra, token_t ket){
 	address_t fnc = 0;
 
-	while (1) {			
+	while (1) {
+
 		if (token == ket) {
 	    	if (fnc == 0) {
 	    		return; 
 	    	} else fnc--;
 		}
+
 		if (token == bra) fnc++;
+
 /* no NEXT found - different for interactive and program mode, should never happen */
 		if (token == EOL) {
 			error(bra);
 	    return;
 		}
 		nexttoken();
+
+/* yap yap yap */		
+		if (DEBUG) { 
+			outsc("** skpping braket "); 
+			outputtoken(); outspc(); 
+			outnumber(here); outspc(); 
+			outnumber(fnc); outcr(); 
+		}
 	}
 }
 
@@ -4896,7 +4932,7 @@ void xbreak(){
 void xbreak(){
 	dropforstack();
 	if (er != 0) return;
-	findnextcmd();
+	findbraket(TFOR, TNEXT);
 	nexttoken();	
 	if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
 }
@@ -4925,7 +4961,7 @@ void xcont() {
 }
 #else
 void xcont() {
-	findnextcmd();
+	findbraket(TFOR, TNEXT);
 }
 #endif
 
@@ -7462,6 +7498,7 @@ void xuntil() {
 void xswitch() {
 	number_t r;
 	mem_t match = 0;
+	mem_t swcount = 0;
 
 /* lets look at the condition */
 	if (!expectexpr()) return;
@@ -7471,8 +7508,21 @@ void xswitch() {
 	pushlocation();
 
 /* seek the first case to match the condition */
-	while (token != EOF) {
+	while (token != EOL) {
 		if (token == TSWEND) break;
+		/* nested SWITCH - skip them all*/
+		if (token == TSWITCH) {
+
+			if (DEBUG) { outsc("** in SWITCH - nesting found "); outcr(); }
+
+			nexttoken();
+			findbraket(TSWITCH, TSWEND);
+
+			if (DEBUG) { outsc("** in SWITCH SWEND found at "); outnumber(here); outcr(); }
+
+			if (er != 0) return;
+		}
+		/* a true case */
 		if (token == TCASE) {
 
 /* more sophisticated, case can have an argument list */
@@ -7504,7 +7554,17 @@ void xswitch() {
 
 /* a nacked case statement always seeks the end of the switch */
 void xcase() {
-		while (token != EOF && token != TSWEND) nexttoken();
+		while (token != EOL) {
+			nexttoken();
+			if (token == TSWEND) break;
+/* broken if switch is nested deeper then once, need the braket mechanism here */
+/*
+			if (token == TSWITCH) {
+				nexttoken();
+				findbraket(TSWITCH, TSWEND);
+			}
+*/
+		}
 }
 #endif
 
@@ -7791,9 +7851,10 @@ void statement(){
 				xcase();
 				break;	
 			case TSWEND:
+			case TDO:
+			case TDEND:
 				nexttoken();
 				break;
-
 #endif
 			default:
 /*  strict syntax checking */

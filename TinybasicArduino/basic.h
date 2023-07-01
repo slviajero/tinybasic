@@ -256,6 +256,8 @@ typedef unsigned char uint8_t;
 #define TSWITCH -15
 #define TCASE -14
 #define TSWEND -13
+#define TDO -12
+#define TDEND -11
 /* these are multibyte token extension, currently unused */
 /* using them would allow over 1000 BASIC keywords */
 #define TEXT1 -6
@@ -271,7 +273,7 @@ typedef unsigned char uint8_t;
 #define UNKNOWN -1
 
 /* the number of keywords, and the base index of the keywords */
-#define NKEYWORDS	3+19+13+14+11+5+2+7+7+6+12+3+6
+#define NKEYWORDS	3+19+13+14+11+5+2+7+7+6+12+3+9
 #define BASEKEYWORD -121
 
 /*
@@ -469,6 +471,8 @@ const char suntil[]     PROGMEM	= "UNTIL";
 const char sswitch[]	PROGMEM	= "SWITCH";
 const char scase[]		PROGMEM	= "CASE";
 const char sswend[]     PROGMEM = "SWEND";
+const char sdo[]        PROGMEM = "DO";
+const char sdend[]      PROGMEM = "DEND";
 #endif
 
 
@@ -536,6 +540,7 @@ const char* const keyword[] PROGMEM = {
 #endif
 #ifdef HASSTRUCT
 	swhile, swend, srepeat, suntil, sswitch, scase, sswend,	
+    sdo, sdend,
 #endif 
 	0
 };
@@ -601,6 +606,7 @@ const signed char tokens[] PROGMEM = {
 #endif
 #ifdef HASSTRUCT
 	TWHILE, TWEND, TREPEAT, TUNTIL, TSWITCH, TCASE, TSWEND,
+    TDO, TDEND,
 #endif
 	0
 };
@@ -1410,18 +1416,17 @@ void xif();
 
 /* FOR NEXT loops */
 void findnextcmd();
+void findbraket(token_t, token_t);
 void xfor();
 void xbreak();
 void xcont();
 void xnext();
 
 /* WHILE WEND*/
-void findwendcmd();
 void xwhile();
 void xwend();
 
 /* REPEAT UNTIL */
-void finduntilcmd();
 void xrepeat();
 void xuntil();
 
