@@ -1287,7 +1287,45 @@ Example:
 
 Unlike C the default code has to come immediately after the SWITCH statement before the first CASE. CASES can have comma separated lists as arguments. All statement until the next CASE are executed if the variable A matches the argument. Unlike C no BREAK statement is needed. 
 
-Currently SWITCH statement cannot be nested. There cannot be a SWITCH in a SWITCH. 
+In CASE statements can be multiline.
+
+Example: 
+
+10 INPUT A
+
+20 SWITCH A
+
+30 PRINT "default"
+
+40 CASE 1,2
+
+41 PRINT "one "; 
+
+42 PRINT "or two"
+
+50 CASE 3: PRINT "three"
+
+60 SWEND
+
+### Grouping statements with DO and DEND
+
+Statements can be grouped with DO and DEND in IF THEN ELSE constructions. 
+
+Example: 
+
+10 INPUT A
+
+20 IF A=0 THEN 
+
+30 DO 
+
+40 PRINT "A is "
+
+50 PRINT "zero"
+
+60 DEND
+
+70 ELSE PRINT "A is not zero"
 
 # Hardware drivers 
 
