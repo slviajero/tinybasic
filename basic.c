@@ -4695,12 +4695,12 @@ void xreturn(){
 #endif
 }
 
-
 /* 
  *	IF statement together with THEN 
  * 		ELSE not implemented properly
  */
 void xif() {
+	mem_t nl=0;
 	
 	if (!expectexpr()) return;
 	x=pop();
@@ -4709,23 +4709,46 @@ void xif() {
 /* if can have a new line after the expression in this BASIC */
 	if (token == LINENUMBER) nexttoken();	
 
-/* on condition false skip the entire line and all : until a potential ELSE */
+
 	if (!x)  {
+#ifndef HASSTRUCT
+/* on condition false skip the entire line and all : until a potential ELSE */
 		while(token != LINENUMBER && token != EOL && token != TELSE) nexttoken();
+#else 
+/* in the structured language set, we need to look for a DO  close to the IF and skip it*/
+/* a THEN or not and then a line number expects a block */
+		if (token == TTHEN) nexttoken();
+		if (token == LINENUMBER) { nexttoken(); nl=1; }
+
+/* skip the block */
+		if (token == TDO) { 
+			nexttoken();
+			findbraket(TDO, TDEND); 
+			nexttoken();
+			goto processelse;
+		} 
+
+/* skip the line */
+		if (!nl) while(token != LINENUMBER && token != EOL && token != TELSE) nexttoken();
+
+processelse:		
+#endif
 
 /* if we have ELSE at this point we want to execute this part of the line as the condition 
-		was false, isolated ELSE is GOTO */
+		was false, isolated ELSE is GOTO, otherwise just execute the code */
+
 #ifdef HASSTEFANSEXT
 /* look if ELSE is at the next line */
 		if (token == LINENUMBER) nexttoken();
+
 /* now process ELSE */
 		if (token == TELSE) {
 			nexttoken();
 			if (token == NUMBER) {
 				findline((address_t) x);
 				return;	
-			} 
-		} 
+			}
+		}
 #endif		
 	}	
 
@@ -4745,7 +4768,29 @@ void xif() {
  		as else code execution is triggered in the xif function */
 #ifdef HASSTEFANSEXT
 void xelse() {
+	mem_t nl=0;
+
+#ifndef HASSTRUCT
+/* skip the entire line */
 	while(token != LINENUMBER && token != EOL) nexttoken();
+#else 
+	nexttoken();
+	/* else in a single line */
+	if (token == LINENUMBER) { 
+		nexttoken(); 
+		nl=1; 
+	}
+
+	/* the block after the else on a new line or the current line */
+	if (token == TDO) {
+		nexttoken();
+		findbraket(TDO, TDEND);
+	}
+
+	/* single line else, skip the line */
+	if (!nl) while(token != LINENUMBER && token != EOL) nexttoken();
+
+#endif
 }
 #endif
 
@@ -4775,6 +4820,8 @@ void findbraket(token_t bra, token_t ket){
 	    return;
 		}
 		nexttoken();
+
+/* yap yap yap */		
 		if (DEBUG) { 
 			outsc("** skpping braket "); 
 			outputtoken(); outspc(); 
@@ -7512,6 +7559,7 @@ void xcase() {
 		while (token != EOL) {
 			nexttoken();
 			if (token == TSWEND) break;
+/* broken if switch is nested deeper then once, need the braket mechanism here */
 /*
 			if (token == TSWITCH) {
 				nexttoken();
@@ -7805,9 +7853,10 @@ void statement(){
 				xcase();
 				break;	
 			case TSWEND:
+			case TDO:
+			case TDEND:
 				nexttoken();
 				break;
-
 #endif
 			default:
 /*  strict syntax checking */
