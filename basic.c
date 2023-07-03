@@ -242,6 +242,11 @@
  * 
  * Dartmouth and darkarts needs the heap which is in Apple 1
  * IoT needs strings and the heap, also Apple 1
+ * 
+ * String arrays need multi dimensional capabilities
+ *
+ * The structured language set needs ELSE from STEFANSEXT
+ *
  */
 #if defined(HASDARTMOUTH) || defined(HASDARKARTS) || defined(HASIOT)
 #define HASAPPLE1
@@ -250,6 +255,15 @@
 #if defined(HASSTRINGARRAYS)
 #define HASMULTIDIM
 #endif
+
+#ifdef HASSTRUCT
+#define HASSTEFANSEXT
+#endif
+
+/* 
+ * if there are many commands we need the token extension i.e. 2 byte tokens
+ */
+#undef HASLONGTOKENS
 
 /*
  * the core basic language headers including some Arduino device stuff
@@ -2467,7 +2481,7 @@ void nexttoken() {
 /* after change in buffer logic the first byte is reserved for the length */
 	if (bi == ibuffer) bi++;
 
-/* literal mode - experimental - EOL ends literal mode*/
+/* literal mode - experimental - only(!) EOL ends literal mode*/
 	if (lexliteral) {
 		token=*bi;
 		if (*bi != '\0') bi++; else lexliteral=0;
@@ -2733,8 +2747,16 @@ void storetoken() {
 			}	
 			return;
 		default:
-			if ( nomemory(1) ) break;
-			memwrite2(top++, token);
+			if (token >= -127) { /* the good old code with just one byte token */
+				if (nomemory(1)) break;
+				memwrite2(top++, token);
+			} else {
+#ifdef HASLONGTOKENS
+				if (nomemory(2)) break; /* this is the two byte token extension */
+				memwrite2(top++, TEXT1);
+				memwrite2(top++, token+255);
+#endif
+			}
 			return;
 	}
 	error(EOUTOFMEMORY);
@@ -2816,6 +2838,13 @@ void gettoken() {
 /* if we have no data type we are done reading just one byte */
 	token=memread(here++); 
 
+/* if there are multibyte tokens, get the next byte and construct a token value <-127 */
+#ifdef HASLONGTOKENS
+	if (token == TEXT1) {
+		token=memread(here++)-255;
+	}
+#endif
+ 
  /* otherwise we check for the argument */
 	switch (token) {
 		case LINENUMBER:
@@ -4697,7 +4726,6 @@ void xreturn(){
 
 /* 
  *	IF statement together with THEN 
- * 		ELSE not implemented properly
  */
 void xif() {
 	mem_t nl=0;
@@ -4708,7 +4736,6 @@ void xif() {
 
 /* if can have a new line after the expression in this BASIC */
 	if (token == LINENUMBER) nexttoken();	
-
 
 	if (!x)  {
 #ifndef HASSTRUCT
@@ -5066,7 +5093,7 @@ void outputtoken() {
 			outch('"');
 			break;
 		default:
-			if (token < -3 && token > -122) {
+			if ( (token < -3 && token > -122) || token < -127) {
 				if ((token == TTHEN || 
 					token == TELSE ||
 					token == TTO || 

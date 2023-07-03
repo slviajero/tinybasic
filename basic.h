@@ -96,11 +96,11 @@ typedef unsigned char uint8_t;
 #endif
 
 /* more duffers and vars */
-#define SBUFSIZE		32
+#define SBUFSIZE	32
 #define VARSIZE		26
 /* default sizes of arrays and strings if they are not DIMed */
-#define ARRAYSIZEDEF	10
-#define STRSIZEDEF	32
+#define ARRAYSIZEDEF    10
+#define STRSIZEDEF  32
 
 /*
  *	the time intervall in ms needed for 
@@ -260,10 +260,7 @@ typedef unsigned char uint8_t;
 #define TDEND -11
 /* these are multibyte token extension, currently unused */
 /* using them would allow over 1000 BASIC keywords */
-#define TEXT1 -6
-#define TEXT2 -5
-#define TEXT3 -4
-#define TEXT4 -3
+#define TEXT1 -3
 /* end of tokens */
 /* constants used for some obscure purposes */
 #define TBUFFER -2
@@ -271,6 +268,8 @@ typedef unsigned char uint8_t;
  * lexer tokenizes everything blindly. There is a UNKNOWN hook 
  * in statement for a grammar aware lexer */
 #define UNKNOWN -1
+
+
 
 /* the number of keywords, and the base index of the keywords */
 #define NKEYWORDS	3+19+13+14+11+5+2+7+7+6+12+3+9
@@ -540,7 +539,7 @@ const char* const keyword[] PROGMEM = {
 #endif
 #ifdef HASSTRUCT
 	swhile, swend, srepeat, suntil, sswitch, scase, sswend,	
-    sdo, sdend,
+    sdo, sdend, 
 #endif 
 	0
 };
@@ -606,7 +605,7 @@ const signed char tokens[] PROGMEM = {
 #endif
 #ifdef HASSTRUCT
 	TWHILE, TWEND, TREPEAT, TUNTIL, TSWITCH, TCASE, TSWEND,
-    TDO, TDEND,
+    TDO, TDEND, 
 #endif
 	0
 };
@@ -725,7 +724,11 @@ const int strindexsize=2; /* default in the meantime, strings up to unsigned 16 
 const address_t maxaddr=(address_t)(~0); 
 typedef signed char mem_t; /* a signed 8 bit type for the memory */
 typedef short index_t; /* this type counts at least 16 bit */
-typedef signed char token_t; /* the type of tokens, normally mem_t, this is a preparation for extensions */
+#ifndef HASLONGTOKENS
+typedef signed char token_t; /* the type of tokens, normally mem_t with a maximum of 127 commands and data types */
+#else
+typedef short token_t; /* token type extension, allows an extra of 127 commands and symbols */
+#endif
 
 /* 
  * system type identifiers
@@ -1358,7 +1361,7 @@ void storeline();
 
 /* read arguments from the token stream and process them */
 char termsymbol();
-char expect(mem_t, mem_t);
+char expect(token_t, mem_t);
 char expectexpr();
 void parsearguments();
 void parsenarguments(char);
