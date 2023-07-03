@@ -106,6 +106,10 @@ BASIC graphics commands are plotting and setting colours.
 - CalculatePI: cpinew1.bas - calculate PI to arbitrary precision (thanks to Guido for this program)
 - CalculatePI2: cpinew2.bas - using the dark arts feature and char / string conversion
 
+## The structured language set
+
+- CalculatorS: calcs.bas - RPN pocket calculator in BASIC with WHILE and SWITCH
+
 ### More BASIC features
 
 In addition to these language sets there are the Arduino IO functions. These features are explained in 01basics-10starter.
