@@ -206,6 +206,8 @@ timestop.bas: AFTER command to brach after a given time
 
 calc.bas: GOSUB with an expression, @S with READ and DATA, VAL
 
+calcs.bas: WHILE and WEND, SWITCH CASE SWEND, @S with READ and DATA, VAL
+
 
 
 
