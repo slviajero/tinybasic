@@ -262,8 +262,10 @@
 
 /* 
  * if there are many commands we need the token extension i.e. 2 byte tokens
+ * #undef HASLONGTOKENS
+ * this is normally done in basic.h where the tokens are set
  */
-#undef HASLONGTOKENS
+
 
 /*
  * the core basic language headers including some Arduino device stuff
@@ -5093,7 +5095,7 @@ void outputtoken() {
 			outch('"');
 			break;
 		default:
-			if ( (token < -3 && token > -122) || token < -127) {
+			if ( (token < -3 && token >= BASEKEYWORD) || token < -127) {
 				if ((token == TTHEN || 
 					token == TELSE ||
 					token == TTO || 

@@ -269,9 +269,15 @@ typedef unsigned char uint8_t;
  * in statement for a grammar aware lexer */
 #define UNKNOWN -1
 
+/* extension tokens can be in the range from -128 to -255 
+ * one needs to set HASLONGTOKENS
+ */
+#undef HASLONGTOKEN
+#define TTOKEN1 -128
 
 
-/* the number of keywords, and the base index of the keywords */
+/* the number of keywords, and the base index of the keywords 
+ * the number is irrelevant but BASEKEYWORD is used */
 #define NKEYWORDS	3+19+13+14+11+5+2+7+7+6+12+3+9
 #define BASEKEYWORD -121
 
