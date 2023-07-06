@@ -376,7 +376,7 @@ void bmillis() {
  * allocate it here at all.
  *
  */
-#if MEMSIZE == 0 && !defined(SPIRAMINTERFACE)
+#if MEMSIZE == 0 && !(defined(SPIRAMINTERFACE))
 address_t ballocmem() { 
 
 /* on most platforms we know the free memory for BASIC */
@@ -1102,7 +1102,7 @@ address_t createstring(char c, char d, address_t i, address_t j) {
  */
 
 char* getstring(char c, char d, address_t b, address_t j) {	
-	address_t k, zt, dim, maxlen;
+	address_t k, zt, dim, maxlen, ax;
 
 	ax=0;
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
@@ -1609,12 +1609,16 @@ void push(number_t t){
 
 number_t pop(){
 	if (DEBUG) {outsc("** pop sp= "); outnumber(sp); outcr(); }
-	if (sp == 0) {
-		error(ESTACK);
-		return 0;
-	}
+	if (sp == 0) { error(ESTACK); return 0; }
 	else
 		return stack[--sp];	
+}
+
+/* this one gets a positive integer from the stack and traps the error*/
+address_t popaddress(){
+	number_t tmp = 0;
+	tmp=pop();
+	if (tmp < 0) { error(EORANGE); return 0;} else return (address_t) tmp;
 }
 
 void clearst(){
@@ -2798,7 +2802,7 @@ mem_t memread2(address_t a) { return mem[a]; }
 
 void memwrite2(address_t a, mem_t c) { mem[a]=c; }
 #else 
-#ifdef SPIRAMINTERFACE
+#if defined(SPIRAMINTERFACE) || defined(SPIRAMSIMULATOR)
 mem_t memread(address_t a) {
 	if (st != SERUN) {
 		return spiram_robufferread(a);
@@ -2957,7 +2961,10 @@ address_t findinlinecache(address_t l){ return 0; }
 #endif
 
 
-/* find a line, look in cache then search from the beginning */
+/* find a line, look in cache then search from the beginning 
+ * x is used as the valid line number once a line is found
+ * hence x must be global
+ */
 void findline(address_t l) {
 	address_t a;
 /* we know it already, here to advance */
@@ -3362,7 +3369,8 @@ void parsesubstring() {
 
 		switch (args) {
 			case 1:
-				j=pop();
+				j=popaddress();
+				if (er != 0) return;
 				break;
 			case 0:
 				j=arraylimit;
@@ -3620,8 +3628,10 @@ void streval(){
 		return;
 	} 
 	if (er != 0) return;
+
 	irl=ir2;
-	xl=pop();
+	xl=popaddress();
+	if (er != 0) return;
 
 /* with the mem interface -> copy, irl now point to buffer2 */ 
 #ifdef USEMEMINTERFACE
@@ -3630,20 +3640,25 @@ void streval(){
 #endif
 
 /* get ready for rewind. */
+/*
 	if (st != SINT)
 		h1=here; 
 	else 
 		b1=bi;
-
+*/
+	pushlocation();
 	t=token;
 	nexttoken();
 
 	if (token != '=' && token != NOTEQUAL) {
 /* rewind one token if not comparison	 */
+/*
 		if (st != SINT)
 			here=h1; 
 		else 
 			bi=b1;
+*/
+		poplocation();
 		token=t;
 		if (xl == 0) push(0); else push(irl[0]); // a zero string length evaluate to 0
 		return; 
@@ -3709,6 +3724,7 @@ void xint() {}
  * evaluates constants, variables and all functions
  */
 void factor(){
+	mem_t xcl, ycl;
 	if (DEBUG) bdebug("factor\n");
 	switch (token) {
 		case NUMBER: 
@@ -3718,34 +3734,33 @@ void factor(){
 			push(getvar(xc, yc));	
 			break;
 		case ARRAYVAR:
-			push(yc);
-			push(xc);
+			ycl=yc;
+			xcl=xc;
 			nexttoken();
 			parsesubscripts();
 			if (er != 0 ) return;
 #ifndef HASMULTIDIM
 			if (args != 1) { error(EARGS); return; }	
 			x=pop();
-			xc=pop();
-			yc=pop();
-			array('g', xc, yc, x, arraylimit, &y);	
+			array('g', xcl, ycl, x, arraylimit, &y);	
 #else
 			switch(args) {
 				case 1:
-					x=pop();
+					x=popaddress();
+					if (er != 0) return;
 					y=arraylimit;
 					break;
 				case 2:
-					y=pop();
-					x=pop();
+					y=popaddress();
+					if (er != 0) return;
+					x=popaddress();
+					if (er != 0) return;
 					break;
 				default:
 					error(EARGS); 
 					return;
 			}
-			xc=pop();
-			yc=pop();
-			array('g', xc, yc, x, y, &y);
+			array('g', xcl, ycl, x, y, &y);
 #endif
 			push(y); 
 			break;
@@ -4247,6 +4262,7 @@ separators:
  * 
  */
 void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
+	number_t tmp;
 	switch (token) {
 		case VARIABLE:
 			nexttoken();
@@ -4258,12 +4274,15 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 			if (er != 0) return;
 			switch(args) {
 				case 1:
-					*i=pop();
+					*i=popaddress();
+					if (er != 0) return;
 					*j=arraylimit;
 					break;
 				case 2:
-					*j=pop();
-					*i=pop();
+					*j=popaddress();
+					if (er != 0) return;
+					*i=popaddress();
+					if (er != 0) return;
 					break;
 				default:
 					error(EARGS);
@@ -4285,13 +4304,16 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 				case 1:
 					*ps=0;
 					nexttoken();
-					*i=pop();
+					*i=popaddress();
+					if (er != 0) return;
 					break;
 				case 2:
 					*ps=0;
 					nexttoken();
-					*i2=pop();
-					*i=pop();
+					*i2=popaddress();
+					if (er != 0) return;
+					*i=popaddress();
+					if (er != 0) return;
 					break; 
 				default:
 					error(EARGS);
@@ -4312,13 +4334,16 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 				case 1:
 					*ps=0;
 					nexttoken();
-					*i=pop();
+					*i=popaddress();
+					if (er != 0) return;
 					break;
 				case 2:
 					*ps=0;
 					nexttoken();
-					*i2=pop();
-					*i=pop();
+					*i2=popaddress();
+					if (er != 0) return;
+					*i=popaddress();
+					if (er != 0) return;			
 					break;
 				default:
 					error(EARGS);
@@ -4329,8 +4354,9 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 				parsesubscripts();
 				if (er != 0) return;
 				switch(args) {
-					case 1:
-						*j=pop();
+					case 1:	
+						*j=popaddress();
+						if (er != 0) return;
 						nexttoken();
 						break;
 					default:
@@ -4692,6 +4718,7 @@ resetinput:
  */
 void xgoto() {
 	token_t t=token;
+	number_t x;
 
 	if (!expectexpr()) return;
 	if (t == TGOSUB) pushgosubstack(0);
@@ -5276,7 +5303,14 @@ void xnew(){
  *	REM - skip everything 
  */
 void xrem() {
-	while (token != LINENUMBER && token != EOL && here <= top) nexttoken(); 
+	if (debuglevel == -1) outsc("REM: ");
+	while (token != LINENUMBER && token != EOL && here <= top) 
+	{
+		nexttoken();
+		if (debuglevel == -1) {
+			if (token != LINENUMBER) outputtoken(); else outcr();
+		}
+	} 
 }
 
 /* 
@@ -5308,25 +5342,25 @@ void xclr() {
 		t=token;
 
 		switch (t) {
-			case VARIABLE:
-				if (xcl == '@' || ycl == 0) { error(EVARIABLE); return; }
-				break;
-			case ARRAYVAR: 
-				nexttoken();
-				if (token != '(') { error(EVARIABLE); return; }
-				nexttoken();
-				if (token != ')') { error(EVARIABLE); return; }
-				break;
-			case STRINGVAR:
-				if (xcl == '@') { error(EVARIABLE); return; }
-				break;
-			default:
-				expression();
-				if (er != 0) return;
-				ax=pop();
-				xcl=ax%256;
-				ycl=ax/256;
-				t=TBUFFER;
+		case VARIABLE:
+			if (xcl == '@' || ycl == 0) { error(EVARIABLE); return; }
+			break;
+		case ARRAYVAR: 
+			nexttoken();
+			if (token != '(') { error(EVARIABLE); return; }
+			nexttoken();
+			if (token != ')') { error(EVARIABLE); return; }
+			break;
+		case STRINGVAR:
+			if (xcl == '@') { error(EVARIABLE); return; }
+			break;
+		default:
+			expression();
+			if (er != 0) return;
+			ax=pop();
+			xcl=ax%256;
+			ycl=ax/256;
+			t=TBUFFER;
 		}
 
 		ax=bfree(t, xcl, ycl);
@@ -5354,6 +5388,7 @@ void xclr() {
 void xdim(){
 	mem_t xcl, ycl; 
 	token_t t;
+	number_t x, y;
 
 	nexttoken();
 
@@ -5416,9 +5451,11 @@ nextvariable:
 
 /* 
  *	POKE - low level poke to the basic memory, works only up to 32767
+ * variables changed to local
  */
 void xpoke(){
 	address_t amax;
+	number_t x, y;
 
 /* like in peek
 	this is a hack again, 16 bit numbers can't peek big addresses */
@@ -5445,6 +5482,8 @@ void xpoke(){
  * 		charcount mechanism for relative tab if HASMSTAB is set
  */
 void xtab(){
+  number_t x;
+
 	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
@@ -5464,6 +5503,8 @@ void xtab(){
  */
 
 void xlocate() {
+	number_t x, y; 
+
 	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return;
@@ -5495,7 +5536,7 @@ void xlocate() {
  *	DUMP - memory dump program
  */
 void xdump() {
-	address_t a,x;
+	address_t a, x;
 	char eflag = 0;
 
 	nexttoken();
@@ -5844,7 +5885,7 @@ void xput(){
  */
 void xset(){
 	address_t fn;
-	address_t args;
+	index_t args;
 
 	nexttoken();
 	parsenarguments(2);
@@ -6837,6 +6878,7 @@ void xusr() {
 	address_t fn;
 	number_t v;
 	int arg;
+	address_t a;
 
 	v=pop();
 	arg=(int)v; /* a bit paranoid here */
@@ -6847,31 +6889,32 @@ void xusr() {
 			switch(arg) {
 				case 0: push(bsystype); break;
 				case 1: /* language set identifier, odd because USR is part of STEFANSEXT*/
-					z.a=0;
+					a=0;
 #ifdef HASAPPLE1
-					z.a|=1;	
+					a|=1;	
 #endif
 #ifdef HASARDUINOIO
-					z.a|=2;
+					a|=2;
 #endif
 #ifdef HASFILEIO
-					z.a|=4;
+					a|=4;
 #endif 
 #ifdef HASDARTMOUTH
-					z.a|=8;
+					a|=8;
 #endif
 #ifdef HASGRAPH
-					z.a|=16;
+					a|=16;
 #endif
 #ifdef HASDARKARTS
-					z.a|=32;
+					a|=32;
 #endif
 #ifdef HASIOT
-					z.a|=64;
+					a|=64;
 #endif
-					push(z.a);
+					push(a);
 					break;
-				case 2: push(0); /* reserved for system speed identifier */			 
+				case 2: push(0); break; /* reserved for system speed identifier */	
+
 #ifdef HASFLOAT
 				case 3:	push(-1); break;
 #else 
@@ -7353,11 +7396,12 @@ void xfn() {
 /*
  *	ON is a bit like IF  
  */
+
 void xon(){
-	number_t cr;
+	number_t cr, tmp;
 	int ci;
 	token_t t;
-	address_t tmp, line = 0;
+	int line = 0;
 	
 	if(!expectexpr()) return;
 
@@ -7384,12 +7428,22 @@ void xon(){
 /* do we have more arguments then the condition? */
 	if (cr > args && cr <= 0) ci=0; else ci=(int)cr;
 
-/* now find the line to jump to and clean the stack, reuse cr*/
+/* now find the line to jump to and clean the stack, reuse cr 
+ * we need to clean the stack here completely, therefore complete the loop
+ * ERROR handling is needed for the trapping mechanism. No using popaddress()
+ * here, because of the needed stack cleanup. Unclear is this precaution is 
+ * really needed.
+ */
 	while (args) {
 		tmp=pop();
-		if (args == ci) line=tmp;
+		if (args == ci) {
+			if (tmp < 0) er=ELINE;
+			line=tmp;
+		}
 		args--;
 	}
+
+	if (er) return;
 	
 	if (DEBUG) { outsc("** in on found line as target "); outnumber(line); outcr(); }
 /* no line found to jump to */
@@ -7412,6 +7466,7 @@ void xon(){
 	/* removed to avoid blocking in AFTER, EVERY and EVENT infinite loops */
 	/* nexttoken(); */
 }
+
 #endif
 
 /* the structured BASIC extensions, WHILE, UNTIL, and SWITCH */
@@ -8059,7 +8114,7 @@ void setup() {
 
 /* get the BASIC memory, either as memory array with
 	ballocmem() or as an SPI serical memory */
-#if defined(SPIRAMINTERFACE) && MEMSIZE == 0
+#if (defined(SPIRAMINTERFACE) || defined(SPIRAMSIMULATOR)) && MEMSIZE == 0
 	himem=memsize=spirambegin();
 #else 
 #if defined(EEPROMMEMINTERFACE)

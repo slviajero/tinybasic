@@ -1282,6 +1282,7 @@ void bdebug(const char*);
 /* the arithemtic stack */
 void push(number_t);
 number_t pop();
+address_t popaddress();
 void drop();
 void clearst();
 
@@ -1305,7 +1306,7 @@ void iodefaults();
 /* signal handling */
 void signalon();
 void signaloff();
-void signalhandler();
+void signalhandler(int);
 
 /* character and string I/O functions */
 /* we live in world where char may be signed or unsigned and keep it 
@@ -1454,7 +1455,7 @@ void dumpmem(address_t, address_t, char);
 void xlocate();
 
 /* file access and other i/o */
-void stringtobuffer();
+void stringtobuffer(char*);
 void getfilename(char*, char);
 void xsave();
 void xload(const char*);
@@ -1521,7 +1522,7 @@ void xon();
 
 /* timers and interrupts */
 void xtimer();
-void resettimer();
+void resettimer(btimer_t*);
 
 /* structured BASIC extensions */
 void xwhile();
