@@ -686,7 +686,12 @@ int fsstat(char c) {return 1; }
  * open and close is handled separately by (i/o)file(open/close)
  * only one file can be open for write and read at the same time
  */
-void filewrite(char c) { if (ofile) fputc(c, ofile); else ert=1;}
+void filewrite(char c) { 
+	if (ofile) 
+		fputc(c, ofile); 
+	else 
+		ert=1;
+}
 
 char fileread(){
 	char c;
@@ -697,7 +702,8 @@ char fileread(){
 
 char ifileopen(const char* filename){
 	ifile=fopen(filename, "r");
-	return (int) ifile;
+	// return (int) ifile;
+	return ifile!=0;
 }
 
 void ifileclose(){
@@ -707,7 +713,8 @@ void ifileclose(){
 
 char ofileopen(char* filename, const char* m){
 	ofile=fopen(filename, m);
-	return (int) ofile; 
+	// return (int) ofile; 
+	return ofile!=0;
 }
 
 void ofileclose(){ 
