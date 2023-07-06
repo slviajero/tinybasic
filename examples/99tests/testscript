@@ -3,7 +3,12 @@ BASIC=../../basic
 
 for file in *.bas
 do
-  $BASIC $file > ${file}.tmp
+  if [ -r $file.inp ]
+  then 
+     $BASIC $file > ${file}.tmp < ${file}.inp
+  else 
+     $BASIC $file > ${file}.tmp 
+  fi
   diff ${file}.tmp ${file}.res > /dev/null
   if [ $? -eq 0 ] 
   then
