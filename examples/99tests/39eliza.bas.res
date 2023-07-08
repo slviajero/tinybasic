@@ -1,14 +1,14 @@
-                                  *** ELIZA ***
+                                 *** ELIZA ***
                                     IN BASIC
          MODIFIED FROM CYBER 175 AT UNIVERSITY OF ILLINOIS AT CHAMPAGNE
-                                   JOHN SCHUGG
+                                  JOHN SCHUGG
                                   JANUARY 1985
-                               HAVE ANY PROBLEMS ?
+                              HAVE ANY PROBLEMS ?
                               LET ELIZA HELP YOU !
 
                           TO STOP ELIZA TYPE 'SHUT UP'
-                (THIS VERSION WILL NOT RECORD YOUR CONVERSATIONS)
-            (PLEASE SEND SUGGESTIONS FOR IMPROVEMENTS TO JOHN SCHUGG)
+               (THIS VERSION WILL NOT RECORD YOUR CONVERSATIONS)
+           (PLEASE SEND SUGGESTIONS FOR IMPROVEMENTS TO JOHN SCHUGG)
 < PRESS RETURN TO CONTINUE...>
 HI!  I'M ELIZA.  WHAT'S YOUR PROBLEM?
 I am bored!
