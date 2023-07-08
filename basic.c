@@ -1257,7 +1257,7 @@ address_t stringdim(char c, char d) {
 /* the length of a string as in LEN(A$) */
 address_t lenstring(char c, char d, address_t j){
 	char* b;
-	int a;
+	address_t a;
 
 /* the input buffer, length is first byte */
 	if (c == '@' && d == 0) return ibuffer[0];
@@ -1346,7 +1346,7 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 #ifdef HASCLOCK
 char* rtcmkstr() {
 	int cc = 2;
-	short t;
+	int t;
 	char ch;
 
 /* hours */
@@ -1876,41 +1876,39 @@ void iodefaults() {
 /* the generic inch code reading one character from a stream */
 char inch() {
 	switch(id) {
-		case ISERIAL:
-			return serialread();		
+	case ISERIAL:
+		return serialread();		
 #ifdef FILESYSTEMDRIVER
-		case IFILE:
-			return fileread();
+	case IFILE:
+		return fileread();
 #endif
 #if (defined(HASWIRE) && defined(HASFILEIO))
-		case IWIRE:
-			ins(sbuffer, 1);
-			if (sbuffer[0]>0) return sbuffer[1]; 
-			else return 0;
+	case IWIRE:
+		ins(sbuffer, 1);
+		if (sbuffer[0]>0) return sbuffer[1]; else return 0;
 #endif
 #ifdef ARDUINORF24
 /* radio is not character oriented, this is only added to make GET work
 		or single byte payloads, radio, like file is treated nonblocking here */
-		case IRADIO:
-			radioins(sbuffer, SBUFSIZE-1);
-			if (sbuffer[0]>0) return sbuffer[1]; 
-			else return 0;
+	case IRADIO:
+		radioins(sbuffer, SBUFSIZE-1);
+		if (sbuffer[0]>0) return sbuffer[1]; else return 0;
 #endif
 #ifdef ARDUINOMQTT
-    case IMQTT:
-    	return mqttinch();
+   case IMQTT:
+    return mqttinch();
 #endif
 #ifdef ARDUINOPRT
-		case ISERIAL1:
-			return prtread();
+	case ISERIAL1:
+		return prtread();
 #endif				
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)				
-		case IKEYBOARD:
+	case IKEYBOARD:
 #if defined(HASVT52)
-			if (vt52avail()) return vt52read(); /* if the display has a message, read it */
+		if (vt52avail()) return vt52read(); /* if the display has a message, read it */
 #endif
 #if defined(HASKEYBOARD) || defined(HASKEYPAD)  
-			return kbdread();
+		return kbdread();
 #endif
 #endif
 	}
@@ -1920,33 +1918,33 @@ char inch() {
 /* checking on a character in the stream */
 char checkch(){
 	switch (id) {
-		case ISERIAL:
-			return serialcheckch();
+	case ISERIAL:
+		return serialcheckch();
 #ifdef FILESYSTEMDRIVER
-		case IFILE:
-			return fileavailable();
+	case IFILE:
+		return fileavailable();
 #endif
 #ifdef ARDUINORF24
-		case IRADIO:
-			return radio.available();
+	case IRADIO:
+		return radio.available();
 #endif
 #ifdef ARDUINOMQTT
-		case IMQTT:
-			if (mqtt_messagelength>0) return mqtt_buffer[0]; else return 0;
+	case IMQTT:
+		if (mqtt_messagelength>0) return mqtt_buffer[0]; else return 0;
 #endif   
 #if (defined(HASWIRE) && defined(HASFILEIO))
-		case IWIRE:
-			return 0;
+	case IWIRE:
+		return 0;
 #endif
 #ifdef ARDUINOPRT
-		case ISERIAL1:
-			return prtcheckch(); 
+	case ISERIAL1:
+		return prtcheckch(); 
 #endif
-		case IKEYBOARD:
+	case IKEYBOARD:
 #if defined(HASKEYBOARD)	|| defined(HASKEYPAD)
-			return kbdcheckch(); /* here no display read as this is only for break and scroll control */
+		return kbdcheckch(); /* here no display read as this is only for break and scroll control */
 #endif
-			break;
+		break;
 	}
 	return 0;
 }
@@ -1954,38 +1952,38 @@ char checkch(){
 /* character availability */
 short availch(){
 	switch (id) {
-		case ISERIAL:
-			return serialavailable(); 
+	case ISERIAL:
+		return serialavailable(); 
 #ifdef FILESYSTEMDRIVER
-		case IFILE:
-			return fileavailable();
+	case IFILE:
+		return fileavailable();
 #endif
 #ifdef ARDUINORF24
-		case IRADIO:
-    	return radioavailable();
+	case IRADIO:
+    return radioavailable();
 #endif    		
 #ifdef ARDUINOMQTT
-		case IMQTT:
-			return mqtt_messagelength;
+	case IMQTT:
+		return mqtt_messagelength;
 #endif    		
 #if (defined(HASWIRE) && defined(HASFILEIO))
-		case IWIRE:
-			return wireavailable();
+	case IWIRE:
+		return wireavailable();
 #endif
 #ifdef ARDUINOPRT
-		case ISERIAL1:
-      return prtavailable();
+	case ISERIAL1:
+		return prtavailable();
 #endif
-    case IKEYBOARD:
+	case IKEYBOARD:
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)
 #if defined(HASVT52)
-			if (vt52avail()) return vt52avail(); /* if the display has a message, read it */
+		if (vt52avail()) return vt52avail(); /* if the display has a message, read it */
 #endif
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) 
-			return kbdavailable();
+		return kbdavailable();
 #endif
 #endif
-			break;
+		break;
 	}
 	return 0;
 }
@@ -2002,9 +2000,10 @@ short availch(){
  *		flow control and volatile timing to receive more 
  *		then 64 bytes 
  */
-void inb(char *b, short nb) {
+void inb(char *b, index_t nb) {
 	long m;
 	index_t i = 0;
+
 	if (blockmode == 1 ) {
 		i=availch();
 		if (i>nb-1) i=nb-1;
@@ -2048,27 +2047,27 @@ void inb(char *b, short nb) {
 void ins(char *b, address_t nb) {
   switch(id) {
 #if (defined(HASWIRE) && defined(HASFILEIO))
-  	case IWIRE:
-			wireins(b, nb);
-			break;
+  case IWIRE:
+		wireins(b, nb);
+		break;
 #endif
 #ifdef ARDUINOMQTT
-		case IMQTT:
-			mqttins(b, nb);	
-			break;	
+	case IMQTT:
+		mqttins(b, nb);	
+		break;	
 #endif
 #ifdef ARDUINORF24
-		case IRADIO:
- 			radioins(b, nb);
- 			break;
+	case IRADIO:
+ 		radioins(b, nb);
+ 		break;
 #endif
-		default:
+	default:
 #ifdef ARDUINOPRT
 /* blockmode only implemented for ISERIAL1 right now */
-			if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
+		if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
 #endif
-			consins(b, nb);
-  	}  
+		consins(b, nb);
+  }  
 }
 
 /*
@@ -2088,37 +2087,37 @@ void outch(char c) {
 #endif
 
 	switch(od) {
-		case OSERIAL:
-			serialwrite(c);
-			break;
+	case OSERIAL:
+		serialwrite(c);
+		break;
 #ifdef FILESYSTEMDRIVER
-		case OFILE:
-			filewrite(c);
-			break;
+	case OFILE:
+		filewrite(c);
+		break;
 #endif
 #ifdef ARDUINOPRT
-		case OPRT:
-			prtwrite(c);
-			break;
+	case OPRT:
+		prtwrite(c);
+		break;
 #endif
 #ifdef ARDUINOVGA
-		case ODSP: 
-			vgawrite(c);
-			break;
+	case ODSP: 
+		vgawrite(c);
+		break;
 #else
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
-		case ODSP: 
-			dspwrite(c);
-			break;
+	case ODSP: 
+		dspwrite(c);
+		break;
 #endif
 #endif
 #ifdef ARDUINOMQTT
-		case OMQTT:
-			mqttouts(&c, 1); /* buffering for the PRINT command */
-			break;
+	case OMQTT:
+		mqttouts(&c, 1); /* buffering for the PRINT command */
+		break;
 #endif
-		default:
-			break;
+	default:
+		break;
 	}
 	byield(); /* yield after every character for ESP8266 */
 }
@@ -2178,7 +2177,7 @@ void outsc(const char *c){
 
 /* output a zero terminated string in a formated box padding spaces 
 		needed for catalog output */
-void outscf(const char *c, short f){
+void outscf(const char *c, index_t f){
 	index_t i = 0;
   
 	while (*c != 0) { outch(*c++); i++; }
@@ -2293,12 +2292,13 @@ address_t writenumber(char *c, wnumber_t v){
 
 #ifdef HASFLOAT
 /*
- * this is for floats, going back to library functions
- * for a starter.
+ * this is for floats, handling output without library 
+ * functions as well.
  */
 
-address_t tinydtostrf(number_t v, int p, char* c) {  
-	int nd, i;
+address_t tinydtostrf(number_t v, index_t p, char* c) {  
+	index_t i;
+	address_t nd;
 	number_t f;
 
 /* write the integer part */
@@ -3408,6 +3408,7 @@ void parsesubstring() {
  * ABS absolute value 
  */
 void xabs(){
+  number_t x;
 	if ((x=pop())<0) { x=-x; }
 	push(x);
 }
@@ -3416,6 +3417,7 @@ void xabs(){
  * SGN evaluates the sign
  */
 void xsgn(){
+  number_t x;
 	x=pop();
 	if (x>0) x=1;
 	if (x<0) x=-1;
@@ -3428,16 +3430,17 @@ void xsgn(){
  */
 void xpeek(){
 	address_t amax;
+  index_t a;
 
-	x=pop();
+	a=pop();
 
-/* this is a hack again, 16 bit numbers can't peek big addresses */
+/* 16 bit numbers can't peek big addresses */
 	if ((long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
 
-	if (x >= 0 && x<amax) 
-		push(memread2((address_t) x));
-	else if (x < 0 && -x <= elength())
-		push(eread(-x-1));
+	if (a >= 0 && a<amax) 
+		push(memread2(a));
+	else if (a < 0 && -a <= elength())
+		push(eread(-a-1));
 	else {
 		error(EORANGE);
 		return;
@@ -3519,7 +3522,8 @@ void sqr(){
 void xpow(){
 	number_t n;
 	number_t a;
-	int i;
+	address_t i;
+  number_t x;
 
 	n=pop();
 	a=pop();
@@ -3723,277 +3727,311 @@ void xint() {}
  * 
  * evaluates constants, variables and all functions
  */
-void factor(){
+
+/* helpers of factor - array access */
+void factorarray() {
 	mem_t xcl, ycl;
+	address_t ix, iy;
+	number_t v;
+
+/* remember the variable, because parsesubscript changes this */	
+	ycl=yc;
+	xcl=xc;
+
+	nexttoken();
+	parsesubscripts();
+	if (er != 0 ) return;
+
+	switch(args) {
+	case 1:
+		ix=popaddress();
+		if (er != 0) return;
+		iy=arraylimit;
+		break;
+#ifdef HASMULTIDIM
+	case 2:
+		iy=popaddress();
+		ix=popaddress();
+		if (er != 0) return;
+		break;
+#endif
+	default:
+		error(EARGS); 
+		return;
+	}
+	array('g', xcl, ycl, ix, iy, &v);
+	push(v); 
+}
+
+/* helpers of factor - string length */
+void factorlen() {
+	address_t a;
+
+	nexttoken();
+	if ( token != '(') { error(EARGS); return; }
+			
+	nexttoken();
+	if (!stringvalue()) {
+#ifdef HASDARKARTS
+		expression();
+		if (er != 0) return;
+		a=pop();
+		push(blength(TBUFFER, a%256, a/256));
+		return;
+#else 
+		error(EUNKNOWN);
+		return;
+#endif
+	}		
+	if (er != 0) return;
+
+	nexttoken();
+	if (token != ')') { error(EARGS); return;	}
+}
+
+/* helpers of factor - the VAL command */
+void factorval() {
+  address_t a;
+  index_t y;
+ 
+	nexttoken();
+  if (token != '(') { error(EARGS); return; }
+
+	nexttoken();
+	if (!stringvalue()) { error(EUNKNOWN); return; }
+	if (er != 0) return;
+
+/* not super clean - handling of terminal symbol dirty
+    stringtobuffer needed !! */
+	vlength=0;
+	while(*ir2==' ' || *ir2=='\t') { ir2++; vlength++; }
+	if(*ir2=='-') { y=-1; ir2++; vlength++; } else y=1;
+    
+	x=0;
+#ifdef HASFLOAT
+	if ((a=parsenumber2(ir2, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
+#else 
+	if ((a=parsenumber(ir2, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
+#endif
+	(void) pop();
+	push(x*y);
+    
+  nexttoken();
+  if (token != ')') { error(EARGS); return; }
+}
+
+/* helpers of factor - the INSTR command */
+void factorinstr() {
+	address_t y;
+	char ch;
+	address_t a;
+			
+	nexttoken();
+	if (token != '(') { error(EARGS); return; }
+			
+	nexttoken();
+	expression();
+	if (er != 0) return;
+
+	if (token != ',') { error(EARGS); return; }
+	nexttoken();
+			
+	if (!stringvalue()) { error(EUNKNOWN); return; }
+	y=popaddress();
+	if (er != 0) return;
+
+	ch=pop();
+	for (a=1; a<=y; a++) {if ( ir2[a-1] == ch ) break; }
+	if (a > y ) a=0; 
+	push(a);
+	
+	nexttoken();
+	if (token != ')') { error(EARGS); return;	}
+}
+
+/* helpers of factor - the NETSTAT command */
+void factornetstat() {
+  address_t x=0;
+  if (netconnected()) x=1;
+  if (mqttstate() == 0) x+=2;
+  push(x);
+}
+
+void factor(){
 	if (DEBUG) bdebug("factor\n");
 	switch (token) {
-		case NUMBER: 
-			push(x);
-			break;
-		case VARIABLE: 
-			push(getvar(xc, yc));	
-			break;
-		case ARRAYVAR:
-			ycl=yc;
-			xcl=xc;
-			nexttoken();
-			parsesubscripts();
-			if (er != 0 ) return;
-#ifndef HASMULTIDIM
-			if (args != 1) { error(EARGS); return; }	
-			x=pop();
-			array('g', xcl, ycl, x, arraylimit, &y);	
-#else
-			switch(args) {
-				case 1:
-					x=popaddress();
-					if (er != 0) return;
-					y=arraylimit;
-					break;
-				case 2:
-					y=popaddress();
-					if (er != 0) return;
-					x=popaddress();
-					if (er != 0) return;
-					break;
-				default:
-					error(EARGS); 
-					return;
-			}
-			array('g', xcl, ycl, x, y, &y);
-#endif
-			push(y); 
-			break;
-		case '(':
-			nexttoken();
-			expression();
-			if (er != 0 ) return;
-			if (token != ')') { error(EARGS); return; } 
-			break;
+	case NUMBER: 
+		push(x);
+		break;
+	case VARIABLE: 
+		push(getvar(xc, yc));	
+		break;
+	case ARRAYVAR:
+		factorarray();
+		break; 
+	case '(':
+		nexttoken();
+		expression();
+		if (er != 0 ) return;
+		if (token != ')') { error(EARGS); return; } 
+		break;
 /* Palo Alto BASIC functions */
-		case TABS: 
-			parsefunction(xabs, 1);
-			break;
-		case TRND: 
-			parsefunction(rnd, 1);
-			break;
-		case TSIZE:
-			push(himem-top);
-			break;
+	case TABS: 
+		parsefunction(xabs, 1);
+		break;
+	case TRND: 
+		parsefunction(rnd, 1);
+		break;
+	case TSIZE:
+		push(himem-top);
+		break;
 /* Apple 1 BASIC functions */
 #ifdef HASAPPLE1
-		case TSGN: 
-			parsefunction(xsgn, 1);
-			break;
-		case TPEEK: 
-			parsefunction(xpeek, 1);
-			break;
-		case TLEN: 
-			nexttoken();
-			if ( token != '(') {
-				error(EARGS);
-				return;
-			}
-			nexttoken();
-			if (!stringvalue()) {
-#ifdef HASDARKARTS
-				expression();
-				if (er != 0) return;
-				z.a=pop();
-				push(blength(TBUFFER, z.a%256, z.a/256));
-				return;
-#else 
-				error(EUNKNOWN);
-				return;
-#endif
-			}
-			if (er != 0) return;
-			nexttoken();
-			if (token != ')') {
-				error(EARGS);
-				return;	
-			}
-			break;
+	case TSGN: 
+		parsefunction(xsgn, 1);
+		break;
+	case TPEEK: 
+		parsefunction(xpeek, 1);
+		break;
+	case TLEN: 
+		factorlen();
+		break;
 #ifdef HASIOT
-		case TAVAIL:
-			parsefunction(xavail, 1);
-			break;	
-		case TOPEN:
-			parsefunction(xfopen, 1);
-			break;
-		case TSENSOR:
-			parsefunction(xfsensor, 2);
-			break;
-		case TVAL:
-			nexttoken();
-			if (token != '(') { error(EARGS); return; }
-			nexttoken();
-			if (!stringvalue()) { error(EUNKNOWN); return; }
-			if (er != 0) return;
-/* not super clean - handling of terminal symbol dirty
-		stringtobuffer needed !! */
-			vlength=0;
-			while(*ir2==' ' || *ir2=='\t') { ir2++; vlength++; }
-			if(*ir2=='-') { y=-1; ir2++; vlength++; } else y=1;
-			x=0;
-#ifdef HASFLOAT
-			/* if (parsenumber2(ir2, &x) == 0) ert=1;	*/
-			if ((ax=parsenumber2(ir2, &x)) > 0) {vlength+=ax; ert=0; } else {vlength=0; ert=1;};
-#else 
-			/* if (parsenumber(ir2, &x) == 0) ert=1; */
-      if ((ax=parsenumber(ir2, &x)) > 0) {vlength+=ax; ert=0; } else {vlength=0; ert=1;};
-#endif			
-			(void) pop();
-			push(x*y);
-			nexttoken();
-			if (token != ')') {
-				error(EARGS);
-				return;	
-			}
-			break;
-		case TINSTR:
-			nexttoken();
-			if (token != '(') { error(EARGS); return; }
-			nexttoken();
-			expression();
-			if (er != 0) return;
-			if (token != ',') { error(EARGS); return; }
-			nexttoken();
-			if (!stringvalue()) { error(EUNKNOWN); return; }
-			y=pop();
-			xc=pop();
-			for (z.a=1; z.a<=y; z.a++) {if ( ir2[z.a-1] == xc ) break; }
-			if (z.a > y ) z.a=0; 
-			push(z.a);
-			nexttoken();
-			if (token != ')') {
-				error(EARGS);
-				return;	
-			}
-			break;
-		case TWIRE:
-			parsefunction(xfwire, 1);
-			break;
+	case TAVAIL:
+		parsefunction(xavail, 1);
+		break;	
+	case TOPEN:
+		parsefunction(xfopen, 1);
+		break;
+	case TSENSOR:
+		parsefunction(xfsensor, 2);
+		break;
+	case TVAL:
+		factorval();
+		break;
+	case TINSTR:
+		factorinstr();
+		break;
+	case TWIRE:
+		parsefunction(xfwire, 1);
+		break;
 #endif
 #ifdef HASERRORHANDLING
-		case TERROR:
-			push(erh);
-			break;
+	case TERROR:
+		push(erh);
+		break;
 #endif
-		case THIMEM:
-			push(himem);
-			break;
+	case THIMEM:
+		push(himem);
+		break;
 /* Apple 1 string compare code */
-		case STRING:
-		case STRINGVAR:
-			streval();
-			if (er != 0 ) return;
-			break;
+	case STRING:
+	case STRINGVAR:
+		streval();
+		if (er != 0 ) return;
+		break;
 #endif
 /*  Stefan's tinybasic additions */
 #ifdef HASSTEFANSEXT
-		case TSQR: 
-			parsefunction(sqr, 1);
-			break;
-		case TMAP: 
-			parsefunction(xmap, 5);
-			break;
-		case TUSR:
-			parsefunction(xusr, 2);
-			break;
-		case TPOW:
-			parsefunction(xpow, 2);
-			break;
+	case TSQR: 
+		parsefunction(sqr, 1);
+		break;
+	case TMAP: 
+		parsefunction(xmap, 5);
+		break;
+	case TUSR:
+		parsefunction(xusr, 2);
+		break;
+	case TPOW:
+		parsefunction(xpow, 2);
+		break;
 #endif
 /* Arduino I/O */
 #ifdef HASARDUINOIO
-		case TAREAD: 
-			parsefunction(aread, 1);
-			break;
-		case TDREAD: 
-			parsefunction(dread, 1);
-			break;
-		case TMILLIS: 
-			parsefunction(bmillis, 1);
-			break;	
+	case TAREAD: 
+		parsefunction(aread, 1);
+		break;
+	case TDREAD: 
+		parsefunction(dread, 1);
+		break;
+	case TMILLIS: 
+		parsefunction(bmillis, 1);
+		break;	
 #ifdef HASPULSE
-		case TPULSE:
-			parsefunction(bpulsein, 3);
-			break;
+	case TPULSE:
+		parsefunction(bpulsein, 3);
+		break;
 #endif
-		case TAZERO:
+	case TAZERO:
 #if defined(ARDUINO) && defined(A0)
-			push(A0);
+		push(A0);
 #else 
-			push(0);
+		push(0);
 #endif			
-			break;
-		case TLED:
+		break;
+	case TLED:
 #ifdef LED_BUILTIN
-			push(LED_BUILTIN);
+		push(LED_BUILTIN);
 #else
-			push(0);
+		push(0);
 #endif
-			break;
+		break;
 #endif
 /* mathematical functions in case we have float */
 #ifdef HASFLOAT
-		case TSIN:
-			parsefunction(xsin, 1);
-			break;
-		case TCOS:
-			parsefunction(xcos, 1);
-			break;
-		case TTAN:
-			parsefunction(xtan, 1);
-			break;		
-		case TATAN:
-			parsefunction(xatan, 1);
-			break;
-		case TLOG:
-			parsefunction(xlog, 1);
-			break;
-		case TEXP:
-			parsefunction(xexp, 1);
-			break;
+	case TSIN:
+		parsefunction(xsin, 1);
+		break;
+	case TCOS:
+		parsefunction(xcos, 1);
+		break;
+	case TTAN:
+		parsefunction(xtan, 1);
+		break;		
+	case TATAN:
+		parsefunction(xatan, 1);
+		break;
+	case TLOG:
+		parsefunction(xlog, 1);
+		break;
+	case TEXP:
+		parsefunction(xexp, 1);
+		break;
 #endif
 /* int is always present to make programs compatible */
-		case TINT:
-			parsefunction(xint, 1);
-			break;
+	case TINT:
+		parsefunction(xint, 1);
+		break;
 #ifdef HASDARTMOUTH
-		case TFN:
-			xfn();
-			break;
+	case TFN:
+		xfn();
+		break;
 /* an arcane feature, DATA evaluates to the data record number */
-		case TDATA:
-			push(datarc);
-			break;
+	case TDATA:
+		push(datarc);
+		break;
 #endif
 #ifdef HASDARKARTS
-		case TMALLOC:
-			parsefunction(xmalloc, 2);
-			break;	
-		case TFIND:
+	case TMALLOC:
+		parsefunction(xmalloc, 2);
+		break;	
+	case TFIND:
 /* this is a version of FIND operating in the BUFFER space 
 			parsefunction(xfind, 1); */
 /* FIND even more apocryphal - operating in the variable space */
-			xfind2();
-			break;
+		xfind2();
+		break;
 #endif
 #ifdef HASIOT
-		case TNETSTAT:
-			x=0;
-			if (netconnected()) x=1;
-			if (mqttstate() == 0) x+=2;
-			push(x);
-			break;
+	case TNETSTAT:
+		factornetstat();
+		break;
 #endif
 
 /* unknown function */
-		default:
-			error(EUNKNOWN);
-			return;
+	default:
+		error(EUNKNOWN);
+		return;
 	}
 }
 
@@ -5455,23 +5493,22 @@ nextvariable:
  */
 void xpoke(){
 	address_t amax;
-	number_t x, y;
+	index_t a, v; /* both can be signed ! */
 
-/* like in peek
-	this is a hack again, 16 bit numbers can't peek big addresses */
+/* 16 bit numbers can't poke big addresses */
 	if ( (long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
 
 	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return;
 
-	y=pop();
-	x=pop();
+	v=pop(); /* the value */
+	a=pop(); /* the address */
 
-	if (x >= 0 && x<amax) 
-		memwrite2((address_t) x, y);
-	else if (x < 0 && x >= -elength())
-		eupdate(-x-1, y);
+	if (a >= 0 && a<amax) 
+		memwrite2(a, v);
+	else if (a < 0 && a >= -elength())
+		eupdate(-a-1, v);
 	else {
 		error(EORANGE);
 	}
@@ -5482,19 +5519,21 @@ void xpoke(){
  * 		charcount mechanism for relative tab if HASMSTAB is set
  */
 void xtab(){
-  number_t x;
+  address_t tx;
 
 	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
 
-	x=pop();
+	tx=popaddress();
+  if (er != 0) return; 
+  
 #ifdef HASMSTAB
 	if (reltab && od <= OPRT && od > 0) {
-		if (charcount[od-1] >= x) x=0; else x=x-charcount[od-1]-1;
+		if (charcount[od-1] >= tx) tx=0; else tx=tx-charcount[od-1]-1;
 	} 
 #endif	
-	while (x-- > 0) outspc();	
+	while (tx-- > 0) outspc();	
 }
 #endif
 
@@ -5503,25 +5542,26 @@ void xtab(){
  */
 
 void xlocate() {
-	number_t x, y; 
+	address_t cx, cy; 
 
 	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return;
 
-	y=pop();
-	x=pop();
+	cy=popaddress();
+	cx=popaddress();
+  if (er != 0) return;
 
 /* for locate we go through the VT52 interface for cursor positioning*/
-	if (x > 0 && y > 0 && x < 224 & y < 224) {
+	if (cx > 0 && cy > 0 && cx < 224 && cy < 224) {
 		outch(27); outch('Y');
-		outch(31+(unsigned int) y); 
-		outch(31+(unsigned int) x);
+		outch(31+(unsigned int) cy); 
+		outch(31+(unsigned int) cx);
 	}
 
 /* set the charcount, this is half broken on escape sequences */
 #ifdef HASMSTAB
-	if (od > 0 && od <= OPRT) charcount[od-1]=x;
+	if (od > 0 && od <= OPRT) charcount[od-1]=cx;
 #endif
 
 }

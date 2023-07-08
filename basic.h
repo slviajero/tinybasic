@@ -729,7 +729,7 @@ const int eheadersize=sizeof(address_t)+1;
 const int strindexsize=2; /* default in the meantime, strings up to unsigned 16 bit length */
 const address_t maxaddr=(address_t)(~0); 
 typedef signed char mem_t; /* a signed 8 bit type for the memory */
-typedef short index_t; /* this type counts at least 16 bit */
+typedef int index_t; /* this type counts at least 16 bit */
 #ifndef HASLONGTOKENS
 typedef signed char token_t; /* the type of tokens, normally mem_t with a maximum of 127 commands and data types */
 #else
@@ -946,13 +946,9 @@ static address_t bfinda, bfindz;
 /*
  * a variable for some string operations 
  */
-#ifdef HASIOT
 static int vlength;
-#endif
 
 /* the timer code - very simple needs to to to a struct */
-#ifdef HASTIMER
-
 /* timer type */
 typedef struct {
     mem_t enabled;
@@ -962,6 +958,7 @@ typedef struct {
     address_t linenumber;
 } btimer_t;
 
+#ifdef HASTIMER
 static btimer_t after_timer = {0, 0, 0, 0, 0};
 static btimer_t every_timer = {0, 0, 0, 0, 0};
 #endif
@@ -1317,7 +1314,7 @@ int cheof(int c) { if ((c == -1) || (c == 255)) return 1; else return 0; }
 char inch();
 char checkch();
 short availch();
-void inb(char*, short);
+void inb(char*, index_t);
 void ins(char*, address_t); 
 
 /* output */
@@ -1326,13 +1323,14 @@ void outcr();
 void outspc();
 void outs(char*, address_t);
 void outsc(const char*);
-void outscf(const char *, short);
+void outscf(const char *, index_t);
 
 /* I/O of number_t - floats and integers */
 address_t parsenumber(char*, number_t*);
 address_t parsenumber2(char*, number_t*);
 address_t writenumber(char*, wnumber_t); 
 address_t writenumber2(char*, number_t);
+address_t tinydtostrf(number_t, index_t, char*);
 char innumber(number_t*);
 void outnumber(number_t);
 

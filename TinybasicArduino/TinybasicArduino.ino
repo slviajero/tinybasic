@@ -47,8 +47,8 @@
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
 #undef	BASICFULL
-#define	BASICINTEGER
-#undef	BASICSIMPLE
+#undef	BASICINTEGER
+#define	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
@@ -242,6 +242,11 @@
  * 
  * Dartmouth and darkarts needs the heap which is in Apple 1
  * IoT needs strings and the heap, also Apple 1
+ * 
+ * String arrays need multi dimensional capabilities
+ *
+ * The structured language set needs ELSE from STEFANSEXT
+ *
  */
 #if defined(HASDARTMOUTH) || defined(HASDARKARTS) || defined(HASIOT)
 #define HASAPPLE1
@@ -250,6 +255,17 @@
 #if defined(HASSTRINGARRAYS)
 #define HASMULTIDIM
 #endif
+
+#ifdef HASSTRUCT
+#define HASSTEFANSEXT
+#endif
+
+/* 
+ * if there are many commands we need the token extension i.e. 2 byte tokens
+ * #undef HASLONGTOKENS
+ * this is normally done in basic.h where the tokens are set
+ */
+
 
 /*
  * the core basic language headers including some Arduino device stuff
@@ -360,7 +376,7 @@ void bmillis() {
  * allocate it here at all.
  *
  */
-#if MEMSIZE == 0 && !defined(SPIRAMINTERFACE)
+#if MEMSIZE == 0 && !(defined(SPIRAMINTERFACE))
 address_t ballocmem() { 
 
 /* on most platforms we know the free memory for BASIC */
@@ -1086,7 +1102,7 @@ address_t createstring(char c, char d, address_t i, address_t j) {
  */
 
 char* getstring(char c, char d, address_t b, address_t j) {	
-	address_t k, zt, dim, maxlen;
+	address_t k, zt, dim, maxlen, ax;
 
 	ax=0;
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
@@ -1241,7 +1257,7 @@ address_t stringdim(char c, char d) {
 /* the length of a string as in LEN(A$) */
 address_t lenstring(char c, char d, address_t j){
 	char* b;
-	int a;
+	address_t a;
 
 /* the input buffer, length is first byte */
 	if (c == '@' && d == 0) return ibuffer[0];
@@ -1330,7 +1346,7 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 #ifdef HASCLOCK
 char* rtcmkstr() {
 	int cc = 2;
-	short t;
+	int t;
 	char ch;
 
 /* hours */
@@ -1593,12 +1609,16 @@ void push(number_t t){
 
 number_t pop(){
 	if (DEBUG) {outsc("** pop sp= "); outnumber(sp); outcr(); }
-	if (sp == 0) {
-		error(ESTACK);
-		return 0;
-	}
+	if (sp == 0) { error(ESTACK); return 0; }
 	else
 		return stack[--sp];	
+}
+
+/* this one gets a positive integer from the stack and traps the error*/
+address_t popaddress(){
+	number_t tmp = 0;
+	tmp=pop();
+	if (tmp < 0) { error(EORANGE); return 0;} else return (address_t) tmp;
 }
 
 void clearst(){
@@ -1856,41 +1876,39 @@ void iodefaults() {
 /* the generic inch code reading one character from a stream */
 char inch() {
 	switch(id) {
-		case ISERIAL:
-			return serialread();		
+	case ISERIAL:
+		return serialread();		
 #ifdef FILESYSTEMDRIVER
-		case IFILE:
-			return fileread();
+	case IFILE:
+		return fileread();
 #endif
 #if (defined(HASWIRE) && defined(HASFILEIO))
-		case IWIRE:
-			ins(sbuffer, 1);
-			if (sbuffer[0]>0) return sbuffer[1]; 
-			else return 0;
+	case IWIRE:
+		ins(sbuffer, 1);
+		if (sbuffer[0]>0) return sbuffer[1]; else return 0;
 #endif
 #ifdef ARDUINORF24
 /* radio is not character oriented, this is only added to make GET work
 		or single byte payloads, radio, like file is treated nonblocking here */
-		case IRADIO:
-			radioins(sbuffer, SBUFSIZE-1);
-			if (sbuffer[0]>0) return sbuffer[1]; 
-			else return 0;
+	case IRADIO:
+		radioins(sbuffer, SBUFSIZE-1);
+		if (sbuffer[0]>0) return sbuffer[1]; else return 0;
 #endif
 #ifdef ARDUINOMQTT
-    case IMQTT:
-    	return mqttinch();
+   case IMQTT:
+    return mqttinch();
 #endif
 #ifdef ARDUINOPRT
-		case ISERIAL1:
-			return prtread();
+	case ISERIAL1:
+		return prtread();
 #endif				
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)				
-		case IKEYBOARD:
+	case IKEYBOARD:
 #if defined(HASVT52)
-			if (vt52avail()) return vt52read(); /* if the display has a message, read it */
+		if (vt52avail()) return vt52read(); /* if the display has a message, read it */
 #endif
 #if defined(HASKEYBOARD) || defined(HASKEYPAD)  
-			return kbdread();
+		return kbdread();
 #endif
 #endif
 	}
@@ -1900,33 +1918,33 @@ char inch() {
 /* checking on a character in the stream */
 char checkch(){
 	switch (id) {
-		case ISERIAL:
-			return serialcheckch();
+	case ISERIAL:
+		return serialcheckch();
 #ifdef FILESYSTEMDRIVER
-		case IFILE:
-			return fileavailable();
+	case IFILE:
+		return fileavailable();
 #endif
 #ifdef ARDUINORF24
-		case IRADIO:
-			return radio.available();
+	case IRADIO:
+		return radio.available();
 #endif
 #ifdef ARDUINOMQTT
-		case IMQTT:
-			if (mqtt_messagelength>0) return mqtt_buffer[0]; else return 0;
+	case IMQTT:
+		if (mqtt_messagelength>0) return mqtt_buffer[0]; else return 0;
 #endif   
 #if (defined(HASWIRE) && defined(HASFILEIO))
-		case IWIRE:
-			return 0;
+	case IWIRE:
+		return 0;
 #endif
 #ifdef ARDUINOPRT
-		case ISERIAL1:
-			return prtcheckch(); 
+	case ISERIAL1:
+		return prtcheckch(); 
 #endif
-		case IKEYBOARD:
+	case IKEYBOARD:
 #if defined(HASKEYBOARD)	|| defined(HASKEYPAD)
-			return kbdcheckch(); /* here no display read as this is only for break and scroll control */
+		return kbdcheckch(); /* here no display read as this is only for break and scroll control */
 #endif
-			break;
+		break;
 	}
 	return 0;
 }
@@ -1934,38 +1952,38 @@ char checkch(){
 /* character availability */
 short availch(){
 	switch (id) {
-		case ISERIAL:
-			return serialavailable(); 
+	case ISERIAL:
+		return serialavailable(); 
 #ifdef FILESYSTEMDRIVER
-		case IFILE:
-			return fileavailable();
+	case IFILE:
+		return fileavailable();
 #endif
 #ifdef ARDUINORF24
-		case IRADIO:
-    	return radioavailable();
+	case IRADIO:
+    return radioavailable();
 #endif    		
 #ifdef ARDUINOMQTT
-		case IMQTT:
-			return mqtt_messagelength;
+	case IMQTT:
+		return mqtt_messagelength;
 #endif    		
 #if (defined(HASWIRE) && defined(HASFILEIO))
-		case IWIRE:
-			return wireavailable();
+	case IWIRE:
+		return wireavailable();
 #endif
 #ifdef ARDUINOPRT
-		case ISERIAL1:
-      return prtavailable();
+	case ISERIAL1:
+		return prtavailable();
 #endif
-    case IKEYBOARD:
+	case IKEYBOARD:
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)
 #if defined(HASVT52)
-			if (vt52avail()) return vt52avail(); /* if the display has a message, read it */
+		if (vt52avail()) return vt52avail(); /* if the display has a message, read it */
 #endif
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) 
-			return kbdavailable();
+		return kbdavailable();
 #endif
 #endif
-			break;
+		break;
 	}
 	return 0;
 }
@@ -1982,9 +2000,10 @@ short availch(){
  *		flow control and volatile timing to receive more 
  *		then 64 bytes 
  */
-void inb(char *b, short nb) {
+void inb(char *b, index_t nb) {
 	long m;
 	index_t i = 0;
+
 	if (blockmode == 1 ) {
 		i=availch();
 		if (i>nb-1) i=nb-1;
@@ -2028,27 +2047,27 @@ void inb(char *b, short nb) {
 void ins(char *b, address_t nb) {
   switch(id) {
 #if (defined(HASWIRE) && defined(HASFILEIO))
-  	case IWIRE:
-			wireins(b, nb);
-			break;
+  case IWIRE:
+		wireins(b, nb);
+		break;
 #endif
 #ifdef ARDUINOMQTT
-		case IMQTT:
-			mqttins(b, nb);	
-			break;	
+	case IMQTT:
+		mqttins(b, nb);	
+		break;	
 #endif
 #ifdef ARDUINORF24
-		case IRADIO:
- 			radioins(b, nb);
- 			break;
+	case IRADIO:
+ 		radioins(b, nb);
+ 		break;
 #endif
-		default:
+	default:
 #ifdef ARDUINOPRT
 /* blockmode only implemented for ISERIAL1 right now */
-			if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
+		if (blockmode > 0 && id == ISERIAL1 ) inb(b, nb); else 
 #endif
-			consins(b, nb);
-  	}  
+		consins(b, nb);
+  }  
 }
 
 /*
@@ -2068,37 +2087,37 @@ void outch(char c) {
 #endif
 
 	switch(od) {
-		case OSERIAL:
-			serialwrite(c);
-			break;
+	case OSERIAL:
+		serialwrite(c);
+		break;
 #ifdef FILESYSTEMDRIVER
-		case OFILE:
-			filewrite(c);
-			break;
+	case OFILE:
+		filewrite(c);
+		break;
 #endif
 #ifdef ARDUINOPRT
-		case OPRT:
-			prtwrite(c);
-			break;
+	case OPRT:
+		prtwrite(c);
+		break;
 #endif
 #ifdef ARDUINOVGA
-		case ODSP: 
-			vgawrite(c);
-			break;
+	case ODSP: 
+		vgawrite(c);
+		break;
 #else
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
-		case ODSP: 
-			dspwrite(c);
-			break;
+	case ODSP: 
+		dspwrite(c);
+		break;
 #endif
 #endif
 #ifdef ARDUINOMQTT
-		case OMQTT:
-			mqttouts(&c, 1); /* buffering for the PRINT command */
-			break;
+	case OMQTT:
+		mqttouts(&c, 1); /* buffering for the PRINT command */
+		break;
 #endif
-		default:
-			break;
+	default:
+		break;
 	}
 	byield(); /* yield after every character for ESP8266 */
 }
@@ -2158,7 +2177,7 @@ void outsc(const char *c){
 
 /* output a zero terminated string in a formated box padding spaces 
 		needed for catalog output */
-void outscf(const char *c, short f){
+void outscf(const char *c, index_t f){
 	index_t i = 0;
   
 	while (*c != 0) { outch(*c++); i++; }
@@ -2273,12 +2292,13 @@ address_t writenumber(char *c, wnumber_t v){
 
 #ifdef HASFLOAT
 /*
- * this is for floats, going back to library functions
- * for a starter.
+ * this is for floats, handling output without library 
+ * functions as well.
  */
 
-address_t tinydtostrf(number_t v, int p, char* c) {  
-	int nd, i;
+address_t tinydtostrf(number_t v, index_t p, char* c) {  
+	index_t i;
+	address_t nd;
 	number_t f;
 
 /* write the integer part */
@@ -2467,7 +2487,7 @@ void nexttoken() {
 /* after change in buffer logic the first byte is reserved for the length */
 	if (bi == ibuffer) bi++;
 
-/* literal mode - experimental - EOL ends literal mode*/
+/* literal mode - experimental - only(!) EOL ends literal mode*/
 	if (lexliteral) {
 		token=*bi;
 		if (*bi != '\0') bi++; else lexliteral=0;
@@ -2733,8 +2753,16 @@ void storetoken() {
 			}	
 			return;
 		default:
-			if ( nomemory(1) ) break;
-			memwrite2(top++, token);
+			if (token >= -127) { /* the good old code with just one byte token */
+				if (nomemory(1)) break;
+				memwrite2(top++, token);
+			} else {
+#ifdef HASLONGTOKENS
+				if (nomemory(2)) break; /* this is the two byte token extension */
+				memwrite2(top++, TEXT1);
+				memwrite2(top++, token+255);
+#endif
+			}
 			return;
 	}
 	error(EOUTOFMEMORY);
@@ -2774,7 +2802,7 @@ mem_t memread2(address_t a) { return mem[a]; }
 
 void memwrite2(address_t a, mem_t c) { mem[a]=c; }
 #else 
-#ifdef SPIRAMINTERFACE
+#if defined(SPIRAMINTERFACE) || defined(SPIRAMSIMULATOR)
 mem_t memread(address_t a) {
 	if (st != SERUN) {
 		return spiram_robufferread(a);
@@ -2816,6 +2844,13 @@ void gettoken() {
 /* if we have no data type we are done reading just one byte */
 	token=memread(here++); 
 
+/* if there are multibyte tokens, get the next byte and construct a token value <-127 */
+#ifdef HASLONGTOKENS
+	if (token == TEXT1) {
+		token=memread(here++)-255;
+	}
+#endif
+ 
  /* otherwise we check for the argument */
 	switch (token) {
 		case LINENUMBER:
@@ -2926,7 +2961,10 @@ address_t findinlinecache(address_t l){ return 0; }
 #endif
 
 
-/* find a line, look in cache then search from the beginning */
+/* find a line, look in cache then search from the beginning 
+ * x is used as the valid line number once a line is found
+ * hence x must be global
+ */
 void findline(address_t l) {
 	address_t a;
 /* we know it already, here to advance */
@@ -3331,7 +3369,8 @@ void parsesubstring() {
 
 		switch (args) {
 			case 1:
-				j=pop();
+				j=popaddress();
+				if (er != 0) return;
 				break;
 			case 0:
 				j=arraylimit;
@@ -3369,6 +3408,7 @@ void parsesubstring() {
  * ABS absolute value 
  */
 void xabs(){
+  number_t x;
 	if ((x=pop())<0) { x=-x; }
 	push(x);
 }
@@ -3377,6 +3417,7 @@ void xabs(){
  * SGN evaluates the sign
  */
 void xsgn(){
+  number_t x;
 	x=pop();
 	if (x>0) x=1;
 	if (x<0) x=-1;
@@ -3389,16 +3430,17 @@ void xsgn(){
  */
 void xpeek(){
 	address_t amax;
+  index_t a;
 
-	x=pop();
+	a=pop();
 
-/* this is a hack again, 16 bit numbers can't peek big addresses */
+/* 16 bit numbers can't peek big addresses */
 	if ((long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
 
-	if (x >= 0 && x<amax) 
-		push(memread2((address_t) x));
-	else if (x < 0 && -x <= elength())
-		push(eread(-x-1));
+	if (a >= 0 && a<amax) 
+		push(memread2(a));
+	else if (a < 0 && -a <= elength())
+		push(eread(-a-1));
 	else {
 		error(EORANGE);
 		return;
@@ -3480,7 +3522,8 @@ void sqr(){
 void xpow(){
 	number_t n;
 	number_t a;
-	int i;
+	address_t i;
+  number_t x;
 
 	n=pop();
 	a=pop();
@@ -3589,8 +3632,10 @@ void streval(){
 		return;
 	} 
 	if (er != 0) return;
+
 	irl=ir2;
-	xl=pop();
+	xl=popaddress();
+	if (er != 0) return;
 
 /* with the mem interface -> copy, irl now point to buffer2 */ 
 #ifdef USEMEMINTERFACE
@@ -3599,20 +3644,25 @@ void streval(){
 #endif
 
 /* get ready for rewind. */
+/*
 	if (st != SINT)
 		h1=here; 
 	else 
 		b1=bi;
-
+*/
+	pushlocation();
 	t=token;
 	nexttoken();
 
 	if (token != '=' && token != NOTEQUAL) {
 /* rewind one token if not comparison	 */
+/*
 		if (st != SINT)
 			here=h1; 
 		else 
 			bi=b1;
+*/
+		poplocation();
 		token=t;
 		if (xl == 0) push(0); else push(irl[0]); // a zero string length evaluate to 0
 		return; 
@@ -3677,97 +3727,175 @@ void xint() {}
  * 
  * evaluates constants, variables and all functions
  */
+
+/* helpers of factor - array access */
+void factorarray() {
+	mem_t xcl, ycl;
+	address_t ix, iy;
+	number_t v;
+
+/* remember the variable, because parsesubscript changes this */	
+	ycl=yc;
+	xcl=xc;
+
+	nexttoken();
+	parsesubscripts();
+	if (er != 0 ) return;
+
+	switch(args) {
+	case 1:
+		ix=popaddress();
+		if (er != 0) return;
+		iy=arraylimit;
+		break;
+#ifdef HASMULTIDIM
+	case 2:
+		iy=popaddress();
+		ix=popaddress();
+		if (er != 0) return;
+		break;
+#endif
+	default:
+		error(EARGS); 
+		return;
+	}
+	array('g', xcl, ycl, ix, iy, &v);
+	push(v); 
+}
+
+/* helpers of factor - string length */
+void factorlen() {
+	address_t a;
+
+	nexttoken();
+	if ( token != '(') { error(EARGS); return; }
+			
+	nexttoken();
+	if (!stringvalue()) {
+#ifdef HASDARKARTS
+		expression();
+		if (er != 0) return;
+		a=pop();
+		push(blength(TBUFFER, a%256, a/256));
+		return;
+#else 
+		error(EUNKNOWN);
+		return;
+#endif
+	}		
+	if (er != 0) return;
+
+	nexttoken();
+	if (token != ')') { error(EARGS); return;	}
+}
+
+/* helpers of factor - the VAL command */
+void factorval() {
+  address_t a;
+  index_t y;
+ 
+	nexttoken();
+  if (token != '(') { error(EARGS); return; }
+
+	nexttoken();
+	if (!stringvalue()) { error(EUNKNOWN); return; }
+	if (er != 0) return;
+
+/* not super clean - handling of terminal symbol dirty
+    stringtobuffer needed !! */
+	vlength=0;
+	while(*ir2==' ' || *ir2=='\t') { ir2++; vlength++; }
+	if(*ir2=='-') { y=-1; ir2++; vlength++; } else y=1;
+    
+	x=0;
+#ifdef HASFLOAT
+	if ((a=parsenumber2(ir2, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
+#else 
+	if ((a=parsenumber(ir2, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
+#endif
+	(void) pop();
+	push(x*y);
+    
+  nexttoken();
+  if (token != ')') { error(EARGS); return; }
+}
+
+/* helpers of factor - the INSTR command */
+void factorinstr() {
+  address_t y;
+  char ch;
+  address_t a;
+      
+  nexttoken();
+  if (token != '(') { error(EARGS); return; }
+      
+  nexttoken();
+  expression();
+  if (er != 0) return;
+
+  if (token != ',') { error(EARGS); return; }
+  nexttoken();
+      
+  if (!stringvalue()) { error(EUNKNOWN); return; }
+  y=popaddress();
+  if (er != 0) return;
+
+  ch=pop();
+  for (a=1; a<=y; a++) {if ( ir2[a-1] == ch ) break; }
+  if (a > y ) a=0; 
+  push(a);
+  
+  nexttoken();
+  if (token != ')') { error(EARGS); return; }
+}
+
+/* helpers of factor - the NETSTAT command */
+void factornetstat() {
+  address_t x=0;
+  if (netconnected()) x=1;
+  if (mqttstate() == 0) x+=2;
+  push(x);
+}
+
 void factor(){
 	if (DEBUG) bdebug("factor\n");
 	switch (token) {
-		case NUMBER: 
-			push(x);
-			break;
-		case VARIABLE: 
-			push(getvar(xc, yc));	
-			break;
-		case ARRAYVAR:
-			push(yc);
-			push(xc);
-			nexttoken();
-			parsesubscripts();
-			if (er != 0 ) return;
-#ifndef HASMULTIDIM
-			if (args != 1) { error(EARGS); return; }	
-			x=pop();
-			xc=pop();
-			yc=pop();
-			array('g', xc, yc, x, arraylimit, &y);	
-#else
-			switch(args) {
-				case 1:
-					x=pop();
-					y=arraylimit;
-					break;
-				case 2:
-					y=pop();
-					x=pop();
-					break;
-				default:
-					error(EARGS); 
-					return;
-			}
-			xc=pop();
-			yc=pop();
-			array('g', xc, yc, x, y, &y);
-#endif
-			push(y); 
-			break;
-		case '(':
-			nexttoken();
-			expression();
-			if (er != 0 ) return;
-			if (token != ')') { error(EARGS); return; } 
-			break;
+	case NUMBER: 
+		push(x);
+		break;
+	case VARIABLE: 
+		push(getvar(xc, yc));	
+		break;
+	case ARRAYVAR:
+		factorarray();
+		break; 
+	case '(':
+		nexttoken();
+		expression();
+		if (er != 0 ) return;
+		if (token != ')') { error(EARGS); return; } 
+		break;
 /* Palo Alto BASIC functions */
-		case TABS: 
-			parsefunction(xabs, 1);
-			break;
-		case TRND: 
-			parsefunction(rnd, 1);
-			break;
-		case TSIZE:
-			push(himem-top);
-			break;
+	case TABS: 
+		parsefunction(xabs, 1);
+		break;
+	case TRND: 
+		parsefunction(rnd, 1);
+		break;
+	case TSIZE:
+		push(himem-top);
+		break;
 /* Apple 1 BASIC functions */
 #ifdef HASAPPLE1
-		case TSGN: 
-			parsefunction(xsgn, 1);
-			break;
-		case TPEEK: 
-			parsefunction(xpeek, 1);
-			break;
-		case TLEN: 
-			nexttoken();
-			if ( token != '(') {
-				error(EARGS);
-				return;
-			}
-			nexttoken();
-			if (!stringvalue()) {
-#ifdef HASDARKARTS
-				expression();
-				if (er != 0) return;
-				z.a=pop();
-				push(blength(TBUFFER, z.a%256, z.a/256));
-				return;
-#else 
-				error(EUNKNOWN);
-				return;
-#endif
-			}
-			if (er != 0) return;
-			nexttoken();
-			if (token != ')') {
-				error(EARGS);
-				return;	
-			}
-			break;
+	case TSGN: 
+		parsefunction(xsgn, 1);
+		break;
+	case TPEEK: 
+		parsefunction(xpeek, 1);
+		break;
+	case TLEN: 
+		factorlen();
+		break;
 #ifdef HASIOT
 		case TAVAIL:
 			parsefunction(xavail, 1);
@@ -3779,51 +3907,10 @@ void factor(){
 			parsefunction(xfsensor, 2);
 			break;
 		case TVAL:
-			nexttoken();
-			if (token != '(') { error(EARGS); return; }
-			nexttoken();
-			if (!stringvalue()) { error(EUNKNOWN); return; }
-			if (er != 0) return;
-/* not super clean - handling of terminal symbol dirty
-		stringtobuffer needed !! */
-			vlength=0;
-			while(*ir2==' ' || *ir2=='\t') { ir2++; vlength++; }
-			if(*ir2=='-') { y=-1; ir2++; vlength++; } else y=1;
-			x=0;
-#ifdef HASFLOAT
-			/* if (parsenumber2(ir2, &x) == 0) ert=1;	*/
-			if ((ax=parsenumber2(ir2, &x)) > 0) {vlength+=ax; ert=0; } else {vlength=0; ert=1;};
-#else 
-			/* if (parsenumber(ir2, &x) == 0) ert=1; */
-      if ((ax=parsenumber(ir2, &x)) > 0) {vlength+=ax; ert=0; } else {vlength=0; ert=1;};
-#endif			
-			(void) pop();
-			push(x*y);
-			nexttoken();
-			if (token != ')') {
-				error(EARGS);
-				return;	
-			}
+			factorval();
 			break;
 		case TINSTR:
-			nexttoken();
-			if (token != '(') { error(EARGS); return; }
-			nexttoken();
-			expression();
-			if (er != 0) return;
-			if (token != ',') { error(EARGS); return; }
-			nexttoken();
-			if (!stringvalue()) { error(EUNKNOWN); return; }
-			y=pop();
-			xc=pop();
-			for (z.a=1; z.a<=y; z.a++) {if ( ir2[z.a-1] == xc ) break; }
-			if (z.a > y ) z.a=0; 
-			push(z.a);
-			nexttoken();
-			if (token != ')') {
-				error(EARGS);
-				return;	
-			}
+			factorinstr();
 			break;
 		case TWIRE:
 			parsefunction(xfwire, 1);
@@ -3937,10 +4024,7 @@ void factor(){
 #endif
 #ifdef HASIOT
 		case TNETSTAT:
-			x=0;
-			if (netconnected()) x=1;
-			if (mqttstate() == 0) x+=2;
-			push(x);
+      factornetstat();
 			break;
 #endif
 
@@ -4216,6 +4300,7 @@ separators:
  * 
  */
 void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
+	number_t tmp;
 	switch (token) {
 		case VARIABLE:
 			nexttoken();
@@ -4227,12 +4312,15 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 			if (er != 0) return;
 			switch(args) {
 				case 1:
-					*i=pop();
+					*i=popaddress();
+					if (er != 0) return;
 					*j=arraylimit;
 					break;
 				case 2:
-					*j=pop();
-					*i=pop();
+					*j=popaddress();
+					if (er != 0) return;
+					*i=popaddress();
+					if (er != 0) return;
 					break;
 				default:
 					error(EARGS);
@@ -4254,13 +4342,16 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 				case 1:
 					*ps=0;
 					nexttoken();
-					*i=pop();
+					*i=popaddress();
+					if (er != 0) return;
 					break;
 				case 2:
 					*ps=0;
 					nexttoken();
-					*i2=pop();
-					*i=pop();
+					*i2=popaddress();
+					if (er != 0) return;
+					*i=popaddress();
+					if (er != 0) return;
 					break; 
 				default:
 					error(EARGS);
@@ -4281,13 +4372,16 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 				case 1:
 					*ps=0;
 					nexttoken();
-					*i=pop();
+					*i=popaddress();
+					if (er != 0) return;
 					break;
 				case 2:
 					*ps=0;
 					nexttoken();
-					*i2=pop();
-					*i=pop();
+					*i2=popaddress();
+					if (er != 0) return;
+					*i=popaddress();
+					if (er != 0) return;			
 					break;
 				default:
 					error(EARGS);
@@ -4298,8 +4392,9 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 				parsesubscripts();
 				if (er != 0) return;
 				switch(args) {
-					case 1:
-						*j=pop();
+					case 1:	
+						*j=popaddress();
+						if (er != 0) return;
 						nexttoken();
 						break;
 					default:
@@ -4661,6 +4756,7 @@ resetinput:
  */
 void xgoto() {
 	token_t t=token;
+	number_t x;
 
 	if (!expectexpr()) return;
 	if (t == TGOSUB) pushgosubstack(0);
@@ -5064,7 +5160,7 @@ void outputtoken() {
 			outch('"');
 			break;
 		default:
-			if (token < -3 && token > -122) {
+			if ( (token < -3 && token >= BASEKEYWORD) || token < -127) {
 				if ((token == TTHEN || 
 					token == TELSE ||
 					token == TTO || 
@@ -5245,7 +5341,14 @@ void xnew(){
  *	REM - skip everything 
  */
 void xrem() {
-	while (token != LINENUMBER && token != EOL && here <= top) nexttoken(); 
+	if (debuglevel == -1) outsc("REM: ");
+	while (token != LINENUMBER && token != EOL && here <= top) 
+	{
+		nexttoken();
+		if (debuglevel == -1) {
+			if (token != LINENUMBER) outputtoken(); else outcr();
+		}
+	} 
 }
 
 /* 
@@ -5277,25 +5380,25 @@ void xclr() {
 		t=token;
 
 		switch (t) {
-			case VARIABLE:
-				if (xcl == '@' || ycl == 0) { error(EVARIABLE); return; }
-				break;
-			case ARRAYVAR: 
-				nexttoken();
-				if (token != '(') { error(EVARIABLE); return; }
-				nexttoken();
-				if (token != ')') { error(EVARIABLE); return; }
-				break;
-			case STRINGVAR:
-				if (xcl == '@') { error(EVARIABLE); return; }
-				break;
-			default:
-				expression();
-				if (er != 0) return;
-				ax=pop();
-				xcl=ax%256;
-				ycl=ax/256;
-				t=TBUFFER;
+		case VARIABLE:
+			if (xcl == '@' || ycl == 0) { error(EVARIABLE); return; }
+			break;
+		case ARRAYVAR: 
+			nexttoken();
+			if (token != '(') { error(EVARIABLE); return; }
+			nexttoken();
+			if (token != ')') { error(EVARIABLE); return; }
+			break;
+		case STRINGVAR:
+			if (xcl == '@') { error(EVARIABLE); return; }
+			break;
+		default:
+			expression();
+			if (er != 0) return;
+			ax=pop();
+			xcl=ax%256;
+			ycl=ax/256;
+			t=TBUFFER;
 		}
 
 		ax=bfree(t, xcl, ycl);
@@ -5323,6 +5426,7 @@ void xclr() {
 void xdim(){
 	mem_t xcl, ycl; 
 	token_t t;
+	number_t x, y;
 
 	nexttoken();
 
@@ -5385,25 +5489,26 @@ nextvariable:
 
 /* 
  *	POKE - low level poke to the basic memory, works only up to 32767
+ * variables changed to local
  */
 void xpoke(){
 	address_t amax;
+	index_t a, v; /* both can be signed ! */
 
-/* like in peek
-	this is a hack again, 16 bit numbers can't peek big addresses */
+/* 16 bit numbers can't poke big addresses */
 	if ( (long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
 
 	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return;
 
-	y=pop();
-	x=pop();
+	v=pop(); /* the value */
+	a=pop(); /* the address */
 
-	if (x >= 0 && x<amax) 
-		memwrite2((address_t) x, y);
-	else if (x < 0 && x >= -elength())
-		eupdate(-x-1, y);
+	if (a >= 0 && a<amax) 
+		memwrite2(a, v);
+	else if (a < 0 && a >= -elength())
+		eupdate(-a-1, v);
 	else {
 		error(EORANGE);
 	}
@@ -5414,17 +5519,21 @@ void xpoke(){
  * 		charcount mechanism for relative tab if HASMSTAB is set
  */
 void xtab(){
+  address_t tx;
+
 	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
 
-	x=pop();
+	tx=popaddress();
+  if (er != 0) return; 
+  
 #ifdef HASMSTAB
 	if (reltab && od <= OPRT && od > 0) {
-		if (charcount[od-1] >= x) x=0; else x=x-charcount[od-1]-1;
+		if (charcount[od-1] >= tx) tx=0; else tx=tx-charcount[od-1]-1;
 	} 
 #endif	
-	while (x-- > 0) outspc();	
+	while (tx-- > 0) outspc();	
 }
 #endif
 
@@ -5433,23 +5542,26 @@ void xtab(){
  */
 
 void xlocate() {
+	address_t cx, cy; 
+
 	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return;
 
-	y=pop();
-	x=pop();
+	cy=popaddress();
+	cx=popaddress();
+  if (er != 0) return;
 
 /* for locate we go through the VT52 interface for cursor positioning*/
-	if (x > 0 && y > 0 && x < 224 & y < 224) {
+	if (cx > 0 && cy > 0 && cx < 224 && cy < 224) {
 		outch(27); outch('Y');
-		outch(31+(unsigned int) y); 
-		outch(31+(unsigned int) x);
+		outch(31+(unsigned int) cy); 
+		outch(31+(unsigned int) cx);
 	}
 
 /* set the charcount, this is half broken on escape sequences */
 #ifdef HASMSTAB
-	if (od > 0 && od <= OPRT) charcount[od-1]=x;
+	if (od > 0 && od <= OPRT) charcount[od-1]=cx;
 #endif
 
 }
@@ -5464,7 +5576,7 @@ void xlocate() {
  *	DUMP - memory dump program
  */
 void xdump() {
-	address_t a,x;
+	address_t a, x;
 	char eflag = 0;
 
 	nexttoken();
@@ -5813,7 +5925,7 @@ void xput(){
  */
 void xset(){
 	address_t fn;
-	address_t args;
+	index_t args;
 
 	nexttoken();
 	parsenarguments(2);
@@ -6806,6 +6918,7 @@ void xusr() {
 	address_t fn;
 	number_t v;
 	int arg;
+	address_t a;
 
 	v=pop();
 	arg=(int)v; /* a bit paranoid here */
@@ -6816,31 +6929,32 @@ void xusr() {
 			switch(arg) {
 				case 0: push(bsystype); break;
 				case 1: /* language set identifier, odd because USR is part of STEFANSEXT*/
-					z.a=0;
+					a=0;
 #ifdef HASAPPLE1
-					z.a|=1;	
+					a|=1;	
 #endif
 #ifdef HASARDUINOIO
-					z.a|=2;
+					a|=2;
 #endif
 #ifdef HASFILEIO
-					z.a|=4;
+					a|=4;
 #endif 
 #ifdef HASDARTMOUTH
-					z.a|=8;
+					a|=8;
 #endif
 #ifdef HASGRAPH
-					z.a|=16;
+					a|=16;
 #endif
 #ifdef HASDARKARTS
-					z.a|=32;
+					a|=32;
 #endif
 #ifdef HASIOT
-					z.a|=64;
+					a|=64;
 #endif
-					push(z.a);
+					push(a);
 					break;
-				case 2: push(0); /* reserved for system speed identifier */			 
+				case 2: push(0); break; /* reserved for system speed identifier */	
+
 #ifdef HASFLOAT
 				case 3:	push(-1); break;
 #else 
@@ -7322,11 +7436,12 @@ void xfn() {
 /*
  *	ON is a bit like IF  
  */
+
 void xon(){
-	number_t cr;
+	number_t cr, tmp;
 	int ci;
 	token_t t;
-	address_t tmp, line = 0;
+	int line = 0;
 	
 	if(!expectexpr()) return;
 
@@ -7353,12 +7468,22 @@ void xon(){
 /* do we have more arguments then the condition? */
 	if (cr > args && cr <= 0) ci=0; else ci=(int)cr;
 
-/* now find the line to jump to and clean the stack, reuse cr*/
+/* now find the line to jump to and clean the stack, reuse cr 
+ * we need to clean the stack here completely, therefore complete the loop
+ * ERROR handling is needed for the trapping mechanism. No using popaddress()
+ * here, because of the needed stack cleanup. Unclear is this precaution is 
+ * really needed.
+ */
 	while (args) {
 		tmp=pop();
-		if (args == ci) line=tmp;
+		if (args == ci) {
+			if (tmp < 0) er=ELINE;
+			line=tmp;
+		}
 		args--;
 	}
+
+	if (er) return;
 	
 	if (DEBUG) { outsc("** in on found line as target "); outnumber(line); outcr(); }
 /* no line found to jump to */
@@ -7381,6 +7506,7 @@ void xon(){
 	/* removed to avoid blocking in AFTER, EVERY and EVENT infinite loops */
 	/* nexttoken(); */
 }
+
 #endif
 
 /* the structured BASIC extensions, WHILE, UNTIL, and SWITCH */
@@ -8028,7 +8154,7 @@ void setup() {
 
 /* get the BASIC memory, either as memory array with
 	ballocmem() or as an SPI serical memory */
-#if defined(SPIRAMINTERFACE) && MEMSIZE == 0
+#if (defined(SPIRAMINTERFACE) || defined(SPIRAMSIMULATOR)) && MEMSIZE == 0
 	himem=memsize=spirambegin();
 #else 
 #if defined(EEPROMMEMINTERFACE)

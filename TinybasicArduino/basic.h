@@ -96,11 +96,11 @@ typedef unsigned char uint8_t;
 #endif
 
 /* more duffers and vars */
-#define SBUFSIZE		32
+#define SBUFSIZE	32
 #define VARSIZE		26
 /* default sizes of arrays and strings if they are not DIMed */
-#define ARRAYSIZEDEF	10
-#define STRSIZEDEF	32
+#define ARRAYSIZEDEF    10
+#define STRSIZEDEF  32
 
 /*
  *	the time intervall in ms needed for 
@@ -260,10 +260,7 @@ typedef unsigned char uint8_t;
 #define TDEND -11
 /* these are multibyte token extension, currently unused */
 /* using them would allow over 1000 BASIC keywords */
-#define TEXT1 -6
-#define TEXT2 -5
-#define TEXT3 -4
-#define TEXT4 -3
+#define TEXT1 -3
 /* end of tokens */
 /* constants used for some obscure purposes */
 #define TBUFFER -2
@@ -272,7 +269,15 @@ typedef unsigned char uint8_t;
  * in statement for a grammar aware lexer */
 #define UNKNOWN -1
 
-/* the number of keywords, and the base index of the keywords */
+/* extension tokens can be in the range from -128 to -255 
+ * one needs to set HASLONGTOKENS
+ */
+#undef HASLONGTOKEN
+#define TTOKEN1 -128
+
+
+/* the number of keywords, and the base index of the keywords 
+ * the number is irrelevant but BASEKEYWORD is used */
 #define NKEYWORDS	3+19+13+14+11+5+2+7+7+6+12+3+9
 #define BASEKEYWORD -121
 
@@ -540,7 +545,7 @@ const char* const keyword[] PROGMEM = {
 #endif
 #ifdef HASSTRUCT
 	swhile, swend, srepeat, suntil, sswitch, scase, sswend,	
-    sdo, sdend,
+    sdo, sdend, 
 #endif 
 	0
 };
@@ -606,7 +611,7 @@ const signed char tokens[] PROGMEM = {
 #endif
 #ifdef HASSTRUCT
 	TWHILE, TWEND, TREPEAT, TUNTIL, TSWITCH, TCASE, TSWEND,
-    TDO, TDEND,
+    TDO, TDEND, 
 #endif
 	0
 };
@@ -724,8 +729,12 @@ const int eheadersize=sizeof(address_t)+1;
 const int strindexsize=2; /* default in the meantime, strings up to unsigned 16 bit length */
 const address_t maxaddr=(address_t)(~0); 
 typedef signed char mem_t; /* a signed 8 bit type for the memory */
-typedef short index_t; /* this type counts at least 16 bit */
-typedef signed char token_t; /* the type of tokens, normally mem_t, this is a preparation for extensions */
+typedef int index_t; /* this type counts at least 16 bit */
+#ifndef HASLONGTOKENS
+typedef signed char token_t; /* the type of tokens, normally mem_t with a maximum of 127 commands and data types */
+#else
+typedef short token_t; /* token type extension, allows an extra of 127 commands and symbols */
+#endif
 
 /* 
  * system type identifiers
@@ -937,13 +946,9 @@ static address_t bfinda, bfindz;
 /*
  * a variable for some string operations 
  */
-#ifdef HASIOT
 static int vlength;
-#endif
 
 /* the timer code - very simple needs to to to a struct */
-#ifdef HASTIMER
-
 /* timer type */
 typedef struct {
     mem_t enabled;
@@ -953,6 +958,7 @@ typedef struct {
     address_t linenumber;
 } btimer_t;
 
+#ifdef HASTIMER
 static btimer_t after_timer = {0, 0, 0, 0, 0};
 static btimer_t every_timer = {0, 0, 0, 0, 0};
 #endif
@@ -1273,6 +1279,7 @@ void bdebug(const char*);
 /* the arithemtic stack */
 void push(number_t);
 number_t pop();
+address_t popaddress();
 void drop();
 void clearst();
 
@@ -1296,7 +1303,7 @@ void iodefaults();
 /* signal handling */
 void signalon();
 void signaloff();
-void signalhandler();
+void signalhandler(int);
 
 /* character and string I/O functions */
 /* we live in world where char may be signed or unsigned and keep it 
@@ -1307,7 +1314,7 @@ int cheof(int c) { if ((c == -1) || (c == 255)) return 1; else return 0; }
 char inch();
 char checkch();
 short availch();
-void inb(char*, short);
+void inb(char*, index_t);
 void ins(char*, address_t); 
 
 /* output */
@@ -1316,13 +1323,14 @@ void outcr();
 void outspc();
 void outs(char*, address_t);
 void outsc(const char*);
-void outscf(const char *, short);
+void outscf(const char *, index_t);
 
 /* I/O of number_t - floats and integers */
 address_t parsenumber(char*, number_t*);
 address_t parsenumber2(char*, number_t*);
 address_t writenumber(char*, wnumber_t); 
 address_t writenumber2(char*, number_t);
+address_t tinydtostrf(number_t, index_t, char*);
 char innumber(number_t*);
 void outnumber(number_t);
 
@@ -1358,7 +1366,7 @@ void storeline();
 
 /* read arguments from the token stream and process them */
 char termsymbol();
-char expect(mem_t, mem_t);
+char expect(token_t, mem_t);
 char expectexpr();
 void parsearguments();
 void parsenarguments(char);
@@ -1445,7 +1453,7 @@ void dumpmem(address_t, address_t, char);
 void xlocate();
 
 /* file access and other i/o */
-void stringtobuffer();
+void stringtobuffer(char*);
 void getfilename(char*, char);
 void xsave();
 void xload(const char*);
@@ -1512,7 +1520,7 @@ void xon();
 
 /* timers and interrupts */
 void xtimer();
-void resettimer();
+void resettimer(btimer_t*);
 
 /* structured BASIC extensions */
 void xwhile();
