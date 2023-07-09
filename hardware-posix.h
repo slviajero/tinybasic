@@ -578,9 +578,9 @@ short eread(address_t a) { if (a>=0 && a<EEPROMSIZE) return eeprom[a]; else retu
 #if !defined(POSIXWIRING) && !defined(POSIXPIGPIO)
 void aread(){ pop(); push(0); }
 void dread(){ pop(); push(0); }
-void awrite(number_t p, number_t v){}
-void dwrite(number_t p, number_t v){}
-void pinm(number_t p, number_t m){}
+void awrite(address_t p, address_t v){}
+void dwrite(address_t p, address_t v){}
+void pinm(address_t p, address_t m){}
 #endif
 
 #ifdef POSIXWIRING
@@ -588,19 +588,19 @@ void aread(){ push(analogRead(pop())); }
 void dread(){ push(digitalRead(pop())); }
 
 
-void awrite(number_t p, number_t v){
+void awrite(address_t p, address_t v){
 	if (v >= 0 && v<256) analogWrite(p, v);
 	else error(EORANGE);
 }
 
-void dwrite(number_t p, number_t v){
+void dwrite(address_t p, address_t v){
 	if (v == 0) digitalWrite(p, LOW);
 	else if (v == 1) digitalWrite(p, HIGH);
 	else error(EORANGE);
 }
 
 /* pin Modes without range check, values in wiringPi are different from Arduino*/
-void pinm(number_t p, number_t m){
+void pinm(address_t p, address_t m){
 	if (m>=0) pinMode(p, m);
 	else error(EORANGE); 
 }
@@ -617,16 +617,16 @@ void dread(){
 	push(gpio_read(pigpio_pi, pop()));
 }
 
-void awrite(number_t p, number_t v){
+void awrite(address_t p, address_t v){
 	set_PWM_dutycycle(pigpio_pi, p, v);
 }
 
 
-void dwrite(number_t p, number_t v){
+void dwrite(address_t p, address_t v){
 	gpio_write(pigpio_pi, p, v);
 }
 
-void pinm(number_t p, number_t m){
+void pinm(address_t p, address_t m){
 	set_mode(pigpio_pi, p, m);
 }
 #endif
