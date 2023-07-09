@@ -351,6 +351,8 @@ SET 12,0
 
 the array lower bound can be changed to 0. The array ranges from A(0) to A(99) now. It still has 100 elements. SET 12 can be used to set any postive lower bound. This holds for all arrays except the special arrays starting with @. It can be changed at any time as SET 12 only modifies the offset but not the memory location.
 
+Any setting with SET 12 will remain active even after NEW or CLR clears the interpreter state. See the section of the SET command for more information.
+
 ### Logical expressions NOT, AND, OR
 
 Logical operators NOT, AND, and OR have lowest precedence. They are at the same time bitwise logical operations on integers. Example:
@@ -519,7 +521,7 @@ activates the debug mode of the interpreter.
 
 SET 0, 0
 
-ends the debug mode.
+ends the debug mode. 
 
 ### SQR
 
@@ -1979,9 +1981,11 @@ Some more can be found here: https://pi4j.com/1.2/pins/model-b-plus.html
 
 ### SET 
 
-SET changes internal variables of the interpreter. Set has two arguments, the variable or class to be changed and a value. There is no systematic in the numbering of the variables and classes.
+SET changes internal variables of the interpreter. Set has two arguments, the variable or class to be changed and a value. There is no systematic in the numbering of the variables and classes. 
 
-SET 0,n switches on the debug mode. The token stream in the statement loop is displayed. SET 0,0 resets the interpreter to normal mode. SET 0,1 shows the token stream of the statement loop. SET 0,2 shows the entire token stream, including arithmetic operations, SET 0,3 displays the memory addresses with this data. The latter two settings produce a lot of output and are meant for interpreter testing.
+Parameters changed with SET will stay active until the system is rebooted or the interpreter restarted. They are global variables of the interpreter. NEW and CLR will not affect them.
+
+SET 0,n switches on the debug mode. The token stream in the statement loop is displayed. SET 0,0 resets the interpreter to normal mode. SET 0,1 shows the token stream of the statement loop. SET 0,2 shows the entire token stream, including arithmetic operations, SET 0,3 displays the memory addresses with this data. The latter two settings produce a lot of output and are meant for interpreter testing. SET 0,-1 will switch on the REM pribt mode. In this mode the arguments all REM commands will be printed but no other debug output. This makes it easier to identify the location of an error.
 
 SET 1,1 activates the autorun mode of the EEPROM. SET 1,0 resets the autorun mode. SET 1,255 marks the EEPROM as not to contain a program. SET 1,1 should only be used if a program was stored with SAVE "!" to the EEPROM. There is no safety net here. A running program in EEPROM autorun mode can always interrupted by sending the break character. This is '#' by default and defined in the BREAKCHAR macro. Alternatively the BREAKPIN macro can be defined in hardware-arduino.h. This this case the pin it is set to will interrupt the program if set to low.
 
@@ -2008,6 +2012,10 @@ SET 11,1 sets the TAB command to Microsoft mode. In this mode the TAB position i
 SET 12,0 sets the lower bound of all arrays to 0. This means that arrays with 8 elements DIMed with DIM A(8) go from 0 to 7 instead of 1 to 8. SET 12, 1 resets the value. This command does not change the array or anything in memory. It merely adds an offset. Any positive value can be used as an argument.
 
 SET 13, 1 sets the keypad to repeat mode. This setting is only used in analog keypads of LCD shields. These keypads normally block on key press until the key is released. This makes GET a semi blocking function. With SET 13, 1 the GET command does not block. It directly returns the pressed key and does not wait for key release. SET 13, 0 resets to blocking mode.
+
+SET 14 changes the time scale of the PULSE command. Default is 10. The unit is microseconds. With SET 14,1 the time scale is 1 microsecond. All positive values are supported.
+
+SET 15 controls on the VT52 to ANSI emulation, by default it is on. This means that VT52 ESC sequences are translated to ANSI sequences. This way programs written for microcontrollers are compatible with POSIX system programs. SET 15,0 switches off the emulation. All ESC sequences are directly sent to the terminal.
 
 More SET parameter will be implemented in the future.
 
@@ -2056,9 +2064,3 @@ CALL N with N greater than 32 will call the function usrcall(). It gets N as an 
 @U() is a special array. Reading it will call getusrarray(), writing it will call setusrarray(). In both cases the index is the array is passed on as argument.
 
 @U$ is the user string. It is read only. Reading it will trigger the function makeusrarray(). It can pass an set of characters to BASIC.
-
-
-
-
-
-
