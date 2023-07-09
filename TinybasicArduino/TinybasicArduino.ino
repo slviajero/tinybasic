@@ -47,8 +47,8 @@
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
 #undef	BASICFULL
-#undef	BASICINTEGER
-#define	BASICSIMPLE
+#define	BASICINTEGER
+#undef	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
@@ -2724,7 +2724,7 @@ void storetoken() {
 		case LINENUMBER:
 			if (nomemory(addrsize+1)) break;
 			memwrite2(top++, token);
-			z.a=x;
+			z.a=ax;
 			setnumber(top, addrsize);
 			top+=addrsize;
 			return;	
@@ -2859,7 +2859,8 @@ void gettoken() {
 #else
 			if (st != SERUN) getnumber(here, addrsize); else egetnumber(here+eheadersize, addrsize);
 #endif
-			x=z.a;
+			// x=z.a;
+			ax=z.a;
 			here+=addrsize;
 			break;
 		case NUMBER:	
@@ -2903,7 +2904,7 @@ void gettoken() {
 /* goto the first line of a program */
 void firstline() {
 	if (top == 0) {
-		x=0;
+		ax=0;
 		return;
 	}
 	here=0;
@@ -2917,7 +2918,7 @@ void nextline() {
 		if (token == LINENUMBER) return;
 		if (here >= top) {
 			here=top;
-			x=0;
+			ax=0;
 			return;
 		}
 	}
@@ -2963,7 +2964,8 @@ address_t findinlinecache(address_t l){ return 0; }
 
 /* find a line, look in cache then search from the beginning 
  * x is used as the valid line number once a line is found
- * hence x must be global
+ * hence x must be global 
+ * (this is the logic of the gettoken mechanism)
  */
 void findline(address_t l) {
 	address_t a;
@@ -2971,7 +2973,7 @@ void findline(address_t l) {
 	if ((a=findinlinecache(l))) { 
 		here=a; 
 		token=LINENUMBER;
-		x=l; 
+		ax=l; 
 		return;
 	}
 
@@ -2979,7 +2981,7 @@ void findline(address_t l) {
 	here=0;
 	while (here < top) {
 		gettoken();
-		if (token == LINENUMBER && x == l ) {
+		if (token == LINENUMBER && ax == l ) {
 /* now that we know we cache */
 			addlinecache(l, here);
 			return;
@@ -3000,7 +3002,7 @@ address_t myline(address_t h) {
 	while (here < top) {
 		if (token == LINENUMBER) {
 			l1=l;
-			l=x;
+			l=ax;
 		}
 		if (here >= h) break;
 		gettoken();
@@ -3078,12 +3080,10 @@ void storeline() {
 	number_t newline; 
 	address_t here2, here3; 
 	address_t t1, t2;
+	address_t y;
 
 /* zero is an illegal line number */
-	if (x == 0) {
-		error(ELINE);
-		return;
-	}
+	if (ax == 0) { error(ELINE); return; }
 
 /* the data pointers becomes invalid once the code has been changed */
 	clrdata();
@@ -3095,7 +3095,7 @@ void storeline() {
  *	stage 1: append the line at the end of the memory,
  *	remember the line number on the stack and the old top in here
  */
-	t1=x;			
+	t1=ax;			
 	here=top;		
 	newline=here;	 
 	token=LINENUMBER;
@@ -3109,21 +3109,20 @@ void storeline() {
 		nexttoken();
 	} while (token != EOL);
 
-	x=t1;									/* recall the line number */
+	ax=t1;									/* recall the line number */
 	linelength=top-here;	/* calculate the number of stored bytes */
 
 /* 
  *	stage 2: check if only a linenumber stored - then delete this line
  */
 	if (linelength == (lnlength)) {  		
-		top-=(lnlength);
-		y=x;					
-		findline(y);
+		top-=(lnlength);				
+		findline(ax);
 		if (er != 0) return;	
 		y=here-lnlength;							
 		nextline();			
 		here-=lnlength;
-		if (x != 0) {						
+		if (ax != 0) {						
 			moveblock(here, top-here, y);	
 			top=top-(here-y);
 		} else {
@@ -3137,12 +3136,12 @@ void storeline() {
  *	try to find it first by walking through all lines 
  */
 	else {	
-		y=x;
+		y=ax;
 		here2=here;
 		here=lnlength;
 		nextline();
 /* there is no nextline after the first line, we are done */		
-		if (x == 0) return;
+		if (ax == 0) return;
 /* go back to the beginning */
 		here=0; 
 		here2=0;
@@ -3150,7 +3149,7 @@ void storeline() {
 			here3=here2;
 			here2=here;
 			nextline();
-			if (x > y) break;
+			if (ax > y) break;
 		}
 
 /* 
@@ -3159,10 +3158,10 @@ void storeline() {
  *	or 0 if the line is to be inserted at the end
  *	here points to the following line and here2 points to the previous line
  */
-		if (x == 0) { 
+		if (ax == 0) { 
 			here=here3-lnlength;
 			gettoken();
-			if (token == LINENUMBER && x == y) { // we have a double line at the end
+			if (token == LINENUMBER && ax == y) { // we have a double line at the end
 				here2-=lnlength;
 				here-=lnlength;
 				moveblock(here2, linelength, here);
@@ -3175,7 +3174,7 @@ void storeline() {
 		here=here2-lnlength;
 		t2=here;
 		gettoken();
-		if (x == y) {		/* the line already exists and has to be replaced */
+		if (ax == y) {		/* the line already exists and has to be replaced */
 			here2=t2;  		/* this is the line we are dealing with */
 			here=t1;   		/* this is the next line */
 			y=here-here2;	/* the length of the line as it is  */
@@ -3822,31 +3821,31 @@ void factorval() {
 
 /* helpers of factor - the INSTR command */
 void factorinstr() {
-  address_t y;
-  char ch;
-  address_t a;
-      
-  nexttoken();
-  if (token != '(') { error(EARGS); return; }
-      
-  nexttoken();
-  expression();
-  if (er != 0) return;
+	address_t y;
+	char ch;
+	address_t a;
+			
+	nexttoken();
+	if (token != '(') { error(EARGS); return; }
+			
+	nexttoken();
+	expression();
+	if (er != 0) return;
 
-  if (token != ',') { error(EARGS); return; }
-  nexttoken();
-      
-  if (!stringvalue()) { error(EUNKNOWN); return; }
-  y=popaddress();
-  if (er != 0) return;
+	if (token != ',') { error(EARGS); return; }
+	nexttoken();
+			
+	if (!stringvalue()) { error(EUNKNOWN); return; }
+	y=popaddress();
+	if (er != 0) return;
 
-  ch=pop();
-  for (a=1; a<=y; a++) {if ( ir2[a-1] == ch ) break; }
-  if (a > y ) a=0; 
-  push(a);
-  
-  nexttoken();
-  if (token != ')') { error(EARGS); return; }
+	ch=pop();
+	for (a=1; a<=y; a++) {if ( ir2[a-1] == ch ) break; }
+	if (a > y ) a=0; 
+	push(a);
+	
+	nexttoken();
+	if (token != ')') { error(EARGS); return;	}
 }
 
 /* helpers of factor - the NETSTAT command */
@@ -3897,141 +3896,138 @@ void factor(){
 		factorlen();
 		break;
 #ifdef HASIOT
-		case TAVAIL:
-			parsefunction(xavail, 1);
-			break;	
-		case TOPEN:
-			parsefunction(xfopen, 1);
-			break;
-		case TSENSOR:
-			parsefunction(xfsensor, 2);
-			break;
-		case TVAL:
-			factorval();
-			break;
-		case TINSTR:
-			factorinstr();
-			break;
-		case TWIRE:
-			parsefunction(xfwire, 1);
-			break;
+	case TAVAIL:
+		parsefunction(xavail, 1);
+		break;	
+	case TOPEN:
+		parsefunction(xfopen, 1);
+		break;
+	case TSENSOR:
+		parsefunction(xfsensor, 2);
+		break;
+	case TVAL:
+		factorval();
+		break;
+	case TINSTR:
+		factorinstr();
+		break;
+	case TWIRE:
+		parsefunction(xfwire, 1);
+		break;
 #endif
 #ifdef HASERRORHANDLING
-		case TERROR:
-			push(erh);
-			break;
+	case TERROR:
+		push(erh);
+		break;
 #endif
-		case THIMEM:
-			push(himem);
-			break;
+	case THIMEM:
+		push(himem);
+		break;
 /* Apple 1 string compare code */
-		case STRING:
-		case STRINGVAR:
-			streval();
-			if (er != 0 ) return;
-			break;
+	case STRING:
+	case STRINGVAR:
+		streval();
+		if (er != 0 ) return;
+		break;
 #endif
 /*  Stefan's tinybasic additions */
 #ifdef HASSTEFANSEXT
-		case TSQR: 
-			parsefunction(sqr, 1);
-			break;
-		case TMAP: 
-			parsefunction(xmap, 5);
-			break;
-		case TUSR:
-			parsefunction(xusr, 2);
-			break;
-		case TPOW:
-			parsefunction(xpow, 2);
-			break;
+	case TSQR: 
+		parsefunction(sqr, 1);
+		break;
+	case TMAP: 
+		parsefunction(xmap, 5);
+		break;
+	case TUSR:
+		parsefunction(xusr, 2);
+		break;
+	case TPOW:
+		parsefunction(xpow, 2);
+		break;
 #endif
 /* Arduino I/O */
 #ifdef HASARDUINOIO
-		case TAREAD: 
-			parsefunction(aread, 1);
-			break;
-		case TDREAD: 
-			parsefunction(dread, 1);
-			break;
-		case TMILLIS: 
-			parsefunction(bmillis, 1);
-			break;	
+	case TAREAD: 
+		parsefunction(aread, 1);
+		break;
+	case TDREAD: 
+		parsefunction(dread, 1);
+		break;
+	case TMILLIS: 
+		parsefunction(bmillis, 1);
+		break;	
 #ifdef HASPULSE
-		case TPULSE:
-			parsefunction(bpulsein, 3);
-			break;
+	case TPULSE:
+		parsefunction(bpulsein, 3);
+		break;
 #endif
-		case TAZERO:
+	case TAZERO:
 #if defined(ARDUINO) && defined(A0)
-			push(A0);
+		push(A0);
 #else 
-			push(0);
+		push(0);
 #endif			
-			break;
-		case TLED:
+		break;
+	case TLED:
 #ifdef LED_BUILTIN
-			push(LED_BUILTIN);
+		push(LED_BUILTIN);
 #else
-			push(0);
+		push(0);
 #endif
-			break;
+		break;
 #endif
 /* mathematical functions in case we have float */
 #ifdef HASFLOAT
-		case TSIN:
-			parsefunction(xsin, 1);
-			break;
-		case TCOS:
-			parsefunction(xcos, 1);
-			break;
-		case TTAN:
-			parsefunction(xtan, 1);
-			break;		
-		case TATAN:
-			parsefunction(xatan, 1);
-			break;
-		case TLOG:
-			parsefunction(xlog, 1);
-			break;
-		case TEXP:
-			parsefunction(xexp, 1);
-			break;
+	case TSIN:
+		parsefunction(xsin, 1);
+		break;
+	case TCOS:
+		parsefunction(xcos, 1);
+		break;
+	case TTAN:
+		parsefunction(xtan, 1);
+		break;		
+	case TATAN:
+		parsefunction(xatan, 1);
+		break;
+	case TLOG:
+		parsefunction(xlog, 1);
+		break;
+	case TEXP:
+		parsefunction(xexp, 1);
+		break;
 #endif
 /* int is always present to make programs compatible */
-		case TINT:
-			parsefunction(xint, 1);
-			break;
+	case TINT:
+		parsefunction(xint, 1);
+		break;
 #ifdef HASDARTMOUTH
-		case TFN:
-			xfn();
-			break;
+	case TFN:
+		xfn();
+		break;
 /* an arcane feature, DATA evaluates to the data record number */
-		case TDATA:
-			push(datarc);
-			break;
+	case TDATA:
+		push(datarc);
+		break;
 #endif
 #ifdef HASDARKARTS
-		case TMALLOC:
-			parsefunction(xmalloc, 2);
-			break;	
-		case TFIND:
-/* this is a version of FIND operating in the BUFFER space 
-			parsefunction(xfind, 1); */
-/* FIND even more apocryphal - operating in the variable space */
-			xfind2();
-			break;
+	case TMALLOC:
+		parsefunction(xmalloc, 2);
+		break;	
+	case TFIND:
+		xfind();
+		break;
 #endif
 #ifdef HASIOT
-		case TNETSTAT:
-      factornetstat();
-			break;
+	case TNETSTAT:
+		factornetstat();
+		break;
 #endif
 
 /* unknown function */
-		default:
-			error(EUNKNOWN);
-			return;
+	default:
+		error(EUNKNOWN);
+		return;
 	}
 }
 
@@ -5143,7 +5139,7 @@ void outputtoken() {
 			outnumber(x);
 			break;
 		case LINENUMBER: 
-			outnumber(x);
+			outnumber(ax);
 			outspc();
 			break;
 		case ARRAYVAR:
@@ -5224,8 +5220,8 @@ void xlist(){
 	here=0;
 	gettoken();
 	while (here < top) {
-		if (token == LINENUMBER && x >= b) oflag=1;
-		if (token == LINENUMBER && x >  e) oflag=0;
+		if (token == LINENUMBER && ax >= b) oflag=1;
+		if (token == LINENUMBER && ax >  e) oflag=0;
 		if (oflag) outputtoken();
 		gettoken();
 		if (token == LINENUMBER && oflag) {
@@ -5788,21 +5784,24 @@ void xload(const char* f) {
 
     bi=ibuffer+1;
 		while (fileavailable()) {
-      		ch=fileread();
-      		if (ch == '\n' || ch == '\r' || cheof(ch)) {
-        		*bi=0;
-        		bi=ibuffer+1;
-        		nexttoken();
-        		if (token == NUMBER) storeline();
-        		if (er != 0 ) break;
-        		bi=ibuffer+1;
-      		} else {
-        		*bi++=ch;
-      		}
-      		if ((bi-ibuffer) > BUFSIZE) {
-        		error(EOUTOFMEMORY);
-        		break;
-      		}
+      ch=fileread();
+      if (ch == '\n' || ch == '\r' || cheof(ch)) {
+        *bi=0;
+        bi=ibuffer+1;
+        nexttoken();
+        if (token == NUMBER) {
+        	ax=x;
+        	storeline();
+        }
+        if (er != 0 ) break;
+        bi=ibuffer+1;
+      } else {
+        *bi++=ch;
+      }
+      if ((bi-ibuffer) > BUFSIZE) {
+        error(EOUTOFMEMORY);
+        break;
+      }
 		}   	
 		ifileclose();
 /* after a successful load we save top to the EEPROM header */
@@ -6089,11 +6088,13 @@ void xnetstat(){
  *	DWRITE - digital write 
  */
 void xdwrite(){
+  address_t x,y;
 	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return; 
 	x=pop();
 	y=pop();
+  if (er !=0) return;
 	dwrite(y, x);	
 }
 
@@ -6101,11 +6102,13 @@ void xdwrite(){
  * AWRITE - analog write 
  */
 void xawrite(){
+  address_t x,y;
 	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return; 
-	x=pop();
-	y=pop();
+	x=popaddress();
+	y=popaddress();
+  if (er != 0) return;
 	awrite(y, x);
 }
 
@@ -6113,11 +6116,13 @@ void xawrite(){
  * PINM - pin mode
  */
 void xpinm(){
+  address_t x,y;
 	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return; 
-	x=pop();
-	y=pop();
+	x=popaddress();
+	y=popaddress();
+  if (er != 0) return;
 	pinm(y, x);	
 }
 
@@ -6129,8 +6134,6 @@ void xpinm(){
  * 
  */
 void xdelay(){
-	unsigned long i;
-
 	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
@@ -6272,60 +6275,51 @@ void xfcircle() {
  */
 void xmalloc() {
 	address_t s;
-	s=pop();
-	if (s<1) {error(EORANGE); return; };
-	z.a=pop();
-	push(bmalloc(TBUFFER, z.a%256, z.a/256, s));
+  address_t a;
+  
+	s=popaddress();
+	a=popaddress();
+  if (er != 0) return;
+  
+	push(bmalloc(TBUFFER, a%256, a/256, s));
 }
 
 /*
  * FIND an object on the heap
- * xfind is the buffer space very simple function
- * xfind2 can find things in the variable name space
+ * xfind can find things in the variable name space and the buffer space
  */
+
 void xfind() {
-	z.a=pop();
-	push(bfind(TBUFFER, z.a%256, z.a/256));
-}
-
-void xfind2() {
 	address_t a;
+  address_t n;
 
+/* is there a ( */
+  if (!expect('(', EUNKNOWN)) return;
+
+/* after that, try to find the object on the heap */
 	nexttoken();
-	if (token != '(') {
-		error(EUNKNOWN);
-		return;
-	}
-	nexttoken();
-	a=bfind(token, xc, yc);
+  a=bfind(token, xc, yc);
+
+/* depending on the object, interpret the result */
 	switch (token) {
+    case ARRAYVAR:
+      if (!expect('(', EUNKNOWN)) return;
+      if (!expect(')', EUNKNOWN)) return;   	
 		case VARIABLE:
 		case STRINGVAR:
-			nexttoken();
-			break;
-		case ARRAYVAR:
-			nexttoken();
-			if (token != '(') {
-				error(EUNKNOWN);
-				return;
-			}
-			nexttoken();
-			if (token != ')') {
-				error(EUNKNOWN);
-				return;
-			}		
 			nexttoken();
 			break;
 		default:
 			expression();
 			if (er != 0) return;
-			z.a=pop();
-			a=bfind(TBUFFER, z.a%256, z.a/256);
+			n=popaddress();
+      if (er != 0) return;
+			a=bfind(TBUFFER, n%256, n/256);
 	}
-	if (token != ')') {
-		error(EUNKNOWN);
-		return;
-	}
+
+/* closing braket, dont use expect here because of the token sequence */ 
+	if (token != ')') { error(EUNKNOWN); return; }
+  
 	push(a);
 }
 
@@ -6335,13 +6329,14 @@ void xfind2() {
  *	vectors break if EVAL inserts in their range
  */
 void xeval(){
-	short i, l;
+	address_t i, l;
 	address_t mline, line;
 
 
 /* get the line number to store */
 	if (!expectexpr()) return;
-	line=pop();
+	line=popaddress();
+  if (er != 0) return;
 
 	if (token != ',') {
 		error(EUNKNOWN);
@@ -6356,7 +6351,9 @@ void xeval(){
 
 /* here we have the string to evaluate in ir2 and copy it to the ibuffer
 		only one line allowed, BUFSIZE is the limit */
-	l=pop();
+	l=popaddress();
+  if (er != 0) return;
+ 
 	if (l>BUFSIZE-1) {error(EORANGE); return; }
 	for (i=0; i<l; i++) ibuffer[i+1]=ir2[i];
 	ibuffer[l+1]=0;
@@ -6369,7 +6366,7 @@ void xeval(){
 	}
 
 /* go to interactive mode and try to store the line */
-	x=line;							// the linennumber
+	ax=line;							// the linennumber
 	push(st); st=SINT;	// go to (fake) interactive mode
 	bi=ibuffer;					// go to the beginning of the line
 	storeline();				// try to store it
@@ -6391,7 +6388,8 @@ void xeval(){
  */
 void xavail() {
 	mem_t oid=id;
-	id=pop();
+	id=popaddress();
+	if (er != 0) return;
 	push(availch());
 	id=oid;
 }
@@ -8237,6 +8235,7 @@ void loop() {
 
 /* a number triggers the line storage, anything else is executed */
 	if (token == NUMBER) {
+		ax=x;
 		storeline();	
 /* on an EEPROM system we store top after each succesful line insert */
 #ifdef EEPROMMEMINTERFACE

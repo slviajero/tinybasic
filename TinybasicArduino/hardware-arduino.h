@@ -3694,16 +3694,20 @@ short eread(address_t a) { return 0; }
  *  awrite requires ESP32 2.0.2 core, else disable awrite() 
  */ 
 
-void aread(){ push(analogRead(pop())); }
+void aread(){ 
+  push(analogRead(popaddress())); 
+}
 
-void dread(){ push(digitalRead(pop())); }
+void dread(){ 
+  push(digitalRead(popaddress())); 
+}
 
-void awrite(number_t p, number_t v){
+void awrite(address_t p, address_t v){
 	if (v >= 0 && v<256) analogWrite(p, v);
 	else error(EORANGE);
 }
 
-void dwrite(number_t p, number_t v){
+void dwrite(address_t p, address_t v){
 	if (v == 0) digitalWrite(p, LOW);
 	else if (v == 1) digitalWrite(p, HIGH);
 	else error(EORANGE);
@@ -3716,7 +3720,7 @@ void dwrite(number_t p, number_t v){
  *  Example: OUTPUT on ESP32 is 3 and 1 is assigned to INPUT.
  *  XMC also needs special treatment here.
  */
-void pinm(number_t p, number_t m){
+void pinm(address_t p, address_t m){
   uint8_t ml = m;
   uint8_t pl = p;
   switch (ml) {
@@ -3734,10 +3738,14 @@ void pinm(number_t p, number_t m){
 
 /* read a pulse, units given by bpulseunit - default 10 microseconds */
 void bpulsein() { 
+  address_t x,y;
   unsigned long t, pt;
+  
   t=((unsigned long) pop())*1000;
-  y=pop(); 
-  x=pop(); 
+  y=popaddress(); 
+  x=popaddress();
+  if (er != 0) return;
+   
   pt=pulseIn(x, y, t)/bpulseunit; 
   push(pt);
 }

@@ -844,7 +844,7 @@ static address_t slocation;
 static number_t x, y;
 static mem_t xc, yc;
 
-static address_t ax, ay;
+static address_t ax;
 
 /* this union is used to store larger objects into byte oriented memory */
 struct twobytes {mem_t l; mem_t h;};
@@ -1118,9 +1118,9 @@ void eupdate(address_t, short);
 /* arduino io functions */
 void aread();
 void dread();
-void awrite(number_t, number_t);
-void dwrite(number_t, number_t);
-void pinm(number_t, number_t);
+void awrite(address_t, address_t);
+void dwrite(address_t, address_t);
+void pinm(address_t, address_t);
 void bmillis();
 void bpulsein();
 void xpulse();
@@ -1481,7 +1481,6 @@ void xfcircle();
 /* the darkarts */
 void xmalloc();
 void xfind();
-void xfind2();
 void xeval();
 
 /* IoT commands */
