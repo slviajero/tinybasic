@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.c,v 1.143 2023/03/25 08:09:07 stefan Exp stefan $ 
+ *	$Id: basic.c,v 1.144 2023/07/16 14:17:08 stefan Exp stefan $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -414,12 +414,13 @@ address_t ballocmem(){ return MEMSIZE-1; };
 void esave() {
 #ifndef EEPROMMEMINTERFACE
 	address_t a=0;
+	
 	if (top+eheadersize < elength()) {
 		a=0;
 		/* EEPROM per default is 255, 0 indicates that there is a program */
 		eupdate(a++, 0); 
 
-		/* store the size of the program in byte 1,2 of the EEPROM*/
+		/* store the size of the program in byte 1,2,... of the EEPROM*/
 		z.a=top;
 		esetnumber(a, addrsize);
 		a+=addrsize;
@@ -442,7 +443,8 @@ void esave() {
 void eload() {
 #ifndef EEPROMMEMINTERFACE
 	address_t a=0;
-	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
+	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { 
+		/* have we stored a program */
 		a++;
 
 		/* how long is it? */
@@ -471,7 +473,7 @@ char autorun() {
   	return 1; /* EEPROM autorun overrules filesystem autorun */
 	} 
 #endif
-#if defined(FILESYSTEMDRIVER) || ! defined(ARDUINO)
+#if defined(FILESYSTEMDRIVER) || !defined(ARDUINO)
 /* on a POSIX or DOS platform, we check the command line first and the autoexec */
 #ifndef ARDUINO
 	if (bargc > 0) {
@@ -529,9 +531,11 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 			vsize=numsize*l+addrsize*2+3;
 			break;
 #endif
+#ifdef HASDARTMOUTH
 		case TFN:
 			vsize=addrsize+2+3;
 			break;
+#endif
 		default:
 			vsize=l+addrsize+3;
 	}
@@ -543,8 +547,7 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 	if (himem-(elength()-eheadersize) < vsize) { error(EOUTOFMEMORY); return 0;}
 #endif 
 
-/* here we could create a hash, currently simplified
-	 the hash is the first digit of the variable plus the token */
+/* store the name of the objects (2 chars) plus the type (1 char) as identifier */
 	b=himem;
 
 	memwrite2(b--, c);
@@ -1656,19 +1659,21 @@ void pushforstack(){
 			forsp=i;
 			break;
 		}
+	}
 #else 
 	if (token == TWHILE || token == TREPEAT)
 		for(i=0; i<forsp; i++) {
 			if (forstack[i].here == here) {forsp=i; break;}
 		}
 	else 
-			for(i=0; i<forsp; i++) {
-		if (forstack[i].varx == xc && forstack[i].vary == yc) {
-			forsp=i;
-			break;
+		for(i=0; i<forsp; i++) {
+			if (forstack[i].varx == xc && forstack[i].vary == yc) {
+				forsp=i;
+				break;
+			}
 		}
 #endif
-	}
+	
 
 	if (forsp < FORDEPTH) {
 #ifdef HASSTRUCT
@@ -4208,7 +4213,7 @@ void xprint(){
 	char semicolon = 0;
 	char oldod;
 	char modifier = 0;
-
+	
 	form=0;
 	oldod=od;
 	nexttoken();
