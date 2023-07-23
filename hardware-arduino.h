@@ -176,7 +176,7 @@
 
 /* PS2 Keyboard pins for AVR - use one interrupt pin 2 and one date pin 
     5 not 4 because 4 conflicts with SDPIN of the standard SD shield */
-#define PS2DATAPIN 5
+#define PS2DATAPIN 3
 #define PS2IRQPIN  2
 
 /* Ethernet - 10 is the default */
@@ -1901,7 +1901,7 @@ char kbdavailable(){
 }
 
 char kbdread() {
-  char c;
+  char c = 0;
   while(!kbdavailable()) byield();
 #ifdef PS2KEYBOARD  
 	c=keyboard.read();
@@ -1921,9 +1921,11 @@ char kbdread() {
 #endif
 #endif
 #ifdef HASKEYPAD
-	c=keypadread();
+  if (c == 0) { /* we have a character from a real keyboard, ignore the keypad */
+	  c=keypadread();
 /* if the keypad is in non repeat mode, block */
-	if (!kbdrepeat) while(kbdavailable()) byield();
+	  if (!kbdrepeat) while(kbdavailable()) byield();
+  }
 #endif	
 	if (c == 13) c=10;
 	return c;
@@ -3618,7 +3620,7 @@ address_t elength() {
   return 0;
 }
 
-void eupdate(address_t a, short c) { 
+void eupdate(address_t a, mem_t c) { 
 #if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F) || defined(ARDUINO_ARCH_XMC)
   EEPROM.write(a, c);
 #else
@@ -3630,7 +3632,7 @@ void eupdate(address_t a, short c) {
 #endif
 }
 
-short eread(address_t a) { 
+mem_t eread(address_t a) { 
 #ifdef ARDUINO_ARCH_STM32
   return (signed char) eeprom_buffered_read_byte(a); 
 #else
@@ -3643,7 +3645,7 @@ address_t elength() {
   return i2ceepromsize;
 }
 
-void eupdate(address_t a, short c) { 
+void eupdate(address_t a, mem_t c) { 
 #if defined(ARDUINOI2CEEPROM_BUFFERED)
   EFSRAW.rawwrite(a, c);
 #else
@@ -3661,7 +3663,7 @@ void eupdate(address_t a, short c) {
 #endif
 }
 
-short eread(address_t a) { 
+mem_t eread(address_t a) { 
 #ifdef ARDUINOI2CEEPROM_BUFFERED
   return (mem_t) EFSRAW.rawread(a); 
 #else
@@ -3684,8 +3686,8 @@ short eread(address_t a) {
 #else
 /* no EEPROM present */
 address_t elength() { return 0; }
-void eupdate(address_t a, short c) { return; }
-short eread(address_t a) { return 0; }
+void eupdate(address_t a, mem_t c) { return; }
+mem_t eread(address_t a) { return 0; }
 #endif
 #endif
 
@@ -3694,16 +3696,20 @@ short eread(address_t a) { return 0; }
  *  awrite requires ESP32 2.0.2 core, else disable awrite() 
  */ 
 
-void aread(){ push(analogRead(pop())); }
+void aread(){ 
+  push(analogRead(popaddress())); 
+}
 
-void dread(){ push(digitalRead(pop())); }
+void dread(){ 
+  push(digitalRead(popaddress())); 
+}
 
-void awrite(number_t p, number_t v){
+void awrite(address_t p, address_t v){
 	if (v >= 0 && v<256) analogWrite(p, v);
 	else error(EORANGE);
 }
 
-void dwrite(number_t p, number_t v){
+void dwrite(address_t p, address_t v){
 	if (v == 0) digitalWrite(p, LOW);
 	else if (v == 1) digitalWrite(p, HIGH);
 	else error(EORANGE);
@@ -3716,7 +3722,7 @@ void dwrite(number_t p, number_t v){
  *  Example: OUTPUT on ESP32 is 3 and 1 is assigned to INPUT.
  *  XMC also needs special treatment here.
  */
-void pinm(number_t p, number_t m){
+void pinm(address_t p, address_t m){
   uint8_t ml = m;
   uint8_t pl = p;
   switch (ml) {
@@ -3734,10 +3740,14 @@ void pinm(number_t p, number_t m){
 
 /* read a pulse, units given by bpulseunit - default 10 microseconds */
 void bpulsein() { 
+  address_t x,y;
   unsigned long t, pt;
+  
   t=((unsigned long) pop())*1000;
-  y=pop(); 
-  x=pop(); 
+  y=popaddress(); 
+  x=popaddress();
+  if (er != 0) return;
+   
   pt=pulseIn(x, y, t)/bpulseunit; 
   push(pt);
 }
@@ -5394,7 +5404,7 @@ void bintroutine3() {
   detachInterrupt(digitalPinToInterrupt(eventlist[3].pin)); 
 }
 
-#ifndef ARDUINO_ARCH_MBED_RP2040
+#if !(defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_RENESAS))
 typedef int PinStatus;
 #endif
 
