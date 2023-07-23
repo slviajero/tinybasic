@@ -1873,7 +1873,7 @@ int kbdstat(char c) {return 0; }
 
 char kbdavailable(){
 #ifdef PS2KEYBOARD
-	return keyboard.available();
+	return keyboard.available(); 
 #else
 #ifdef PS2FABLIB
   if (fabgllastchar) return Terminal.available()+1; else return Terminal.available();
@@ -1893,9 +1893,10 @@ char kbdavailable(){
 #ifdef HASKEYPAD
 /* a poor man's debouncer, unstable state returns 0 */
   char c=keypadread();
-  if (c) bdelay(2); else return 0;
-  if (c == keypadread()) return 1; else return 0;
-	/* return keypadread()!=0; */
+  if (c != 0) {
+    bdelay(2); 
+    if (c == keypadread()) return 1;
+  }
 #endif	
 	return 0;
 }
@@ -1921,7 +1922,7 @@ char kbdread() {
 #endif
 #endif
 #ifdef HASKEYPAD
-  if (c == 0) { /* we have a character from a real keyboard, ignore the keypad */
+  if (c == 0) { /* we have no character from a real keyboard, ask the keypad */
 	  c=keypadread();
 /* if the keypad is in non repeat mode, block */
 	  if (!kbdrepeat) while(kbdavailable()) byield();
@@ -1932,7 +1933,6 @@ char kbdread() {
 }
 
 char kbdcheckch() {
-char c;
 #ifdef PS2KEYBOARD
 /*
  * only works with the patched library https://github.com/slviajero/PS2Keyboard
@@ -1945,7 +1945,7 @@ char c;
  * GET does not work properly with it as there is no peek functionality which is needed
  * for non blocking IO and the ability to stop programs
  */
-  if (kbdavailable()) return kbdread();
+  if (kbdavailable()) return kbdread(); else return 0;
 #endif
 #else
 #ifdef PS2FABLIB
