@@ -39,7 +39,7 @@
 */
 
 /*
- * BASICFUL: full language set, use this with flash >32kB - ESPs, MKRs, Mega2560, RP2040 ...
+ * BASICFULL: full language set, use this with flash >32kB - ESPs, MKRs, Mega2560, RP2040, UNO R4
  * BASICINTEGER: integer BASIC with full language, use this with flash >32kB
  * BASICSIMPLE: integer BASIC with reduced language set, 32kB capable - for UNOs with a lot of device drivers
  * BASICSIMPLEWITHFLOAT: a small floating point BASIC, 32kB capable, for UNOs - good for UNOs with the need of float
@@ -676,9 +676,11 @@ address_t bfree(mem_t t, mem_t c, mem_t d) {
 			case VARIABLE:
 				z.a=numsize;
 				break;
+#ifdef HASDARTMOUTH
 			case TFN:
 				z.a=addrsize+2;
 				break;
+#endif
 			default:
 				b=b-addrsize+1;
 				getnumber(b, addrsize);
@@ -859,27 +861,32 @@ void getnumber(address_t m, mem_t n){
 	for (i=0; i<n; i++) z.c[i]=memread2(m++);
 }
 
-/* a number from a memory location */
-/* removed / simplified */
-/*
-void getnumber(address_t m, mem_t n){
+/* a generic memory reader for numbers - will replace getnumber in future */
+number_t getnumber2(address_t m, memreader_t f) {
 	mem_t i;
+	accu_t z;
 
-	z.i=0;
-
-	switch (n) {
-		case 1:
-			z.i=memread2(m);
-			break;
-		case 2:
-			z.b.l=memread2(m++);
-			z.b.h=memread2(m);
-			break;
-		default:
-			for (i=0; i<n; i++) z.c[i]=memread2(m++);
-	}
+	for (i=0; i<numsize; i++) z.c[i]=f(m++);
+	return z.i;
 }
-*/
+
+/* same for addresses - will replace getnumber in future */
+address_t getaddress(address_t m, memreader_t f) {
+	mem_t i;
+	accu_t z;
+
+	for (i=0; i<addrsize; i++) z.c[i]=f(m++);
+	return z.a;
+}
+
+/* same for strings - currently identical to address but this will change */
+address_t getstringlength(address_t m, memreader_t f) {
+	mem_t i;
+	accu_t z;
+
+	for (i=0; i<addrsize; i++) z.c[i]=f(m++);
+	return z.a;
+}
 
 /* code only for the USEMEMINTERFACE code, this function goes through the 
   ro buffer to avoit rw buffer page faults, do not use this unless
@@ -1044,7 +1051,11 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 
 /* set or get the array */
 	if (m == 'g') {
-		if (! e) { getnumber(a, numsize); } else { egetnumber(a, numsize); }
+		if (! e) { 
+			getnumber(a, numsize);
+		} else { 
+			egetnumber(a, numsize); 	
+		}
 		*v=z.i;
 	} else if ( m == 's') {
 		z.i=*v;
@@ -2974,6 +2985,7 @@ address_t findinlinecache(address_t l){ return 0; }
  */
 void findline(address_t l) {
 	address_t a;
+
 /* we know it already, here to advance */
 	if ((a=findinlinecache(l))) { 
 		here=a; 

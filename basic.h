@@ -734,6 +734,13 @@ typedef signed char token_t; /* the type of tokens, normally mem_t with a maximu
 typedef short token_t; /* token type extension, allows an extra of 127 commands and symbols */
 #endif
 
+/* this type maps numbers to bytes */
+typedef struct {mem_t l; mem_t h;} twobytes_t;
+typedef union { number_t i; address_t a; twobytes_t b; mem_t c[sizeof(number_t)]; } accu_t;
+
+/* the memreader function type */
+typedef mem_t (*memreader_t)(address_t);
+
 /* 
  * system type identifiers
  */
@@ -806,8 +813,7 @@ address_t ax;
 
 /* z is another accumulator used to convert numbers and addressed to bytes and vice versa */
 /* this union is used to store larger objects into byte oriented memory */
-struct twobytes {mem_t l; mem_t h;};
-union accunumber { number_t i; address_t a; struct twobytes b; mem_t c[sizeof(number_t)]; } z;
+accu_t z;
 
 /* string index registers */
 char *ir, *ir2;
@@ -1087,8 +1093,8 @@ char mqttinch();
 void ebegin();
 void eflush();
 address_t elength();
-short eread(address_t);
-void eupdate(address_t, short);
+mem_t eread(address_t);
+void eupdate(address_t, mem_t);
 
 /* arduino io functions */
 void aread();

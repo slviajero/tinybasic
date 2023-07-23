@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.c,v 1.143 2023/03/25 08:09:07 stefan Exp stefan $ 
+ *	$Id: basic.c,v 1.144 2023/07/16 14:17:08 stefan Exp stefan $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -39,7 +39,7 @@
 */
 
 /*
- * BASICFUL: full language set, use this with flash >32kB - ESPs, MKRs, Mega2560, RP2040 ...
+ * BASICFULL: full language set, use this with flash >32kB - ESPs, MKRs, Mega2560, RP2040, UNO R4
  * BASICINTEGER: integer BASIC with full language, use this with flash >32kB
  * BASICSIMPLE: integer BASIC with reduced language set, 32kB capable - for UNOs with a lot of device drivers
  * BASICSIMPLEWITHFLOAT: a small floating point BASIC, 32kB capable, for UNOs - good for UNOs with the need of float
@@ -47,8 +47,8 @@
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
 #undef	BASICFULL
-#define	BASICINTEGER
-#undef	BASICSIMPLE
+#undef	BASICINTEGER
+#define	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
@@ -414,12 +414,13 @@ address_t ballocmem(){ return MEMSIZE-1; };
 void esave() {
 #ifndef EEPROMMEMINTERFACE
 	address_t a=0;
+	
 	if (top+eheadersize < elength()) {
 		a=0;
 		/* EEPROM per default is 255, 0 indicates that there is a program */
 		eupdate(a++, 0); 
 
-		/* store the size of the program in byte 1,2 of the EEPROM*/
+		/* store the size of the program in byte 1,2,... of the EEPROM*/
 		z.a=top;
 		esetnumber(a, addrsize);
 		a+=addrsize;
@@ -442,7 +443,8 @@ void esave() {
 void eload() {
 #ifndef EEPROMMEMINTERFACE
 	address_t a=0;
-	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { // have we stored a program
+	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { 
+		/* have we stored a program */
 		a++;
 
 		/* how long is it? */
@@ -471,7 +473,7 @@ char autorun() {
   	return 1; /* EEPROM autorun overrules filesystem autorun */
 	} 
 #endif
-#if defined(FILESYSTEMDRIVER) || ! defined(ARDUINO)
+#if defined(FILESYSTEMDRIVER) || !defined(ARDUINO)
 /* on a POSIX or DOS platform, we check the command line first and the autoexec */
 #ifndef ARDUINO
 	if (bargc > 0) {
@@ -529,9 +531,11 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 			vsize=numsize*l+addrsize*2+3;
 			break;
 #endif
+#ifdef HASDARTMOUTH
 		case TFN:
 			vsize=addrsize+2+3;
 			break;
+#endif
 		default:
 			vsize=l+addrsize+3;
 	}
@@ -543,8 +547,7 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 	if (himem-(elength()-eheadersize) < vsize) { error(EOUTOFMEMORY); return 0;}
 #endif 
 
-/* here we could create a hash, currently simplified
-	 the hash is the first digit of the variable plus the token */
+/* store the name of the objects (2 chars) plus the type (1 char) as identifier */
 	b=himem;
 
 	memwrite2(b--, c);
@@ -673,9 +676,11 @@ address_t bfree(mem_t t, mem_t c, mem_t d) {
 			case VARIABLE:
 				z.a=numsize;
 				break;
+#ifdef HASDARTMOUTH
 			case TFN:
 				z.a=addrsize+2;
 				break;
+#endif
 			default:
 				b=b-addrsize+1;
 				getnumber(b, addrsize);
@@ -856,27 +861,32 @@ void getnumber(address_t m, mem_t n){
 	for (i=0; i<n; i++) z.c[i]=memread2(m++);
 }
 
-/* a number from a memory location */
-/* removed / simplified */
-/*
-void getnumber(address_t m, mem_t n){
+/* a generic memory reader for numbers - will replace getnumber in future */
+number_t getnumber2(address_t m, memreader_t f) {
 	mem_t i;
+	accu_t z;
 
-	z.i=0;
-
-	switch (n) {
-		case 1:
-			z.i=memread2(m);
-			break;
-		case 2:
-			z.b.l=memread2(m++);
-			z.b.h=memread2(m);
-			break;
-		default:
-			for (i=0; i<n; i++) z.c[i]=memread2(m++);
-	}
+	for (i=0; i<numsize; i++) z.c[i]=f(m++);
+	return z.i;
 }
-*/
+
+/* same for addresses - will replace getnumber in future */
+address_t getaddress(address_t m, memreader_t f) {
+	mem_t i;
+	accu_t z;
+
+	for (i=0; i<addrsize; i++) z.c[i]=f(m++);
+	return z.a;
+}
+
+/* same for strings - currently identical to address but this will change */
+address_t getstringlength(address_t m, memreader_t f) {
+	mem_t i;
+	accu_t z;
+
+	for (i=0; i<addrsize; i++) z.c[i]=f(m++);
+	return z.a;
+}
 
 /* code only for the USEMEMINTERFACE code, this function goes through the 
   ro buffer to avoit rw buffer page faults, do not use this unless
@@ -1041,7 +1051,11 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 
 /* set or get the array */
 	if (m == 'g') {
-		if (! e) { getnumber(a, numsize); } else { egetnumber(a, numsize); }
+		if (! e) { 
+			getnumber(a, numsize);
+		} else { 
+			egetnumber(a, numsize); 	
+		}
 		*v=z.i;
 	} else if ( m == 's') {
 		z.i=*v;
@@ -1102,7 +1116,7 @@ address_t createstring(char c, char d, address_t i, address_t j) {
  */
 
 char* getstring(char c, char d, address_t b, address_t j) {	
-	address_t k, zt, dim, maxlen, ax;
+	address_t k, zt, dim, maxlen;
 
 	ax=0;
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
@@ -1656,19 +1670,21 @@ void pushforstack(){
 			forsp=i;
 			break;
 		}
+	}
 #else 
 	if (token == TWHILE || token == TREPEAT)
 		for(i=0; i<forsp; i++) {
 			if (forstack[i].here == here) {forsp=i; break;}
 		}
 	else 
-			for(i=0; i<forsp; i++) {
-		if (forstack[i].varx == xc && forstack[i].vary == yc) {
-			forsp=i;
-			break;
+		for(i=0; i<forsp; i++) {
+			if (forstack[i].varx == xc && forstack[i].vary == yc) {
+				forsp=i;
+				break;
+			}
 		}
 #endif
-	}
+	
 
 	if (forsp < FORDEPTH) {
 #ifdef HASSTRUCT
@@ -2969,6 +2985,7 @@ address_t findinlinecache(address_t l){ return 0; }
  */
 void findline(address_t l) {
 	address_t a;
+
 /* we know it already, here to advance */
 	if ((a=findinlinecache(l))) { 
 		here=a; 
@@ -3675,7 +3692,7 @@ void streval(){
 		error(EUNKNOWN);
 		return;
 	} 
-	x=pop();
+	x=popaddress();
 	if (er != 0) return;
 
 	if (x != xl) goto neq;
@@ -4208,7 +4225,7 @@ void xprint(){
 	char semicolon = 0;
 	char oldod;
 	char modifier = 0;
-
+	
 	form=0;
 	oldod=od;
 	nexttoken();
@@ -6294,7 +6311,7 @@ void xfind() {
   address_t n;
 
 /* is there a ( */
-  if (!expect('(', EUNKNOWN)) return;
+if (!expect('(', EUNKNOWN)) return;
 
 /* after that, try to find the object on the heap */
 	nexttoken();
@@ -6304,13 +6321,13 @@ void xfind() {
 	switch (token) {
     case ARRAYVAR:
       if (!expect('(', EUNKNOWN)) return;
-      if (!expect(')', EUNKNOWN)) return;   	
+      if (!expect(')', EUNKNOWN)) return; 	
 		case VARIABLE:
 		case STRINGVAR:
 			nexttoken();
 			break;
 		default:
-			expression();
+			expression(); /* do not use expectexpr here because of the token sequence */
 			if (er != 0) return;
 			n=popaddress();
       if (er != 0) return;
@@ -6319,7 +6336,7 @@ void xfind() {
 
 /* closing braket, dont use expect here because of the token sequence */ 
 	if (token != ')') { error(EUNKNOWN); return; }
-  
+
 	push(a);
 }
 
@@ -6336,7 +6353,7 @@ void xeval(){
 /* get the line number to store */
 	if (!expectexpr()) return;
 	line=popaddress();
-  if (er != 0) return;
+	if (er != 0) return;
 
 	if (token != ',') {
 		error(EUNKNOWN);
@@ -6352,9 +6369,10 @@ void xeval(){
 /* here we have the string to evaluate in ir2 and copy it to the ibuffer
 		only one line allowed, BUFSIZE is the limit */
 	l=popaddress();
-  if (er != 0) return;
- 
+	if (er != 0) return;
+	
 	if (l>BUFSIZE-1) {error(EORANGE); return; }
+
 	for (i=0; i<l; i++) ibuffer[i+1]=ir2[i];
 	ibuffer[l+1]=0;
 	if (DEBUG) {outsc("** Preparing to store line "); outnumber(line); outspc(); outsc(ibuffer+1); outcr(); }
