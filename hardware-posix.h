@@ -1,6 +1,6 @@
 /*
  *
- * $Id: hardware-posix.h,v 1.6 2023/03/25 08:09:07 stefan Exp stefan $
+ * $Id: hardware-posix.h,v 1.7 2023/07/16 14:17:08 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *
@@ -569,8 +569,8 @@ void eflush(){
 }
 
 address_t elength() { return EEPROMSIZE; }
-void eupdate(address_t a, short c) { if (a>=0 && a<EEPROMSIZE) eeprom[a]=c; }
-short eread(address_t a) { if (a>=0 && a<EEPROMSIZE) return eeprom[a]; else return -1;  }
+void eupdate(address_t a, mem_t c) { if (a>=0 && a<EEPROMSIZE) eeprom[a]=c; }
+mem_t eread(address_t a) { if (a>=0 && a<EEPROMSIZE) return eeprom[a]; else return -1;  }
 
 /* 
  *	the wrappers of the arduino io functions, to avoid 
