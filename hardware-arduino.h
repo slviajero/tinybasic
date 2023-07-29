@@ -956,13 +956,13 @@ void signalon() {}
  * Arduino information from
  * data from https://docs.arduino.cc/learn/programming/memory-guide
  */
-#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_STM32)
+#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_STM32) || defined(ARDUINO_ARCH_RENESAS)
 extern "C" char* sbrk(int incr);
 long freeRam() {
   char top;
   return &top - reinterpret_cast<char*>(sbrk(0));
 }
-#elif defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_LGT8F)
+#elif defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_LGT8F) 
 long freeRam() {
   extern int __heap_start,*__brkval;
   int v;
@@ -985,7 +985,7 @@ long freeRam() {
  */
 long freememorysize() {
 #if defined(ARDUINO_ARCH_RENESAS)
-  return 24000;
+  return freeRam() - 4000;
 #endif
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_STM32) 
   return freeRam() - 4000;
@@ -1066,6 +1066,13 @@ RTCZero rtc;
 #include "STM32RTC.h"
 #include "STM32LowPower.h"
 STM32RTC& rtc = STM32RTC::getInstance();
+#endif
+
+/* the NRENESA board have a buildin RTC as well */
+#if defined(ARDUINO_ARCH_RENESAS)
+#define HASBUILTINRTC
+#include "RTC.h"
+RTCTime rtc;
 #endif
 
 /* for ESP32 we also include the time stuctures and offer a POSIX style clock*/
@@ -2928,11 +2935,12 @@ void rtcset(uint8_t i, short v) {
 /*
  * Built-in clocks of STM32 and MKR are based on the RTCZero interface
  * an rtc object is created after loading the libraries
+ * for NRENESAs the interface is slightly different
  */
-
+#ifndef ARDUINO_ARCH_RENESAS
 /* begin method */
 void rtcbegin() {
-  rtc.begin(); /* 24 hours mode */
+  rtc.begin(); /* 24 hours mode */ 
 }
 
 /* get the time */
@@ -2986,6 +2994,67 @@ void rtcset(uint8_t i, short v) {
       return; 
    }
 }
+#else 
+/* NRENESA code, interface different to my great ennui! */
+/* begin method */
+void rtcbegin() {
+  RTC.begin(); /* 24 hours mode */ 
+}
+
+/* get the time */
+short rtcget(short i) { 
+    RTC.getTime(rtc);
+    switch (i) {
+    case 0: 
+      return rtc.getSeconds();
+    case 1:
+      return rtc.getMinutes();      
+    case 2:
+      return rtc.getHour();
+    case 3:
+      return static_cast<int>(rtc.getDayOfWeek());
+    case 4:
+      return rtc.getDayOfMonth();
+    case 5:
+      return Month2int(rtc.getMonth());
+    case 6:
+      return rtc.getYear();
+    default:
+      return 0;
+   }
+}
+
+/* set the time */
+void rtcset(uint8_t i, short v) { 
+  RTC.getTime(rtc);
+  switch (i) {
+    case 0: 
+      rtc.setSecond(v);
+      break;
+    case 1: 
+      rtc.setMinute(v);
+      break;    
+    case 2:
+      rtc.setHour(v);
+      break;
+    case 3:
+      rtc.setDayOfWeek(static_cast<DayOfWeek>(v));
+      break;
+    case 4:
+      rtc.setDayOfMonth(v);
+      break;
+    case 5:
+      rtc.setMonthOfYear(static_cast<Month>(v-1));
+      break;
+    case 6:
+      rtc.setYear(v);
+      break;
+    default:
+      return; 
+   }
+   RTC.setTime(rtc);
+}
+#endif
 #else
 #ifdef ARDUINORTCEMULATION
 #define HASCLOCK
