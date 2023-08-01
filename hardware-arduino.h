@@ -265,8 +265,8 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #undef ARDUINODHT
 #define DHTTYPE DHT22
 #define DHTPIN 2
-#define  ARDUINOSHT
-#define  ARDUINOMQ2
+#define ARDUINOSHT
+#define ARDUINOMQ2
 #define MQ2PIN A0
 #undef ARDUINOLMS6
 #undef ARDUINOAHT
@@ -451,7 +451,7 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #undef USESPICOSERIAL
 #define DISPLAYCANSCROLL
 #define ARDUINOILI9488
-#undef  ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #define ARDUINOI2CEEPROM
 #define ARDUINOPRT
 #define ARDUINOSD
@@ -468,7 +468,7 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #undef USESPICOSERIAL
 #define DISPLAYCANSCROLL
 #define ARDUINOILI9488
-#undef  ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #undef ARDUINOPRT
 #undef ARDUINOSD
 #define RP2040LITTLEFS
@@ -537,20 +537,11 @@ const mem_t bsystype = SYSTYPE_SAM;
 const mem_t bsystype = SYSTYPE_XMC;
 #elif defined(ARDUINO_ARCH_SMT32)
 const mem_t bsystype = SYSTYPE_SMT32;
+#elif defined(ARDUINO_ARCH_RENESAS)
+const mem_t bsystype = SYSTYPE_NRENESA;
 #else
 const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif 
-
-/* 
- * the non AVR arcitectures - this is somehow raw
- * the ARDUINO 100 definition is probably not needed anymore
- */
-
-#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040) 
-/* removed, unneeded, takes more space than it should */
-/* #include <avr/dtostrf.h> */
-#define ARDUINO 100
-#endif
 
 /* 
  *  DUE has no tone, we switch to emulation mode automatically
@@ -594,7 +585,7 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 /* radio needs SPI */
-#ifdef ARDUINORF24
+#if defined(ARDUINORF24)
 #define ARDUINOSPI
 #endif
 
@@ -604,7 +595,7 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 /* networking may need SPI */
-#ifdef ARDUINOMQTT
+#if defined(ARDUINOMQTT)
 #define ARDUINOSPI
 #endif
 
@@ -677,7 +668,6 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 /*
  * ESPy stuff, pgmspace has changed location 
  */
-
 #ifdef ARDUINOPROGMEM
 #ifdef ARDUINO_ARCH_ESP32
 #include <pgmspace.h>
@@ -916,7 +906,6 @@ unsigned int i2ceepromsize = 0;
 /*
  * Software SPI only on Mega2560
  */
-
 #ifndef ARDUINO_AVR_MEGA2560
 #undef SOFTWARE_SPI_FOR_SD
 #endif
@@ -985,7 +974,7 @@ long freeRam() {
  */
 long freememorysize() {
 #if defined(ARDUINO_ARCH_RENESAS)
-  return freeRam() - 4000;
+  return freeRam() - 2000;
 #endif
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_STM32) 
   return freeRam() - 4000;
@@ -1035,7 +1024,7 @@ void(* callzero)() = 0;
 #endif
 
 void restartsystem() {
-    eflush(); /* if there is a I2C eeprom dummy, flush the buffer */
+  eflush(); /* if there is a I2C eeprom dummy, flush the buffer */
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   ESP.restart();
 #endif
