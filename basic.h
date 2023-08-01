@@ -66,13 +66,13 @@ typedef unsigned char uint8_t;
 /* the small memory model with shallow stacks and small buffers */
 #define BUFSIZE 		80
 #define STACKSIZE		15
-#define GOSUBDEPTH	4
+#define GOSUBDEPTH      4
 #define FORDEPTH		4
 #define LINECACHESIZE	4
 #else 
 /* the for larger microcontrollers */
 #ifdef ARDUINO
-#define BUFSIZE 		128
+#define BUFSIZE		   128
 #define STACKSIZE		64
 #define GOSUBDEPTH		8
 #define FORDEPTH		8
@@ -96,11 +96,11 @@ typedef unsigned char uint8_t;
 #endif
 
 /* more duffers and vars */
-#define SBUFSIZE	32
-#define VARSIZE		26
+#define SBUFSIZE        32
+#define VARSIZE         26
 /* default sizes of arrays and strings if they are not DIMed */
 #define ARRAYSIZEDEF    10
-#define STRSIZEDEF  32
+#define STRSIZEDEF      32
 
 /*
  *	the time intervall in ms needed for 
@@ -753,6 +753,7 @@ typedef mem_t (*memreader_t)(address_t);
 #define SYSTYPE_SAM     5
 #define SYSTYPE_XMC		6
 #define SYSTYPE_SMT32	7
+#define SYSTYPE_NRENESA 8
 #define SYSTYPE_POSIX	32
 #define SYSTYPE_MSDOS	33
 #define SYSTYPE_MINGW   34
