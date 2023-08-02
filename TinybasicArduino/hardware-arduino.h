@@ -95,7 +95,7 @@
 #undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#undef ARDUINOMQTT
+#define ARDUINOMQTT
 #undef ARDUINOSENSORS
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
@@ -800,6 +800,9 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 #if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD)
 #include <WiFiNINA.h>
+#endif
+#if defined(ARDUINO_UNOR4_WIFI)
+#include <WiFiS3.h>
 #endif
 #endif
 #include <PubSubClient.h>
@@ -3394,7 +3397,7 @@ void netbegin() {
 	WiFi.begin(ssid, password);
 	WiFi.setAutoReconnect(1);
 #endif
-#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD)
+#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_UNOR4_WIFI)
 	WiFi.begin(ssid, password);
 #endif
 #endif
@@ -3412,7 +3415,7 @@ void netstop() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   WiFi.mode(WIFI_OFF);
 #endif
-#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD)
+#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_UNOR4_WIFI)
   WiFi.end();
 #endif
 #endif
@@ -3429,7 +3432,7 @@ void netreconnect() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   WiFi.reconnect(); 
   bdelay(1000); 
-#elif defined(ARDUINO_ARCH_SAMD)
+#elif defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_UNOR4_WIFI)
   WiFi.end();
   WiFi.begin(ssid, password);
   bdelay(1000);
@@ -5465,9 +5468,11 @@ void bintroutine3() {
   detachInterrupt(digitalPinToInterrupt(eventlist[3].pin)); 
 }
 
-#if !(defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_RENESAS))
+
+#if !(defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_MBED_NANO) || defined(ARDUINO_ARCH_RENESAS))
 typedef int PinStatus;
 #endif
+
 
 mem_t enableevent(int pin) {
   mem_t interrupt;
