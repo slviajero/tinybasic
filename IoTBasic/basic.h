@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.h,v 1.12 2023/03/25 08:09:07 stefan Exp stefan $
+ *	$Id: basic.h,v 1.13 2023/07/16 14:17:08 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *
@@ -66,13 +66,13 @@ typedef unsigned char uint8_t;
 /* the small memory model with shallow stacks and small buffers */
 #define BUFSIZE 		80
 #define STACKSIZE		15
-#define GOSUBDEPTH	4
+#define GOSUBDEPTH      4
 #define FORDEPTH		4
 #define LINECACHESIZE	4
 #else 
 /* the for larger microcontrollers */
 #ifdef ARDUINO
-#define BUFSIZE 		128
+#define BUFSIZE		   128
 #define STACKSIZE		64
 #define GOSUBDEPTH		8
 #define FORDEPTH		8
@@ -96,11 +96,11 @@ typedef unsigned char uint8_t;
 #endif
 
 /* more duffers and vars */
-#define SBUFSIZE		32
-#define VARSIZE		26
+#define SBUFSIZE        32
+#define VARSIZE         26
 /* default sizes of arrays and strings if they are not DIMed */
-#define ARRAYSIZEDEF	10
-#define STRSIZEDEF	32
+#define ARRAYSIZEDEF    10
+#define STRSIZEDEF      32
 
 /*
  *	the time intervall in ms needed for 
@@ -256,12 +256,11 @@ typedef unsigned char uint8_t;
 #define TSWITCH -15
 #define TCASE -14
 #define TSWEND -13
+#define TDO -12
+#define TDEND -11
 /* these are multibyte token extension, currently unused */
 /* using them would allow over 1000 BASIC keywords */
-#define TEXT1 -6
-#define TEXT2 -5
-#define TEXT3 -4
-#define TEXT4 -3
+#define TEXT1 -3
 /* end of tokens */
 /* constants used for some obscure purposes */
 #define TBUFFER -2
@@ -270,8 +269,16 @@ typedef unsigned char uint8_t;
  * in statement for a grammar aware lexer */
 #define UNKNOWN -1
 
-/* the number of keywords, and the base index of the keywords */
-#define NKEYWORDS	3+19+13+14+11+5+2+7+7+6+12+3+6
+/* extension tokens can be in the range from -128 to -255 
+ * one needs to set HASLONGTOKENS
+ */
+#undef HASLONGTOKEN
+#define TTOKEN1 -128
+
+
+/* the number of keywords, and the base index of the keywords 
+ * the number is irrelevant but BASEKEYWORD is used */
+#define NKEYWORDS	3+19+13+14+11+5+2+7+7+6+12+3+9
 #define BASEKEYWORD -121
 
 /*
@@ -469,6 +476,8 @@ const char suntil[]     PROGMEM	= "UNTIL";
 const char sswitch[]	PROGMEM	= "SWITCH";
 const char scase[]		PROGMEM	= "CASE";
 const char sswend[]     PROGMEM = "SWEND";
+const char sdo[]        PROGMEM = "DO";
+const char sdend[]      PROGMEM = "DEND";
 #endif
 
 
@@ -536,6 +545,7 @@ const char* const keyword[] PROGMEM = {
 #endif
 #ifdef HASSTRUCT
 	swhile, swend, srepeat, suntil, sswitch, scase, sswend,	
+    sdo, sdend, 
 #endif 
 	0
 };
@@ -601,6 +611,7 @@ const signed char tokens[] PROGMEM = {
 #endif
 #ifdef HASSTRUCT
 	TWHILE, TWEND, TREPEAT, TUNTIL, TSWITCH, TCASE, TSWEND,
+    TDO, TDEND, 
 #endif
 	0
 };
@@ -636,7 +647,7 @@ const signed char tokens[] PROGMEM = {
 
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "> ";
-const char mgreet[]		PROGMEM = "Stefan's Basic 1.4";
+const char mgreet[]		PROGMEM = "Stefan's Basic 1.5";
 const char mline[]		PROGMEM = "LINE";
 const char mnumber[]	PROGMEM = "NUMBER";
 const char mvariable[]	PROGMEM = "VARIABLE";
@@ -684,7 +695,7 @@ const char* const message[] PROGMEM = {
  *  wnumber_t is the type containing the largest printable integer, 
  *    for float keep this int on 32 bit and long on 8 bit unless you 
  *    want to use very long integers, like 64 or 128 bit types. 
- *  address_t is an unsigned type adddressing memory 
+ *  address_t is an unsigned type adddressing memory, default 16bit 
  *  mem_t is a SIGNED 8bit character type.
  *	index_t is a SIGNED minimum 16 bit integer type
  *
@@ -699,8 +710,6 @@ const char* const message[] PROGMEM = {
  *		32 bit float 
  *	strindexsize: the index size of strings either 
  *		1 byte or 2 bytes - no other values supported
- *
- *
  */
 #ifdef HASFLOAT
 typedef float number_t;
@@ -718,8 +727,19 @@ const int eheadersize=sizeof(address_t)+1;
 const int strindexsize=2; /* default in the meantime, strings up to unsigned 16 bit length */
 const address_t maxaddr=(address_t)(~0); 
 typedef signed char mem_t; /* a signed 8 bit type for the memory */
-typedef short index_t; /* this type counts at least 16 bit */
-typedef signed char token_t; /* the type of tokens, normally mem_t, this is a preparation for extensions */
+typedef int index_t; /* this type counts at least 16 bit */
+#ifndef HASLONGTOKENS
+typedef signed char token_t; /* the type of tokens, normally mem_t with a maximum of 127 commands and data types */
+#else
+typedef short token_t; /* token type extension, allows an extra of 127 commands and symbols */
+#endif
+
+/* this type maps numbers to bytes */
+typedef struct {mem_t l; mem_t h;} twobytes_t;
+typedef union { number_t i; address_t a; twobytes_t b; mem_t c[sizeof(number_t)]; } accu_t;
+
+/* the memreader function type */
+typedef mem_t (*memreader_t)(address_t);
 
 /* 
  * system type identifiers
@@ -733,6 +753,7 @@ typedef signed char token_t; /* the type of tokens, normally mem_t, this is a pr
 #define SYSTYPE_SAM     5
 #define SYSTYPE_XMC		6
 #define SYSTYPE_SMT32	7
+#define SYSTYPE_NRENESA 8
 #define SYSTYPE_POSIX	32
 #define SYSTYPE_MSDOS	33
 #define SYSTYPE_MINGW   34
@@ -742,148 +763,124 @@ typedef signed char token_t; /* the type of tokens, normally mem_t, this is a pr
  *	The basic interpreter is implemented as a stack machine
  *	with global variable for the interpreter state, the memory
  *	and the arithmetic during run time.
- *
- *	stack is the stack memory and sp controls the stack.
- *
- *	ibuffer is an input buffer and *bi a pointer to it.
- *
- *	sbuffer is a short buffer for arduino progmem access. 
- *
- *	vars is a static array of 26 single character variables.
- *
- *	mem is the working memory of the basic interperter.
- *
- *	x, y, xc, yc are two n*8 bit and two 8 bit accumulators.
- *
- *	ax, ax are address type accumulators.
- *
- *	z is a mixed n*8 bit accumulator
- *
- *	ir, ir2 are general index registers for string processing.
- *
- *	token contains the actually processes token.
- *
- *	er is the nontrapable error status
- *
- *	ert is the trapable error status 
- *
- *	st, here and top are the interpreter runtime controls.
- *
- *	nvars is the number of vars the interpreter has stored.
- *
- *	form is used for number formation Palo Alto BASIC style.
- *
- *	charcount counts the printed characters to create a real TAB
- *		only implemented on the serial stream
- *	reltab controls if the relative char mechanisms is active
- *
- *	rd is the random number storage.
- *
- *	fnc counts the depth of for - next loop nesting
- *
- *	args is the global arg count variable
- *
- *	id and od are the input and output model for an arduino
- *		they are set to serial by default
- *
- *	idd and odd are the default values of the above
- *
- *	debuglevel is the statement loop debug level
- *
- *	data is the data pointer of the READ/DATA mechanism
- *  datarc is the counter of the read data record
- *
- * static keyword here is obsolete on most platforms
- *
  */
 
-static number_t stack[STACKSIZE];
-static address_t sp=0; 
+/* the stack, all BASIC arithmetic is done here */
+number_t stack[STACKSIZE];
+address_t sp=0; 
 
-static char sbuffer[SBUFSIZE];
+/* a small buffer to process string arguments, mostly used for Arduino PROGMEM */
+char sbuffer[SBUFSIZE];
 
-static char ibuffer[BUFSIZE] = "\0";
-static char *bi;
+/* the input buffer, the lexer can tokenize this and run from it, bi is an index to this.
+   bi must be global as it is the program cursor in interactive mode */
+char ibuffer[BUFSIZE] = "\0";
+char *bi;
 
-static number_t vars[VARSIZE];
+/* a static array of variables A-Z for the small systems that have no heap */
+number_t vars[VARSIZE];
 
+/* the BASIC working memory, either malloced or allocated as a global array */
 #if MEMSIZE != 0
-static mem_t mem[MEMSIZE];
+mem_t mem[MEMSIZE];
 #else
-static mem_t* mem;
+mem_t* mem;
 #endif
-static address_t himem, memsize;
+address_t himem, memsize;
 
-static struct {mem_t varx; mem_t vary; address_t here; number_t to; number_t step; 
+/* the for stack - remembers the variable, indices, and optionally a type for stuctured BASIC */
+struct forstackitem {mem_t varx; mem_t vary; address_t here; number_t to; number_t step; 
 #ifdef HASSTRUCT
 mem_t type;
 #endif
 } forstack[FORDEPTH];
-static index_t forsp = 0;
+index_t forsp = 0;
  
-static address_t gosubstack[GOSUBDEPTH];
-static index_t gosubsp = 0;
+/* the GOSUB stack remembers an address to jump to */
+address_t gosubstack[GOSUBDEPTH];
+index_t gosubsp = 0;
 
-static address_t slocation;
+/* this variable stores the location in pushlocation() and poplocation(), used to rewind the program cursor */
+address_t slocation;
 
-static number_t x, y;
-static mem_t xc, yc;
+/* arithmetic accumulators - used by many statements, y may be obsolete in future*/
+number_t x, y;
 
-static address_t ax, ay;
+/* the names of a variable and small integer accumulator */
+mem_t xc, yc;
 
+/* an address accumulator, used a lot in string operations */
+address_t ax;
+
+/* z is another accumulator used to convert numbers and addressed to bytes and vice versa */
 /* this union is used to store larger objects into byte oriented memory */
-struct twobytes {mem_t l; mem_t h;};
-static union accunumber { number_t i; address_t a; struct twobytes b; mem_t c[sizeof(number_t)]; } z;
+accu_t z;
 
-static char *ir, *ir2;
-static token_t token;
-static token_t er;
-static mem_t ert;
+/* string index registers */
+char *ir, *ir2;
 
-static mem_t st; 
-static address_t here; 
-static address_t top;
+/* the active token */
+token_t token;
 
-static address_t nvars = 0; 
+/* the curent error, can be a token, hance token type */
+token_t er;
 
-static mem_t form = 0;
+/* a trapable error */
+mem_t ert;
 
+/* the interpreter state, interactive, run or run from EEPROM */
+mem_t st; 
+
+/* the current program location or "cursor" */
+address_t here; 
+
+/* the topmost byte of a program in memory, beginning of free BASIC RAM */
+address_t top;
+
+/* the number of variables on the heap */
+address_t nvars = 0; 
+
+/* used to format output with # */
+mem_t form = 0;
+
+/* counts the outputed characters on streams 0-3, used to emulate a real tab */
 #ifdef HASMSTAB
-static mem_t charcount[3]; /* devices 1-4 support tabing */
-static mem_t reltab = 0;
+mem_t charcount[3]; /* devices 1-4 support tabing */
+mem_t reltab = 0;
 #endif
 
+/* the lower limit of the array is one by default, can be a variable */
 #ifdef HASARRAYLIMIT
-static address_t arraylimit = 1;
+address_t arraylimit = 1;
 #else 
-const static address_t arraylimit = 1;
+const address_t arraylimit = 1;
 #endif
 
-static mem_t args;
+/* the number of arguments parsed from a command */
+mem_t args;
 
-/* this is unsigned hence address_t */
+/* the random number seed, this is unsigned hence address_t */
 #ifndef HASFLOAT
-static address_t rd;
+address_t rd;
 #else 
-static unsigned long rd;
+unsigned long rd;
 #endif
 
-/* output and input vector */
-static mem_t id;
-static mem_t od;
+/* output and input channels, used to direct output to various devices */
+mem_t id;
+mem_t od;
 
-/* default IO - not constant, can be changed at runtime 
-	through a user call */
-static mem_t idd = ISERIAL;
-static mem_t odd = OSERIAL;
+/* default IO - not constant, can be changed at runtime through a user call */
+mem_t idd = ISERIAL;
+mem_t odd = OSERIAL;
 
 /* the runtime debuglevel */
-static mem_t debuglevel = 0;
+mem_t debuglevel = 0;
 
-/* data pointer */
+/* DATA pointer, where is the current READ statement  */
 #ifdef HASDARTMOUTH
-static address_t data = 0;
-static address_t datarc = 1;
+address_t data = 0;
+address_t datarc = 1;
 #endif
     
 /* 
@@ -908,14 +905,14 @@ mem_t bnointafterrun = 0;
  * there variables are only needed if the platform has background 
  *  tasks
  */
-static long lastyield=0;
-static long lastlongyield=0;
+long lastyield=0;
+long lastlongyield=0;
 
 /* formaters lastouttoken and spaceafterkeyword to make a nice LIST */
-static mem_t lastouttoken;
-static mem_t spaceafterkeyword;
-static mem_t outliteral = 0;
-static mem_t lexliteral = 0; 
+mem_t lastouttoken;
+mem_t spaceafterkeyword;
+mem_t outliteral = 0;
+mem_t lexliteral = 0; 
 
 /* 
  * the cache for the heap search - helps the string code 
@@ -924,20 +921,16 @@ static mem_t lexliteral = 0;
  * same operation. 
  */
 #ifdef HASAPPLE1
-static mem_t bfindc, bfindd, bfindt;
-static address_t bfinda, bfindz;
+mem_t bfindc, bfindd, bfindt;
+address_t bfinda, bfindz;
 #endif
 
 /*
  * a variable for some string operations 
  */
-#ifdef HASIOT
-static int vlength;
-#endif
+int vlength;
 
 /* the timer code - very simple needs to to to a struct */
-#ifdef HASTIMER
-
 /* timer type */
 typedef struct {
     mem_t enabled;
@@ -947,8 +940,9 @@ typedef struct {
     address_t linenumber;
 } btimer_t;
 
-static btimer_t after_timer = {0, 0, 0, 0, 0};
-static btimer_t every_timer = {0, 0, 0, 0, 0};
+#ifdef HASTIMER
+btimer_t after_timer = {0, 0, 0, 0, 0};
+btimer_t every_timer = {0, 0, 0, 0, 0};
 #endif
 
 /* the event code */
@@ -967,8 +961,8 @@ typedef struct {
 } bevent_t;
 
 /* the event list */
-static int nevents = 0;
-static int ievent = 0;
+int nevents = 0;
+int ievent = 0;
 static mem_t events_enabled = 1;
 static volatile bevent_t eventlist[EVENTLISTSIZE];
 
@@ -989,8 +983,8 @@ typedef struct {
     address_t linenumber;
 } berrorh_t;
 
-static berrorh_t berrorh = {0 , 0};
-static mem_t erh = 0;
+berrorh_t berrorh = {0 , 0};
+mem_t erh = 0;
 #endif
 
 /* the string for real time clocks */
@@ -1000,7 +994,7 @@ char rtcstring[20] = { 0 };
 short bpulseunit = 10; 
 
 /* only needed for POSIXNONBLOCKING */
-static mem_t breakcondition = 0;
+mem_t breakcondition = 0;
 
 /* 
  * Function prototypes, ordered by layers
@@ -1100,15 +1094,15 @@ char mqttinch();
 void ebegin();
 void eflush();
 address_t elength();
-short eread(address_t);
-void eupdate(address_t, short);
+mem_t eread(address_t);
+void eupdate(address_t, mem_t);
 
 /* arduino io functions */
 void aread();
 void dread();
-void awrite(number_t, number_t);
-void dwrite(number_t, number_t);
-void pinm(number_t, number_t);
+void awrite(address_t, address_t);
+void dwrite(address_t, address_t);
+void pinm(address_t, address_t);
 void bmillis();
 void bpulsein();
 void xpulse();
@@ -1267,6 +1261,7 @@ void bdebug(const char*);
 /* the arithemtic stack */
 void push(number_t);
 number_t pop();
+address_t popaddress();
 void drop();
 void clearst();
 
@@ -1290,7 +1285,7 @@ void iodefaults();
 /* signal handling */
 void signalon();
 void signaloff();
-void signalhandler();
+void signalhandler(int);
 
 /* character and string I/O functions */
 /* we live in world where char may be signed or unsigned and keep it 
@@ -1301,7 +1296,7 @@ int cheof(int c) { if ((c == -1) || (c == 255)) return 1; else return 0; }
 char inch();
 char checkch();
 short availch();
-void inb(char*, short);
+void inb(char*, index_t);
 void ins(char*, address_t); 
 
 /* output */
@@ -1310,13 +1305,14 @@ void outcr();
 void outspc();
 void outs(char*, address_t);
 void outsc(const char*);
-void outscf(const char *, short);
+void outscf(const char *, index_t);
 
 /* I/O of number_t - floats and integers */
 address_t parsenumber(char*, number_t*);
 address_t parsenumber2(char*, number_t*);
 address_t writenumber(char*, wnumber_t); 
 address_t writenumber2(char*, number_t);
+address_t tinydtostrf(number_t, index_t, char*);
 char innumber(number_t*);
 void outnumber(number_t);
 
@@ -1352,7 +1348,7 @@ void storeline();
 
 /* read arguments from the token stream and process them */
 char termsymbol();
-char expect(mem_t, mem_t);
+char expect(token_t, mem_t);
 char expectexpr();
 void parsearguments();
 void parsenarguments(char);
@@ -1410,18 +1406,17 @@ void xif();
 
 /* FOR NEXT loops */
 void findnextcmd();
+void findbraket(token_t, token_t);
 void xfor();
 void xbreak();
 void xcont();
 void xnext();
 
 /* WHILE WEND*/
-void findwendcmd();
 void xwhile();
 void xwend();
 
 /* REPEAT UNTIL */
-void finduntilcmd();
 void xrepeat();
 void xuntil();
 
@@ -1440,7 +1435,7 @@ void dumpmem(address_t, address_t, char);
 void xlocate();
 
 /* file access and other i/o */
-void stringtobuffer();
+void stringtobuffer(char*);
 void getfilename(char*, char);
 void xsave();
 void xload(const char*);
@@ -1468,7 +1463,6 @@ void xfcircle();
 /* the darkarts */
 void xmalloc();
 void xfind();
-void xfind2();
 void xeval();
 
 /* IoT commands */
@@ -1507,7 +1501,7 @@ void xon();
 
 /* timers and interrupts */
 void xtimer();
-void resettimer();
+void resettimer(btimer_t*);
 
 /* structured BASIC extensions */
 void xwhile();
@@ -1528,3 +1522,4 @@ void statement();
 /* the extension functions */
 void bsetup();
 void bloop();
+

@@ -65,7 +65,7 @@
  *	leave this unset if you use the definitions below
  */
 
-#undef USESPICOSERIAL 
+#undef USESPICOSERIAL
 #undef ARDUINOPS2
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
@@ -176,7 +176,7 @@
 
 /* PS2 Keyboard pins for AVR - use one interrupt pin 2 and one date pin 
     5 not 4 because 4 conflicts with SDPIN of the standard SD shield */
-#define PS2DATAPIN 5
+#define PS2DATAPIN 3
 #define PS2IRQPIN  2
 
 /* Ethernet - 10 is the default */
@@ -265,8 +265,8 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #undef ARDUINODHT
 #define DHTTYPE DHT22
 #define DHTPIN 2
-#define  ARDUINOSHT
-#define  ARDUINOMQ2
+#define ARDUINOSHT
+#define ARDUINOMQ2
 #define MQ2PIN A0
 #undef ARDUINOLMS6
 #undef ARDUINOAHT
@@ -451,7 +451,7 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #undef USESPICOSERIAL
 #define DISPLAYCANSCROLL
 #define ARDUINOILI9488
-#undef  ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #define ARDUINOI2CEEPROM
 #define ARDUINOPRT
 #define ARDUINOSD
@@ -468,7 +468,7 @@ const char zx81pins[] = {7, 8, 9, 10, 11, 12, A0, A1, 2, 3, 4, 5, 6 };
 #undef USESPICOSERIAL
 #define DISPLAYCANSCROLL
 #define ARDUINOILI9488
-#undef  ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #undef ARDUINOPRT
 #undef ARDUINOSD
 #define RP2040LITTLEFS
@@ -537,20 +537,11 @@ const mem_t bsystype = SYSTYPE_SAM;
 const mem_t bsystype = SYSTYPE_XMC;
 #elif defined(ARDUINO_ARCH_SMT32)
 const mem_t bsystype = SYSTYPE_SMT32;
+#elif defined(ARDUINO_ARCH_RENESAS)
+const mem_t bsystype = SYSTYPE_NRENESA;
 #else
 const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif 
-
-/* 
- * the non AVR arcitectures - this is somehow raw
- * the ARDUINO 100 definition is probably not needed anymore
- */
-
-#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040) 
-/* removed, unneeded, takes more space than it should */
-/* #include <avr/dtostrf.h> */
-#define ARDUINO 100
-#endif
 
 /* 
  *  DUE has no tone, we switch to emulation mode automatically
@@ -594,7 +585,7 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 /* radio needs SPI */
-#ifdef ARDUINORF24
+#if defined(ARDUINORF24)
 #define ARDUINOSPI
 #endif
 
@@ -604,7 +595,7 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 
 /* networking may need SPI */
-#ifdef ARDUINOMQTT
+#if defined(ARDUINOMQTT)
 #define ARDUINOSPI
 #endif
 
@@ -677,7 +668,6 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 /*
  * ESPy stuff, pgmspace has changed location 
  */
-
 #ifdef ARDUINOPROGMEM
 #ifdef ARDUINO_ARCH_ESP32
 #include <pgmspace.h>
@@ -811,6 +801,9 @@ const mem_t bsystype = SYSTYPE_UNKNOWN;
 #if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD)
 #include <WiFiNINA.h>
 #endif
+#if defined(ARDUINO_UNOR4_WIFI)
+#include <WiFiS3.h>
+#endif
 #endif
 #include <PubSubClient.h>
 #endif
@@ -916,7 +909,6 @@ unsigned int i2ceepromsize = 0;
 /*
  * Software SPI only on Mega2560
  */
-
 #ifndef ARDUINO_AVR_MEGA2560
 #undef SOFTWARE_SPI_FOR_SD
 #endif
@@ -956,13 +948,13 @@ void signalon() {}
  * Arduino information from
  * data from https://docs.arduino.cc/learn/programming/memory-guide
  */
-#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_STM32)
+#if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_STM32) || defined(ARDUINO_ARCH_RENESAS)
 extern "C" char* sbrk(int incr);
 long freeRam() {
   char top;
   return &top - reinterpret_cast<char*>(sbrk(0));
 }
-#elif defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_LGT8F)
+#elif defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_LGT8F) 
 long freeRam() {
   extern int __heap_start,*__brkval;
   int v;
@@ -984,10 +976,13 @@ long freeRam() {
  * RP2040 cannot measure, we set to 16 bit full address space
  */
 long freememorysize() {
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_STM32)
+#if defined(ARDUINO_ARCH_RENESAS)
+  return freeRam() - 2000;
+#endif
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_STM32) 
   return freeRam() - 4000;
 #endif
-#if defined(ARDUINO_ARCH_XMC)
+#if defined(ARDUINO_ARCH_XMC) 
   return freeRam() - 2000;
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_LGT8F) 
@@ -1032,7 +1027,7 @@ void(* callzero)() = 0;
 #endif
 
 void restartsystem() {
-    eflush(); /* if there is a I2C eeprom dummy, flush the buffer */
+  eflush(); /* if there is a I2C eeprom dummy, flush the buffer */
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   ESP.restart();
 #endif
@@ -1064,6 +1059,14 @@ RTCZero rtc;
 #include "STM32LowPower.h"
 STM32RTC& rtc = STM32RTC::getInstance();
 #endif
+
+/* the NRENESA board have a buildin RTC as well */
+#if defined(ARDUINO_ARCH_RENESAS)
+#define HASBUILTINRTC
+#include "RTC.h"
+RTCTime rtc;
+#endif
+
 
 /* for ESP32 we also include the time stuctures and offer a POSIX style clock*/
 #if defined(ARDUINO_ARCH_ESP32)
@@ -1439,8 +1442,8 @@ void vgacolor(short c) {
 }
 void plot(int x, int y) { tft.drawPixel(x, y, dspfgcolor); }
 void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1, dspfgcolor); }
-void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, x0, x1, y1, dspfgcolor);}
-void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, x0, x1, y1, dspfgcolor); }
+void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, y0, x1, y1, dspfgcolor);}
+void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, y0, x1, y1, dspfgcolor); }
 void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r, dspfgcolor); }
 void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
 #endif
@@ -1519,8 +1522,8 @@ void vgacolor(short c) {
 }
 void plot(int x, int y) { tft.drawPixel(x, y, dspfgcolor); }
 void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1, dspfgcolor); }
-void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, x0, x1, y1, dspfgcolor);}
-void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, x0, x1, y1, dspfgcolor); }
+void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, y0, x1, y1, dspfgcolor);}
+void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, y0, x1, y1, dspfgcolor); }
 void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r, dspfgcolor); }
 void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
 #endif
@@ -1873,7 +1876,7 @@ int kbdstat(char c) {return 0; }
 
 char kbdavailable(){
 #ifdef PS2KEYBOARD
-	return keyboard.available();
+	return keyboard.available(); 
 #else
 #ifdef PS2FABLIB
   if (fabgllastchar) return Terminal.available()+1; else return Terminal.available();
@@ -1893,15 +1896,16 @@ char kbdavailable(){
 #ifdef HASKEYPAD
 /* a poor man's debouncer, unstable state returns 0 */
   char c=keypadread();
-  if (c) bdelay(2); else return 0;
-  if (c == keypadread()) return 1; else return 0;
-	/* return keypadread()!=0; */
+  if (c != 0) {
+    bdelay(2); 
+    if (c == keypadread()) return 1;
+  }
 #endif	
 	return 0;
 }
 
 char kbdread() {
-  char c;
+  char c = 0;
   while(!kbdavailable()) byield();
 #ifdef PS2KEYBOARD  
 	c=keyboard.read();
@@ -1921,16 +1925,17 @@ char kbdread() {
 #endif
 #endif
 #ifdef HASKEYPAD
-	c=keypadread();
+  if (c == 0) { /* we have no character from a real keyboard, ask the keypad */
+	  c=keypadread();
 /* if the keypad is in non repeat mode, block */
-	if (!kbdrepeat) while(kbdavailable()) byield();
+	  if (!kbdrepeat) while(kbdavailable()) byield();
+  }
 #endif	
 	if (c == 13) c=10;
 	return c;
 }
 
 char kbdcheckch() {
-char c;
 #ifdef PS2KEYBOARD
 /*
  * only works with the patched library https://github.com/slviajero/PS2Keyboard
@@ -1943,7 +1948,7 @@ char c;
  * GET does not work properly with it as there is no peek functionality which is needed
  * for non blocking IO and the ability to stop programs
  */
-  if (kbdavailable()) return kbdread();
+  if (kbdavailable()) return kbdread(); else return 0;
 #endif
 #else
 #ifdef PS2FABLIB
@@ -2923,11 +2928,12 @@ void rtcset(uint8_t i, short v) {
 /*
  * Built-in clocks of STM32 and MKR are based on the RTCZero interface
  * an rtc object is created after loading the libraries
+ * for NRENESAs the interface is slightly different
  */
-
+#ifndef ARDUINO_ARCH_RENESAS
 /* begin method */
 void rtcbegin() {
-  rtc.begin(); /* 24 hours mode */
+  rtc.begin(); /* 24 hours mode */ 
 }
 
 /* get the time */
@@ -2981,6 +2987,67 @@ void rtcset(uint8_t i, short v) {
       return; 
    }
 }
+#else 
+/* NRENESA code, interface different to my great ennui! */
+/* begin method */
+void rtcbegin() {
+  RTC.begin(); /* 24 hours mode */ 
+}
+
+/* get the time */
+short rtcget(short i) { 
+    RTC.getTime(rtc);
+    switch (i) {
+    case 0: 
+      return rtc.getSeconds();
+    case 1:
+      return rtc.getMinutes();      
+    case 2:
+      return rtc.getHour();
+    case 3:
+      return static_cast<int>(rtc.getDayOfWeek());
+    case 4:
+      return rtc.getDayOfMonth();
+    case 5:
+      return Month2int(rtc.getMonth());
+    case 6:
+      return rtc.getYear();
+    default:
+      return 0;
+   }
+}
+
+/* set the time */
+void rtcset(uint8_t i, short v) { 
+  RTC.getTime(rtc);
+  switch (i) {
+    case 0: 
+      rtc.setSecond(v);
+      break;
+    case 1: 
+      rtc.setMinute(v);
+      break;    
+    case 2:
+      rtc.setHour(v);
+      break;
+    case 3:
+      rtc.setDayOfWeek(static_cast<DayOfWeek>(v));
+      break;
+    case 4:
+      rtc.setDayOfMonth(v);
+      break;
+    case 5:
+      rtc.setMonthOfYear(static_cast<Month>(v-1));
+      break;
+    case 6:
+      rtc.setYear(v);
+      break;
+    default:
+      return; 
+   }
+   RTC.setTime(rtc);
+}
+#endif
 #else
 #ifdef ARDUINORTCEMULATION
 #define HASCLOCK
@@ -3331,7 +3398,7 @@ void netbegin() {
 	WiFi.begin(ssid, password);
 	WiFi.setAutoReconnect(1);
 #endif
-#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD)
+#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_UNOR4_WIFI)
 	WiFi.begin(ssid, password);
 #endif
 #endif
@@ -3349,7 +3416,7 @@ void netstop() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   WiFi.mode(WIFI_OFF);
 #endif
-#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD)
+#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_UNOR4_WIFI)
   WiFi.end();
 #endif
 #endif
@@ -3366,7 +3433,7 @@ void netreconnect() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   WiFi.reconnect(); 
   bdelay(1000); 
-#elif defined(ARDUINO_ARCH_SAMD)
+#elif defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_UNOR4_WIFI)
   WiFi.end();
   WiFi.begin(ssid, password);
   bdelay(1000);
@@ -3609,7 +3676,7 @@ address_t elength() {
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
   return EEPROMSIZE;
 #endif
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_STM32)
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_STM32) || defined(ARDUINO_ARCH_RENESAS)
   return EEPROM.length(); 
 #endif
 #ifdef ARDUINO_ARCH_LGT8F 
@@ -3618,7 +3685,7 @@ address_t elength() {
   return 0;
 }
 
-void eupdate(address_t a, short c) { 
+void eupdate(address_t a, mem_t c) { 
 #if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F) || defined(ARDUINO_ARCH_XMC)
   EEPROM.write(a, c);
 #else
@@ -3630,7 +3697,7 @@ void eupdate(address_t a, short c) {
 #endif
 }
 
-short eread(address_t a) { 
+mem_t eread(address_t a) { 
 #ifdef ARDUINO_ARCH_STM32
   return (signed char) eeprom_buffered_read_byte(a); 
 #else
@@ -3643,7 +3710,7 @@ address_t elength() {
   return i2ceepromsize;
 }
 
-void eupdate(address_t a, short c) { 
+void eupdate(address_t a, mem_t c) { 
 #if defined(ARDUINOI2CEEPROM_BUFFERED)
   EFSRAW.rawwrite(a, c);
 #else
@@ -3661,7 +3728,7 @@ void eupdate(address_t a, short c) {
 #endif
 }
 
-short eread(address_t a) { 
+mem_t eread(address_t a) { 
 #ifdef ARDUINOI2CEEPROM_BUFFERED
   return (mem_t) EFSRAW.rawread(a); 
 #else
@@ -3684,8 +3751,8 @@ short eread(address_t a) {
 #else
 /* no EEPROM present */
 address_t elength() { return 0; }
-void eupdate(address_t a, short c) { return; }
-short eread(address_t a) { return 0; }
+void eupdate(address_t a, mem_t c) { return; }
+mem_t eread(address_t a) { return 0; }
 #endif
 #endif
 
@@ -3694,16 +3761,20 @@ short eread(address_t a) { return 0; }
  *  awrite requires ESP32 2.0.2 core, else disable awrite() 
  */ 
 
-void aread(){ push(analogRead(pop())); }
+void aread(){ 
+  push(analogRead(popaddress())); 
+}
 
-void dread(){ push(digitalRead(pop())); }
+void dread(){ 
+  push(digitalRead(popaddress())); 
+}
 
-void awrite(number_t p, number_t v){
+void awrite(address_t p, address_t v){
 	if (v >= 0 && v<256) analogWrite(p, v);
 	else error(EORANGE);
 }
 
-void dwrite(number_t p, number_t v){
+void dwrite(address_t p, address_t v){
 	if (v == 0) digitalWrite(p, LOW);
 	else if (v == 1) digitalWrite(p, HIGH);
 	else error(EORANGE);
@@ -3716,7 +3787,7 @@ void dwrite(number_t p, number_t v){
  *  Example: OUTPUT on ESP32 is 3 and 1 is assigned to INPUT.
  *  XMC also needs special treatment here.
  */
-void pinm(number_t p, number_t m){
+void pinm(address_t p, address_t m){
   uint8_t ml = m;
   uint8_t pl = p;
   switch (ml) {
@@ -3734,10 +3805,14 @@ void pinm(number_t p, number_t m){
 
 /* read a pulse, units given by bpulseunit - default 10 microseconds */
 void bpulsein() { 
+  address_t x,y;
   unsigned long t, pt;
+  
   t=((unsigned long) pop())*1000;
-  y=pop(); 
-  x=pop(); 
+  y=popaddress(); 
+  x=popaddress();
+  if (er != 0) return;
+   
   pt=pulseIn(x, y, t)/bpulseunit; 
   push(pt);
 }
@@ -5394,9 +5469,11 @@ void bintroutine3() {
   detachInterrupt(digitalPinToInterrupt(eventlist[3].pin)); 
 }
 
-#ifndef ARDUINO_ARCH_MBED_RP2040
+
+#if !(defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_MBED_NANO) || defined(ARDUINO_ARCH_RENESAS))
 typedef int PinStatus;
 #endif
+
 
 mem_t enableevent(int pin) {
   mem_t interrupt;
