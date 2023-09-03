@@ -631,7 +631,7 @@ void pinm(address_t p, address_t m){
 }
 #endif
 
-/* we need to to millis by hand except for RASPPI with wiring */
+/* we need to do millis by hand except for RASPPI with wiring */
 #if !defined(POSIXWIRING)
 unsigned long millis() { 
 	struct timeb thetime;
