@@ -3149,7 +3149,6 @@ PubSubClient bmqtt(bwifi);
 #endif
 
 /* the buffers of the outgoing and incoming MQTT topic, they are char!! */ 
-#define MQTTLENGTH 32
 char mqtt_otopic[MQTTLENGTH];
 char mqtt_itopic[MQTTLENGTH];
 
@@ -3943,7 +3942,6 @@ void fsbegin() {
 #endif
 #if defined(ESPSPIFFS) && defined(ARDUINO_ARCH_ESP32) 
  	if (SPIFFS.begin()) fsstart=1; else fsstart=0;
- 	}
 #endif
 #ifdef RP2040LITTLEFS
 	myFS = new LittleFS_MBED();

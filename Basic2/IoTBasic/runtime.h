@@ -82,6 +82,12 @@ extern uint8_t vt52active;
 /* the string buffer the interpreter needs, here to be known by BASIC */
 extern int8_t spistrbuf1[SPIRAMSBSIZE], spistrbuf2[SPIRAMSBSIZE];
 
+/* the mqtt variable the interpreter needs */
+#define MQTTLENGTH 32
+extern char mqtt_otopic[MQTTLENGTH];
+extern char mqtt_itopic[MQTTLENGTH];
+extern char mqttname[];
+
 /*
  * These functions are always empty on Arduino, they are only used in 
  * the POSIX branch of the code.
