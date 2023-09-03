@@ -65,7 +65,7 @@
  *	leave this unset if you use the definitions below
  */
 
-#undef USESPICOSERIAL 
+#undef USESPICOSERIAL
 #undef ARDUINOPS2
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
@@ -1067,6 +1067,7 @@ STM32RTC& rtc = STM32RTC::getInstance();
 RTCTime rtc;
 #endif
 
+
 /* for ESP32 we also include the time stuctures and offer a POSIX style clock*/
 #if defined(ARDUINO_ARCH_ESP32)
 #include "time.h"
@@ -1441,8 +1442,8 @@ void vgacolor(short c) {
 }
 void plot(int x, int y) { tft.drawPixel(x, y, dspfgcolor); }
 void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1, dspfgcolor); }
-void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, x0, x1, y1, dspfgcolor);}
-void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, x0, x1, y1, dspfgcolor); }
+void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, y0, x1, y1, dspfgcolor);}
+void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, y0, x1, y1, dspfgcolor); }
 void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r, dspfgcolor); }
 void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
 #endif
@@ -1521,8 +1522,8 @@ void vgacolor(short c) {
 }
 void plot(int x, int y) { tft.drawPixel(x, y, dspfgcolor); }
 void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1, dspfgcolor); }
-void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, x0, x1, y1, dspfgcolor);}
-void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, x0, x1, y1, dspfgcolor); }
+void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, y0, x1, y1, dspfgcolor);}
+void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, y0, x1, y1, dspfgcolor); }
 void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r, dspfgcolor); }
 void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
 #endif
