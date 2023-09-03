@@ -72,7 +72,7 @@
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
 #undef ARDUINOPRT
-#define DISPLAYCANSCROLL
+#undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
@@ -84,9 +84,9 @@
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #undef ARDUINOEEPROM
-#undef ARDUINOI2CEEPROM
+#define ARDUINOI2CEEPROM
 #undef ARDUINOEFS
-#define ARDUINOSD
+#undef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef STM32SDIO
@@ -99,7 +99,7 @@
 #undef ARDUINOETH
 #undef ARDUINOMQTT
 #undef ARDUINOSENSORS
-#undef ARDUINOSPIRAM 
+#define ARDUINOSPIRAM 
 #undef STANDALONE
 #undef STANDALONESECONDSERIAL
 
@@ -261,8 +261,10 @@
 #define RTCI2CADDR 0x068
 
 /* the size of the plain I2C EEPROM, typically a clock */
-#define I2CEEPROMADDR 0x057
+/* #define I2CEEPROMADDR 0x057 */
 /* #define I2CEEPROMSIZE 4096 */
+/* definition for an external EEPROM */
+#define I2CEEPROMADDR 0x050
 
 /* is the I2C EEPROM buffered */
 #define ARDUINOI2CEEPROM_BUFFERED
@@ -976,4 +978,23 @@
 #ifdef ARDUINO_AVR_DUEMILANOVE
 #undef LINECACHESIZE
 #define ARDUINOPICOSERIAL
+#endif
+
+/* the SPI RAM interface */
+#ifdef ARDUINOSPIRAM
+#define USEMEMINTERFACE
+#define SPIRAMINTERFACE
+#endif
+
+/* 
+ * to handle strings in situations with a memory interface two more buffers are 
+ * needed they store intermediate results of string operations. The buffersize 
+ * limits the maximum string length indepents of how big strings are set
+ * 
+ * default is 128, on an MEGA 512 is possible
+ */
+#ifdef ARDUINO_AVR_MEGA2560
+#define SPIRAMSBSIZE 512
+#else
+#define SPIRAMSBSIZE 128
 #endif

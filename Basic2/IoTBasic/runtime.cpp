@@ -5065,8 +5065,6 @@ void detachinterrupt(uint8_t pin) {  };
  */
 
 #ifdef ARDUINOSPIRAM
-#define USEMEMINTERFACE
-#define SPIRAMINTERFACE
 
 /* 
  *  we use the standard slave select pin as default 
@@ -5093,9 +5091,7 @@ uint16_t spirambegin() {
   //SPI.transfer(SPIRAMBYTE);
   SPI.transfer(SPIRAMSEQ);
   digitalWrite(RAMPIN, HIGH);
-  /* only 32 kB addressable with 16 bit integers because address_t has to fit into number_t 
-    the interpreter would work also with 64kB but PEEK, POKE and the DARKARTS are broken then*/
-  if (maxnum>32767) return 65534; else return 32766;  
+  return 65535;
 }
 
 /* the simple unbuffered byte read, with a cast to signed 8 bit integer */
@@ -5171,7 +5167,7 @@ void spiram_rwbufferflush() {
    }
 }
 
-uint8_t spiram_rwbufferread(uint16_t a) {
+int8_t spiram_rwbufferread(uint16_t a) {
 /* page fault, do read, ignore the ro buffer buffer */
   uint16_t p=a & spiram_addrmask;
   if (!spiram_rwbuffervalid || (p != spiram_rwbufferaddr)) {
@@ -5247,8 +5243,8 @@ void spiramrawwrite(uint16_t a, int8_t c) {
 #endif
 
 /* the string buffers of the memory interface */
-char spistrbuf1[SPIRAMSBSIZE];
-char spistrbuf2[SPIRAMSBSIZE];
+int8_t spistrbuf1[SPIRAMSBSIZE];
+int8_t spistrbuf2[SPIRAMSBSIZE];
 #endif
 
 /* 
