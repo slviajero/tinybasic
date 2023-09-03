@@ -8243,7 +8243,8 @@ void setup() {
  	if (!autorun()) {
 		printmessage(MGREET); outspc();
 		printmessage(EOUTOFMEMORY); outspc(); 
-		outnumber(memsize+1); outspc();
+		if (memsize < maxnum) outnumber(memsize+1); else { outnumber(memsize/1024+1); outch('k'); }
+		outspc();
 		outnumber(elength()); outcr();
  	}
 

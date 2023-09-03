@@ -79,6 +79,9 @@ extern uint8_t reltab; /* flag for tabing */
 extern uint8_t breaksignal; 
 extern uint8_t vt52active;
 
+/* the string buffer the interpreter needs, here to be known by BASIC */
+extern int8_t spistrbuf1[SPIRAMSBSIZE], spistrbuf2[SPIRAMSBSIZE];
+
 /*
  * These functions are always empty on Arduino, they are only used in 
  * the POSIX branch of the code.
@@ -462,7 +465,6 @@ void mqttouts(const char*, uint16_t);
 void mqttwrite(const char);
 char mqttread();
 uint16_t mqttins(char*, uint16_t);
-char mqttinch();
 uint16_t mqttavailable();
 char mqttcheckch();
 

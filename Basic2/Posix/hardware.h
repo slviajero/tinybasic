@@ -196,3 +196,6 @@ unsigned long millis();
 #define GOSUBDEPTH      64
 #define FORDEPTH        64
 #define LINECACHESIZE   64
+
+/* the buffer size for simulated serial RAM */
+#define SPIRAMSBSIZE 512
