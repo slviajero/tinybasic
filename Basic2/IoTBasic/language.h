@@ -36,9 +36,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#define	BASICFULL
+#undef	BASICFULL
 #undef	BASICINTEGER
-#undef	BASICSIMPLE
+#define	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
@@ -65,7 +65,6 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
-#define HASMSTAB
 #define HASARRAYLIMIT
 #define HASSTRUCT
 
@@ -89,7 +88,6 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
-#undef HASMSTAB
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
 #endif
@@ -114,7 +112,6 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
-#define HASMSTAB
 #define HASARRAYLIMIT
 #define HASSTRUCT
 #endif
@@ -139,7 +136,6 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
-#undef  HASMSTAB
 #undef 	HASARRAYLIMIT
 #undef 	HASSTRUCT
 #endif
@@ -164,7 +160,6 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
-#define HASMSTAB
 #define HASARRAYLIMIT
 #define HASSTRUCT
 #endif
@@ -189,7 +184,6 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
-#undef HASMSTAB
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
 #endif
@@ -214,7 +208,6 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
-#undef HASMSTAB
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
 #endif
@@ -248,6 +241,4 @@
 #undef HASGRAPH
 #endif
 
-#if !defined(TERMHASMSTAB)
-#undef HASMSTAB
-#endif
+

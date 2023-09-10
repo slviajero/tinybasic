@@ -299,24 +299,6 @@ typedef struct {
 
 
 /* 
- * system type identifiers
- */
-
-#define SYSTYPE_UNKNOWN	0
-#define SYSTYPE_AVR 	1
-#define SYSTYPE_ESP8266 2
-#define SYSTYPE_ESP32	3
-#define SYSTYPE_RP2040  4
-#define SYSTYPE_SAM     5
-#define SYSTYPE_XMC		6
-#define SYSTYPE_SMT32	7
-#define SYSTYPE_NRENESA 8
-#define SYSTYPE_POSIX	32
-#define SYSTYPE_MSDOS	33
-#define SYSTYPE_MINGW   34
-#define SYSTYPE_RASPPI  35
-
-/* 
  * the events API for Arduino with interrupt service routines
  * analogous to the timer API
  * 

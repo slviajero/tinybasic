@@ -33,40 +33,7 @@
 #include "language.h"
 #include "basic.h"
 
-
 /* Global BASIC definitions */
-
-/*
- * defining the systype variable which informs BASIC about the platform at runtime
- */
-
-#if defined(ARDUINO_ARCH_AVR)
-const mem_t bsystype = SYSTYPE_AVR;
-#elif defined(ARDUINO_ARCH_ESP8266)
-const mem_t bsystype = SYSTYPE_ESP8266;
-#elif defined(ARDUINO_ARCH_ESP32)
-const mem_t bsystype = SYSTYPE_ESP32;
-#elif defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040)
-const mem_t bsystype = SYSTYPE_RP2040;
-#elif defined(ARDUINO_ARCH_SAM) && defined(ARDUINO_ARCH_SAMD)
-const mem_t bsystype = SYSTYPE_SAM;
-#elif defined(ARDUINO_ARCH_XMC)
-const mem_t bsystype = SYSTYPE_XMC;
-#elif defined(ARDUINO_ARCH_SMT32)
-const mem_t bsystype = SYSTYPE_SMT32;
-#elif defined(ARDUINO_ARCH_RENESAS)
-const mem_t bsystype = SYSTYPE_NRENESA;
-#elif defined(MSDOS)
-const char bsystype = SYSTYPE_MSDOS
-#elif defined(RASPPI)
-const char bsystype = SYSTYPE_PASPPI
-#elif defined(MINGW)
-const char bsystype = SYSTYPE_MINGW
-#elif defined(POSIX)
-const char bsystype = SYSTYPE_POSIX;
-#else
-const mem_t bsystype = SYSTYPE_UNKNOWN;
-#endif
 
 /*
  *	All BASIC keywords for the tokens
@@ -468,7 +435,9 @@ char ibuffer[BUFSIZE] = "\0";
 char *bi;
 
 /* a static array of variables A-Z for the small systems that have no heap */
+#ifndef HASAPPLE1
 number_t vars[VARSIZE];
+#endif
 
 /* the BASIC working memory, either malloced or allocated as a global array */
 #if MEMSIZE != 0
@@ -564,7 +533,7 @@ address_t datarc = 1;
  * bnointafterrun is a flag to remember if called as command
  * line argument, in this case we don't return to interactive 
  */
-#ifndef ARDUINO
+#ifdef HASARGS
 int bargc;
 char** bargv;
 mem_t bnointafterrun = 0;
@@ -747,17 +716,17 @@ void eload() {
 
 /* autorun something from EEPROM or a filesystem */
 char autorun() {
-#if defined(ARDUINOEEPROM) || defined(ARDUINOI2CEEPROM) || ! defined(ARDUINO) 
-	if (eread(0) == 1){ /* autorun from the EEPROM */
-  	egetnumber(1, addrsize);
-  	top=z.a;
-  	st=SERUN;
-  	return 1; /* EEPROM autorun overrules filesystem autorun */
-	} 
-#endif
+	if (elength()>0)
+		if (eread(0) == 1) { /* autorun from the EEPROM */
+  			egetnumber(1, addrsize);
+  			top=z.a;
+  			st=SERUN;
+  			return 1; /* EEPROM autorun overrules filesystem autorun */
+		} 
+
 #if defined(FILESYSTEMDRIVER) || !defined(ARDUINO)
 /* on a POSIX or DOS platform, we check the command line first and the autoexec */
-#ifndef ARDUINO
+#ifdef HASARGS
 	if (bargc > 0) {
 		if (ifileopen(bargv[1])) {
 			xload(bargv[1]);
@@ -988,7 +957,9 @@ number_t getvar(mem_t c, mem_t d){
 	if (DEBUG) { outsc("* getvar "); outch(c); outch(d); outspc(); outcr(); }
 
 /* the static variable array */
+#ifndef HASAPPLE1
 	if (c >= 65 && c <= 91 && d == 0) return vars[c-65];
+#endif
 
 /* the special variables */
 	if ( c == '@' )
@@ -1046,17 +1017,19 @@ void setvar(mem_t c, mem_t d, number_t v){
 	if (DEBUG) { outsc("* setvar "); outch(c); outch(d); outspc(); outnumber(v); outcr(); }
 
 /* the static variable array */
+#ifndef HASAPPLE1
 	if (c >= 65 && c <= 91 && d == 0) {
 		vars[c-65]=v;
 		return;
 	}
+#endif
 
 /* the special variables */
 	if ( c == '@' )
 		switch (d) {
 			case 'S': 
 				ert=v;
-        ioer=v;
+        		ioer=v;
 				return;
 			case 'I':
 				id=v;
@@ -1079,7 +1052,7 @@ void setvar(mem_t c, mem_t d, number_t v){
 #endif
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
 			case 'X':
-        dspsetcursorx((int)v);
+        		dspsetcursorx((int)v);
 /* set the charcount, this is half broken but works */
 #ifdef HASMSTAB
 				if (od > 0 && od <= OPRT) charcount[od-1]=v;
@@ -1109,7 +1082,9 @@ void clrvars() {
 	address_t i;
 
 /* delete all statics */
+#ifndef HASAPPLE1
 	for (i=0; i<VARSIZE; i++) vars[i]=0;
+#endif
 
 #ifdef HASAPPLE1
 /* clear the heap */
@@ -1429,7 +1404,7 @@ char* getstring(char c, char d, address_t b, address_t j) {
 
     
 /* the arguments string on POSIX systems */
-#ifndef ARDUINO
+#ifdef HASARGS
 	if ( c == '@' && d == 'A' ) {
 		if (bargc > 2) return bargv[2]; else return 0;
 	}
@@ -1577,7 +1552,7 @@ address_t lenstring(char c, char d, address_t j){
 	}
     
 /* the arguments string on POSIX systems */
-#ifndef ARDUINO
+#ifdef HASARGS
 	if ( c == '@' && d == 'A' ) {
 		a=0;
 		if (bargc > 2) while(a < SBUFSIZE && bargv[2][a] != 0) a++;
@@ -2254,12 +2229,12 @@ address_t writenumber2(char *c, number_t vi) {
 	f=floor(vi);
 	if (f == vi && fabs(vi) < maxnum) return writenumber(c, vi);
   
-/* floats are displayed using the libraries */
-#ifndef ARDUINO
-	return sprintf(c, "%g", vi);
-#else
+/* earlier, floats where displayed in POSIx using the libraties
+ * return sprintf(c, "%g", vi);
+ * we dont do this any more 
+ */
 
-/* on an Arduino we have gcc, we check if we have anything to write */
+/* we check if we have anything to write */
 	if (!isfinite(vi)) {
     c[0]='*';
     c[1]=0;
@@ -2295,7 +2270,6 @@ address_t writenumber2(char *c, number_t vi) {
 	c[i]=0;
 	return i;
 
-#endif
 }
 #endif
 
@@ -2703,7 +2677,7 @@ void storetoken() {
  * the program editor uses these functions. 
  *
  * currently only the SPIRAM and the EEPROM direct edit interface is implemented. 
- * This is handled in hardware-arduino.h.
+ * This is handled in the runtime library.
  * 
  * USEMEMINTERFACE is the macro to control this.
  * 
@@ -5200,7 +5174,7 @@ void xrun(){
 	eflush();
 
 /* if called from command line with file arg - exit after run */
-#ifndef ARDUINO
+#ifdef HASARGS
     if (bnointafterrun) restartsystem();
 #endif
 }
@@ -5937,7 +5911,7 @@ void xset(){
 /* change the output device to a true TAB */
 #ifdef HASMSTAB
 		case 11:
-      reltab=args;
+    		reltab=args;
 			break;
 #endif
 /* change the lower array limit */
@@ -7041,7 +7015,10 @@ void xusr() {
 #else
 				case 33: push(0); break;
 #endif
-        case 34: push(0); break;
+        		case 34: push(0); break;
+#ifdef FASTTICKERPROFILE
+				case 35: push(avgfasttick); break;
+#endif
 /* - 48 reserved, don't use */
 				case 48: push(id); break;
 				case 49: push(idd); break;
@@ -8062,8 +8039,8 @@ void statement(){
 #endif
 
 /* and after each statement, check the break pin */
-#if defined(BREAKPIN) && ( defined(ARDUINO) || defined(RASPPI) )
-		if (digitalRead(BREAKPIN) == 0) {
+#if defined(BREAKPIN) 
+		if (getbreakpin() == 0) {
 			st=SINT; 
 			return;
 		}; 
@@ -8249,9 +8226,8 @@ void setup() {
  	}
 
 /* activate the BREAKPIN */
-#if defined(BREAKPIN) && ( defined(ARDUINO) || defined(RASPPI) )
-	pinMode(BREAKPIN, INPUT_PULLUP);
-#endif
+	breakpinbegin();
+
 }
 
 /* 
@@ -8309,13 +8285,15 @@ void loop() {
 
 }
 
-/* if we are not on an Arduino */
+/* if we are not on an Arduino, we need a main */
 #ifndef ARDUINO
 int main(int argc, char* argv[]){
 
 /* save the arguments if there are any */
+#ifdef HASARGS
 	bargc=argc;
 	bargv=argv;
+#endif
   
 /* do what an Arduino would do, this loops for every interactive input */
 	setup();

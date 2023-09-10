@@ -4,7 +4,7 @@
  *
  * Stefan's basic interpreter 
  *
- * Playing around with frugal programming. See the licence file on 
+ * See the licence file on 
  * https://github.com/slviajero/tinybasic for copyright/left.
  *   (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
  *
@@ -62,7 +62,7 @@
  * 
  * Secial features
  *  ARDUINOPGMEEPROM: makes the EEPROM primary program store
- *  ARDUINOMSTAB: counts characters, prerequisite for MSTAB in languages
+ *  HASMSTAB: counts characters, prerequisite for MSTAB in languages
  *
  *	leave this unset if you use the definitions below
  */
@@ -87,17 +87,17 @@
 #undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
-#define ESPSPIFFS
+#undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef STM32SDIO
 #undef ARDUINORTC
 #undef ARDUINORTCEMULATION
 #undef ARDUINOTONEEMULATION
-#define ARDUINOWIRE
+#undef ARDUINOWIRE
 #undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#define ARDUINOMQTT
+#undef ARDUINOMQTT
 #undef ARDUINOSENSORS
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
@@ -113,7 +113,7 @@
 #undef ARDUINOPGMEEPROM
 
 /* IO control, emulate real tab */
-#undef ARDUINOMSTAB
+#undef HASMSTAB
 
 /* interrupts for the EVENT command */
 #undef ARDUINOINTERRUPTS
@@ -907,14 +907,6 @@
 #endif
 
 /* 
- *  IF ARDUINOMSTAB is not set, make this known
- *  underlying terminal cannot handle tabs
- */
-#ifndef ARDUINOMSTAB
-#undef TERMHASMSTAB
-#endif
-
-/* 
  *  Tell BASIC we have a second serial port
  */
 #ifdef ARDUINOPRT
@@ -998,3 +990,16 @@
 #else
 #define SPIRAMSBSIZE 128
 #endif
+
+/* 
+ * This code measures the fast ticker frequency in microseconds 
+ * It leaves the data in variable F. Activate this only for test 
+ * purposes.
+ */
+#undef FASTTICKERPROFILE
+
+/*
+ * Does the platform has command line args and do we want to use them 
+ * Arduinos don't habe them
+ */
+#undef HASARGS

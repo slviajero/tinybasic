@@ -20,6 +20,29 @@
 
 /* if the BASIC interpreter provides a loop function it will superseed this one */
 void __attribute__((weak)) bloop() {};
+/*
+ * defining the systype variable which informs BASIC about the platform at runtime
+ */
+
+#if defined(ARDUINO_ARCH_AVR)
+uint8_t bsystype = SYSTYPE_AVR;
+#elif defined(ARDUINO_ARCH_ESP8266)
+uint8_t bsystype = SYSTYPE_ESP8266;
+#elif defined(ARDUINO_ARCH_ESP32)
+uint8_t bsystype = SYSTYPE_ESP32;
+#elif defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040)
+uint8_t bsystype = SYSTYPE_RP2040;
+#elif defined(ARDUINO_ARCH_SAM) && defined(ARDUINO_ARCH_SAMD)
+uint8_t bsystype = SYSTYPE_SAM;
+#elif defined(ARDUINO_ARCH_XMC)
+uint8_t bsystype = SYSTYPE_XMC;
+#elif defined(ARDUINO_ARCH_SMT32)
+uint8_t bsystype = SYSTYPE_SMT32;
+#elif defined(ARDUINO_ARCH_RENESAS)
+uint8_t bsystype = SYSTYPE_NRENESA;
+#else
+uint8_t bsystype = SYSTYPE_UNKNOWN;
+#endif
 
 /* 
  *  Global variables of the runtime env.
@@ -33,7 +56,7 @@ int8_t ioer = 0; // the io error variable, always or-ed with ert in BASIC
 
 
 /* counts the outputed characters on streams 0-3, used to emulate a real tab */
-#ifdef ARDUINOMSTAB
+#ifdef HASMSTAB
 uint8_t charcount[3]; /* devices 1-4 support tabing */
 uint8_t reltab = 0;
 #endif
@@ -113,7 +136,6 @@ uint8_t reltab = 0;
 /*
  * I2C displays 
  */
-
 #ifdef ARDUINOLCDI2C
 #include <LiquidCrystal_I2C.h>
 #endif
@@ -449,7 +471,7 @@ char inch() {
   case IWIRE:
     return wireread();
 #endif
-#ifdef ARDUINORF24
+#ifdef HASRF24
   case IRADIO:
     return radioread();
 #endif
@@ -478,7 +500,7 @@ char checkch(){
   case IFILE:
     return fileavailable();
 #endif
-#ifdef ARDUINORF24
+#ifdef HASRF24
   case IRADIO:
     return radioavailable();
 #endif
@@ -512,7 +534,7 @@ uint16_t availch(){
   case IFILE:
     return fileavailable();
 #endif
-#ifdef ARDUINORF24
+#ifdef HASRF24
   case IRADIO:
     return radioavailable();
 #endif        
@@ -643,7 +665,7 @@ uint16_t ins(char *b, uint16_t nb) {
   case IWIRE:
     return wireins(b, nb);
 #endif
-#ifdef ARDUINORF24
+#ifdef HASRF24
   case IRADIO:
     return radioins(b, nb);
 #endif
@@ -670,7 +692,7 @@ void outch(char c) {
 /* do we have a MS style tab command, then count characters on stream 1-4 but not in fileio */
 /* this does not work for control characters - needs to go to vt52 later */
 
-#ifdef ARDUINOMSTAB
+#ifdef HASMSTAB
   if (od > 0 && od <= OPRT) {
     if (c > 31) charcount[od-1]+=1;
     if (c == 10) charcount[od-1]=0;
@@ -720,7 +742,7 @@ void outs(char *b, uint16_t l){
   uint16_t i;
 
   switch (od) {
-#ifdef ARDUINORF24
+#ifdef HASRF24
     case ORADIO:
       radioouts(b, l);
       break;
@@ -3580,11 +3602,8 @@ int8_t eread(uint16_t a) { return 0; }
  */ 
 
 uint16_t aread(uint8_t p) { return analogRead(p); }
-
 uint8_t dread(uint8_t p) { return digitalRead(p); }
-
 void awrite(uint8_t p, uint16_t v){ analogWrite(p, v); }
-
 void dwrite(uint8_t p, uint8_t v){ if (v) digitalWrite(p, HIGH); else digitalWrite(p, LOW); }
 
 /* we normalize the pinMode as ESP32, ESP8266, and other boards behave rather
@@ -3617,6 +3636,17 @@ void pulseout(uint16_t unit, uint8_t pin, uint16_t duration, uint16_t val, uint1
     delayMicroseconds(interval*unit);
   }
 }
+
+/* the BREAKPIN mechanism */
+#if defined(BREAKPIN) && defined(INPUT_PULLUP)
+void breakpinbegin() { pinm(BREAKPIN, INPUT_PULLUP); }
+uint8_t getbreakpin() { return dread(BREAKPIN); } 
+#else 
+/* there is no pins hence no breakpin */
+void breakpinbegin() {}
+uint8_t getbreakpin() { return 1; } /* we return 1 because the breakpin is defined INPUT_PULLUP */
+#endif
+
 
 /*
  * A tone emulation based on the byield loop. The maximum frequency depends 
@@ -5250,7 +5280,6 @@ int8_t spistrbuf2[SPIRAMSBSIZE];
  * It leaves the data in variable F. Activate this only for test 
  * purposes.
  */
-#undef FASTTICKERPROFILE
 
 #ifdef FASTTICKERPROFILE
 uint32_t lastfasttick = 0;
@@ -5264,6 +5293,5 @@ void fasttickerprofile() {
   lastfasttick=micros();
   avgfasttick=(avgfasttick*fasttickcalls+delta)/(fasttickcalls+1);
   fasttickcalls++; 
-  vars[5]=avgfasttick;
 }
 #endif
