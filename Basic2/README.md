@@ -8,3 +8,13 @@ This version is work in progress. The goal is to encapsulate all the heuristics 
 
 Currently I test mostly on Arduino AVR, Mac, 8266, and the new Aruino Minima boards. Other platforms can be buggy. 
 
+To compile the POSIX version, goto the Posix folder:
+
+gcc basic.c runtime.c -lm
+
+To compile the Arduino version, open IoTBasic/IoTBasic.ino and compile in the Arduino IDE.
+
+Edit hardware.h and language.h to set devices and language features just like in Basic 1.x.
+
+
+
