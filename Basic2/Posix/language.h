@@ -65,7 +65,6 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
-#define HASMSTAB
 #define HASARRAYLIMIT
 #define HASSTRUCT
 
@@ -89,7 +88,6 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
-#undef HASMSTAB
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
 #endif
@@ -114,7 +112,6 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
-#define HASMSTAB
 #define HASARRAYLIMIT
 #define HASSTRUCT
 #endif
@@ -139,7 +136,6 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
-#undef  HASMSTAB
 #undef 	HASARRAYLIMIT
 #undef 	HASSTRUCT
 #endif
@@ -164,7 +160,6 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
-#define HASMSTAB
 #define HASARRAYLIMIT
 #define HASSTRUCT
 #endif
@@ -189,7 +184,6 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
-#undef HASMSTAB
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
 #endif
@@ -214,7 +208,6 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
-#undef HASMSTAB
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
 #endif
@@ -248,7 +241,4 @@
 #undef HASGRAPH
 #endif
 
-#if !defined(TERMHASMSTAB)
-#undef HASMSTAB
-#endif
 

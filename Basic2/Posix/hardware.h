@@ -63,13 +63,13 @@
 #define POSIXPRT
 
 /* use TAB in MS mode */
-#define ARDUINOMSTAB
+#define HASMSTAB
 
 /* used pins and other parameters */
 
 /* set this is you want pin 4 on low interrupting the interpreter */
 /* #define BREAKPIN 4 */
-#undef BREAKPIN
+#define BREAKPIN 4
 
 /* the SIGNAL the interpreters listens to for interrupt */
 #define BREAKSIGNAL SIGINT
@@ -157,14 +157,6 @@ unsigned long millis();
 #endif
 
 /* 
- *  IF ARDUINOMSTAB is not set, make this known
- *  underlying terminal cannot handle tabs.
- */
-#ifndef ARDUINOMSTAB
-#undef TERMHASMSTAB
-#endif
-
-/* 
  *  Tell BASIC we have a second serial port
  */
 #ifdef POSIXPRT
@@ -174,9 +166,7 @@ unsigned long millis();
 /* 
  *  Tell BASIC we have a radio adapter
  */
-#ifdef ARDUINORF24
-#define HASRF24
-#endif
+#undef HASRF24
 
 /* 
  *  Tell BASIC we have MQTT
@@ -199,3 +189,14 @@ unsigned long millis();
 
 /* the buffer size for simulated serial RAM */
 #define SPIRAMSBSIZE 512
+
+/* 
+ * This code measures the fast ticker frequency in microseconds 
+ * Activate this only for test purposes. Not really useful on POSIX.
+ */
+#define FASTTICKERPROFILE
+
+/*
+ * Does the platform has command line args and do we want to use them 
+ */
+#define HASARGS

@@ -35,13 +35,6 @@
 #define ARRAYSIZEDEF    10
 #define STRSIZEDEF      32
 
-/*
- *	the time intervall in ms needed for 
- *	ESP8266 yields, network client loops 
- *	and other timing related functions 
- */
-#define LONGYIELDINTERVAL 1000
-#define YIELDINTERVAL 32
 
 /*
  * The tokens for the BASIC keywords
@@ -305,25 +298,6 @@ typedef struct {
     mem_t type;
     address_t linenumber;
 } btimer_t;
-
-
-/* 
- * system type identifiers
- */
-
-#define SYSTYPE_UNKNOWN	0
-#define SYSTYPE_AVR 	1
-#define SYSTYPE_ESP8266 2
-#define SYSTYPE_ESP32	3
-#define SYSTYPE_RP2040  4
-#define SYSTYPE_SAM     5
-#define SYSTYPE_XMC		6
-#define SYSTYPE_SMT32	7
-#define SYSTYPE_NRENESA 8
-#define SYSTYPE_POSIX	32
-#define SYSTYPE_MSDOS	33
-#define SYSTYPE_MINGW   34
-#define SYSTYPE_RASPPI  35
 
 /* 
  * the events API for Arduino with interrupt service routines

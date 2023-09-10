@@ -18,6 +18,23 @@
 #define __RUNTIMEH__ 
 
 /* 
+ * system type identifiers
+ */
+#define SYSTYPE_UNKNOWN	0
+#define SYSTYPE_AVR 	1
+#define SYSTYPE_ESP8266 2
+#define SYSTYPE_ESP32	3
+#define SYSTYPE_RP2040  4
+#define SYSTYPE_SAM     5
+#define SYSTYPE_XMC		6
+#define SYSTYPE_SMT32	7
+#define SYSTYPE_NRENESA 8
+#define SYSTYPE_POSIX	32
+#define SYSTYPE_MSDOS	33
+#define SYSTYPE_MINGW   34
+#define SYSTYPE_RASPPI  35
+
+/* 
  *  Input and output channels
  */
 #define OSERIAL 1
@@ -81,6 +98,22 @@ extern uint8_t vt52active;
 
 /* the string buffer the interpreter needs, here to be known by BASIC */
 extern int8_t spistrbuf1[SPIRAMSBSIZE], spistrbuf2[SPIRAMSBSIZE];
+
+/* the mqtt variable the interpreter needs */
+#define MQTTLENGTH 32
+extern char mqtt_otopic[MQTTLENGTH];
+extern char mqtt_itopic[MQTTLENGTH];
+extern char mqttname[];
+
+/* 
+ * accessing the fastticker information
+ */
+extern uint16_t avgfasttick;
+
+/* 
+ * A byte in the runtime memory containing the system type
+ */
+extern uint8_t bsystype;
 
 /*
  * These functions are always empty on Arduino, they are only used in 
@@ -195,6 +228,9 @@ uint32_t pulsein(uint8_t, uint8_t, uint32_t);
 void pulseout(uint16_t, uint8_t, uint16_t, uint16_t, uint16_t, uint16_t);
 void playtone(uint8_t, uint16_t, uint16_t, uint8_t);
 void tonetoggle(); /* internal function of the tone emulation, called by byield */
+
+void breakpinbegin();
+uint8_t getbreakpin();
 
 /*
  * DISPLAY driver code section, the hardware models define a set of 

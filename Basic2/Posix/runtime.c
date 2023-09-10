@@ -36,10 +36,24 @@ int8_t ioer = 0; // the io error variable, always or-ed with ert in BASIC
 
 
 /* counts the outputed characters on streams 0-3, used to emulate a real tab */
-#ifdef ARDUINOMSTAB
+#ifdef HASMSTAB
 uint8_t charcount[3]; /* devices 1-4 support tabing */
 uint8_t reltab = 0;
 #endif
+
+/* the system type */
+#if defined(MSDOS)
+uint8_t bsystype = SYSTYPE_MSDOS
+#elif defined(RASPPI)
+uint8_t bsystype = SYSTYPE_PASPPI
+#elif defined(MINGW)
+uint8_t bsystype = SYSTYPE_MINGW
+#elif defined(POSIX)
+uint8_t bsystype = SYSTYPE_POSIX;
+#else
+uint8_t bsystype = SYSTYPE_UNKNOWN;
+#endif
+
 
 /* libraries from OSes */
 
@@ -124,7 +138,7 @@ void ioinit() {
 #endif
 
 /* filesystems and networks */
-  fsbegin(1);
+  fsbegin();
 #ifdef POSIXMQTT
   netbegin();  
   mqttbegin();
@@ -198,7 +212,7 @@ char inch() {
   case IWIRE:
     return wireread();
 #endif
-#ifdef ARDUINORF24
+#ifdef HASRF24
   case IRADIO:
     return radioread();
 #endif
@@ -227,7 +241,7 @@ char checkch(){
   case IFILE:
     return fileavailable();
 #endif
-#ifdef ARDUINORF24
+#ifdef HASRF24
   case IRADIO:
     return radioavailable();
 #endif
@@ -261,7 +275,7 @@ uint16_t availch(){
   case IFILE:
     return fileavailable();
 #endif
-#ifdef ARDUINORF24
+#ifdef HASRF24
   case IRADIO:
     return radioavailable();
 #endif        
@@ -389,7 +403,7 @@ uint16_t ins(char *b, uint16_t nb) {
   case IWIRE:
     return wireins(b, nb);
 #endif
-#ifdef ARDUINORF24
+#ifdef HASRF24
   case IRADIO:
     return radioins(b, nb);
 #endif
@@ -416,7 +430,7 @@ void outch(char c) {
 /* do we have a MS style tab command, then count characters on stream 1-4 but not in fileio */
 /* this does not work for control characters - needs to go to vt52 later */
 
-#ifdef ARDUINOMSTAB
+#ifdef HASMSTAB
   if (od > 0 && od <= OPRT) {
     if (c > 31) charcount[od-1]+=1;
     if (c == 10) charcount[od-1]=0;
@@ -466,7 +480,7 @@ void outs(char *ir, uint16_t l){
   uint16_t i;
 
   switch (od) {
-#ifdef ARDUINORF24
+#ifdef HASRF24
     case ORADIO:
       radioouts(ir, l);
       break;
@@ -953,13 +967,9 @@ int8_t eread(uint16_t a) { if (a>=0 && a<EEPROMSIZE) return eeprom[a]; else retu
 
 #if !defined(POSIXWIRING) && !defined(POSIXPIGPIO)
 uint16_t aread(uint8_t p) { return 0; }
-
 uint8_t dread(uint8_t p) { return 0; }
-
 void awrite(uint8_t p, uint16_t v){}
-
 void dwrite(uint8_t p, uint8_t v){}
-
 void pinm(uint8_t p, uint8_t m){}
 
 /* wrapper around pulsein */
@@ -971,11 +981,8 @@ void pulseout(uint16_t unit, uint8_t pin, uint16_t duration, uint16_t val, uint1
 
 #if defined(POSIXWIRING)
 uint16_t aread(uint8_t p) { return analogRead(p); }
-
 uint8_t dread(uint8_t p) { return digitalRead(p); }
-
 void awrite(uint8_t p, uint16_t v){ analogWrite(p, v); }
-
 void dwrite(uint8_t p, uint8_t v){ if (v) digitalWrite(p, HIGH); else digitalWrite(p, LOW); }
 
 /* we normalize the pinMode as ESP32, ESP8266, and other boards behave rather
@@ -1002,13 +1009,9 @@ void pulseout(uint16_t unit, uint8_t pin, uint16_t duration, uint16_t val, uint1
 
 #if defined(POSIXPIGPIO)
 uint16_t aread(uint8_t p) { return 0; }
-
 uint8_t dread(uint8_t p) { return gpio_read(pigpio_pi, p); }
-
 void awrite(uint8_t p, uint16_t v) { set_PWM_dutycycle(pigpio_pi, p, v); }
-
 void dwrite(uint8_t p, uint8_t v){ gpio_write(pigpio_pi, p, v); }
-
 void pinm(uint8_t p, uint8_t m){ set_mode(pigpio_pi, p, m); }
 
 /* wrapper around pulsein */
@@ -1019,6 +1022,15 @@ void pulseout(uint16_t unit, uint8_t pin, uint16_t duration, uint16_t val, uint1
 
 #endif
 
+#if defined(BREAKPIN) && defined(INPUT_PULLUP)
+void breakpinbegin() { pinm(BREAKPIN, INPUT_PULLUP); }
+uint8_t getbreakpin() { return dread(BREAKPIN); } 
+#else 
+/* there is no pins hence no breakpin */
+void breakpinbegin() {}
+uint8_t getbreakpin() { return 1; } /* we return 1 because the breakpin is defined INPUT_PULLUP */
+#endif
+
 /* we need to do millis by hand except for RASPPI with wiring */
 #if !defined(POSIXWIRING)
 unsigned long millis() { 
@@ -1026,6 +1038,9 @@ unsigned long millis() {
   ftime(&thetime);
   return (thetime.time-start_time.time)*1000+(thetime.millitm-start_time.millitm);
 }
+
+/* this is just a stub, only needed in fasttickerprofile */
+unsigned long micros() { return 0; }
 #endif
 
 void playtone(uint8_t pin, uint16_t frequency, uint16_t duration, uint8_t volume) {}
@@ -1936,5 +1951,25 @@ mem_t spiram_robufferread(address_t a) {return spiram[a];}
 #define SPIRAMSBSIZE 128
 char spistrbuf1[SPIRAMSBSIZE];
 char spistrbuf2[SPIRAMSBSIZE];
+#endif
+
+/* 
+ * This code measures the fast ticker frequency in microseconds 
+ * Activate this only for test purposes. Not really useful on POSIX.
+ */
+
+#ifdef FASTTICKERPROFILE
+uint32_t lastfasttick = 0;
+uint32_t fasttickcalls = 0;
+uint16_t avgfasttick = 0;
+int32_t devfasttick = 0;
+
+void fasttickerprofile() {
+  if (lastfasttick == 0) { lastfasttick=micros(); return; }
+  int delta=micros()-lastfasttick;
+  lastfasttick=micros();
+  avgfasttick=(avgfasttick*fasttickcalls+delta)/(fasttickcalls+1);
+  fasttickcalls++; 
+}
 #endif
 
