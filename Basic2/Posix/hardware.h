@@ -123,6 +123,7 @@ typedef unsigned short uint16_t;
 typedef signed short int16_t;
 typedef unsigned char byte;
 typedef unsigned long long uint64_t;
+typedef unsigned int uint32_t;
 
 /*
  * additional prototypes in an non Arduino world 
