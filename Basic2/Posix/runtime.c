@@ -43,11 +43,11 @@ uint8_t reltab = 0;
 
 /* the system type */
 #if defined(MSDOS)
-uint8_t bsystype = SYSTYPE_MSDOS
+uint8_t bsystype = SYSTYPE_MSDOS;
 #elif defined(RASPPI)
-uint8_t bsystype = SYSTYPE_PASPPI
+uint8_t bsystype = SYSTYPE_PASPPI;
 #elif defined(MINGW)
-uint8_t bsystype = SYSTYPE_MINGW
+uint8_t bsystype = SYSTYPE_MINGW;
 #elif defined(POSIX)
 uint8_t bsystype = SYSTYPE_POSIX;
 #else
@@ -1962,7 +1962,7 @@ char spistrbuf2[SPIRAMSBSIZE];
 uint32_t lastfasttick = 0;
 uint32_t fasttickcalls = 0;
 uint16_t avgfasttick = 0;
-int32_t devfasttick = 0;
+uint32_t devfasttick = 0;
 
 void fasttickerprofile() {
   if (lastfasttick == 0) { lastfasttick=micros(); return; }
