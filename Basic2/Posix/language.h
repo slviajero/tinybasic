@@ -68,6 +68,13 @@
 #define HASARRAYLIMIT
 #define HASSTRUCT
 
+/* 
+ * Experimental features:
+ * 
+ * HASMSSTRINGS is a (rudimentary) string compatibility to MS Basic
+ */
+#define HASMSSTRINGS
+
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
 #undef HASAPPLE1
@@ -240,5 +247,14 @@
 #if !defined(DISPLAYHASGRAPH) 
 #undef HASGRAPH
 #endif
+
+
+/*
+ * Some of the language features need long tokens 
+ */
+#ifdef HASMSSTRINGS
+#define HASLONGTOKENS
+#endif
+
 
 

@@ -36,7 +36,8 @@
 /* Global BASIC definitions */
 
 /*
- *	All BASIC keywords for the tokens
+ *	All BASIC keywords for the tokens, PROGMEM on Arduino
+ *  Normal memory elsewhere. 
  */
 const char sge[]   PROGMEM = "=>";
 const char sle[]   PROGMEM = "<=";
@@ -198,6 +199,13 @@ const char sswend[]     PROGMEM = "SWEND";
 const char sdo[]        PROGMEM = "DO";
 const char sdend[]      PROGMEM = "DEND";
 #endif
+#ifdef HASMSSTRINGS
+const char sasc[]		PROGMEM	= "ASC";
+const char schr[]		PROGMEM = "CHR";
+const char sright[]		PROGMEM = "RIGHT";
+const char sleft[]		PROGMEM = "LEFT";
+const char smid[]		PROGMEM = "MID";
+#endif
 
 
 /* zero terminated keyword storage */
@@ -266,11 +274,14 @@ const char* const keyword[] PROGMEM = {
 	swhile, swend, srepeat, suntil, sswitch, scase, sswend,	
     sdo, sdend, 
 #endif 
+#ifdef HASMSSTRINGS
+    sasc, schr, sright, sleft, smid,
+#endif
 	0
 };
 
 /* the zero terminated token dictonary needed for scalability */
-const signed char tokens[] PROGMEM = {
+const token_t tokens[] PROGMEM = {
 	GREATEREQUAL, LESSEREQUAL, NOTEQUAL, TPRINT, TLET,    
     TINPUT, TGOTO, TGOSUB, TRETURN, TIF, TFOR, TTO, TSTEP,
     TNEXT, TSTOP, TLIST, TNEW, TRUN, TABS, TRND, TSIZE, TREM,
@@ -332,13 +343,16 @@ const signed char tokens[] PROGMEM = {
 	TWHILE, TWEND, TREPEAT, TUNTIL, TSWITCH, TCASE, TSWEND,
     TDO, TDEND, 
 #endif
+#ifdef HASMSSTRINGS
+	TASC, TCHR, TRIGHT, TLEFT, TMID,
+#endif
 	0
 };
 
 /* errors and messages */
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "> ";
-const char mgreet[]		PROGMEM = "Stefan's Basic 1.5a";
+const char mgreet[]		PROGMEM = "Stefan's Basic 2.0alpha";
 const char mline[]		PROGMEM = "LINE";
 const char mnumber[]	PROGMEM = "NUMBER";
 const char mvariable[]	PROGMEM = "VARIABLE";
@@ -377,12 +391,8 @@ const char* const message[] PROGMEM = {
 #endif
 };
 
-
-
 /*
- *	code for variable numbers and addresses sizes
- *	the original code was 16 bit but can be extended here
- * 	to arbitrary types 
+ *	Code for variable numbers and addresses sizes.
  *
  *	number_t is the type for numerical work - either float or int
  *  wnumber_t is the type containing the largest printable integer, 
@@ -686,7 +696,7 @@ void esave() {
 		er=0;
 	}
 /* needed on I2C EEPROM and other platforms where we buffer */
-  eflush();
+	eflush();
 #endif
 }
 
@@ -716,34 +726,37 @@ void eload() {
 
 /* autorun something from EEPROM or a filesystem */
 char autorun() {
-	if (elength()>0)
-		if (eread(0) == 1) { /* autorun from the EEPROM */
-  			egetnumber(1, addrsize);
-  			top=z.a;
-  			st=SERUN;
-  			return 1; /* EEPROM autorun overrules filesystem autorun */
-		} 
 
-#if defined(FILESYSTEMDRIVER) || !defined(ARDUINO)
-/* on a POSIX or DOS platform, we check the command line first and the autoexec */
+/* autorun from EEPROM if there is an EEPROM flagged for autorun */	
+	if (elength()>0 && eread(0) == 1) { /* autorun from the EEPROM */
+  		egetnumber(1, addrsize);
+  		top=z.a;
+  		st=SERUN;
+  		return 1; /* EEPROM autorun overrules filesystem autorun */
+	} 
+
+/* autorun from a given command line argument, if we have one */
 #ifdef HASARGS
-	if (bargc > 0) {
-		if (ifileopen(bargv[1])) {
-			xload(bargv[1]);
-			st=SRUN;
-			ifileclose();
-			bnointafterrun=TERMINATEAFTERRUN;
-			return 1;
-		}			
+	if (bargc > 0 && ifileopen(bargv[1])) {
+		xload(bargv[1]);
+		st=SRUN;
+		ifileclose();
+		bnointafterrun=TERMINATEAFTERRUN;
+		return 1;			
 	}
 #endif
+
+/* on a platform with a file system, autoexec from a file */
+#if defined(FILESYSTEMDRIVER) 
 	if (ifileopen("autoexec.bas")) {
 		xload("autoexec.bas");
-  	st=SRUN;
+  		st=SRUN;
 		ifileclose();
 		return 1;
 	}
 #endif
+
+/* nothing to autorun */
 	return 0;
 }
 
@@ -759,7 +772,7 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 
 	if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
 
-	/* check if the object already exists */
+/* check if the object already exists */
 	if (bfind(t, c, d) != 0 ) { error(EVARIABLE); return 0; };
 
 /* 
@@ -769,26 +782,26 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
  *		one byte for every string character
  */
 	switch(t) {
-  		case VARIABLE:
-			vsize=numsize+3;
-			break;
+  	case VARIABLE:
+		vsize=numsize+3;
+		break;
 #ifndef HASMULTIDIM
-		case ARRAYVAR:
-			vsize=numsize*l+addrsize+3;
-			break;
+	case ARRAYVAR:
+		vsize=numsize*l+addrsize+3;
+		break;
 #else
 /* multidim implementation for n=2 */
-		case ARRAYVAR:
-			vsize=numsize*l+addrsize*2+3;
-			break;
+	case ARRAYVAR:
+		vsize=numsize*l+addrsize*2+3;
+		break;
 #endif
 #ifdef HASDARTMOUTH
-		case TFN:
-			vsize=addrsize+2+3;
-			break;
+	case TFN:
+		vsize=addrsize+2+3;
+		break;
 #endif
-		default:
-			vsize=l+addrsize+3;
+	default:
+		vsize=l+addrsize+3;
 	}
 	
 /* enough memory ?, on an EEPROM system we limit the heap to the RAM */ 
@@ -853,16 +866,16 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 		t1=memread2(b--);
 
 		switch(t1) {
-			case VARIABLE:
-				z.a=numsize;
-				break;
-			case TFN:
-				z.a=addrsize+2;
-				break;
-			default:
-				b=b-addrsize+1;
-				getnumber(b, addrsize);
-				b--;
+		case VARIABLE:
+			z.a=numsize;
+			break;
+		case TFN:
+			z.a=addrsize+2;
+			break;
+		default:
+			b=b-addrsize+1;
+			getnumber(b, addrsize);
+			b--;
 		}
 
 		b-=z.a;
@@ -879,6 +892,7 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 		i++;
 	}
 
+/* nothing found return 0 */
 	return 0;
 }
 
@@ -924,18 +938,18 @@ address_t bfree(mem_t t, mem_t c, mem_t d) {
 		}
 
 		switch(t1) {
-			case VARIABLE:
-				z.a=numsize;
-				break;
+		case VARIABLE:
+			z.a=numsize;
+			break;
 #ifdef HASDARTMOUTH
-			case TFN:
-				z.a=addrsize+2;
-				break;
+		case TFN:
+			z.a=addrsize+2;
+			break;
 #endif
-			default:
-				b=b-addrsize+1;
-				getnumber(b, addrsize);
-				b--;
+		default:
+			b=b-addrsize+1;
+			getnumber(b, addrsize);
+			b--;
 		}
 
 		b-=z.a;
@@ -964,33 +978,33 @@ number_t getvar(mem_t c, mem_t d){
 /* the special variables */
 	if ( c == '@' )
 		switch (d) {
-			case 'A':
-				return availch();
-			case 'S': 
-				return ert|ioer;
-			case 'I':
-				return id;
-			case 'O':
-				return od;
-			case 'C':
-				if (availch()) return inch(); else return 0;
-			case 'E':
-				return elength()/numsize;
-			case 0:
-				return (himem-top)/numsize;
-			case 'R':
-				return rd;
-			case 'U':
-				return getusrvar();
+		case 'A':
+			return availch();
+		case 'S': 
+			return ert|ioer;
+		case 'I':
+			return id;
+		case 'O':
+			return od;
+		case 'C':
+			if (availch()) return inch(); else return 0;
+		case 'E':
+			return elength()/numsize;
+		case 0:
+			return (himem-top)/numsize;
+		case 'R':
+			return rd;
+		case 'U':
+			return getusrvar();
 #ifdef HASIOT
-			case 'V':
-				return vlength;
+		case 'V':
+			return vlength;
 #endif
 #if defined(DISPLAYDRIVER) || defined (GRAPHDISPLAYDRIVER)
-			case 'X':
-				return dspgetcursorx();
-			case 'Y':
-				return dspgetcursory();
+		case 'X':
+			return dspgetcursorx();
+		case 'Y':
+			return dspgetcursory();
 #endif
 		}
 
@@ -1018,7 +1032,7 @@ void setvar(mem_t c, mem_t d, number_t v){
 
 /* the static variable array */
 #ifndef HASAPPLE1
-	if (c >= 65 && c <= 91 && d == 0) {
+	if (d == 0 && c >= 65 && c <= 91) {
 		vars[c-65]=v;
 		return;
 	}
@@ -1027,40 +1041,40 @@ void setvar(mem_t c, mem_t d, number_t v){
 /* the special variables */
 	if ( c == '@' )
 		switch (d) {
-			case 'S': 
-				ert=v;
-        		ioer=v;
-				return;
-			case 'I':
-				id=v;
-				return;
-			case 'O':
-				od=v;
-				return;
-			case 'C':
-				outch(v);
-				return;
-			case 'R':
-				rd=v;
-				return;
-			case 'U':
-				setusrvar(v);
-				return;
+		case 'S': 
+			ert=v;
+        	ioer=v;
+			return;
+		case 'I':
+			id=v;
+			return;
+		case 'O':
+			od=v;
+			return;
+		case 'C':
+			outch(v);
+			return;
+		case 'R':
+			rd=v;
+			return;
+		case 'U':
+			setusrvar(v);
+			return;
 #ifdef HASIOT
-			case 'V':
-				return;
+		case 'V':
+			return;
 #endif
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
-			case 'X':
-        		dspsetcursorx((int)v);
+		case 'X':
+        	dspsetcursorx((int)v);
 /* set the charcount, this is half broken but works */
 #ifdef HASMSTAB
-				if (od > 0 && od <= OPRT) charcount[od-1]=v;
+			if (od > 0 && od <= OPRT) charcount[od-1]=v;
 #endif
-				return;
-			case 'Y':
-				dspsetcursory((int)v);
-				return;
+			return;
+		case 'Y':
+			dspsetcursory((int)v);
+			return;
 #endif
 		}
 
@@ -1079,14 +1093,15 @@ void setvar(mem_t c, mem_t d, number_t v){
 
 /* clr all variables */
 void clrvars() {
+
+/* delete all static variables if the have no heap */
+#ifndef HASAPPLE1
+	mem_t i;
+
+	for (i=0; i<VARSIZE; i++) vars[i]=0;
+#else 
 	address_t i;
 
-/* delete all statics */
-#ifndef HASAPPLE1
-	for (i=0; i<VARSIZE; i++) vars[i]=0;
-#endif
-
-#ifdef HASAPPLE1
 /* clear the heap */
 	nvars=0;
 
@@ -1150,28 +1165,32 @@ address_t getstringlength(address_t m, memreader_t f) {
   ro buffer to avoit rw buffer page faults, do not use this unless
   you understand the USEMEMINTERFACE mechanism completely */
 void pgetnumber(address_t m, mem_t n){
-  mem_t i;
-  z.i=0;
-  for (i=0; i<n; i++) z.c[i]=memread(m++);
+	mem_t i;
+
+	z.i=0;
+	for (i=0; i<n; i++) z.c[i]=memread(m++);
 }
 
 /* the eeprom memory access */
 void egetnumber(address_t m, mem_t n){
-  mem_t i;
-  z.i=0;
-  for (i=0; i<n; i++) z.c[i]=eread(m++);
+	mem_t i;
+
+	z.i=0;
+	for (i=0; i<n; i++) z.c[i]=eread(m++);
 }
 
 /* set a number at a memory location */
 void setnumber(address_t m, mem_t n){
-  mem_t i;
-  for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
+	mem_t i;
+
+	for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
 }
 
 /* set a number at a eepromlocation */
 void esetnumber(address_t m, mem_t n){
-  mem_t i; 
-  for (i=0; i<n; i++) eupdate(m++, z.c[i]);
+	mem_t i; 
+
+	for (i=0; i<n; i++) eupdate(m++, z.c[i]);
 }
 
 /* create an array */
@@ -1207,8 +1226,8 @@ address_t createarray(mem_t c, mem_t d, address_t i, address_t j) {
 address_t getarrayseconddim(address_t a, address_t za) {
 #ifdef HASMULTIDIM
 	address_t zat1, zat2;
-	zat1=z.a;
 
+	zat1=z.a;
 	z.b.l=memread2(a+za-2); /* test code, assuming 16 bit address_t here, should be ported to setnumber */
 	z.b.h=memread2(a+za-1);
 	zat2=z.a;
@@ -1233,37 +1252,37 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 /* special arrays EEPROM, Display and Wang, dimension j is ignored here and not handled */
 	if (c == '@') {
 		switch(d) {
-			case 'E': 
-				h=elength()/numsize;
-				a=elength()-numsize*i;
-				e=1;
-				break;
+		case 'E': 
+			h=elength()/numsize;
+			a=elength()-numsize*i;
+			e=1;
+			break;
 #if defined(DISPLAYDRIVER) && defined(DISPLAYCANSCROLL)      
-			case 'D': 
-				if (m == 'g') *v=dspget(i-1); 
-				else if (m == 's') dspset(i-1, *v);
-				return;
+		case 'D': 
+			if (m == 'g') *v=dspget(i-1); 
+			else if (m == 's') dspset(i-1, *v);
+			return;
 #endif
 #if defined(HASCLOCK) 
-			case 'T':
-				if (m == 'g') *v=rtcget(i); 
-				else if (m == 's') rtcset(i, *v);
-				return;
+		case 'T':
+			if (m == 'g') *v=rtcget(i); 
+			else if (m == 's') rtcset(i, *v);
+			return;
 #endif
 #if defined(ARDUINO) && defined(ARDUINOSENSORS)
-			case 'S':
-				if (m == 'g') *v=sensorread(i, 0); 
-				return;
+		case 'S':
+			if (m == 'g') *v=sensorread(i, 0); 
+			return;
 #endif
-			case 'U': 
-				if (m == 'g') *v=getusrarray(i); 
-				else if (m == 's') setusrarray(i, *v);
-				return;
-			case 0: 
-			default:
-				h=(himem-top)/numsize;
-				a=himem-numsize*(i)+1;
-				break;
+		case 'U': 
+			if (m == 'g') *v=getusrarray(i); 
+			else if (m == 's') setusrarray(i, *v);
+			return;
+		case 0: 
+		default:
+			h=(himem-top)/numsize;
+			a=himem-numsize*(i)+1;
+			break;
 		}
 	} else {
 #ifdef HASAPPLE1
@@ -1273,7 +1292,7 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 #ifndef HASMULTIDIM
 		h=z.a/numsize;
 #else 
-		h=(z.a - addrsize)/numsize;
+		h=(z.a-addrsize)/numsize;
 #endif
 
 		if (DEBUG) { outsc("** in array base address"); outnumber(a); outcr(); }
@@ -1301,23 +1320,19 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
   		outnumber(h); outspc();
   		outnumber(a); outcr();
   	}
-	if ( (j < arraylimit) || (j >= dim + arraylimit) || (i < arraylimit) || (i >= h/dim + arraylimit)) { error(EORANGE); return; }
+	if ( (j < arraylimit) || (j >= dim+arraylimit) || (i < arraylimit) || (i >= h/dim+arraylimit)) { error(EORANGE); return; }
 #else
 	if (DEBUG) { outsc("** in array "); outnumber(i);  outspc(); outnumber(a); outcr(); }
-	if ( (i < arraylimit) || (i >= h + arraylimit) ) { error(EORANGE); return; }
+	if ( (i < arraylimit) || (i >= h+arraylimit) ) { error(EORANGE); return; }
 #endif
 
 /* set or get the array */
 	if (m == 'g') {
-		if (! e) { 
-			getnumber(a, numsize);
-		} else { 
-			egetnumber(a, numsize); 	
-		}
+		if (!e) getnumber(a, numsize); else egetnumber(a, numsize); 	
 		*v=z.i;
 	} else if ( m == 's') {
 		z.i=*v;
-		if (! e) { setnumber(a, numsize); } else { esetnumber(a, numsize); }
+		if (!e) setnumber(a, numsize); else esetnumber(a, numsize);
 	}
 }
 
@@ -1372,6 +1387,7 @@ address_t createstring(char c, char d, address_t i, address_t j) {
  *	- ax has the address in memory of the string, if the string is on heap. 0 otherwise.
  *	- z.a has the number of bytes in the string payload area inculding the string length counter
  */
+#ifdef HASAPPLE1
 
 char* getstring(char c, char d, address_t b, address_t j) {	
 	address_t k, zt, dim, maxlen;
@@ -1379,38 +1395,29 @@ char* getstring(char c, char d, address_t b, address_t j) {
 	ax=0;
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
 
-/* direct access to the input buffer - deprectated but still there */
-	if ( c == '@' && d == 0) {
-		return ibuffer+b;
-	}  
 
-#ifdef HASAPPLE1
-/* special strings */
-    
-/* the time string */
-#if defined(HASCLOCK)
-	if ( c == '@' && d == 'T') {
-		rtcmkstr();
-		return rtcstring+1+b;
-	}
-#endif
-
-/* a user definable special string in sbuffer, makeusrtring is a 
-	user definable function  */
-	if ( c == '@' && d == 'U' ) {
-		makeusrstring();
+/* special string variables */
+	if (c == '@')
+	switch(d) {
+	case 0: 
+		return ibuffer+b; /* direct access to the input buffer - deprectated but still there */	
+	default:
+		error(EVARIABLE); 
+		return 0;
+	case 'U':
+		makeusrstring(); /* a user definable special string in sbuffer */
 		return sbuffer+b;
-	}
-
-    
+#ifdef HASCLOCK
+	case 'T':
+		rtcmkstr(); /* the time string */
+		return rtcstring+1+b;
+#endif	
 /* the arguments string on POSIX systems */
 #ifdef HASARGS
-	if ( c == '@' && d == 'A' ) {
+	case 'A': 
 		if (bargc > 2) return bargv[2]; else return 0;
-	}
 #endif
-
-	if ( c == '@') { error(EVARIABLE); return 0;}
+	}	
 
 /* dynamically allocated strings, create on the fly */
 	if (!(ax=bfind(STRINGVAR, c, d))) ax=createstring(c, d, STRSIZEDEF, 1);
@@ -1423,13 +1430,8 @@ char* getstring(char c, char d, address_t b, address_t j) {
 	if (er != 0) return 0;
 
 #ifndef HASSTRINGARRAYS
-
-	if ((b < 1) || (b > z.a-strindexsize )) {
-		error(EORANGE); return 0;
-	}
-
+	if ((b < 1) || (b > z.a-strindexsize )) { error(EORANGE); return 0; }
 	ax=ax+strindexsize+(b-1);
-	
 #else 
 
 /* the dimension of the string array */
@@ -1438,18 +1440,14 @@ char* getstring(char c, char d, address_t b, address_t j) {
 	getnumber(ax+z.a-addrsize, addrsize);
 	dim=z.a;
 
-	if ((j < arraylimit) || (j >= dim + arraylimit )) {
-		error(EORANGE); return 0;
-	}
+	if ((j < arraylimit) || (j >= dim + arraylimit )) { error(EORANGE); return 0; }
 
  	if (DEBUG) { outsc("** string dimension "); outnumber(dim); outcr(); }
 
 /* the max length of a string */
 	maxlen=(zt-addrsize)/dim-strindexsize;
 
-	if ((b < 1) || (b > maxlen )) {
-		error(EORANGE); return 0;
-	}
+	if ((b < 1) || (b > maxlen )) { error(EORANGE); return 0; }
 
 	if (DEBUG) { outsc("** maximum string length "); outnumber(maxlen); outcr(); }
 	
@@ -1479,16 +1477,10 @@ char* getstring(char c, char d, address_t b, address_t j) {
 #else
 	return (char *)&mem[ax];
 #endif
-
-#else 
-	return 0;
-#endif
 }
- 
-#ifdef HASAPPLE1
-/* in case of a string array, this function finds the number 
-	of array elements */
-address_t strarraydim(char c, char d) {
+
+/* in case of a string array, this function finds the number of array elements */
+	address_t strarraydim(char c, char d) {
 	address_t a, b;
 #ifndef HASSTRINGARRAYS
 	return 1;
@@ -1505,25 +1497,26 @@ address_t strarraydim(char c, char d) {
 /* dimension of a string as in DIM a$(100), only needed on assign! */ 
 address_t stringdim(char c, char d) {
 
-/* input buffer, payload size is buffer -1 as the first byte is length */	
-	if (c == '@') return BUFSIZE-1;
-
-/* the user string */
-	if (c == '@' && d == 'U') return SBUFSIZE-1;
-
-/* the clock string should never be assigned */
-	if (c == '@' && d == 'T') return 0;
+/* the special strings */
+	if (c == '@')
+		switch(d) {
+		case 0: 
+			return BUFSIZE-1;
+		case 'U':
+			return BUFSIZE-1;	
+		default:
+			return 0;
+		}
 
 /* length of the payload from the parameters */
 #ifndef HASSTRINGARRAYS
-	else return blength(STRINGVAR, c, d)-strindexsize;
+	return blength(STRINGVAR, c, d)-strindexsize;
 #else 
 	if (bfind(STRINGVAR, c, d)) {
 		return (z.a-addrsize)/strarraydim(c, d)-strindexsize;
 	} else 
 		return 0;
 #endif
-
 }
 
 /* the length of a string as in LEN(A$) */
@@ -1531,34 +1524,26 @@ address_t lenstring(char c, char d, address_t j){
 	char* b;
 	address_t a;
 
-/* the input buffer, length is first byte */
-	if (c == '@' && d == 0) return ibuffer[0];
 
-/* the time */
-#if defined(HASCLOCK)
-	if (c == '@' && d == 'T') {
-		rtcmkstr();
-		return rtcstring[1];
-	}
+	if (c == '@') 
+		switch(d) {
+		case 0:
+			return ibuffer[0];
+		case 'U':
+			makeusrstring();
+			return sbuffer[0];
+#ifdef HASCLOCK
+		case 'T':
+			rtcmkstr();
+			return rtcstring[1];
 #endif
-
-/* a user definable special string in sbuffer 
-	makeusrstring has to be called here because 
-	in the code sometimes getstring is called first 
-	and sometimes lenstring */
-	if ( c == '@' && d == 'U' ) {
-		makeusrstring();
-		return sbuffer[0];
-	}
-    
-/* the arguments string on POSIX systems */
 #ifdef HASARGS
-	if ( c == '@' && d == 'A' ) {
-		a=0;
-		if (bargc > 2) while(a < SBUFSIZE && bargv[2][a] != 0) a++;
-		return a;
-	}
+		case 'A':
+			a=0;
+			if (bargc > 2) while(a < SBUFSIZE && bargv[2][a] != 0) a++;
+			return a;
 #endif
+		}
     
 /* locate the string */
 	a=bfind(STRINGVAR, c, d);
@@ -1578,6 +1563,7 @@ address_t lenstring(char c, char d, address_t j){
 #endif
 }
 
+
 /* set the length of a string */
 void setstringlength(char c, char d, address_t l, address_t j) {
 	address_t a, zt; 
@@ -1589,7 +1575,8 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 		outcr();
 	} 
 
-	if (c == '@') {
+/* only the ibuffer variable can set a string length */
+	if (c == '@' && d == 0) {
 		*ibuffer=l;
 		return;
 	}
@@ -1598,10 +1585,7 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 	a=bfind(STRINGVAR, c, d);
 	if (er != 0) return;
 
-	if (a == 0) {
-		error(EVARIABLE);
-		return;
-	}
+	if (a == 0) { error(EVARIABLE); return; }
 
 /* multiple calls of bfind here is harmless as bfind caches  */ 
 	a=a+(stringdim(c, d)+strindexsize)*(j-arraylimit);
@@ -1612,7 +1596,54 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 	setnumber(a, strindexsize);
 }
 
+#else 
+/* no string code makes it all much easier */
+char* getstring(char c, char d, address_t b, address_t j) {	
+
+	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
+
+/* special string variables */
+	if (c == '@' && d == 0) return ibuffer+b; else return 0;
+}
+
+address_t strarraydim(char c, char d) { return 1; }
+
+/* dimension of a string as in DIM a$(100), only needed on assign!, not needed here */ 
+address_t stringdim(char c, char d) {
+
+/* input buffer, payload size is buffer -1 as the first byte is length */	
+	if (c == '@' && d == 0) return BUFSIZE-1; else return 0;
+}
+
+/* the length of a string as in LEN(A$), not needed here */
+address_t lenstring(char c, char d, address_t j){
+	char* b;
+	address_t a;
+
+/* the input buffer, length is first byte */
+	if (c == '@' && d == 0) return ibuffer[0]; else return 0;
+}
+
+
+/* set the length of a string */
+void setstringlength(char c, char d, address_t l, address_t j) {
+	address_t a, zt; 
+
+	if (DEBUG) {
+		outsc("** setstringlength "); 
+		outch(c); outch(d); 
+		outspc(); outnumber(l); outspc(); outnumber(j);
+		outcr();
+	} 
+
+	if (c == '@' && d == 0) {
+		*ibuffer=l;
+		return;
+	}
+
+}
 #endif
+ 
 
 /* the BASIC string mechanism for real time clocks, create a string with the clock data */
 #ifdef HASCLOCK
@@ -1622,10 +1653,10 @@ char* rtcmkstr() {
 	char ch;
 
 /* hours */
-  t=rtcget(2);
-  rtcstring[cc++]=t/10+'0';
-  rtcstring[cc++]=t%10+'0';
-  rtcstring[cc++]=':';
+	t=rtcget(2);
+	rtcstring[cc++]=t/10+'0';
+	rtcstring[cc++]=t%10+'0';
+	rtcstring[cc++]=':';
 
 /* minutes */
 	t=rtcget(1);
@@ -1661,6 +1692,7 @@ char* rtcmkstr() {
 	rtcstring[1]=cc-2;
 	rtcstring[0]=0;
 	return rtcstring+1;
+
 }
 #endif
 
@@ -1737,12 +1769,12 @@ char* getmessage(char i) {
 #endif
 }
 
-signed char gettokenvalue(char i) {
+token_t gettokenvalue(char i) {
 	if (i >= sizeof(tokens)) return 0;
 #ifndef ARDUINOPROGMEM
 	return tokens[i];
 #else
-	return (signed char) pgm_read_byte(&tokens[i]);
+	return (token_t) pgm_read_byte(&tokens[i]);
 #endif
 }
 
@@ -1791,8 +1823,8 @@ void error(token_t e){
 #endif
 
 /* set input and output device back to default, and delete the form */
-  iodefaults();
-  form=0;
+	iodefaults();
+ 	form=0;
 
 /* find the line number if in RUN modes */
 	if (st != SINT) {
@@ -1834,26 +1866,28 @@ void debugtoken(){
 		outsc("EOL");
 		return;	
 	}
+
 	switch(token) {
-		case LINENUMBER: 
-			printmessage(MLINE);
-			break;
-		case NUMBER:
-			printmessage(MNUMBER);
-			break;
-		case VARIABLE:
-			printmessage(MVARIABLE);
-			break;	
-		case ARRAYVAR:
-			printmessage(MARRAY);
-			break;		
-		case STRING:
-			printmessage(MSTRING);
-			break;
-		case STRINGVAR:
-			printmessage(MSTRINGVAR);
-			break;
+	case LINENUMBER: 
+		printmessage(MLINE);
+		break;
+	case NUMBER:
+		printmessage(MNUMBER);
+		break;
+	case VARIABLE:
+		printmessage(MVARIABLE);
+		break;	
+	case ARRAYVAR:
+		printmessage(MARRAY);
+		break;		
+	case STRING:
+		printmessage(MSTRING);
+		break;
+	case STRINGVAR:
+		printmessage(MSTRINGVAR);
+		break;
 	}
+
 	outspc();
 	outputtoken();
 }
@@ -1883,15 +1917,16 @@ void push(number_t t){
 number_t pop(){
 	if (DEBUG) {outsc("** pop sp= "); outnumber(sp); outcr(); }
 	if (sp == 0) { error(ESTACK); return 0; }
-	else
-		return stack[--sp];	
+	return stack[--sp];	
 }
 
 /* this one gets a positive integer from the stack and traps the error*/
 address_t popaddress(){
 	number_t tmp = 0;
+
 	tmp=pop();
-	if (tmp < 0) { error(EORANGE); return 0;} else return (address_t) tmp;
+	if (tmp < 0) { error(EORANGE); return 0;} 
+	return (address_t) tmp;
 }
 
 void clearst(){
@@ -1931,17 +1966,18 @@ void pushforstack(){
 		}
 	}
 #else 
-	if (token == TWHILE || token == TREPEAT)
+	if (token == TWHILE || token == TREPEAT) {
 		for(i=0; i<forsp; i++) {
 			if (forstack[i].here == here) {forsp=i; break;}
 		}
-	else 
+	} else {
 		for(i=0; i<forsp; i++) {
 			if (forstack[i].varx == xc && forstack[i].vary == yc) {
 				forsp=i;
 				break;
 			}
 		}
+	}
 #endif
 	
 
@@ -2008,9 +2044,9 @@ void pushgosubstack(mem_t a){
 	if (gosubsp < GOSUBDEPTH) {
 		gosubstack[gosubsp]=here;
 #ifdef HASEVENTS
-    gosubarg[gosubsp]=a;
+    	gosubarg[gosubsp]=a;
 #endif
-    gosubsp++;  
+    	gosubsp++;  
 	} else 
 		error(TGOSUB);
 }
@@ -2191,7 +2227,6 @@ address_t writenumber(char *c, wnumber_t v){
  * this is for floats, handling output without library 
  * functions as well.
  */
-
 address_t tinydtostrf(number_t v, index_t p, char* c) {  
 	index_t i;
 	address_t nd;
@@ -3325,7 +3360,7 @@ void xsgn(){
  */
 void xpeek(){
 	address_t amax;
-  index_t a;
+	index_t a;
 
 	a=pop();
 
@@ -3389,6 +3424,7 @@ void rnd() {
 void sqr(){
 	number_t t,r;
 	number_t l=0;
+
 	r=pop();
 	t=r;
 	while (t > 0) {
@@ -3418,7 +3454,7 @@ void xpow(){
 	number_t n;
 	number_t a;
 	address_t i;
-  number_t x;
+	number_t x;
 
 	n=pop();
 	a=pop();
@@ -3487,7 +3523,8 @@ char stringvalue() {
 		yc=ycl;
 	} else if (token == TSTR) {	
 		nexttoken();
-		if ( token != '(') { error(EARGS); return 0; }
+		if (token == '$') nexttoken();
+		if (token != '(') { error(EARGS); return 0; }
 		nexttoken();
 		expression();
 		if (er != 0) return 0;
@@ -3499,7 +3536,22 @@ char stringvalue() {
 		ir2=sbuffer;
 		x=1;
 		if (er != 0) return 0;
-		if (token != ')') {error(EARGS); return 0;	}
+		if (token != ')') {error(EARGS); return 0; }
+#endif
+/* the functions for rudimentary MS strings compatibility */		
+#ifdef HASMSSTRINGS
+	} else if (token == TCHR) {
+		nexttoken();
+		if (token == '$') nexttoken();
+		if (token != '(') { error(EARGS); return 0; }
+		nexttoken();
+		expression();
+		if (er != 0) return 0;
+		*sbuffer=pop();
+		ir2=sbuffer;
+		x=1;
+		push(1);
+		if (token != ')') {error(EARGS); return 0; }
 #endif
 	} else {
 		return 0;
@@ -4331,7 +4383,6 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
 	}
 }
 
-
 /*
  *	LET - the core assigment function, this is different from other BASICs
  */
@@ -5026,7 +5077,10 @@ void outputtoken() {
 	if (token == TREM) outliteral=1;
 
 	if (spaceafterkeyword) {
-		if (token != '(' && token != LINENUMBER && token !=':' ) outspc();
+		if (token != '(' && 
+			token != LINENUMBER && 
+			token !=':' && 
+			token !='$') outspc();
 		spaceafterkeyword=0;
 	}
 
@@ -5052,7 +5106,7 @@ void outputtoken() {
 			outch('"');
 			break;
 		default:
-			if ( (token < -3 && token >= BASEKEYWORD) || token < -127) {
+			if ( (token < -3 && token >= BASEKEYWORD) || token < -127) {	
 				if ((token == TTHEN || 
 					token == TELSE ||
 					token == TTO || 
@@ -5065,7 +5119,11 @@ void outputtoken() {
 					if (lastouttoken == NUMBER || lastouttoken == VARIABLE) outspc(); 
 				for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 				outsc(getkeyword(i)); 
-				if (token != GREATEREQUAL && token != NOTEQUAL && token != LESSEREQUAL && token != TREM) spaceafterkeyword=1;
+				if (token != GREATEREQUAL && 
+					token != NOTEQUAL && 
+					token != LESSEREQUAL && 
+					token != TREM &&
+					token != TFN) spaceafterkeyword=1;
 				break;
 			}	
 			if (token >= 32) {
@@ -5681,28 +5739,28 @@ void xload(const char* f) {
 				return;
 			} 
 
-    bi=ibuffer+1;
+    	bi=ibuffer+1;
 		while (fileavailable()) {
-      ch=fileread();
-      if (ch == '\n' || ch == '\r' || cheof(ch)) {
-        *bi=0;
-        bi=ibuffer+1;
-        nexttoken();
-        if (token == NUMBER) {
-        	ax=x;
-        	storeline();
-        }
-        if (er != 0 ) break;
-        bi=ibuffer+1;
-      } else {
-        *bi++=ch;
-      }
-      if ((bi-ibuffer) > BUFSIZE) {
-        error(EOUTOFMEMORY);
-        break;
-      }
-		}   	
-		ifileclose();
+		ch=fileread();
+		if (ch == '\n' || ch == '\r' || cheof(ch)) {
+        	*bi=0;
+        	bi=ibuffer+1;
+        	nexttoken();
+        	if (token == NUMBER) {
+        		ax=x;
+        		storeline();
+        	}
+        	if (er != 0 ) break;
+        	bi=ibuffer+1;
+      	} else {
+        	*bi++=ch;
+      	}
+		if ((bi-ibuffer) > BUFSIZE) {
+        	error(EOUTOFMEMORY);
+        	break;
+      	}
+	}   	
+	ifileclose();
 /* after a successful load we save top to the EEPROM header */
 #ifdef EEPROMMEMINTERFACE
 		z.a=top;
@@ -6133,18 +6191,18 @@ void xcolor() {
 	parsearguments();
 	if (er != 0) return;
 	switch(args) {
-		case 1: 
-			vgacolor(pop());
-			break;
-		case 3:
-			b=pop();
-			g=pop();
-			r=pop();
-			rgbcolor(r, g, b);
-			break;
-		default:
-			error(EARGS);
-			break;
+	case 1: 
+		vgacolor(pop());
+		break;
+	case 3:
+		b=pop();
+		g=pop();
+		r=pop();
+		rgbcolor(r, g, b);
+		break;
+	default:
+		error(EARGS);
+		break;
 	}
 }
 
@@ -6229,11 +6287,11 @@ void xfcircle() {
  */
 void xmalloc() {
 	address_t s;
-  address_t a;
+ 	address_t a;
   
 	s=popaddress();
 	a=popaddress();
-  if (er != 0) return;
+	if (er != 0) return;
   
 	push(bmalloc(TBUFFER, a%256, a/256, s));
 }
@@ -6245,30 +6303,30 @@ void xmalloc() {
 
 void xfind() {
 	address_t a;
-  address_t n;
+	address_t n;
 
 /* is there a ( */
-if (!expect('(', EUNKNOWN)) return;
+	if (!expect('(', EUNKNOWN)) return;
 
 /* after that, try to find the object on the heap */
 	nexttoken();
-  a=bfind(token, xc, yc);
+	a=bfind(token, xc, yc);
 
 /* depending on the object, interpret the result */
 	switch (token) {
-    case ARRAYVAR:
-      if (!expect('(', EUNKNOWN)) return;
-      if (!expect(')', EUNKNOWN)) return; 	
-		case VARIABLE:
-		case STRINGVAR:
-			nexttoken();
-			break;
-		default:
-			expression(); /* do not use expectexpr here because of the token sequence */
-			if (er != 0) return;
-			n=popaddress();
-      if (er != 0) return;
-			a=bfind(TBUFFER, n%256, n/256);
+	case ARRAYVAR:
+		if (!expect('(', EUNKNOWN)) return;
+		if (!expect(')', EUNKNOWN)) return; 	
+	case VARIABLE:
+	case STRINGVAR:
+		nexttoken();
+		break;
+	default:
+		expression(); /* do not use expectexpr here because of the token sequence */
+		if (er != 0) return;
+		n=popaddress();
+      	if (er != 0) return;
+		a=bfind(TBUFFER, n%256, n/256);
 	}
 
 /* closing braket, dont use expect here because of the token sequence */ 
@@ -6292,16 +6350,11 @@ void xeval(){
 	line=popaddress();
 	if (er != 0) return;
 
-	if (token != ',') {
-		error(EUNKNOWN);
-		return;
-	}
+	if (token != ',') { error(EUNKNOWN); return; }
 
 /* the line to be stored */
 	nexttoken();
-	if (!stringvalue()) {
-		error(EARGS); return; 
-	}
+	if (!stringvalue()) { error(EARGS); return; }
 
 /* here we have the string to evaluate in ir2 and copy it to the ibuffer
 		only one line allowed, BUFSIZE is the limit */
@@ -6343,6 +6396,7 @@ void xeval(){
  */
 void xavail() {
 	mem_t oid=id;
+
 	id=popaddress();
 	if (er != 0) return;
 	push(availch());
@@ -6354,9 +6408,10 @@ void xavail() {
  */
 void xfsensor() {
 	address_t s, a;
+
 	a=popaddress();
 	s=popaddress();
-  if (er != 0) return; 
+	if (er != 0) return; 
 	push(sensorread(s, a));
 }
 
@@ -6419,19 +6474,19 @@ void xerror() {
 	erh=0;
 	nexttoken();
 	switch (token) {
-		case TGOTO:
-			if (!expectexpr()) return;
-			berrorh.type=TGOTO;
-			berrorh.linenumber=pop();
-			break;
-		case TCONT:
-			berrorh.type=TCONT;
-		case TSTOP:		
-			nexttoken();
-			break;
-		default:
-			error(EARGS);
-			return;
+	case TGOTO:
+		if (!expectexpr()) return;
+		berrorh.type=TGOTO;
+		berrorh.linenumber=pop();
+		break;
+	case TCONT:
+		berrorh.type=TCONT;
+	case TSTOP:		
+		nexttoken();
+		break;
+	default:
+		error(EARGS);
+		return;
 	}
 }
 #endif
