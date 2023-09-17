@@ -2314,11 +2314,17 @@ address_t writenumber(char *c, wnumber_t v){
 
 address_t tinydtostrf(number_t v, index_t p, char* c) {  
 	index_t i;
-	address_t nd;
+	address_t nd = 0;
 	number_t f;
 
+/* we do the sign here and don't rely on writenumbers sign handling, guess why */
+	if (v<0) {
+		v=fabs(v);
+		c[nd++]='-';
+	}
+
 /* write the integer part */
-	nd=writenumber(c, (int)v); 
+	nd+=writenumber(c+nd, (int)v); 
 	c[nd++]='.';
 
 /* only the fraction to precision p */
@@ -2329,7 +2335,7 @@ address_t tinydtostrf(number_t v, index_t p, char* c) {
 		f=f-floor(f);
 		f=f*10;
 		c[nd++]=(int)floor(f)+'0';
-  }
+	}
 
 /* and a terminating 0 */
 	c[nd]=0;
