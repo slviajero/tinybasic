@@ -445,9 +445,8 @@ char ibuffer[BUFSIZE] = "\0";
 char *bi;
 
 /* a static array of variables A-Z for the small systems that have no heap */
-#ifndef HASAPPLE1
 number_t vars[VARSIZE];
-#endif
+
 
 /* the BASIC working memory, either malloced or allocated as a global array */
 #if MEMSIZE != 0
@@ -971,9 +970,7 @@ number_t getvar(mem_t c, mem_t d){
 	if (DEBUG) { outsc("* getvar "); outch(c); outch(d); outspc(); outcr(); }
 
 /* the static variable array */
-#ifndef HASAPPLE1
 	if (c >= 65 && c <= 91 && d == 0) return vars[c-65];
-#endif
 
 /* the special variables */
 	if ( c == '@' )
@@ -1031,12 +1028,11 @@ void setvar(mem_t c, mem_t d, number_t v){
 	if (DEBUG) { outsc("* setvar "); outch(c); outch(d); outspc(); outnumber(v); outcr(); }
 
 /* the static variable array */
-#ifndef HASAPPLE1
 	if (d == 0 && c >= 65 && c <= 91) {
 		vars[c-65]=v;
 		return;
 	}
-#endif
+
 
 /* the special variables */
 	if ( c == '@' )
@@ -1095,12 +1091,9 @@ void setvar(mem_t c, mem_t d, number_t v){
 void clrvars() {
 
 /* delete all static variables if the have no heap */
-#ifndef HASAPPLE1
-	mem_t i;
+	address_t i;
 
 	for (i=0; i<VARSIZE; i++) vars[i]=0;
-#else 
-	address_t i;
 
 /* clear the heap */
 	nvars=0;
@@ -1114,7 +1107,6 @@ void clrvars() {
 /* and clear the cache */
 	bfindc=bfindd=bfindt=0;
 	bfinda=bfindz=0;
-#endif
 }
 
 /* 
@@ -1389,6 +1381,7 @@ address_t createstring(char c, char d, address_t i, address_t j) {
  */
 #ifdef HASAPPLE1
 
+/* get a memory pointer to a string */
 char* getstring(char c, char d, address_t b, address_t j) {	
 	address_t k, zt, dim, maxlen;
 
@@ -1435,7 +1428,6 @@ char* getstring(char c, char d, address_t b, address_t j) {
 #else 
 
 /* the dimension of the string array */
-
 	zt=z.a;
 	getnumber(ax+z.a-addrsize, addrsize);
 	dim=z.a;
@@ -1597,7 +1589,10 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 }
 
 #else 
-/* no string code makes it all much easier */
+/* this code is currently not used as #undef HASAPPLE1 removed the code paths to 
+	the string code. Tinybasic has no strings. Might change in the future */
+
+/* get a pointer to the string */
 char* getstring(char c, char d, address_t b, address_t j) {	
 
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
@@ -1636,15 +1631,10 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 		outcr();
 	} 
 
-	if (c == '@' && d == 0) {
-		*ibuffer=l;
-		return;
-	}
-
+	if (c == '@' && d == 0) { *ibuffer=l; return; }
 }
 #endif
  
-
 /* the BASIC string mechanism for real time clocks, create a string with the clock data */
 #ifdef HASCLOCK
 char* rtcmkstr() {
@@ -2229,11 +2219,17 @@ address_t writenumber(char *c, wnumber_t v){
  */
 address_t tinydtostrf(number_t v, index_t p, char* c) {  
 	index_t i;
-	address_t nd;
+	address_t nd = 0;
 	number_t f;
 
+/* we do the sign here and don't rely on writenumbers sign handling, guess why */
+	if (v<0) {
+		v=fabs(v);
+		c[nd++]='-';
+	}
+
 /* write the integer part */
-	nd=writenumber(c, (int)v); 
+	nd+=writenumber(c+nd, (int)v); 
 	c[nd++]='.';
 
 /* only the fraction to precision p */
@@ -2271,9 +2267,9 @@ address_t writenumber2(char *c, number_t vi) {
 
 /* we check if we have anything to write */
 	if (!isfinite(vi)) {
-    c[0]='*';
-    c[1]=0;
-    return 1; 
+    	c[0]='*';
+    	c[1]=0;
+    	return 1; 
 	}
 
 /* normalize the number and see which exponent we have to deal with */
@@ -2284,7 +2280,7 @@ address_t writenumber2(char *c, number_t vi) {
 /* there are platforms where dtostrf is broken, we do things by hand in a simple way */
 
 	if (exponent > -2 && exponent < 7) { 
-    tinydtostrf(vi, 5, c);
+    	tinydtostrf(vi, 5, c);
 	} else {
 		tinydtostrf(f, 5, c);
 		eflag=1;
@@ -2293,7 +2289,7 @@ address_t writenumber2(char *c, number_t vi) {
 /* remove trailing zeros */
 	for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
 	i--;
-	while (c[i] == '0' && i>1) {i--;}
+	while (c[i] == '0' && i>1) { i--; }
 	i++;
     
 /* add the exponent */
@@ -5333,7 +5329,7 @@ void xclr() {
 
 		switch (t) {
 		case VARIABLE:
-			if (xcl == '@' || ycl == 0) { error(EVARIABLE); return; }
+			if (xcl == '@' || ycl == 0) { return; }
 			break;
 		case ARRAYVAR: 
 			nexttoken();
@@ -8230,7 +8226,7 @@ void setup() {
 /* init all io functions */
 	ioinit();
 #ifdef FILESYSTEMDRIVER
-  if (fsstat(1) == 1 && fsstat(2) > 0) outsc("Filesystem started\n");
+ 	// if (fsstat(1) == 1 && fsstat(2) > 0) outsc("Filesystem started\n");
 #endif
 
 /* setup for all non BASIC stuff */
