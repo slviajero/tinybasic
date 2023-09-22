@@ -3572,21 +3572,6 @@ char stringvalue() {
 		push(1);
 		if (token != ')') {error(EARGS); return 0; }
 		break;
-	case TTAB: /* limited currently to just 32 chars*/
-		nexttoken();
-		if (token == '$') nexttoken();
-		if (token != '(') { error(EARGS); return 0; }
-		nexttoken();
-		expression();
-		if (er != 0) return 0;
-		k=pop();
-		if (k>SBUFSIZE) k=SBUFSIZE-1;
-		push(k);
-		for (i=0; i<k; i++) sbuffer[i]=' ';
-		ir2=sbuffer;
-		x=1;
-		if (token != ')') {error(EARGS); return 0; }
-		break;
 	case TRIGHT:
 	case TMID:
 	case TLEFT:	
@@ -3955,10 +3940,14 @@ void factor(){
 /* Apple 1 string compare code */
 	case STRING:
 	case STRINGVAR:
+#ifdef HASIOT
+	case TSTR:
+#endif
 #ifdef HASMSSTRINGS
 	case TLEFT:
 	case TRIGHT:
 	case TMID:
+	case TCHR:
 #endif
 		streval();
 		if (er != 0 ) return;
@@ -4264,6 +4253,14 @@ processsymbol:
  		nexttoken();
 		goto separators;
 	}
+
+/* the tab command as part of print */
+#ifdef HASMSSTRINGS
+	if (token == TTAB) {
+		xtab();
+		goto separators;
+	}
+#endif
 
 /* modifiers of the print statement */
 	if (token == '#' || token == '&') {
@@ -5558,21 +5555,20 @@ void xpoke(){
  * 		charcount mechanism for relative tab if HASMSTAB is set
  */
 void xtab(){
-  address_t tx;
 
 	nexttoken();
 	parsenarguments(1);
 	if (er != 0) return;
 
-	tx=popaddress();
-  if (er != 0) return; 
+	ax=popaddress();
+	if (er != 0) return; 
   
 #ifdef HASMSTAB
 	if (reltab && od <= OPRT && od > 0) {
-		if (charcount[od-1] >= tx) tx=0; else tx=tx-charcount[od-1]-1;
+		if (charcount[od-1] >= ax) ax=0; else ax=ax-charcount[od-1]-1;
 	} 
 #endif	
-	while (tx-- > 0) outspc();	
+	while (ax-- > 0) outspc();	
 }
 #endif
 
