@@ -963,6 +963,7 @@ address_t blength (mem_t t, mem_t c, mem_t d) {
 }
 #endif
 
+
 /* get and create a variable */
 number_t getvar(mem_t c, mem_t d){
 	address_t a;
@@ -2240,7 +2241,7 @@ address_t tinydtostrf(number_t v, index_t p, char* c) {
 		f=f-floor(f);
 		f=f*10;
 		c[nd++]=(int)floor(f)+'0';
-  }
+	}
 
 /* and a terminating 0 */
 	c[nd]=0;
@@ -3239,7 +3240,7 @@ void parsesubstring() {
 	yc1=yc;
 
 /* Remember the token before the first parsesubscript */
-  if (st == SINT) bi1=bi; else h1=here; 
+	if (st == SINT) bi1=bi; else h1=here; 
 
 	nexttoken();
 	parsesubscripts();
@@ -3257,6 +3258,7 @@ void parsesubstring() {
 		case 0: 
 /* rewind the token if there were no braces to be in sync	*/
 			if (st == SINT) bi=bi1; else here=h1; 
+
 /* no rewind in the () construct */			
 		case -1:
 			args=0;		
@@ -3285,8 +3287,7 @@ void parsesubstring() {
 /* if more then zero or an empty (), we need a second parsesubscript */
 	} else {
 
-		if (st == SINT) bi1=bi; 
-		else h1=here;
+		if (st == SINT) bi1=bi; else h1=here;
 
 		a1=args;
 
@@ -3477,47 +3478,70 @@ void xpow(){
  * ax the memory byte address, x is set to the lower index which is a nasty
  * side effect
  */
-char stringvalue() {
+
+void parsestringvar() {
 	mem_t xcl, ycl;
 	address_t k;
 
+/* remember the variable name */
+	xcl=xc;
+	ycl=yc;
+
+/* resolve array indices and substring expressions */
+	parsesubstring();
+	if (er != 0) return;
+
+/* the array address */
+#ifdef HASSTRINGARRAYS
+	k=pop();
+#else 
+	k=arraylimit;
+#endif
+
+/* the subscripts of the substring expression */
+	y=popaddress();
+	x=popaddress();
+	ir2=getstring(xcl, ycl, x, k);
+
+/* if the memory interface is active spistrbuf1 has the string */
+#ifdef USEMEMINTERFACE
+	if (ir2 == 0) ir2=spistrbuf1;
+#endif
+
+/* find the length */
+	if (y-x+1 > 0) push(y-x+1); else push(0);
+
+/* done */
+	if (DEBUG) { outsc("** in stringvalue, length "); outnumber(y-x+1); outsc(" from "); outnumber(x); outspc(); outnumber(y); outcr(); }
+
+/* restore the name */	
+	xc=xcl;
+	yc=ycl;
+}
+
+char stringvalue() {
+	mem_t xcl, ycl;
+	address_t k, l;
+	address_t i;
+	token_t t;
+
 	if (DEBUG) outsc("** entering stringvalue \n");
 
-	if (token == STRING) {
+
+	switch(token) {
+	case STRING:
 		ir2=ir;
 		push(x);
 #ifdef USEMEMINTERFACE
 		for(k=0; k<x && x<SPIRAMSBSIZE; k++ ) spistrbuf1[k]=ir[k];
 		ir2=spistrbuf1;
 #endif
+		break;
 #ifdef HASAPPLE1
-	} else if (token == STRINGVAR) {
-		xcl=xc;
-		ycl=yc;
-		parsesubstring();
-		if (er != 0) return 0;
-#ifdef HASSTRINGARRAYS
-		k=pop();
-#else 
-		k=arraylimit;
-#endif
-#ifdef HASFLOAT
-		y=floor(pop());
-		x=floor(pop());
-#else
-		y=pop();
-		x=pop();
-#endif
-		ir2=getstring(xcl, ycl, x, k);
-/* if the memory interface is active spistrbuf1 has the string */
-#ifdef USEMEMINTERFACE
-		if (ir2 == 0) ir2=spistrbuf1;
-#endif
-		if (y-x+1 > 0) push(y-x+1); else push(0);
-		if (DEBUG) { outsc("** in stringvalue, length "); outnumber(y-x+1); outsc(" from "); outnumber(x); outspc(); outnumber(y); outcr(); }
-		xc=xcl;
-		yc=ycl;
-	} else if (token == TSTR) {	
+	case STRINGVAR:
+		parsestringvar();
+		break;
+	case TSTR:
 		nexttoken();
 		if (token == '$') nexttoken();
 		if (token != '(') { error(EARGS); return 0; }
@@ -3533,10 +3557,9 @@ char stringvalue() {
 		x=1;
 		if (er != 0) return 0;
 		if (token != ')') {error(EARGS); return 0; }
-#endif
-/* the functions for rudimentary MS strings compatibility */		
+		break;
 #ifdef HASMSSTRINGS
-	} else if (token == TCHR) {
+	case TCHR:
 		nexttoken();
 		if (token == '$') nexttoken();
 		if (token != '(') { error(EARGS); return 0; }
@@ -3548,8 +3571,70 @@ char stringvalue() {
 		x=1;
 		push(1);
 		if (token != ')') {error(EARGS); return 0; }
+		break;
+	case TTAB: /* limited currently to just 32 chars*/
+		nexttoken();
+		if (token == '$') nexttoken();
+		if (token != '(') { error(EARGS); return 0; }
+		nexttoken();
+		expression();
+		if (er != 0) return 0;
+		k=pop();
+		if (k>SBUFSIZE) k=SBUFSIZE-1;
+		push(k);
+		for (i=0; i<k; i++) sbuffer[i]=' ';
+		ir2=sbuffer;
+		x=1;
+		if (token != ')') {error(EARGS); return 0; }
+		break;
+	case TRIGHT:
+	case TMID:
+	case TLEFT:	
+		t=token;
+		nexttoken();
+		if (token == '$') nexttoken();
+		if (token != '(') { error(EARGS); return 0; }
+		nexttoken();
+		if (token != STRINGVAR) { error(EARGS); return 0; }
+		parsestringvar();
+		if (token != ',') { error(EARGS); return 0; }
+		nexttoken(); /* undo the rewind of parsestrinvar ? */
+		nexttoken();
+		expression();
+		if (er != 0) return 0;
+		if (t == TMID) {
+			if (token != ',') { error(EARGS); return 0; }
+			nexttoken();
+			expression();
+			if (er != 0) return 0;
+		}
+		if (token != ')') {error(EARGS); return 0; }
+		l=popaddress(); /* the length of the string from left */
+		if (t == TMID) {
+			i=popaddress(); /* the start position */
+			if (i < 1) { error(EARGS); }
+		}
+		k=popaddress(); /* the lenghth of the original string variable */
+		if (er != 0) return 0;
+		switch (t) {
+		case TRIGHT:
+			if (k < l) l=k; 
+			ir2=ir2+(k-l);
+			break;
+		case TLEFT:
+			if (k < l) l=k; 
+			break;
+		case TMID:
+			if (k < i+l) l=k-i;
+			if (l < 0) l=0; 
+			ir2=ir2+i-1;
+			break;	
+		}
+		push(l);
+		break; 
 #endif
-	} else {
+#endif
+	default:
 		return 0;
 	}
 	return 1;
@@ -3870,6 +3955,11 @@ void factor(){
 /* Apple 1 string compare code */
 	case STRING:
 	case STRINGVAR:
+#ifdef HASMSSTRINGS
+	case TLEFT:
+	case TRIGHT:
+	case TMID:
+#endif
 		streval();
 		if (er != 0 ) return;
 		break;
