@@ -436,7 +436,8 @@ const address_t maxaddr=(address_t)(~0);
 number_t stack[STACKSIZE];
 address_t sp=0; 
 
-/* a small buffer to process string arguments, mostly used for Arduino PROGMEM */
+/* a small buffer to process string arguments, mostly used for Arduino PROGMEM and string functions */
+/* string functions cannot be nested and recursive because the only use this one buffer */
 char sbuffer[SBUFSIZE];
 
 /* the input buffer, the lexer can tokenize this and run from it, bi is an index to this.
@@ -446,7 +447,6 @@ char *bi;
 
 /* a static array of variables A-Z for the small systems that have no heap */
 number_t vars[VARSIZE];
-
 
 /* the BASIC working memory, either malloced or allocated as a global array */
 #if MEMSIZE != 0
@@ -4479,6 +4479,7 @@ void assignment() {
 	address_t lensource, lendest, newlength, strdim, copybytes;
 	mem_t s;
 	index_t k;
+	char tmpchar; /* for number conversion only */
 
 /* this code evaluates the left hand side */
 	ycl=yc;
@@ -4514,15 +4515,17 @@ void assignment() {
 #ifdef HASAPPLE1
 /* the lefthandside is a string, try evaluate the righthandside as a stringvalue */
 		case STRINGVAR: 
+nextstring:
 			s=stringvalue();
 			if (er != 0) return;
 
-/* and then as an expression */
+/* and then as an expression, any number appearing in a string expression terminates the addition loop */
 			if (!s) {
 				expression();
 				if (er != 0) return;
-				assignnumber(t, xcl, ycl, i, j, ps);
-				break;
+				tmpchar=pop();
+				push(1);
+				ir2=&tmpchar;
 			}
 
 /* this is the string righthandside code - how long is the rightandside */
@@ -4545,6 +4548,7 @@ void assignment() {
 /* the dimension i.e. the maximum length of the string */
 			strdim=stringdim(xcl, ycl);
 
+/* this debug messes up sbuffer hence all functions that use it in stringvalue produce wrong results */
 			if (DEBUG) {
 				outsc("* assigment stringcode "); outch(xcl); outch(ycl); outcr();
 				outsc("** assignment source string length "); outnumber(lensource); outcr();
@@ -4554,10 +4558,10 @@ void assignment() {
 			};
 
 /* does the source string fit into the destination if we have no destination second index*/
-			if ((i2 == 0) && ((i+lensource-1) > strdim)) { error(EORANGE); return; };
+			if ((i2 == 0) && ((i+lensource-1)>strdim)) { error(EORANGE); return; };
 
 /* if we have a second index, is it in range */
-			if((i2 !=0) && i2>strdim) { error(EORANGE); return; };
+			if((i2 != 0) && i2>strdim) { error(EORANGE); return; };
 
 /* caculate the number of bytes we truely want to copy */
 			if (i2 > 0) copybytes=((i2-i+1) > lensource) ? lensource : (i2-i+1); else copybytes=lensource;
@@ -4597,6 +4601,15 @@ void assignment() {
 		
 			setstringlength(xcl, ycl, newlength, j);
 			nexttoken();
+/* 
+ * we have processed one string and copied it fully to the destination 
+ * see if there is more to come. 
+ */
+			if (token == '+') {
+				nexttoken();
+				i=i+copybytes;
+				goto nextstring;
+			}
 			break;
 #endif
 	}
