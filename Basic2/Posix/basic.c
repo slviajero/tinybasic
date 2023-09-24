@@ -3646,6 +3646,8 @@ void streval(){
 	} 
 	if (er != 0) return;
 
+	if (DEBUG) { outsc("** in streval first string"); outcr(); }
+
 	irl=ir2;
 	xl=popaddress();
 	if (er != 0) return;
@@ -3685,12 +3687,20 @@ void streval(){
 	t=token;
 	nexttoken(); 
 
+	if (DEBUG) { 
+		outsc("** in streval second string"); outcr(); 
+		debugtoken(); outcr();
+	}
+
 	if (!stringvalue()){
 		error(EUNKNOWN);
 		return;
 	} 
 	x=popaddress();
 	if (er != 0) return;
+
+
+	if (DEBUG) { outsc("** in streval result: "); outnumber(x); outcr(); }
 
 	if (x != xl) goto neq;
 	for (x=0; x < xl; x++) if (irl[x] != ir2[x]) goto neq;
@@ -4526,7 +4536,10 @@ nextstring:
 				tmpchar=pop();
 				push(1);
 				ir2=&tmpchar;
-			}
+			} else 
+				nexttoken(); /* we do this here because expression also advances, this way we avoid double advance */
+
+			if (DEBUG) { outsc("* assigment stringcode at "); outnumber(here); outcr();	}
 
 /* this is the string righthandside code - how long is the rightandside */
 			lensource=pop();
@@ -4563,8 +4576,10 @@ nextstring:
 /* if we have a second index, is it in range */
 			if((i2 != 0) && i2>strdim) { error(EORANGE); return; };
 
-/* caculate the number of bytes we truely want to copy */
+/* calculate the number of bytes we truely want to copy */
 			if (i2 > 0) copybytes=((i2-i+1) > lensource) ? lensource : (i2-i+1); else copybytes=lensource;
+
+			if (DEBUG) { outsc("** assignment copybytes "); outnumber(copybytes); outcr(); }
 
 /* this code is needed to make sure we can copy one string to the same string 
 	without overwriting stuff, we go either left to right or backwards */
@@ -4600,19 +4615,19 @@ nextstring:
 			} 
 		
 			setstringlength(xcl, ycl, newlength, j);
-			nexttoken();
 /* 
  * we have processed one string and copied it fully to the destination 
  * see if there is more to come. 
  */
+addstring:
 			if (token == '+') {
-				nexttoken();
 				i=i+copybytes;
+				nexttoken();
 				goto nextstring;
 			}
-			break;
+			break; /* case STRINGVAR */
 #endif
-	}
+	} /* switch */
 }
 
 /*
