@@ -1,0 +1,17 @@
+10 REM "DEF FN standard"
+20 DEF FN A(X)=X*X
+30 PRINT FNA(2), FNA(FNA(2)), FNA(FNA(FNA(2)))
+40 REM "Does the variable stay"
+50 X=5
+60 PRINT FNA(2), FNA(FNA(2)), FNA(FNA(FNA(2)))
+70 PRINT X
+80 REM "Redefine and see what happens"
+90 M=HIMEM
+100 DEF FNA(X)=X*X*X
+120 PRINT FNA(2)
+130 PRINT HIMEM-M
+200 REM "Define a new function"
+210 DEF FNB(X)=FNA(X)*X
+220 PRINT FNB(2)
+230 DEF FNC(X)=FNB(X)*X
+240 PRINT FNC(2)

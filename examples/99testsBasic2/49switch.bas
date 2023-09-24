@@ -1,0 +1,35 @@
+10 REM "Switch test code"
+100 FOR A=0 TO 4
+110 SWITCH A
+120 PRINT "default"
+130 CASE 1,2: PRINT "one or two"
+140 CASE 3: PRINT "three"
+150 SWEND
+160 NEXT
+210 REM "Nested switch"
+220 B=8
+230 FOR A=0 TO 4
+240 SWITCH A
+250 PRINT "default"
+260 CASE 1,2: PRINT "one or two"
+270 CASE 3: PRINT "three"
+280 SWITCH B
+290 PRINT "B: no case found"
+300 CASE 8: PRINT "B is eight"
+310 SWEND
+320 REM
+330 SWEND
+340 NEXT
+350 B=7
+360 FOR A=0 TO 4
+380 SWITCH A
+390 PRINT "default"
+400 CASE 1,2: PRINT "one or two"
+410 CASE 3: PRINT "three"
+420 SWITCH B
+430 PRINT "B: no case found"
+440 CASE 8: PRINT "B is eight"
+450 SWEND
+460 REM
+470 SWEND
+480 NEXT

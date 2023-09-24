@@ -1,0 +1,41 @@
+                                   ..X.XX                    
+                                   ...X...                   
+                                  ...XXX..                   
+                                 .XXXXXXX.                   
+                               ....XXXXXX..                  
+                             ......XXXXXX....                
+                           ........XXXXXX......X             
+                          ..XXX.XXXXXXXXXXXX...X.            
+                         ...XXXXXXXXXXXXXXXXXXXXX            
+                        .....XXXXXXXXXXXXXXXXXXX.            
+                       ....XXXXXXXXXXXXXXXXXXXXX..           
+               ...   .....XXXXXXXXXXXXXXXXXXXXXX..           
+              .X..........XXXXXXXXXXXXXXXXXXXXXX.X           
+             ..X...X......XXXXXXXXXXXXXXXXXXXXXXXX           
+             ...XXXXXXX..XXXXXXXXXXXXXXXXXXXXXXXX..          
+             ...XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.           
+            ...XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.           
+          ..X..XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.           
+      ......XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX..           
+   .........XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX...           
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX...           
+   .........XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX...           
+      ......XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX..           
+          ..X..XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.           
+            ...XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.           
+             ...XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.           
+             ...XXXXXXX..XXXXXXXXXXXXXXXXXXXXXXXX..          
+             ..X...X......XXXXXXXXXXXXXXXXXXXXXXXX           
+              .X..........XXXXXXXXXXXXXXXXXXXXXX.X           
+               ...   .....XXXXXXXXXXXXXXXXXXXXXX..           
+                       ....XXXXXXXXXXXXXXXXXXXXX..           
+                        .....XXXXXXXXXXXXXXXXXXX.            
+                         ...XXXXXXXXXXXXXXXXXXXXX            
+                          ..XXX.XXXXXXXXXXXX...X.            
+                           ........XXXXXX......X             
+                             ......XXXXXX....                
+                               ....XXXXXX..                  
+                                 .XXXXXXX.                   
+                                  ...XXX..                   
+                                   ...X...                   
+                                   ..X.XX                    

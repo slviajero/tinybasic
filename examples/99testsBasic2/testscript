@@ -1,0 +1,23 @@
+#!/bin/sh
+BASIC=../../basic2/Posix/basic
+
+for file in *.bas
+do
+  if [ -r $file.inp ]
+  then 
+     $BASIC $file > ${file}.tmp < ${file}.inp
+  else 
+     $BASIC $file > ${file}.tmp 
+  fi
+  diff ${file}.tmp ${file}.res > /dev/null
+  if [ $? -eq 0 ] 
+  then
+    echo "passed $file"
+    rm ${file}.tmp
+  else 
+    echo "failed $file"
+  fi
+done
+
+rm eeprom.dat
+rm daten.txt
