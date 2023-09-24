@@ -124,7 +124,21 @@ These tests stress test BASIC, provoke errors or go to limits.
 
 45ongo.bas - a few ON GO oddities
 
+46output.bas - print output with error conditions 
 
+## Structured BASIC extensions
+
+47while.bas - while loops 
+
+48until.bas - until loops 
+
+49switch.bas - switch and case statements 
+
+50teststruct.bas - block statements and ifs
+
+## Some games as test programs 
+
+51rocket.bas - the lunar lander program, tests arithemtic and input handling
 
 
 
