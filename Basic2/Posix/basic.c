@@ -3479,9 +3479,10 @@ void xpow(){
  * side effect
  */
 
-void parsestringvar() {
+char* parsestringvar() {
 	mem_t xcl, ycl;
 	address_t k;
+	char* ir2; /* local now here to make sure we can handle side effects */
 
 /* remember the variable name */
 	xcl=xc;
@@ -3489,7 +3490,7 @@ void parsestringvar() {
 
 /* resolve array indices and substring expressions */
 	parsesubstring();
-	if (er != 0) return;
+	if (er != 0) return 0;
 
 /* the array address */
 #ifdef HASSTRINGARRAYS
@@ -3517,6 +3518,8 @@ void parsestringvar() {
 /* restore the name */	
 	xc=xcl;
 	yc=ycl;
+
+	return ir2;
 }
 
 char stringvalue() {
@@ -3526,7 +3529,6 @@ char stringvalue() {
 	token_t t;
 
 	if (DEBUG) outsc("** entering stringvalue \n");
-
 
 	switch(token) {
 	case STRING:
@@ -3539,7 +3541,7 @@ char stringvalue() {
 		break;
 #ifdef HASAPPLE1
 	case STRINGVAR:
-		parsestringvar();
+		ir2=parsestringvar();
 		break;
 	case TSTR:
 		nexttoken();
@@ -3581,7 +3583,7 @@ char stringvalue() {
 		if (token != '(') { error(EARGS); return 0; }
 		nexttoken();
 		if (token != STRINGVAR) { error(EARGS); return 0; }
-		parsestringvar();
+		ir2=parsestringvar();
 		if (token != ',') { error(EARGS); return 0; }
 		nexttoken(); /* undo the rewind of parsestrinvar ? */
 		nexttoken();
@@ -3610,7 +3612,7 @@ char stringvalue() {
 			if (k < l) l=k; 
 			break;
 		case TMID:
-			if (k < i+l) l=k-i;
+			if (k < i+l) l=k-i+1;
 			if (l < 0) l=0; 
 			ir2=ir2+i-1;
 			break;	
@@ -3787,29 +3789,59 @@ void factorarray() {
 }
 
 /* helpers of factor - string length */
+/* helpers of factor - string length */
 void factorlen() {
-	address_t a;
+		address_t a;
 
-	nexttoken();
-	if ( token != '(') { error(EARGS); return; }
-			
-	nexttoken();
-	if (!stringvalue()) {
+		nexttoken();
+		if ( token != '(') { error(EARGS); return; }
+
+		nexttoken();
+
+/*		
+		if (!stringvalue()) {
 #ifdef HASDARKARTS
-		expression();
-		if (er != 0) return;
-		a=pop();
-		push(blength(TBUFFER, a%256, a/256));
-		return;
-#else 
-		error(EUNKNOWN);
-		return;
+			expression();
+			if (er != 0) return;
+			a=pop();
+			push(blength(TBUFFER, a%256, a/256));
+			return;
+#else
+			error(EUNKNOWN);
+			return;
 #endif
-	}		
-	if (er != 0) return;
+		}		
+		if (er != 0) return;
 
-	nexttoken();
-	if (token != ')') { error(EARGS); return;	}
+		nexttoken();
+*/
+
+		switch(token) {
+		case STRING:
+			push(x);
+			nexttoken();
+			break;
+		case STRINGVAR:
+			(void) parsestringvar();
+			nexttoken();
+			break;
+		case TRIGHT:
+		case TLEFT:
+		case TMID:
+		case TSTR:
+		case TCHR:
+			error(EARGS);
+			return;
+		default:
+			expression();
+			if (er != 0) return;
+			a=pop();
+			push(blength(TBUFFER, a%256, a/256));
+		}
+
+		if (er != 0) return;
+
+		if (token != ')') { error(EARGS); return; }
 }
 
 /* helpers of factor - the VAL command */
@@ -3818,7 +3850,7 @@ void factorval() {
   index_t y;
  
 	nexttoken();
-  if (token != '(') { error(EARGS); return; }
+	if (token != '(') { error(EARGS); return; }
 
 	nexttoken();
 	if (!stringvalue()) { error(EUNKNOWN); return; }
@@ -3839,8 +3871,8 @@ void factorval() {
 	(void) pop();
 	push(x*y);
     
-  nexttoken();
-  if (token != ')') { error(EARGS); return; }
+ 	nexttoken();
+ 	if (token != ')') { error(EARGS); return; }
 }
 
 /* helpers of factor - the INSTR command */
