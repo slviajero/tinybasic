@@ -52,6 +52,8 @@ The folder TinybasicArduino is kept for compatibility purposes. This is my worki
 
 TinyVT52 is a VT52 terminal emulation for Arduinos.
 
+Version 2 of the BASIC interpreter is in preparation. Look into Basic2 for more. 
+
 
 ## Software and documentation
 
@@ -72,7 +74,7 @@ The intepreter is compatible with two of the 1976 early basic dialects. It imple
 
 The interpreter also implements the specification of Apple Integer BASIC sold for the Apple 1 and 2 computers (https://github.com/slviajero/tinybasic/wiki/The-original-Apple-1-BASIC-manual).
 
-These two languages are the core of the BASIC interpreter. Additional feature can be added at compile time.
+These two languages are the core of the BASIC interpreter. Additional feature can be added at compile time. The feature set is now comparable to many of the standard BASIC dialects of the 80s. 
 
 I/O handling and some of the microcontroller BASIC features are new and are not compatible to the BASIC dialects above. They resemble the iostream library of Arduinos. Enterprise BASIC had something similar.
 
@@ -87,7 +89,6 @@ For further information, please look at: https://github.com/slviajero/tinybasic/
 There is a set of BASIC programs in the examples section https://github.com/slviajero/tinybasic/tree/main/examples of the repo. They showcase language features and use cases.
 
 For more information on the language, please look in the manual at: https://github.com/slviajero/tinybasic/blob/main/MANUAL.md
-
 
 ## Libraries needed
 
