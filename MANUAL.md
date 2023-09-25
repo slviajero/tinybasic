@@ -323,7 +323,7 @@ outputs
 
 Hello world today
 
-Please look into the tutorial files string1.bas - string3.bas for more information. The commands LEFT\$, RIGHT\$, and MID\$ do not exist and are not needed.
+Please look into the tutorial files string1.bas - string3.bas for more information. The commands LEFT\$, RIGHT\$, and MID\$ do not exist in the core language set but are supplied as an extension in BASIC 2.
 
 The length of a string can be found with the LEN command. Example:
 
@@ -404,6 +404,12 @@ HIMEM is the topmost free memory cell. The difference SIZE-HIMEM is the size of 
 TAB outputs n whitespace characters. Example: 
 
 TAB 20: PRINT "Hello"
+
+Statements like 
+
+PRINT TAB(20); "hello"
+
+are not supported in the core language set. It is an extension available in BASIC 2.
 
 ### SGN
 
@@ -1328,6 +1334,78 @@ Example:
 60 DEND
 
 70 ELSE PRINT "A is not zero"
+
+## BASIC 2 language extensions 
+
+BASIC 2 seperates the runtime environment from the interpreter code. In addition to this more technical change and removal of technical debts it also adds new features. As tokens can now be two byte long, there is no limit any more on the number of commands. 
+
+### String compatibility with MS Basics
+
+In BASIC 2, string functions are supported. Currently RIGHT\$(), LEFT\$(), MID\$(), CHR\$() and ASC() are implemented. Strings can be concatenated using the + operator. These functions are there for compatibility. They are not really needed as the subscript notation offers all the necessary functionality. 
+
+Note that the undelying string code is still static, i.e. it has no garbage collection and no dynamic string space. For this reason functionality and compatibility are limited. This is done by design. 
+
+Examples: 
+
+10 A\$="abcd"
+
+20 PRINT RIGHT\$(A\$, 2)
+
+30 PRINT LEFT\$(A\$, 2)
+
+40 PRINT MID\$(A\$, 2, 2)
+
+On RUN produces the output 
+
+cd
+
+ab
+
+bc
+
+as in all classical BASIC dialects. 
+
+String function cannot be nested. It is illegal to do 
+
+RIGHT\$(LEFT\$(A\$))
+
+as the string code is internally not recursive at the moment. This might change in the future. Only string variables and constants are allowed as arguments. 
+
+String addition is supported in the standard way in assignments. The program 
+
+10 A\$ = "abcd"
+
+20 B\$ = "efgh"
+
+30 C\$ = A\$ + B\$
+
+40 PRINT C\$
+
+produces the output 
+
+abcdefgh
+
+String addition is done in place. The right hand side is copied step by step to the left hand side. If a string variable appears on both sides the result depends on the order.
+
+A\$ = A\$ + "hello"
+
+adds "hello" at the end of the variable as expected.
+
+A\$ = "hello" + A\$ 
+
+produces 
+
+PRINT A\$
+
+hellohello
+
+as the first assignment copies the string "hello" to the variable and the second term is then just taken from the variable again. There is no string buffer right now storing intermediate results. Everything is directly done in place. That's why the MS string code is only implemented in assignments.
+
+The compatibility code also includes CHR\$() and ASC(). They convert a number to a string and back. 
+
+TAB can be used in print commands as well. 
+
+PRINT TAB(20); "hello" is legal now and produces the same result as TAB(20): PRINT "hello"
 
 # Hardware drivers 
 
