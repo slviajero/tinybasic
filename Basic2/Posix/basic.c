@@ -1738,7 +1738,7 @@ void usrcall(address_t i) { return; }
  *
  *	Same for messages and errors
  */ 
-char* getkeyword(unsigned short i) {
+char* getkeyword(address_t i) {
 
 	if (DEBUG) { outsc("** getkeyword from index "); outnumber(i); outcr(); }
 
@@ -1760,7 +1760,8 @@ char* getmessage(char i) {
 #endif
 }
 
-token_t gettokenvalue(char i) {
+/* tokens read here are always bytes, the construction of long tokens is done further upstream */
+token_t gettokenvalue(address_t i) {
 	if (i >= sizeof(tokens)) return 0;
 #ifndef ARDUINOPROGMEM
 	return tokens[i];
@@ -2399,6 +2400,7 @@ void whitespaces(){
 
 /* the token stream */
 void nexttoken() {
+	address_t k;
   
 /* RUN mode vs. INT mode, in RUN mode we read from mem via gettoken() */
 	if (st == SRUN || st == SERUN) {
@@ -2549,13 +2551,13 @@ void nexttoken() {
  *
  *	keywords are an array of null terminated strings.
  */
-	yc=0;
-	while (gettokenvalue(yc) != 0) {
-		ir=getkeyword(yc);
+	k=0;
+	while (gettokenvalue(k) != 0) {
+		ir=getkeyword(k);
 		xc=0;
 		while (*(ir+xc) != 0) {
 			if (*(ir+xc) != *(bi+xc)) {
-				yc++;
+				k++;
 				xc=0;
 				break;
 			} else 
@@ -2563,7 +2565,7 @@ void nexttoken() {
 		}
 		if (xc == 0) continue;
 		bi+=xc;
-		token=gettokenvalue(yc);
+		token=gettokenvalue(k);
 		if (token == TREM) lexliteral=1;
 		if (DEBUG) debugtoken();
 		return;
@@ -2575,7 +2577,7 @@ void nexttoken() {
  * here, no tokens can appear any more as they have been processed 
  * further up. 
  */
-	if ( x == 1 || x == 2 ) {
+	if (x == 1 || x == 2) {
 		token=VARIABLE;
 		xc=*bi;
 		yc=0;
@@ -3798,24 +3800,6 @@ void factorlen() {
 
 		nexttoken();
 
-/*		
-		if (!stringvalue()) {
-#ifdef HASDARKARTS
-			expression();
-			if (er != 0) return;
-			a=pop();
-			push(blength(TBUFFER, a%256, a/256));
-			return;
-#else
-			error(EUNKNOWN);
-			return;
-#endif
-		}		
-		if (er != 0) return;
-
-		nexttoken();
-*/
-
 		switch(token) {
 		case STRING:
 			push(x);
@@ -3846,8 +3830,8 @@ void factorlen() {
 
 /* helpers of factor - the VAL command */
 void factorval() {
-  address_t a;
-  index_t y;
+	address_t a;
+	index_t y;
  
 	nexttoken();
 	if (token != '(') { error(EARGS); return; }
@@ -3897,7 +3881,7 @@ void factorinstr() {
 
 	ch=pop();
 	for (a=1; a<=y; a++) {if ( ir2[a-1] == ch ) break; }
-	if (a > y ) a=0; 
+	if (a > y) a=0; 
 	push(a);
 	
 	nexttoken();
@@ -3906,10 +3890,40 @@ void factorinstr() {
 
 /* helpers of factor - the NETSTAT command */
 void factornetstat() {
-  address_t x=0;
-  if (netconnected()) x=1;
-  if (mqttstate() == 0) x+=2;
-  push(x);
+	address_t x=0;
+	if (netconnected()) x=1;
+	if (mqttstate() == 0) x+=2;
+	push(x);
+}
+
+/* helpers of factor - the ASC command, really not needed but for completeness */
+void factorasc() {
+	char * ir2;
+
+	nexttoken();
+	if ( token != '(') { error(EARGS); return; }
+
+	nexttoken();
+
+	switch(token) {
+	case STRING:
+		push(ir[0]);
+		nexttoken();
+		break;
+	case STRINGVAR:
+		ir2=parsestringvar();
+		pop();
+		push(ir2[0]);
+		nexttoken();
+		break;
+	default:
+		error(EARGS);
+		return;
+	}
+
+	if (er != 0) return;
+
+	if (token != ')') { error(EARGS); return; }
 }
 
 void factor(){
@@ -4087,6 +4101,11 @@ void factor(){
 	case TNETSTAT:
 		factornetstat();
 		break;
+#endif
+#ifdef HASMSSTRINGS
+	case TASC:
+		factorasc();
+		break;	
 #endif
 
 /* unknown function */
@@ -5849,6 +5868,7 @@ void xload(const char* f) {
 	char ch;
 	address_t here2;
 	mem_t chain = 0;
+	mem_t skip = 0;
 
 	if (f == 0) {
 		nexttoken();
@@ -5883,26 +5903,31 @@ void xload(const char* f) {
 
     	bi=ibuffer+1;
 		while (fileavailable()) {
-		ch=fileread();
-		if (ch == '\n' || ch == '\r' || cheof(ch)) {
-        	*bi=0;
-        	bi=ibuffer+1;
-        	nexttoken();
-        	if (token == NUMBER) {
-        		ax=x;
-        		storeline();
-        	}
-        	if (er != 0 ) break;
-        	bi=ibuffer+1;
-      	} else {
-        	*bi++=ch;
-      	}
-		if ((bi-ibuffer) > BUFSIZE) {
-        	error(EOUTOFMEMORY);
-        	break;
-      	}
-	}   	
-	ifileclose();
+			ch=fileread();
+
+			if (ch == '#') skip=1;
+
+			if (ch == '\n' || ch == '\r' || cheof(ch)) {
+				if (skip == 1) skip=0;
+        		*bi=0;
+        		bi=ibuffer+1;
+        		nexttoken();
+        		if (token == NUMBER) {
+        			ax=x;
+        			storeline();
+        		}
+        		if (er != 0 ) break;
+        		bi=ibuffer+1;
+      		} else {
+        		if (!skip) *bi++=ch;
+      		}
+
+			if ((bi-ibuffer) > BUFSIZE) {
+        		error(EOUTOFMEMORY);
+        		break;
+      		}
+		}   	
+		ifileclose();
 /* after a successful load we save top to the EEPROM header */
 #ifdef EEPROMMEMINTERFACE
 		z.a=top;

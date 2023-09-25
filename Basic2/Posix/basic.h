@@ -406,9 +406,9 @@ number_t usrfunction(address_t, number_t);
 void usrcall(address_t);
 
 /* get keywords and tokens from PROGMEM */
-char* getkeyword(unsigned short);
+char* getkeyword(address_t);
 char* getmessage(char);
-token_t gettokenvalue(char);
+token_t gettokenvalue(address_t);
 void printmessage(char);
 
 /* error handling */
