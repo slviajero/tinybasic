@@ -107,22 +107,22 @@ const char sawrite[]  PROGMEM = "AWRITE";
 const char saread[]   PROGMEM = "AREAD";
 const char sdelay[]   PROGMEM = "DELAY";
 const char smillis[]	PROGMEM = "MILLIS";
-const char sazero[]	PROGMEM = "AZERO";
-const char sled[]	PROGMEM = "LED";
+const char sazero[]		PROGMEM = "AZERO";
+const char sled[]		PROGMEM = "LED";
 #endif
 #ifdef HASTONE
-const char stone[]    PROGMEM = "PLAY";
+const char stone[]	PROGMEM = "PLAY";
 #endif
 #ifdef HASPULSE
-const char spulse[] PROGMEM = "PULSE";
+const char spulse[]	PROGMEM = "PULSE";
 #endif
 /* DOS functions */
 #ifdef HASFILEIO
-const char scatalog[] PROGMEM = "CATALOG";
-const char sdelete[]  PROGMEM = "DELETE";
-const char sfopen[]   PROGMEM = "OPEN";
-const char sfclose[]  PROGMEM = "CLOSE";
-const char sfdisk[]   PROGMEM = "FDISK";
+const char scatalog[]	PROGMEM = "CATALOG";
+const char sdelete[]	PROGMEM = "DELETE";
+const char sfopen[]		PROGMEM = "OPEN";
+const char sfclose[]	PROGMEM = "CLOSE";
+const char sfdisk[]		PROGMEM = "FDISK";
 #endif
 /* low level access functions */
 #ifdef HASSTEFANSEXT
@@ -704,6 +704,7 @@ void eload() {
 #ifndef EEPROMMEMINTERFACE
 	address_t a=0;
 	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { 
+
 		/* have we stored a program */
 		a++;
 
@@ -5868,7 +5869,6 @@ void xload(const char* f) {
 	char ch;
 	address_t here2;
 	mem_t chain = 0;
-	mem_t skip = 0;
 
 	if (f == 0) {
 		nexttoken();
@@ -5896,30 +5896,27 @@ void xload(const char* f) {
 		}
 
 		if (!f)
-			if (!ifileopen(filename)) {
-				error(EFILE);
-				return;
-			} 
+			if (!ifileopen(filename)) { error(EFILE); return; } 
 
     	bi=ibuffer+1;
 		while (fileavailable()) {
 			ch=fileread();
 
-			if (ch == '#') skip=1;
-
 			if (ch == '\n' || ch == '\r' || cheof(ch)) {
-				if (skip == 1) skip=0;
         		*bi=0;
         		bi=ibuffer+1;
-        		nexttoken();
-        		if (token == NUMBER) {
-        			ax=x;
-        			storeline();
+        		if (*bi != '#') {
+				nexttoken();
+	    			if (token == NUMBER) {
+        				ax=x;
+        				storeline();
+        			}
+        			if (er != 0 ) break;
+        			bi=ibuffer+1;
         		}
-        		if (er != 0 ) break;
-        		bi=ibuffer+1;
+
       		} else {
-        		if (!skip) *bi++=ch;
+        		*bi++=ch;
       		}
 
 			if ((bi-ibuffer) > BUFSIZE) {
