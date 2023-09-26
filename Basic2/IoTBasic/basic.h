@@ -1,36 +1,37 @@
 /*
  *
- *	$Id: basic.h,v 1.13 2023/07/16 14:17:08 stefan Exp stefan $
+ *	$Id: basic.h,v 1.1 2023/08/26 08:23:23 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *
- *	Playing around with frugal programming. See the licence file on 
+ *	See the licence file on 
  *	https://github.com/slviajero/tinybasic for copyright/left.
  *    (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
  *
  *	Author: Stefan Lenz, sl001@serverfabrik.de
  *
- *	basic.h are the core defintions and function protypes
+ *	basic.h are the core defintions and function protypes.
  *
  */
- 
+
 /* 
- * a few of the buffers and vars come from hardware.h. 
- * These are 
- * for real computers 
+ * A few of the buffers and vars come from hardware.h. 
+ * 
  * #define BUFSIZE         
  * #define STACKSIZE      
  * #define GOSUBDEPTH      
  * #define FORDEPTH        
  * #define LINECACHESIZE
  * 
- * They depend on the hardware architecture and are configured there 
+ * They depend on the hardware architecture and are configured there.
+ *
  */
 
-/* more duffers and vars */
+/* Additional buffers and vars */
 #define SBUFSIZE        32
 #define VARSIZE         26
-/* default sizes of arrays and strings if they are not DIMed */
+
+/* Default sizes of arrays and strings if they are not DIMed */
 #define ARRAYSIZEDEF    10
 #define STRSIZEDEF      32
 
@@ -39,7 +40,10 @@
  *
  *	All single character operators are their own tokens
  *	ASCII values above 0x7f are used for tokens of keywords.
- *	EOL is a token
+ *	EOL is a token. 
+ * 
+ *  The two byte tokens are possible to extend the language beyond 
+ *  127 keywords.
  */
 #define EOL			 0
 #define NUMBER   	 -127
@@ -141,7 +145,7 @@
 /* the Dartmouth extensions (6) */
 #define TDATA	-40
 #define TREAD   -39
-#define TRESTORE    -38
+#define TRESTORE -38
 #define TDEF	-37
 #define TFN 	-36
 #define TON     -35
@@ -175,25 +179,35 @@
 #define TDEND -11
 /* these are multibyte token extension, currently unused */
 /* using them would allow over 1000 BASIC keywords */
+#define TEXT8 -10
+#define TEXT7 -9
+#define TEXT6 -8
+#define TEXT5 -7
+#define TEXT4 -6
+#define TEXT3 -5
+#define TEXT2 -4 
 #define TEXT1 -3
 /* end of tokens */
-/* constants used for some obscure purposes */
+/* Constants used for some purposes other than token */
+/* Indentifying a buffer on the heap */
 #define TBUFFER -2
 /* UNKNOWN is not used in the current code, the 
  * lexer tokenizes everything blindly. There is a UNKNOWN hook 
  * in statement for a grammar aware lexer */
 #define UNKNOWN -1
 
-/* extension tokens can be in the range from -128 to -255 
- * one needs to set HASLONGTOKENS
+/* 
+ * Extension tokens can be in the range from -128 upwards.
+ * one needs to set HASLONGTOKENS. Currently ony one set of 
+ * extension tokens is implemented ranging from -128 to -255.
  */
-#undef HASLONGTOKEN
-#define TTOKEN1 -128
+#define TASC -128
+#define TCHR -129
+#define TRIGHT -130
+#define TLEFT -131
+#define TMID -132
 
-
-/* the number of keywords, and the base index of the keywords 
- * the number is irrelevant but BASEKEYWORD is used */
-#define NKEYWORDS	3+19+13+14+11+5+2+7+7+6+12+3+9
+/* BASEKEYWORD is used by the lexer. From this keyword on it tries to match. */
 #define BASEKEYWORD -121
 
 /*
@@ -297,7 +311,6 @@ typedef struct {
     address_t linenumber;
 } btimer_t;
 
-
 /* 
  * the events API for Arduino with interrupt service routines
  * analogous to the timer API
@@ -320,22 +333,6 @@ typedef struct {
     mem_t active;
 } bevent_t;
 
-/* interrupts in BASIC fire once and then disable themselves, BASIC reenables them */
-/* event type */
-
-void bintroutine0();
-void bintroutine1();
-void bintroutine2();
-void bintroutine3();
-mem_t enableevent(mem_t);
-void disableevent(mem_t);
-mem_t eventindex(mem_t);
-
-/* handle the event list */
-mem_t addevent(mem_t, mem_t, mem_t, address_t);
-void deleteevent(mem_t);
-volatile bevent_t* findevent(mem_t);
-
 /* 
  * Function prototypes, ordered by layers
  * HAL - hardware abstraction
@@ -345,16 +342,20 @@ volatile bevent_t* findevent(mem_t);
  */
 
 /*
- *	HAL - see hardware-*.h
- *  This is the hardware abstraction layer of the BASIC
- *	interpreter 
- */
-
-/* done elsewhere */
-
-/*
  * Layer 0 functions - I/O and memory management 
  */
+
+/* event types and functions */
+void bintroutine0();
+void bintroutine1();
+void bintroutine2();
+void bintroutine3();
+mem_t enableevent(mem_t);
+void disableevent(mem_t);
+mem_t eventindex(mem_t);
+mem_t addevent(mem_t, mem_t, mem_t, address_t);
+void deleteevent(mem_t);
+volatile bevent_t* findevent(mem_t);
 
 /* make room for BASIC */
 address_t ballocmem(); 
@@ -405,9 +406,9 @@ number_t usrfunction(address_t, number_t);
 void usrcall(address_t);
 
 /* get keywords and tokens from PROGMEM */
-char* getkeyword(unsigned short);
+char* getkeyword(address_t);
 char* getmessage(char);
-signed char gettokenvalue(char);
+token_t gettokenvalue(address_t);
 void printmessage(char);
 
 /* error handling */

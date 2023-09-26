@@ -36,9 +36,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#undef	BASICFULL
+#define	BASICFULL
 #undef	BASICINTEGER
-#define	BASICSIMPLE
+#undef	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
@@ -67,6 +67,13 @@
 #define HASERRORHANDLING
 #define HASARRAYLIMIT
 #define HASSTRUCT
+
+/* 
+ * Experimental features:
+ * 
+ * HASMSSTRINGS is a (rudimentary) string compatibility to MS Basic
+ */
+#define HASMSSTRINGS
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -242,3 +249,9 @@
 #endif
 
 
+/*
+ * Some of the language features need long tokens 
+ */
+#ifdef HASMSSTRINGS
+#define HASLONGTOKENS
+#endif
