@@ -1473,6 +1473,87 @@ char* getstring(char c, char d, address_t b, address_t j) {
 #endif
 }
 
+
+/* get a memory pointer to a string, new style string logic just using memory access */
+
+address_t getstring2(char c, char d, address_t b, address_t j) {	
+	address_t k, zt, dim, maxlen;
+
+	ax=0;
+	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }	
+
+/* dynamically allocated strings, create on the fly */
+	if (!(ax=bfind(STRINGVAR, c, d))) ax=createstring(c, d, STRSIZEDEF, 1);
+
+	if (DEBUG) {
+		outsc("** heap address "); outnumber(ax); outcr(); 
+		outsc("** byte length "); outnumber(z.a); outcr(); 
+	}
+
+	if (er != 0) return 0;
+
+/* special string variables are also stored on the heap in a default length string chunk */
+	if (c == '@')
+	switch(d) {
+	case 0: 
+		break; /* direct access to the input buffer is removed now */	
+	default:
+		error(EVARIABLE); 
+		return 0;
+	case 'U':
+		break; /* to be done */ 
+#ifdef HASCLOCK
+	case 'T':
+		break; /* to be done */
+#endif	
+/* the arguments string on POSIX systems */
+#ifdef HASARGS
+	case 'A': 
+		break; /* to be done */
+#endif
+	}	
+
+#ifndef HASSTRINGARRAYS
+	if ((b < 1) || (b > z.a-strindexsize )) { error(EORANGE); return 0; }
+	ax=ax+strindexsize+(b-1);
+#else 
+
+/* the dimension of the string array */
+	zt=z.a;
+	getnumber(ax+z.a-addrsize, addrsize);
+	dim=z.a;
+
+	if ((j < arraylimit) || (j >= dim + arraylimit )) { error(EORANGE); return 0; }
+
+ 	if (DEBUG) { outsc("** string dimension "); outnumber(dim); outcr(); }
+
+/* the max length of a string */
+	maxlen=(zt-addrsize)/dim-strindexsize;
+
+	if ((b < 1) || (b > maxlen )) { error(EORANGE); return 0; }
+
+	if (DEBUG) { outsc("** maximum string length "); outnumber(maxlen); outcr(); }
+	
+/* the base address of a string */
+	ax=ax+(j-arraylimit)*(maxlen + strindexsize);
+
+	if (DEBUG) { outsc("** string base address "); outnumber(ax); outcr(); }
+
+/* get the actual length */
+/*	getnumber(ax, strindexsize); */
+
+/* the address */
+	ax=ax+b-1+strindexsize;
+
+/* leave the string data record length in z.a */
+	z.a=maxlen+strindexsize;
+
+	if (DEBUG) { outsc("** payload address address "); outnumber(ax); outcr(); }
+
+	return ax;
+#endif
+}
+
 /* in case of a string array, this function finds the number of array elements */
 	address_t strarraydim(char c, char d) {
 	address_t a, b;
@@ -1767,7 +1848,11 @@ token_t gettokenvalue(address_t i) {
 #ifndef ARDUINOPROGMEM
 	return tokens[i];
 #else
+#ifndef HASLONGTOKENS
 	return (token_t) pgm_read_byte(&tokens[i]);
+#else 
+	return (token_t) pgm_read_word(&tokens[i]);
+#endif
 #endif
 }
 
@@ -5905,7 +5990,7 @@ void xload(const char* f) {
 			if (ch == '\n' || ch == '\r' || cheof(ch)) {
         		*bi=0;
         		bi=ibuffer+1;
-        		if (*bi != '#') {
+        		if (*bi != '#') { /* lines starting with a # are skipped - Unix style shell startup */
 				nexttoken();
 	    			if (token == NUMBER) {
         				ax=x;
