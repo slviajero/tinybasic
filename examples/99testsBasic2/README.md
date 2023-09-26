@@ -144,6 +144,10 @@ These tests stress test BASIC, provoke errors or go to limits.
 
 52eliza-org.bas - the (almost) original eliza code, tests MS strings
 
+53msstrings.bas - no game but tests the basic MS string capabilities
+
+54word.bas - word guessing game, tests strings, data and string to ASCII conversion
+
 
 
 
