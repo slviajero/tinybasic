@@ -4094,7 +4094,14 @@ nextfactor:
 			return;	
 		}
 		goto nextfactor;
-	} 
+	} else if (token == '^') {
+		nexttoken();
+		factor();
+		if (er != 0) return;
+		xpow(); /* call the interpreter function directly */
+		goto nextfactor;
+	}
+
 	if (DEBUG) bdebug("leaving term\n");
 }
 
