@@ -547,6 +547,8 @@ PRINT POW(2,4)
 
 In integer systems POW calculates the result in a loop. It returns 0 for negative arguments of the exponent. In floating point systems the C function pow() is used and the result is returned.
 
+In BASIC 1.4 and the 2.x versions '^' is added in addition to POW to make BASIC more compatible.
+
 See math.bas in the tutorial for more information.
 
 ### MAP
