@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.h,v 1.1 2023/08/26 08:23:23 stefan Exp stefan $
+ *	$Id: basic.h,v 1.1 2023/09/27 15:23:20 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *
@@ -300,9 +300,25 @@ typedef int16_t token_t; /* token type extension, allows an extra of 127 command
 typedef struct {mem_t l; mem_t h;} twobytes_t;
 typedef union { number_t i; address_t a; twobytes_t b; mem_t c[sizeof(number_t)]; } accu_t;
 
-/* the memreader function type */
+/* the memreader function type - currently unused */
 typedef mem_t (*memreader_t)(address_t);
 
+/* the new string type used in the reimplementation of the string functions */
+/* 
+ * stringlength_t is the maximum length of a string, currently only 2 bytes is really tested.
+ *      one byte lengthes may work, will be fixed soon to arbitrary types
+ * string_t says where we can find a string. It is either in BASIC memory and has a valid BASIC memory
+ *      address a, or it is in C memory outside mem[]. Then ir says where the string can be found.
+ *      This is necessary because BASIC can handle different memory layouts, EEPROM models and serial
+ *      memory chips. We cannot simply rely on data to be found in BASIC memory like in old 8 bit
+ *      computers or all in C memory like on modern Linux/Windows/Mac systems. 
+ */
+
+typedef uint16_t stringlength_t;
+typedef struct {address_t a; char* ir; stringlength_t l;} string_t;
+
+
+/* the timing event type */
 typedef struct {
     mem_t enabled;
     unsigned long last;
@@ -323,7 +339,7 @@ typedef struct {
  *
  */
 
-/* event type */
+/* event type for external events*/
 typedef struct {
     mem_t enabled;
     mem_t pin;
@@ -389,7 +405,7 @@ void pgetnumber(address_t, mem_t);
 address_t createarray(mem_t, mem_t, address_t, address_t);
 void array(mem_t, mem_t, mem_t, address_t, address_t, number_t*);
 address_t createstring(char, char, address_t, address_t);
-char* getstring(char, char, address_t, address_t);
+char* getstring(char, char, address_t, address_t, string_t*);
 number_t arraydim(char, char);
 address_t stringdim(char, char);
 address_t lenstring(char, char, address_t);
@@ -531,7 +547,7 @@ void andexpression();
 void expression();
 
 /* real time clock string stuff */
-char* rtcmkstr();
+void rtcmkstr();
 
 /* 
  * Layer 2 - statements and functions 
