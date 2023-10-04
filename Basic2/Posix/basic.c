@@ -4646,8 +4646,8 @@ nextstring:
 	 this is needed to avoid the overwrite from the second getstring
 	 then reuse much of the old code */
 #ifdef USEMEMINTERFACE
-			for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=ir2[k];
-			ir2=spistrbuf2;
+			for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=sr.ir[k];
+			sr.ir=spistrbuf2;
 #endif		
 
 /* getstring of the destination */         
@@ -5459,6 +5459,8 @@ void xrun(){
  * 	this is needed for EEPROM direct memory 
  */
 void resetbasicstate() {
+
+ 	if (DEBUG) { outsc("** BASIC state reset \n"); }
  
  /* all stacks are purged */
 	clearst();
@@ -5490,11 +5492,14 @@ void xnew(){
 /* reset the state of the interpreter */
 	resetbasicstate();
 
+
+	if (DEBUG) outsc("** clearing memory \n ");
 /* program memory back to zero and variable heap cleared */
 	himem=memsize;
 	zeroblock(0, memsize);
 	top=0;
 
+	if (DEBUG) outsc("** clearing EEPROM state \n ");
 /* on EEPROM systems also clear the stored state and top */
 #ifdef EEPROMMEMINTERFACE
 	eupdate(0, 0);
@@ -8472,8 +8477,14 @@ void setup() {
 #endif
 
 #ifndef EEPROMMEMINTERFACE
+
+	if (DEBUG) { outsc("** on startup, memsize is "); outnumber(memsize); outcr(); }
+
 /* be ready for a new program if we run on RAM*/
  	xnew();	
+
+	if (DEBUG) { outsc("** on startup, ran xnew "); outcr(); }
+
 #else
 /* if we run on an EEPROM system, more work is needed */
 	if (eread(0) == 0 || eread(0) == 1) { /* have we stored a program and don't do new */

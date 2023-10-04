@@ -1920,35 +1920,34 @@ void detachinterrupt(uint8_t pin) {  };
  */
 
 #ifdef SPIRAMSIMULATOR
-#define USEMEMINTERFACE
 
-static mem_t* spiram;
+int8_t* spiram;
 
 /* the RAM begin method sets the RAM to byte mode */
-address_t spirambegin() {
-  spiram=(mem_t*)malloc(65536);
-  if (maxnum>32767) return 65534; else return 32766;  
+uint16_t spirambegin() {
+  spiram=(int8_t*)malloc(65536);
+  return 65534;  
 }
 
 /* the simple unbuffered byte write, with a cast to signed char */
-void spiramrawwrite(address_t a, mem_t c) {spiram[a]=c;}
+void spiramrawwrite(uint16_t a, int8_t c) {spiram[a]=c;}
 
 /* the simple unbuffered byte read, with a cast to signed char */
-mem_t spiramrawread(address_t a) {return spiram[a];}
+int8_t spiramrawread(uint16_t a) {return spiram[a];}
 
 /* the buffers calls, also only simulated here */
 
-void spiram_rwbufferwrite(address_t a, mem_t c) {spiram[a]=c;}
+void spiram_rwbufferwrite(uint16_t a, int8_t c) {spiram[a]=c;}
 
-mem_t spiram_rwbufferread(address_t a) {return spiram[a];}
+int8_t spiram_rwbufferread(uint16_t a) {return spiram[a];}
 
-mem_t spiram_robufferread(address_t a) {return spiram[a];}
+int8_t spiram_robufferread(uint16_t a) {return spiram[a];}
 
 /* to handle strings in SPIRAM situations two more buffers are needed 
  * they store intermediate results of string operations. The buffersize 
  * limits the maximum string length indepents of how big strings are set
  */
-#define SPIRAMSBSIZE 128
+
 char spistrbuf1[SPIRAMSBSIZE];
 char spistrbuf2[SPIRAMSBSIZE];
 #endif
