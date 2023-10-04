@@ -1373,7 +1373,7 @@ address_t createstring(char c, char d, address_t i, address_t j) {
 
 /* helpers to handle strings */
 
-/* stores a C string to a BASIC string */
+/* stores a C string to a BASIC string variable */
 void storecstring(address_t ax, address_t s, char* b) {
 	address_t k; 
 
@@ -1389,16 +1389,18 @@ address_t cstringlength(char* c, address_t l) {
 	return a;
 }
 
-
 /* get a memory pointer to a string, new version */
-char* getstring(char c, char d, address_t b, address_t j, string_t* strp) {	
+void getstring(string_t* strp, char c, char d, address_t b, address_t j) {	
 	address_t k, zt, dim, maxlen;
+
 
 /* we know nothing about the string */
 	ax=0;
-	strp->a=0;
+	strp->address=0;
 	strp->ir=0;
-	strp->l=0;
+	strp->length=0;
+	strp->arraydim=1;
+	strp->strdim=0;
 
 	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
 
@@ -1408,32 +1410,32 @@ char* getstring(char c, char d, address_t b, address_t j, string_t* strp) {
 	switch(d) {
 	case 0: 
 		strp->ir=ibuffer+b;
-		strp->l=ibuffer[0];
-		return ibuffer+b; /* direct access to the input buffer - deprectated but still there */	
+		strp->length=ibuffer[0];
+		return;
 	default:
 		error(EVARIABLE); 
-		return 0;
+		return;
 	case 'U':
 		makeusrstring(); /* a user definable special string in sbuffer */
 		strp->ir=sbuffer+b;
-		strp->l=sbuffer[0];
-		return sbuffer+b;
+		strp->length=sbuffer[0];
+		return;
 #ifdef HASCLOCK
 	case 'T':
 		rtcmkstr(); /* the time string */
-		strp->ir=rtcstring+1+b;
-		strp->l=rtcstring[0];
-		return rtcstring+b;
+		strp->ir=rtcstring+b;
+		strp->length=rtcstring[0];
+		return;
 #endif	
 /* the arguments string on POSIX systems */
 #ifdef HASARGS
 	case 'A': 
 		if (bargc > 2) {
 			strp->ir=bargv[2];
-			strp->l=cstringlength(bargv[2], BUFSIZE);
-			return bargv[2]; 
+			strp->length=cstringlength(bargv[2], BUFSIZE);
+			return; 
 		}	
-		return 0;
+		return;
 #endif
 	}	
 
@@ -1444,17 +1446,20 @@ char* getstring(char c, char d, address_t b, address_t j, string_t* strp) {
 		outsc("** heap address "); outnumber(ax); outcr(); 
 		outsc("** byte length of string"); outnumber(z.a); outcr(); 
 	}
-	if (er != 0) return 0;
+	if (er != 0) return;
 
 #ifndef HASSTRINGARRAYS
 
 /* are we in range */
-	if ((b < 1) || (b > z.a-strindexsize )) { error(EORANGE); return 0; }
+	if ((b < 1) || (b > z.a-strindexsize )) { error(EORANGE); return; }
+
+/* the maximum length of the string */
+	strp->strdim=z.a-strindexsize;
 
 /* get the actual full length, this is redundant to lenstring but lenstring does 
 	not autocreate */
 	getnumber(ax, strindexsize);
-	strp->l=z.a;
+	strp->length=z.a;
 
 /* now find the payload address */
 	ax=ax+strindexsize+(b-1);
@@ -1464,29 +1469,29 @@ char* getstring(char c, char d, address_t b, address_t j, string_t* strp) {
 /* the dimension of the string array */
 	zt=z.a;
 	getnumber(ax+z.a-addrsize, addrsize);
-	dim=z.a;
+	strp->arraydim=z.a;
 
 /* is the arry index in range */
-	if ((j < arraylimit) || (j >= dim + arraylimit )) { error(EORANGE); return 0; }
+	if ((j < arraylimit) || (j >= strp->arraydim + arraylimit )) { error(EORANGE); return; }
 
  	if (DEBUG) { outsc("** string dimension "); outnumber(dim); outcr(); }
 
 /* the max length of a string */
-	maxlen=(zt-addrsize)/dim-strindexsize;
+	strp->strdim=(zt-addrsize)/strp->arraydim-strindexsize;
 
 /* are we in range with the index b */
-	if ((b < 1) || (b > maxlen )) { error(EORANGE); return 0; }
+	if ((b < 1) || (b > strp->strdim )) { error(EORANGE); return; }
 
 	if (DEBUG) { outsc("** maximum string length "); outnumber(maxlen); outcr(); }
 	
 /* the base address of a string */
-	ax=ax+(j-arraylimit)*(maxlen+strindexsize);
+	ax=ax+(j-arraylimit)*(strp->strdim + strindexsize);
 
 	if (DEBUG) { outsc("** string base address "); outnumber(ax); outcr(); }
 
 /* from this base address we can get the actual length of the string */
 	getnumber(ax, strindexsize);
-	strp->l=z.a;
+	strp->length=z.a;
 
 /* the address of the payload */
 	ax=ax+b-1+strindexsize;
@@ -1498,16 +1503,15 @@ char* getstring(char c, char d, address_t b, address_t j, string_t* strp) {
 	if (DEBUG) { outsc("** payload address "); outnumber(ax); outcr(); }
 
 /* store the payload address to the string object, length to be done if needed!! */
-	strp->a=ax;	
+	strp->address=ax;	
 
 /* return value is 0 if we have no direct memory access, the caller needs to handle the string 
 	through the mem address, we return no pointer but provide a copy of the string in the first 
 	string buffer*/
 #ifdef USEMEMINTERFACE
 	for (k=0; k<z.a && k<SPIRAMSBSIZE; k++) spistrbuf1[k]=memread2(ax+k);
-	return 0;
 #else
-	return (char *)&mem[ax];
+	strp->ir=(char *)&mem[ax];
 #endif
 }
 
@@ -2452,8 +2456,8 @@ void nexttoken() {
 		} 
 		bi++;
 		token=STRING;
-		sr1.l=x;
-		sr1.a=0; /* we don't find the string in BASIC memory, as we lex from bi */
+		sr1.length=x;
+		sr1.address=0; /* we don't find the string in BASIC memory, as we lex from bi */
 		if (DEBUG) debugtoken();
 		return;
 	}
@@ -2828,9 +2832,9 @@ void gettoken() {
 /* 
  * the new code - simply populate the sr1 register with an address
  */ 
-		sr1.l=x;
-		sr1.a=here;
-		sr1.ir=0;
+		sr1.length=x;
+		sr1.address=here;
+		sr1.ir=ir;
 
 		here+=x;	
 	}
@@ -3487,10 +3491,10 @@ void xpow(){
  * side effect
  */
 
-char* parsestringvar() {
+void parsestringvar(string_t* strp) {
 	mem_t xcl, ycl;
 	address_t k;
-	char* ir2; /* local now here to make sure we can handle side effects */
+	address_t x, y;
 
 /* remember the variable name */
 	xcl=xc;
@@ -3498,7 +3502,7 @@ char* parsestringvar() {
 
 /* resolve array indices and substring expressions */
 	parsesubstring();
-	if (er != 0) return 0;
+	if (er != 0) return;
 
 /* the array address */
 #ifdef HASSTRINGARRAYS
@@ -3510,15 +3514,19 @@ char* parsestringvar() {
 /* the subscripts of the substring expression */
 	y=popaddress();
 	x=popaddress();
-	ir2=getstring(xcl, ycl, x, k, &sr2);
+	if (er != 0) return;
+
+/* try to get the string */
+	getstring(strp, xcl, ycl, x, k);
 
 /* if the memory interface is active spistrbuf1 has the string */
 #ifdef USEMEMINTERFACE
-	if (ir2 == 0) ir2=spistrbuf1;
+	if (strp->ir == 0) strp->ir=spistrbuf1;
 #endif
 
 /* find the length */
-	if (y-x+1 > 0) push(y-x+1); else push(0);
+//	if (y-x+1 > 0) push(y-x+1); else push(0);
+	if (y-x+1 > 0) strp->length=y-x+1; else strp->length=0;
 
 /* done */
 	if (DEBUG) { outsc("** in stringvalue, length "); outnumber(y-x+1); outsc(" from "); outnumber(x); outspc(); outnumber(y); outcr(); }
@@ -3527,10 +3535,10 @@ char* parsestringvar() {
 	xc=xcl;
 	yc=ycl;
 
-	return ir2;
+	return;
 }
 
-char stringvalue() {
+char stringvalue(string_t* strp) {
 	mem_t xcl, ycl;
 	address_t k, l;
 	address_t i;
@@ -3538,19 +3546,30 @@ char stringvalue() {
 
 	if (DEBUG) outsc("** entering stringvalue \n");
 
+/* make sure everything is nice and clean */
+	strp->address=0;
+	strp->arraydim=0;
+	strp->length=0;
+	strp->strdim=0;
+	strp->ir=0;
+
 	switch(token) {
 	case STRING:
-		ir2=ir;
-		push(x);
-        /* sr1 is set to the string information in gettoken */
+/* sr1 has the string information frm gettoken and nexttoken*/
+		strp->ir=sr1.ir;
+		strp->length=sr1.length;
+		strp->address=sr1.address;
+
+/* buffer if needed, this must be removed later */
 #ifdef USEMEMINTERFACE
 		for(k=0; k<x && x<SPIRAMSBSIZE; k++ ) spistrbuf1[k]=ir[k];
 		ir2=spistrbuf1;
+		strp->ir=spistrbuf1;
 #endif
 		break;
 #ifdef HASAPPLE1
 	case STRINGVAR:
-		ir2=parsestringvar();
+		parsestringvar(strp);
 		break;
 	case TSTR:
 		nexttoken();
@@ -3560,11 +3579,11 @@ char stringvalue() {
 		expression();
 		if (er != 0) return 0;
 #ifdef HASFLOAT
-		push(writenumber2(sbuffer, pop()));
+		strp->length=writenumber2(sbuffer, pop());
 #else
-		push(writenumber(sbuffer, pop()));
+		strp->length=writenumber(sbuffer, pop());
 #endif
-		ir2=sbuffer;
+		strp->ir=sbuffer;
 		x=1;
 		if (er != 0) return 0;
 		if (token != ')') {error(EARGS); return 0; }
@@ -3578,9 +3597,9 @@ char stringvalue() {
 		expression();
 		if (er != 0) return 0;
 		*sbuffer=pop();
-		ir2=sbuffer;
+		strp->ir=sbuffer;
+		strp->length=1;
 		x=1;
-		push(1);
 		if (token != ')') {error(EARGS); return 0; }
 		break;
 	case TRIGHT:
@@ -3592,7 +3611,7 @@ char stringvalue() {
 		if (token != '(') { error(EARGS); return 0; }
 		nexttoken();
 		if (token != STRINGVAR) { error(EARGS); return 0; }
-		ir2=parsestringvar();
+		parsestringvar(strp);
 		if (token != ',') { error(EARGS); return 0; }
 		nexttoken(); /* undo the rewind of parsestrinvar ? */
 		nexttoken();
@@ -3610,12 +3629,12 @@ char stringvalue() {
 			i=popaddress(); /* the start position */
 			if (i < 1) { error(EARGS); }
 		}
-		k=popaddress(); /* the lenghth of the original string variable */
+		k=strp->length; /* the lenghth of the original string variable */
 		if (er != 0) return 0;
 		switch (t) {
 		case TRIGHT:
 			if (k < l) l=k; 
-			ir2=ir2+(k-l);
+			strp->ir=strp->ir+(k-l);
 			break;
 		case TLEFT:
 			if (k < l) l=k; 
@@ -3623,10 +3642,10 @@ char stringvalue() {
 		case TMID:
 			if (k < i+l) l=k-i+1;
 			if (l < 0) l=0; 
-			ir2=ir2+i-1;
+			strp->ir=strp->ir+i-1;
 			break;	
 		}
-		push(l);
+		strp->length=l;
 		break; 
 #endif
 #endif
@@ -3644,17 +3663,14 @@ char stringvalue() {
  * factor - no factor function should nexttoken
  */
 
-
-#ifndef HASINMEMSTRINGS
 void streval(){
-	char *irl;
-	address_t xl, x;
 	token_t t;
 	address_t h1;
 	char* b1;
-	index_t k;
+	address_t k;
+	string_t s1, s2;
 
-	if (!stringvalue()) {
+	if (!stringvalue(&s1)) {
 		error(EUNKNOWN);
 		return;
 	} 
@@ -3662,14 +3678,10 @@ void streval(){
 
 	if (DEBUG) { outsc("** in streval first string"); outcr(); }
 
-	irl=ir2;
-	xl=popaddress();
-	if (er != 0) return;
-
 /* with the mem interface -> copy, irl now point to buffer2 */ 
 #ifdef USEMEMINTERFACE
-	for(k=0; k<SPIRAMSBSIZE && k<xl; k++) spistrbuf2[k]=irl[k];
-	irl=spistrbuf2;
+	for(k=0; k<SPIRAMSBSIZE && k<s1.length; k++) spistrbuf2[k]=s1.ir[k];
+	s1.ir=spistrbuf2;
 #endif
 
 /* get ready for rewind. */
@@ -3693,7 +3705,8 @@ void streval(){
 */
 		poplocation();
 		token=t;
-		if (xl == 0) push(0); else push(irl[0]); // a zero string length evaluate to 0
+/* a zero length string evaluates to zero and a string in general to the first character */
+		if (s1.length == 0) push(0); else push(s1.ir[0]); 
 		return; 
 	}
 
@@ -3706,18 +3719,20 @@ void streval(){
 		debugtoken(); outcr();
 	}
 
-	if (!stringvalue()){
+	if (!stringvalue(&s2)){
 		error(EUNKNOWN);
 		return;
 	} 
-	x=popaddress();
 	if (er != 0) return;
 
 
 	if (DEBUG) { outsc("** in streval result: "); outnumber(x); outcr(); }
 
-	if (x != xl) goto neq;
-	for (x=0; x < xl; x++) if (irl[x] != ir2[x]) goto neq;
+/* different length means unequal */	
+	if (s2.length != s1.length) goto neq;
+
+/* and a different character somewhere is also unequal */
+	for (k=0; k < s1.length; k++) if (s1.ir[k] != s2.ir[k]) goto neq;
 
 	if (t == '=') push(1); else push(0);
 	return;
@@ -3725,89 +3740,7 @@ neq:
 	if (t == '=') push(0); else push(1);
 	return;
 }
-#else 
-/* the new world, in memory strings only */
-void streval(){
-    char *irl;
-    address_t xl, x;
-    token_t t;
-    address_t h1;
-    char* b1;
-    index_t k;
 
-    if (!stringvalue()) {
-        error(EUNKNOWN);
-        return;
-    } 
-    if (er != 0) return;
-
-    if (DEBUG) { outsc("** in streval first string"); outcr(); }
-
-    irl=ir2;
-    xl=popaddress();
-    if (er != 0) return;
-
-/* with the mem interface -> copy, irl now point to buffer2 */ 
-#ifdef USEMEMINTERFACE
-    for(k=0; k<SPIRAMSBSIZE && k<xl; k++) spistrbuf2[k]=irl[k];
-    irl=spistrbuf2;
-#endif
-
-/* get ready for rewind. */
-/*
-    if (st != SINT)
-        h1=here; 
-    else 
-        b1=bi;
-*/
-    pushlocation();
-    t=token;
-    nexttoken();
-
-    if (token != '=' && token != NOTEQUAL) {
-/* rewind one token if not comparison    */
-/*
-        if (st != SINT)
-            here=h1; 
-        else 
-            bi=b1;
-*/
-        poplocation();
-        token=t;
-        if (xl == 0) push(0); else push(irl[0]); // a zero string length evaluate to 0
-        return; 
-    }
-
-/* questionable !! */
-    t=token;
-    nexttoken(); 
-
-    if (DEBUG) { 
-        outsc("** in streval second string"); outcr(); 
-        debugtoken(); outcr();
-    }
-
-    if (!stringvalue()){
-        error(EUNKNOWN);
-        return;
-    } 
-    x=popaddress();
-    if (er != 0) return;
-
-
-    if (DEBUG) { outsc("** in streval result: "); outnumber(x); outcr(); }
-
-    if (x != xl) goto neq;
-    for (x=0; x < xl; x++) if (irl[x] != ir2[x]) goto neq;
-
-    if (t == '=') push(1); else push(0);
-    return;
-neq:
-    if (t == '=') push(0); else push(1);
-    return;
-}
-
-#endif
 
 #ifdef HASFLOAT
 /* 
@@ -3884,9 +3817,9 @@ void factorarray() {
 }
 
 /* helpers of factor - string length */
-/* helpers of factor - string length */
 void factorlen() {
 		address_t a;
+		string_t s;
 
 		nexttoken();
 		if ( token != '(') { error(EARGS); return; }
@@ -3899,14 +3832,17 @@ void factorlen() {
 			nexttoken();
 			break;
 		case STRINGVAR:
-			(void) parsestringvar();
+			parsestringvar(&s);
+			push(s.length);
 			nexttoken();
 			break;
+#ifdef HASMSSTRINGS
 		case TRIGHT:
 		case TLEFT:
 		case TMID:
-		case TSTR:
 		case TCHR:
+#endif			
+		case TSTR:
 			error(EARGS);
 			return;
 		default:
@@ -3923,29 +3859,30 @@ void factorlen() {
 
 /* helpers of factor - the VAL command */
 void factorval() {
-	address_t a;
 	index_t y;
+	number_t x;
+	string_t s;
+	address_t a;
  
 	nexttoken();
 	if (token != '(') { error(EARGS); return; }
 
 	nexttoken();
-	if (!stringvalue()) { error(EUNKNOWN); return; }
+	if (!stringvalue(&s)) { error(EUNKNOWN); return; }
 	if (er != 0) return;
 
 /* not super clean - handling of terminal symbol dirty
     stringtobuffer needed !! */
 	vlength=0;
-	while(*ir2==' ' || *ir2=='\t') { ir2++; vlength++; }
-	if(*ir2=='-') { y=-1; ir2++; vlength++; } else y=1;
+	while(*s.ir==' ' || *s.ir=='\t') { s.ir++; vlength++; }
+	if(*s.ir=='-') { y=-1; s.ir++; vlength++; } else y=1;
     
 	x=0;
 #ifdef HASFLOAT
-	if ((a=parsenumber2(ir2, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
+	if ((a=parsenumber2(s.ir, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
 #else 
-	if ((a=parsenumber(ir2, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
+	if ((a=parsenumber(s.ir, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
 #endif
-	(void) pop();
 	push(x*y);
     
  	nexttoken();
@@ -3957,6 +3894,7 @@ void factorinstr() {
 	address_t y;
 	char ch;
 	address_t a;
+	string_t s;
 			
 	nexttoken();
 	if (token != '(') { error(EARGS); return; }
@@ -3968,13 +3906,12 @@ void factorinstr() {
 	if (token != ',') { error(EARGS); return; }
 	nexttoken();
 			
-	if (!stringvalue()) { error(EUNKNOWN); return; }
-	y=popaddress();
+	if (!stringvalue(&s)) { error(EUNKNOWN); return; }
 	if (er != 0) return;
 
 	ch=pop();
-	for (a=1; a<=y; a++) {if ( ir2[a-1] == ch ) break; }
-	if (a > y) a=0; 
+	for (a=1; a<=s.length; a++) {if ( s.ir[a-1] == ch ) break; }
+	if (a > s.length) a=0; 
 	push(a);
 	
 	nexttoken();
@@ -3992,6 +3929,7 @@ void factornetstat() {
 /* helpers of factor - the ASC command, really not needed but for completeness */
 void factorasc() {
 	char * ir2;
+	string_t s;
 
 	nexttoken();
 	if ( token != '(') { error(EARGS); return; }
@@ -4000,13 +3938,12 @@ void factorasc() {
 
 	switch(token) {
 	case STRING:
-		push(ir[0]);
+		push(sr1.ir[0]);
 		nexttoken();
 		break;
 	case STRINGVAR:
-		ir2=parsestringvar();
-		pop();
-		push(ir2[0]);
+		parsestringvar(&s);
+		if (s.ir) push(s.ir[0]); else push(0);
 		nexttoken();
 		break;
 	default:
@@ -4391,6 +4328,7 @@ void xprint(){
 	char semicolon = 0;
 	char oldod;
 	char modifier = 0;
+	string_t s;
 	
 	form=0;
 	oldod=od;
@@ -4407,9 +4345,9 @@ processsymbol:
 	semicolon=0;
 
 /* output a string if we found it */
-	if (stringvalue()) {
+	if (stringvalue(&s)) {
 		if (er != 0) return;
- 		outs(ir2, pop());
+ 		outs(s.ir, s.length);
  		nexttoken();
 		goto separators;
 	}
@@ -4544,7 +4482,7 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 					error(EARGS);
 					return;
 			}
-#else 
+#else /* can be simplified */
 			*j=arraylimit;
 			nexttoken();
 			parsesubscripts();
@@ -4599,6 +4537,8 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 }
 
 void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, char ps) {
+	string_t sr;
+
 	switch (t) {
 		case VARIABLE:
 			x=pop();
@@ -4610,17 +4550,19 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
 			break;
 #ifdef HASAPPLE1
 		case STRINGVAR:
-			ir=getstring(xcl, ycl, i, j, &sr2);
+
+/* find the string variable */
+			getstring(&sr, xcl, ycl, i, j);
 			if (er != 0) return;
-#ifndef USEMEMINTERFACE
-			ir[0]=pop();
-#else 
-			if (ir == 0) memwrite2(ax, pop());
-#endif
+
+/* the first character of the string is set to the number */
+			if (sr.ir == 0) memwrite2(ax, pop()); else sr.ir[0]=pop();
+
+/* set the length */
 			if (ps)
 				setstringlength(xcl, ycl, 1, j);
 			else 
-				if (lenstring(xcl, ycl, j) < i && i <= stringdim(xcl, ycl)) setstringlength(xcl, ycl, i, j);
+				if (sr.length < i && i <= sr.strdim) setstringlength(xcl, ycl, i, j);
 			break;
 #endif
 	}
@@ -4640,12 +4582,14 @@ void assignment() {
 	mem_t s;
 	index_t k;
 	char tmpchar; /* for number conversion only */
+	string_t sr, sl; /* the right and left hand side strings */
 
-/* this code evaluates the left hand side */
+/* this code evaluates the left hand side, we remember the object information first */
 	ycl=yc;
 	xcl=xc;
 	t=token;
 
+/* then try to parse the indices */
 	lefthandside(&i, &i2, &j, &ps);
 	if (er != 0) return;
 
@@ -4663,9 +4607,9 @@ void assignment() {
 	}
 	nexttoken();
 
-/* here comes the code for the right hand side */
+/* here comes the code for the right hand side, the evaluation depends on the left hand side type */
 	switch (t) {
-/* the lefthandside is a scalar, evaluate the righthandside as a number */
+/* the lefthandside is a scalar, evaluate the righthandside as a number, even if it is a string */
 		case VARIABLE:
 		case ARRAYVAR: 
 			expression();
@@ -4673,26 +4617,29 @@ void assignment() {
 			assignnumber(t, xcl, ycl, i, j, ps);
 			break;
 #ifdef HASAPPLE1
-/* the lefthandside is a string, try evaluate the righthandside as a stringvalue */
+/* the lefthandside is a string variable, try evaluate the righthandside as a stringvalue */
 		case STRINGVAR: 
 nextstring:
-			s=stringvalue();
+			s=stringvalue(&sr);
 			if (er != 0) return;
 
-/* and then as an expression, any number appearing in a string expression terminates the addition loop */
+/* and then as an expression if it is no string, any number appearing in a string expression terminates the addition loop */
 			if (!s) {
 				expression();
 				if (er != 0) return;
 				tmpchar=pop();
-				push(1);
-				ir2=&tmpchar;
+				sr.length=1;
+				sr.ir=&tmpchar;
 			} else 
 				nexttoken(); /* we do this here because expression also advances, this way we avoid double advance */
 
 			if (DEBUG) { outsc("* assigment stringcode at "); outnumber(here); outcr();	}
 
-/* this is the string righthandside code - how long is the rightandside */
-			lensource=pop();
+/* at this point we  have a stringvalue with ir2 pointing to the payload and the stack the length 
+	this is either coming from stringvalue or from the expression code */
+
+/* we now process the source string */ 
+			lensource=sr.length;
 
 /* the destination address of the lefthandside, on an SPI RAM system, we 
 	 save the source in the second string buffer and let ir2 point to it
@@ -4701,15 +4648,18 @@ nextstring:
 #ifdef USEMEMINTERFACE
 			for(k=0; k<SPIRAMSBSIZE; k++) spistrbuf2[k]=ir2[k];
 			ir2=spistrbuf2;
-#endif			
-			ir=getstring(xcl, ycl, i, j, &sr2);
+#endif		
+
+/* getstring of the destination */         
+			getstring(&sl, xcl, ycl, i, j);
+			ir=sl.ir;
 			if (er != 0) return;
 
 /* the length of the original string */
-			lendest=lenstring(xcl, ycl, j);
+			lendest=sl.length;
 
 /* the dimension i.e. the maximum length of the string */
-			strdim=stringdim(xcl, ycl);
+			strdim=sl.strdim;
 
 /* this debug messes up sbuffer hence all functions that use it in stringvalue produce wrong results */
 			if (DEBUG) {
@@ -4735,20 +4685,20 @@ nextstring:
 	without overwriting stuff, we go either left to right or backwards */
 #ifndef USEMEMINTERFACE
 			if (x > i) 
-				for (k=0; k<copybytes; k++) ir[k]=ir2[k];
+				for (k=0; k<copybytes; k++) sl.ir[k]=sr.ir[k];
 			else
-				for (k=copybytes-1; k>=0; k--) ir[k]=ir2[k]; 
+				for (k=copybytes-1; k>=0; k--) sl.ir[k]=sr.ir[k]; 
 
 #else
 /* on an SPIRAM system we need to go through the mem interface 
 	for write, if ir is zero i.e. is not a valid memory location */
 			if (ir != 0) {
 				if (x > i) 
-					for (k=0; k<copybytes; k++) ir[k]=ir2[k];
+					for (k=0; k<copybytes; k++) sl.ir[k]=sr.ir[k];
 				else
-					for (k=copybytes-1; k>=0; k--) ir[k]=ir2[k]; 
+					for (k=copybytes-1; k>=0; k--) sl.ir[k]=sr.ir[k]; 
 			} else {
-				for (k=0; k<copybytes; k++) memwrite2(ax+k, ir2[k]);
+				for (k=0; k<copybytes; k++) memwrite2(sl.address+k, sr.ir[k]);
 			}
 
 #endif
@@ -4905,37 +4855,41 @@ nextvariable:
 #ifdef HASAPPLE1
 /* strings are not passed through the input buffer but inputed directly 
     in the string memory location, ir after getstring points to the first data byte */
-  if (token == STRINGVAR) {
-    ir=getstring(xc, yc, 1, arraylimit, &sr2); 
-    if (prompt) showprompt();
-    l=stringdim(xc, yc);
+	if (token == STRINGVAR) {
+
+		getstring(&sr2, xc, yc, 1, arraylimit); 
+		ir=sr2.ir;
+		if (prompt) showprompt();
+		l=sr2.strdim;
+
+
 /* the form parameter in WIRE can be used to set the expected number of bytes */
-    if (id == IWIRE && form != 0 && form < l) l=form; 
+		if (id == IWIRE && form != 0 && form < l) l=form; 
 #ifndef USEMEMINTERFACE   
-    z.a=ins(ir-1, l);
+		z.a=ins(ir-1, l);
 /* this is the length information correction for large strings, ins
     stored the string length in z.a as a side effect */
-    if (xc != '@' && strindexsize == 2) { 
-      *(ir-2)=z.b.l;
-      *(ir-1)=z.b.h;
-    } 
+		if (xc != '@' && strindexsize == 2) { 
+			*(ir-2)=z.b.l;
+			*(ir-1)=z.b.h;
+		}
 #else
-    if (ir == 0) {
-      z.a=ins(spistrbuf1, l);
-      for(int k=0; k<SPIRAMSBSIZE && k<l; k++) memwrite2(ax+k, spistrbuf1[k+1]);
-      memwrite2(ax-2, z.b.l);
-      memwrite2(ax-1, z.b.h);
-    } else {
-      z.a=ins(ir-1, l);
+		if (ir == 0) {
+			z.a=ins(spistrbuf1, l);
+			for(int k=0; k<SPIRAMSBSIZE && k<l; k++) memwrite2(ax+k, spistrbuf1[k+1]);
+			memwrite2(ax-2, z.b.l);
+			memwrite2(ax-1, z.b.h);
+		} else {
+			z.a=ins(ir-1, l);
 /* this is the length information correction for large strings, ins
     stored the string length in z.a as a side effect */
-      if (xc != '@' && strindexsize == 2) { 
-        *(ir-2)=z.b.l;
-        *(ir-1)=z.b.h;
-      } 
-    }
+			if (xc != '@' && strindexsize == 2) { 
+				*(ir-2)=z.b.l;
+				*(ir-1)=z.b.h;
+			} 
+		}
 #endif
-  }
+	}
 #endif
 
 	nexttoken();
@@ -5857,27 +5811,27 @@ void dumpmem(address_t r, address_t b, char eflag) {
  *	after reading a BASIC string ir2 contains a pointer
  *	to the data and x the string length
  */
-void stringtobuffer(char *buffer) {
-	index_t i;
-	i=x;
+void stringtobuffer(char *buffer, string_t* s) {
+	index_t i = s->length;
+
 	if (i >= SBUFSIZE) i=SBUFSIZE-1;
 	buffer[i--]=0;
-	while (i >= 0) { buffer[i]=ir2[i]; i--; }
+	while (i >= 0) { buffer[i]=s->ir[i]; i--; }
 }
 
 /* get a file argument */
 void getfilename(char *buffer, char d) {
 	index_t s;
 	char *sbuffer;
+	string_t sr;
 
-	s=stringvalue();
+	s=stringvalue(&sr);
 	if (er != 0) return;
 	if (DEBUG) {outsc("** in getfilename2 stringvalue delivered "); outnumber(s); outcr(); }
 
 	if (s) {
-		x=pop();
 		if (DEBUG) {outsc("** in getfilename2 copying string of length "); outnumber(x); outcr(); }
-		stringtobuffer(buffer);
+		stringtobuffer(buffer, &sr);
 		if (DEBUG) {outsc("** in getfilename2 stringvalue string "); outsc(buffer); outcr(); }
 		nexttoken();
 	} else if (termsymbol()) {
@@ -6605,6 +6559,7 @@ void xfind() {
 void xeval(){
 	address_t i, l;
 	address_t mline, line;
+	string_t s;
 
 
 /* get the line number to store */
@@ -6616,16 +6571,16 @@ void xeval(){
 
 /* the line to be stored */
 	nexttoken();
-	if (!stringvalue()) { error(EARGS); return; }
+	if (!stringvalue(&s)) { error(EARGS); return; }
 
 /* here we have the string to evaluate in ir2 and copy it to the ibuffer
 		only one line allowed, BUFSIZE is the limit */
-	l=popaddress();
+	l=s.length;
 	if (er != 0) return;
 	
 	if (l>BUFSIZE-1) {error(EORANGE); return; }
 
-	for (i=0; i<l; i++) ibuffer[i+1]=ir2[i];
+	for (i=0; i<l; i++) ibuffer[i+1]=s.ir[i];
 	ibuffer[l+1]=0;
 	if (DEBUG) {outsc("** Preparing to store line "); outnumber(line); outspc(); outsc(ibuffer+1); outcr(); }
 
@@ -7565,9 +7520,10 @@ nextdata:
 				push(*ir);
 				assignnumber(t, xcl, ycl, i, j, ps);
 			} else {
-/* a string is stored in ir2 */
+/*  the old code a string is stored in ir2 */
 				ir2=ir;
 				lensource=x;
+
 
 /* if we use the memory interface we have to save the source */ 
 #ifdef USEMEMINTERFACE
@@ -7576,11 +7532,12 @@ nextdata:
 #endif	
 
 /* the destination address of the lefthandside, on the fly create included */
-				ir=getstring(xcl, ycl, i, j, &sr2);
+				getstring(&sr2, xcl, ycl, i, j);
+				ir=sr2.ir;
 				if (er != 0) return;
 
 /* the length of the lefthandside string */
-				lendest=lenstring(xcl, ycl, j);
+				lendest=sr2.length;
 
 				if (DEBUG) {
 					outsc("* read stringcode "); outch(xcl); outch(ycl); outcr();
@@ -7590,7 +7547,7 @@ nextdata:
 				}
 
 /* does the source string fit into the destination */
-				if ((i+lensource-1) > stringdim(xcl, ycl)) { error(EORANGE); return; }
+				if ((i+lensource-1) > sr2.strdim) { error(EORANGE); return; }
 
 /* this code is needed to make sure we can copy one string to the same string 
 	without overwriting stuff, we go either left to right or backwards */

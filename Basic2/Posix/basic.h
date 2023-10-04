@@ -312,10 +312,23 @@ typedef mem_t (*memreader_t)(address_t);
  *      This is necessary because BASIC can handle different memory layouts, EEPROM models and serial
  *      memory chips. We cannot simply rely on data to be found in BASIC memory like in old 8 bit
  *      computers or all in C memory like on modern Linux/Windows/Mac systems. 
+ *      
+ *      Components of the string_t:
+ *          - the address of the string in BASIC memory
+ *          - the C memory pointer ir to the string location, if this is 0, the string is somewhere outside C memory
+ *          - the length of the entire string 
+ *          - the dimension of the string strdim, this is the length of the memory segment reserved for the string
+ *          - the dimension of the string array, arraydim
  */
 
 typedef uint16_t stringlength_t;
-typedef struct {address_t a; char* ir; stringlength_t l;} string_t;
+typedef struct {
+    address_t address; 
+    char* ir; 
+    stringlength_t length;
+    address_t strdim; 
+    address_t arraydim;
+} string_t;
 
 
 /* the timing event type */
@@ -405,7 +418,7 @@ void pgetnumber(address_t, mem_t);
 address_t createarray(mem_t, mem_t, address_t, address_t);
 void array(mem_t, mem_t, mem_t, address_t, address_t, number_t*);
 address_t createstring(char, char, address_t, address_t);
-char* getstring(char, char, address_t, address_t, string_t*);
+void getstring(string_t*, char, char, address_t, address_t);
 number_t arraydim(char, char);
 address_t stringdim(char, char);
 address_t lenstring(char, char, address_t);
@@ -525,7 +538,8 @@ void sqr();
 void xpow();
 
 /* string values and string evaluation */
-char stringvalue();
+void parsestringvar(string_t*);
+char stringvalue(string_t*);
 void streval();
 
 /* floating point functions */
@@ -596,7 +610,7 @@ void dumpmem(address_t, address_t, char);
 void xlocate();
 
 /* file access and other i/o */
-void stringtobuffer(char*);
+void stringtobuffer(char*, string_t*);
 void getfilename(char*, char);
 void xsave();
 void xload(const char*);
