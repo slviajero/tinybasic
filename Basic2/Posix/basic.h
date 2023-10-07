@@ -307,6 +307,7 @@ typedef mem_t (*memreader_t)(address_t);
 /* 
  * stringlength_t is the maximum length of a string, currently only 2 bytes is really tested.
  *      one byte lengthes may work, will be fixed soon to arbitrary types
+ *
  * string_t says where we can find a string. It is either in BASIC memory and has a valid BASIC memory
  *      address a, or it is in C memory outside mem[]. Then ir says where the string can be found.
  *      This is necessary because BASIC can handle different memory layouts, EEPROM models and serial
@@ -322,6 +323,7 @@ typedef mem_t (*memreader_t)(address_t);
  */
 
 typedef uint16_t stringlength_t;
+
 typedef struct {
     address_t address; 
     char* ir; 
@@ -571,7 +573,8 @@ void rtcmkstr();
 /* basic commands of the core language set */
 void xprint();
 void lefthandside(address_t*, address_t*, address_t*, mem_t*);
-void assignnumber(signed char, char, char, address_t, address_t, char);
+void assignnumber(signed char, char, char, address_t, address_t, char, number_t);
+void assignstring(string_t*, string_t*, stringlength_t);
 void assignment();
 void showprompt();
 void xinput();
