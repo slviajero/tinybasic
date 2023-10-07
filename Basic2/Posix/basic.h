@@ -572,6 +572,7 @@ void rtcmkstr();
 
 /* basic commands of the core language set */
 void xprint();
+void getstringtobuffer(string_t*, char*, stringlength_t);
 void lefthandside(address_t*, address_t*, address_t*, mem_t*);
 void assignnumber(signed char, char, char, address_t, address_t, char, number_t);
 void assignstring(string_t*, string_t*, stringlength_t);

@@ -468,8 +468,8 @@ address_t ax;
 /* this union is used to store larger objects into byte oriented memory */
 accu_t z;
 
-/* string index registers of the old string code - will be gone some time */
-char *ir, *ir2;
+/* string index registers, */
+char* ir;
 
 /* a string index registers, new style identifying a s string either in C memory or BASIC memory */
 string_t sr; 
@@ -1409,7 +1409,11 @@ void getstring(string_t* strp, char c, char d, address_t b, address_t j) {
 	strp->arraydim=1;
 	strp->strdim=0;
 
-	if (DEBUG) { outsc("* get string var "); outch(c); outch(d); outspc(); outnumber(b); outcr(); }
+	if (DEBUG) { 
+		outsc("* getstring from var "); outch(c); outch(d); outspc(); 
+		outnumber(b); outspc(); 
+		outnumber(j); outcr(); 
+	}
 
 
 /* special string variables */
@@ -2776,7 +2780,7 @@ void memwrite2(address_t a, mem_t c) {
 
 /* get a token from memory */
 void gettoken() {
-	int i;
+	stringlength_t i;
 
 /* if we have reached the end of the program, EOL is always returned
 		we don't rely on mem having a trailing EOL */
@@ -2803,7 +2807,6 @@ void gettoken() {
 #else
 		if (st != SERUN) getnumber(here, addrsize); else egetnumber(here+eheadersize, addrsize);
 #endif
-		// x=z.a;
 		ax=z.a;
 		here+=addrsize;
 		break;
@@ -2823,7 +2826,7 @@ void gettoken() {
 		yc=memread(here++);
 		break;
 	case STRING:
-		x=(unsigned char)memread(here++);	
+		sr.length=(unsigned char)memread(here++);	
 
 /* 
  * 	if we run from EEPROM, the input buffer is used to get string constants 
@@ -2831,21 +2834,20 @@ void gettoken() {
  *  otherwise the caller has to handle strings through the address (SPIRAM systems)
  */
 		if (st == SERUN) { 					
-			for(i=0; i<x; i++) ibuffer[i]=memread(here+i);	
-			ir=ibuffer;
+			for(i=0; i<sr.length; i++) ibuffer[i]=memread(here+i);	
+			sr.ir=ibuffer;
 		} else {
 #ifndef USEMEMINTERFACE
-			ir=(char*)&mem[here]; 
+			sr.ir=(char*)&mem[here]; 
+#else 
+			sr.ir=0;
 #endif
 		}
-/* 
- * the new code - simply populate the sr register with an address
- */ 
-		sr.length=x;
 		sr.address=here;
-		sr.ir=ir;
-
-		here+=x;	
+		here+=sr.length;	
+/* should not be there but still is ;-) */
+		// x=sr.length;
+		// ir=sr.ir;
 	}
 }
 
@@ -3243,115 +3245,6 @@ void parseoperator(void (*f)()) {
 	x=pop();
 }
 
-#ifdef HASAPPLE1
-/* substring evaluation, mind the rewinding here - a bit of a hack 
- * 	this is one of the few places in the code where the token stream 
- *  cannot be interpreted forward i.e. without looking back. Reason is 
- * 	an inconsistency the the way expression() is implemented
- */
-void parsesubstring() {
-	char xc1, yc1; 
-	address_t h1; /* remember the here */
-	char* bi1;		/* or the postion in the input buffer */
-	mem_t a1; 		/* some info on args remembered as well for multidim */
-	address_t j; 	/* the index of a string array */
-
-/* remember the string name */
-	xc1=xc;
-	yc1=yc;
-
-/* Remember the token before the first parsesubscript */
-	if (st == SINT) bi1=bi; else h1=here; 
-
-	nexttoken();
-	parsesubscripts();
-	if (er != 0) return; 
-
-#ifndef HASSTRINGARRAYS
-
-/* the stack has - the first index, the second index */
-	switch(args) {
-		case 2: 
-			break;
-		case 1:
-			push(lenstring(xc1, yc1, arraylimit));
-			break;
-		case 0: 
-/* rewind the token if there were no braces to be in sync	*/
-			if (st == SINT) bi=bi1; else here=h1; 
-
-/* no rewind in the () construct */			
-		case -1:
-			args=0;		
-			push(1);
-			push(lenstring(xc1, yc1, arraylimit));	
-			break;
-	}
-
-#else 
-/* for a string array the situation is more complicated as we 
- 		need to parse the argument completely including the possible subscript */
-
-/* how many args has the first parsesubsscript scanned, if none, we are done
-	rewind and set the parametes*/
-
-/* the stack has - the first string index, the second string index, the array index */	
-	if ( args == 0 ) {
-
-		if (st == SINT) bi=bi1; else here=h1; 
-
-		j=arraylimit; 
-		push(1);
-		push(lenstring(xc1, yc1, j));	
-		push(j);
-
-/* if more then zero or an empty (), we need a second parsesubscript */
-	} else {
-
-		if (st == SINT) bi1=bi; else h1=here;
-
-		a1=args;
-
-		nexttoken();
-		parsesubscripts();
-
-		switch (args) {
-			case 1:
-				j=popaddress();
-				if (er != 0) return;
-				break;
-			case 0:
-				j=arraylimit;
-				if (st == SINT) bi=bi1; else here=h1;
-				break;
-			default:
-				error(EARGS);
-				return;
-		}	
-
-/* which part of the string */
-		switch(a1) {
-			case 2: 
-				break;
-			case 1:
-				push(lenstring(xc1, yc1, j));
-				break;
-			case 0: 	
-			case -1:	
-				push(1);
-				push(lenstring(xc1, yc1, j));	
-				break;
-		}
-
-/* and which index element */
-		push(j);
-
-	}
-#endif
-
-}
-#endif
-
 /* 
  * ABS absolute value 
  */
@@ -3507,37 +3400,130 @@ void parsestringvar(string_t* strp) {
 	mem_t xcl, ycl;
 	address_t array_index;
 	address_t lower, upper;
+	mem_t a1;
 
 /* remember the variable name */
 	xcl=xc;
 	ycl=yc;
 
-/* resolve array indices and substring expressions */
-	parsesubstring();
-	if (er != 0) return;
-
-/* the array address */
-#ifdef HASSTRINGARRAYS
-	array_index=popaddress();
-#else 
+/* the array index default can vary */
 	array_index=arraylimit;
-#endif
 
-/* the subscripts of the substring expression */
-	upper=popaddress();
-	lower=popaddress();
+/* remember the location */
+	pushlocation();
+
+/* and inspect the brackets */
+	nexttoken();
+	parsesubscripts();
+	if (er != 0) return; 
+
+
+/* we do this now directly and remove this function */
+	/* parsesubstring(); */
+
+#ifndef HASSTRINGARRAYS
+
+/* the stack has - the first index, the second index */
+	switch(args) {
+	case 2: 
+		upper=popaddress();
+		lower=popaddress();
+		break;
+	case 1:
+		lower=popaddress()
+		upper=0; /* flag for no length given */
+		break;
+	case 0: 
+/* rewind the token if there were no braces to be in sync	*/
+		poplocation();
+/* no rewind in the () construct */			
+	case -1:	
+		lower=1;
+		upper=0; /* flag for no length given */
+		break;
+	}
+
+/* happens when popaddress reported an error */
 	if (er != 0) return;
+
+#else 
+/* for a string array the situation is more complicated as we 
+ 		need to parse the argument completely including the possible subscript */
+
+/* how many args has the first parsesubsscript scanned, if none, we are done
+	rewind and set the parametes*/
+
+/* the stack has - the first string index, the second string index, the array index */	
+
+/* no args given, use the default */
+	if (args == 0) {
+		poplocation();
+		lower=1;
+		upper=0;	
+
+/* if more then zero or an empty (), we need a second parsesubscript */
+	} else {
+
+		a1=args; 
+
+		pushlocation(); /* overwrite of the stored location is good, don't worry */
+
+/* scan the potential second pair of braces */
+		nexttoken();
+		parsesubscripts();
+
+		switch (args) {
+		case 1:
+			array_index=popaddress();
+			if (er != 0) return;
+			break;
+		case 0:
+			poplocation();
+			break;
+		default:
+			error(EARGS);
+			return;
+		}	
+
+/* which part of the string */
+		switch(a1) {
+		case 2: 
+			upper=popaddress();
+			lower=popaddress();
+			break;
+		case 1:
+			upper=0;
+			lower=popaddress();
+			break;
+		case 0: 	
+		case -1:	
+			upper=0;
+			lower=1;
+			break;
+		}
+
+		if (er != 0) return;
+	}
+#endif
 
 /* try to get the string */
 	getstring(strp, xcl, ycl, lower, array_index);
 
+/* look what we do with the upper index */
+	if (!upper) upper=strp->length;
+
+	if (DEBUG) {
+		outsc("** in parsestringvar lower is "); outnumber(lower); outcr();
+		outsc("** in parsestringvar upper is "); outnumber(upper); outcr();
+		outsc("** in parsestringvar array_index is "); outnumber(array_index); outcr();
+	}
+
 /* find the length */
-//	if (y-x+1 > 0) push(y-x+1); else push(0);
 	if (upper-lower+1 > 0) strp->length=upper-lower+1; else strp->length=0;
 
 /* done */
 	if (DEBUG) { 
-		outsc("** in stringvalue, length "); 
+		outsc("** in parsestringvar, length "); 
 		outnumber(strp->length); 
 		outsc(" from "); outnumber(lower); outspc(); outnumber(upper); 
 		outcr();
@@ -3565,7 +3551,7 @@ char stringvalue(string_t* strp) {
 
 	switch(token) {
 	case STRING:
-/* sr has the string information frm gettoken and nexttoken*/
+/* sr has the string information from gettoken and nexttoken*/
 		strp->ir=sr.ir;
 		strp->length=sr.length;
 		strp->address=sr.address;
@@ -3723,8 +3709,6 @@ void streval(){
 /* different length means unequal */	
 	if (s2.length != s1.length) goto neq;
 
-#define USEMEMINTERFACE
-
 /* and a different character somewhere is also unequal */
 #ifdef USEMEMINTERFACE
 	if (s1.ir && s2.ir) 
@@ -3738,8 +3722,6 @@ void streval(){
 #else 
 	for (k=0; k < s1.length; k++) if (s1.ir[k] != s2.ir[k]) goto neq;
 #endif
-
-#undef USEMEMINTERFACE
 
 /* which operator did we use */
 	if (t == '=') push(1); else push(0);
@@ -3836,7 +3818,7 @@ void factorlen() {
 
 		switch(token) {
 		case STRING:
-			push(x);
+			push(sr.length);
 			nexttoken();
 			break;
 		case STRINGVAR:
@@ -3881,6 +3863,11 @@ void factorval() {
 
 /* the length of the strings consumed */
 	vlength=0;
+
+/* get the string */
+#ifdef USEMEMINTERFACE
+	if (!s.ir) getstringtobuffer(&s, spistrbuf1, SPIRAMSBSIZE);
+#endif	
 
 /* remove whitespaces */
 	while(*s.ir==' ' || *s.ir=='\t') { s.ir++; vlength++; }
@@ -3942,7 +3929,6 @@ void factornetstat() {
 
 /* helpers of factor - the ASC command, really not needed but for completeness */
 void factorasc() {
-	char * ir2;
 	string_t s;
 
 	nexttoken();
@@ -3952,13 +3938,13 @@ void factorasc() {
 
 	switch(token) {
 	case STRING:
-		push(sr.ir[0]);
+		if (sr.ir) push(sr.ir[0]); else push(memread2(sr.address));
 		nexttoken();
 		break;
 	case STRINGVAR:
 		parsestringvar(&s);
 		if (s.length > 0) {
-			if (s.address) push(memread2(s.address)); else push(s.ir[0]);
+			if (s.ir) push(s.ir[0]); else push(memread2(s.address));
 		} else 
 			push(0);
 		nexttoken();
@@ -4346,6 +4332,7 @@ void xprint(){
 	char oldod;
 	char modifier = 0;
 	string_t s;
+	stringlength_t i;
 	
 	form=0;
 	oldod=od;
@@ -4364,7 +4351,13 @@ processsymbol:
 /* output a string if we found it */
 	if (stringvalue(&s)) {
 		if (er != 0) return;
+
+/* buffer must be used here for machine code to work */
+#ifdef USEMEMINTERFACE
+		if (!s.ir) getstringtobuffer(&s, spistrbuf1, SPIRAMSBSIZE);
+#endif
  		outs(s.ir, s.length);
+
  		nexttoken();
 		goto separators;
 	}
@@ -4809,7 +4802,10 @@ void xinput(){
 nextstring:
 	if (token == STRING && id != IFILE) {
 		prompt=0;   
-		outs(ir, x);
+#ifdef USEMEMINTERFACE
+		if (!sr.ir) getstringtobuffer(&sr, spistrbuf1, SPIRAMSBSIZE);
+#endif
+		outs(sr.ir, sr.length);
 		nexttoken();
 		if (token != ',' && token != ';') {
 			error(EUNKNOWN);
@@ -5336,53 +5332,57 @@ void outputtoken() {
 	}
 
 	switch (token) {
-		case NUMBER:
-			outnumber(x);
+	case NUMBER:
+		outnumber(x);
+		break;
+	case LINENUMBER: 
+		outnumber(ax);
+		outspc();
+		break;
+	case ARRAYVAR:
+	case STRINGVAR:
+	case VARIABLE:
+		if (lastouttoken == NUMBER) outspc(); 
+		outch(xc); 
+		if (yc != 0) outch(yc);
+		if (token == STRINGVAR) outch('$');
+		break;
+	case STRING:
+		outch('"'); 
+#ifdef USEMEMINTERFACE
+		if (!sr.ir) getstringtobuffer(&sr, spistrbuf1, SPIRAMSBSIZE);
+#endif
+		outs(sr.ir, sr.length);
+		outch('"');
+		break;
+	default:
+		if ( (token < -3 && token >= BASEKEYWORD) || token < -127) {	
+			if ((token == TTHEN || 
+				token == TELSE ||
+				token == TTO || 
+				token == TSTEP || 
+				token == TGOTO || 
+				token == TGOSUB ||
+				token == TOR ||
+				token == TAND ) && lastouttoken != LINENUMBER) outspc();
+			else 
+				if (lastouttoken == NUMBER || lastouttoken == VARIABLE) outspc(); 
+			
+			for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
+			outsc(getkeyword(i)); 
+			if (token != GREATEREQUAL && 
+				token != NOTEQUAL && 
+				token != LESSEREQUAL && 
+				token != TREM &&
+				token != TFN) spaceafterkeyword=1;
 			break;
-		case LINENUMBER: 
-			outnumber(ax);
-			outspc();
+		}	
+		if (token >= 32) {
+			outch(token);
+			if (token == ':' && !outliteral) outspc();
 			break;
-		case ARRAYVAR:
-		case STRINGVAR:
-		case VARIABLE:
-			if (lastouttoken == NUMBER) outspc(); 
-			outch(xc); 
-			if (yc != 0) outch(yc);
-			if (token == STRINGVAR) outch('$');
-			break;
-		case STRING:
-			outch('"'); 
-			outs(ir, x); 
-			outch('"');
-			break;
-		default:
-			if ( (token < -3 && token >= BASEKEYWORD) || token < -127) {	
-				if ((token == TTHEN || 
-					token == TELSE ||
-					token == TTO || 
-					token == TSTEP || 
-					token == TGOTO || 
-					token == TGOSUB ||
-					token == TOR ||
-					token == TAND ) && lastouttoken != LINENUMBER) outspc();
-				else 
-					if (lastouttoken == NUMBER || lastouttoken == VARIABLE) outspc(); 
-				for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
-				outsc(getkeyword(i)); 
-				if (token != GREATEREQUAL && 
-					token != NOTEQUAL && 
-					token != LESSEREQUAL && 
-					token != TREM &&
-					token != TFN) spaceafterkeyword=1;
-				break;
-			}	
-			if (token >= 32) {
-				outch(token);
-				if (token == ':' && !outliteral) outspc();
-				break;
-			} 
-			outch(token); outspc(); outnumber(token);
+		} 
+		outch(token); outspc(); outnumber(token);
 	}
 
 	lastouttoken=token;
@@ -5849,8 +5849,7 @@ void dumpmem(address_t r, address_t b, char eflag) {
 
 /*
  *	creates a C string from a BASIC string
- *	after reading a BASIC string ir2 contains a pointer
- *	to the data and x the string length
+ *	after reading a BASIC string 
  */
 void stringtobuffer(char *buffer, string_t* s) {
 	index_t i = s->length;
@@ -5858,6 +5857,13 @@ void stringtobuffer(char *buffer, string_t* s) {
 	if (i >= SBUFSIZE) i=SBUFSIZE-1;
 	buffer[i--]=0;
 	while (i >= 0) { buffer[i]=s->ir[i]; i--; }
+}
+
+/* helper for the memintercase code */
+void getstringtobuffer(string_t* strp, char *buffer, stringlength_t maxlen) {
+	stringlength_t i;
+	for (i=0; i<strp->length && i<maxlen; i++) buffer[i]=memread2(strp->address+i);
+	strp->ir=buffer;
 }
 
 /* get a file argument */
@@ -5872,6 +5878,9 @@ void getfilename(char *buffer, char d) {
 
 	if (s) {
 		if (DEBUG) {outsc("** in getfilename2 copying string of length "); outnumber(x); outcr(); }
+#ifdef USEMEMINTERFACE
+		if (!sr.ir) getstringtobuffer(&sr, spistrbuf1, SPIRAMSBSIZE);
+#endif
 		stringtobuffer(buffer, &sr);
 		if (DEBUG) {outsc("** in getfilename2 stringvalue string "); outsc(buffer); outcr(); }
 		nexttoken();
@@ -6613,12 +6622,16 @@ void xeval(){
 	nexttoken();
 	if (!stringvalue(&s)) { error(EARGS); return; }
 
-/* here we have the string to evaluate in ir2 and copy it to the ibuffer
+/* here we have the string to evaluate it to the ibuffer
 		only one line allowed, BUFSIZE is the limit */
 	l=s.length;
 	if (er != 0) return;
 	
 	if (l>BUFSIZE-1) {error(EORANGE); return; }
+
+#ifdef USEMEMINTERFACE
+	if (!s.ir) getstringtobuffer(&s, spistrbuf1, SPIRAMSBSIZE);
+#endif
 
 	for (i=0; i<l; i++) ibuffer[i+1]=s.ir[i];
 	ibuffer[l+1]=0;
