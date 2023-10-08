@@ -3537,34 +3537,36 @@ void sqr(){
 }
 #endif
 
-#ifndef HASFLOAT
+
 /*
- * POW(X, N) evaluates powers, replaces ^ 
+ * POW(X, N) evaluates powers
  */ 
+
+/* this function is called by POW(a, c) in BASIC */
 void xpow(){
 	number_t n;
 	number_t a;
-	address_t i;
-  number_t x;
 
 	n=pop();
 	a=pop();
+	push(bpow(a, n));
+}
 
-	x=1;
-	if (n>=0) 
-		for(i=0; i<n; i++) x*=a; 
-	else 
-		x=0;
-	
-	push(x);
-}
+/* while this is needed by ^*/
+number_t bpow(number_t x, number_t y) {
+#ifdef HASFLOAT
+	return pow(x, y);
 #else
-void xpow(){
-	number_t n;
-	n=pop();
-	push(pow(pop(),n));
-}
+	number_t r;
+	address_t i;
+
+	r=1;
+	if (y>=0) for(i=0; i<y; i++) r*=x; 
+	else r=0;
+	return r;
 #endif
+}
+
 
 /* 
  * stringvalue() evaluates a string value, 0 if there is no string
@@ -4054,24 +4056,64 @@ void factor(){
 	}
 }
 
+#ifdef POWERRIGHTTOLEFT
+/* the recursive version */
+void power() { 
+	if (DEBUG) bdebug("power\n"); 
+	factor();
+	if (er != 0) return;
+
+	nexttoken(); 
+	if (DEBUG) bdebug("in power\n");
+	if (token == '^'){
+		parseoperator(power);
+		if (er != 0) return;
+		push(bpow(x,y));
+	} 
+	if (DEBUG) bdebug("leaving power\n");
+}
+#else 
+/* the left associative version */
+void power() { 
+	if (DEBUG) bdebug("power\n"); 
+	factor();
+	if (er != 0) return;
+
+nextpower:
+	nexttoken(); 
+	if (DEBUG) bdebug("in power\n");
+	if (token == '^'){
+		nexttoken();
+		factor(); 
+		if (er != 0) return;
+		y=pop();
+		x=pop();
+		push(bpow(x,y));
+		goto nextpower;
+	} 
+	if (DEBUG) bdebug("leaving power\n");
+}
+#endif
+
+
 /*
  *	term() evaluates multiplication, division and mod
  */
 void term(){
 	if (DEBUG) bdebug("term\n"); 
-	factor();
+	power();
 	if (er != 0) return;
 
 nextfactor:
-	nexttoken();
+	// nexttoken();
 	if (DEBUG) bdebug("in term\n");
 	if (token == '*'){
-		parseoperator(factor);
+		parseoperator(power);
 		if (er != 0) return;
 		push(x*y);
 		goto nextfactor;
 	} else if (token == '/'){
-		parseoperator(factor);
+		parseoperator(power);
 		if (er != 0) return;
 		if (y != 0)
 			push(x/y);
@@ -4080,8 +4122,8 @@ nextfactor:
 			return;	
 		}
 		goto nextfactor;
-	} else if (token == '%'){
-		parseoperator(factor);
+	} else if (token == '%') {
+		parseoperator(power);
 		if (er != 0) return;
 		if (y != 0)
 #ifndef HASFLOAT
@@ -4094,14 +4136,7 @@ nextfactor:
 			return;	
 		}
 		goto nextfactor;
-	} else if (token == '^') {
-		nexttoken();
-		factor();
-		if (er != 0) return;
-		xpow(); /* call the interpreter function directly */
-		goto nextfactor;
 	}
-
 	if (DEBUG) bdebug("leaving term\n");
 }
 
@@ -4221,6 +4256,12 @@ void expression(){
 	}  
 }
 #endif
+
+
+
+
+
+
 
 
 /* 

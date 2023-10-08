@@ -1194,10 +1194,6 @@ address_t spirambegin();
 void spiramrawwrite(address_t, mem_t);
 mem_t spiramrawread(address_t );
 
-
-
-
-
 /*
  * Layer 0 functions - I/O and memory management 
  */
@@ -1369,6 +1365,7 @@ void xmap();
 void rnd();
 void sqr();
 void xpow();
+number_t bpow(number_t, number_t);
 
 /* string values and string evaluation */
 char stringvalue();
