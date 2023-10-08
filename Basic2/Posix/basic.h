@@ -300,8 +300,9 @@ typedef int16_t token_t; /* token type extension, allows an extra of 127 command
 typedef struct {mem_t l; mem_t h;} twobytes_t;
 typedef union { number_t i; address_t a; twobytes_t b; mem_t c[sizeof(number_t)]; } accu_t;
 
-/* the memreader function type - currently unused */
+/* the memreader function type, a function accessing memory has to have this shape */
 typedef mem_t (*memreader_t)(address_t);
+typedef void (*memwriter_t)(mem_t, address_t);
 
 /* the new string type used in the reimplementation of the string functions */
 /* 
@@ -538,6 +539,7 @@ void xmap();
 void rnd();
 void sqr();
 void xpow();
+number_t bpow(number_t, number_t);
 
 /* string values and string evaluation */
 void parsestringvar(string_t*);

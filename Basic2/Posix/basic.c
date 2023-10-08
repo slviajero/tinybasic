@@ -1093,8 +1093,10 @@ void clrvars() {
 	himem=memsize;
 
 /* and clear the cache */
+#ifdef HASAPPLE1
 	bfindc=bfindd=bfindt=0;
 	bfinda=bfindz=0;
+#endif
 }
 
 /* 
@@ -1137,10 +1139,19 @@ stringlength_t getstringlength(address_t m, memreader_t f) {
 	mem_t i;
 	accu_t z;
 
+	z.a=0;
 	for (i=0; i<strindexsize; i++) z.c[i]=f(m++);
 	return z.a;
 }
 
+/* set a number at a memory location */
+void setnumber2(address_t m, memwriter_t f, number_t v){
+	mem_t i;
+	accu_t z;
+
+	z.i=v;
+	for (i=0; i<numsize; i++) f(m++, z.c[i]);
+}
 
 
 /* code only for the USEMEMINTERFACE code, this function goes through the 
@@ -1174,11 +1185,6 @@ void esetnumber(address_t m, mem_t n){
 
 	for (i=0; i<n; i++) eupdate(m++, z.c[i]);
 }
-
-
-
-
-
 
 /* create an array */
 address_t createarray(mem_t c, mem_t d, address_t i, address_t j) {
@@ -1385,7 +1391,7 @@ void storecstring(address_t ax, address_t s, char* b) {
 	address_t k; 
 
 	for (k=0; k<s-strindexsize && b[k] != 0; k++) memwrite2(ax+k+strindexsize, b[k]); 
-	memwrite2(ax, k%256);
+	memwrite2(ax, k%256); /* also this should be setnumber */
 	if (strindexsize == 2) memwrite2(ax+1, k/256);
 }
 
@@ -1574,50 +1580,6 @@ address_t stringdim(char c, char d) {
 #endif
 }
 
-/* the length of a string as in LEN(A$) */
-address_t lenstring(char c, char d, address_t j){
-	char* b;
-	address_t a;
-
-
-	if (c == '@') 
-		switch(d) {
-		case 0:
-			return ibuffer[0];
-		case 'U':
-			makeusrstring();
-			return sbuffer[0];
-#ifdef HASCLOCK
-		case 'T':
-			rtcmkstr();
-			return rtcstring[0];
-#endif
-#ifdef HASARGS
-		case 'A':
-			a=0;
-			if (bargc > 2) return cstringlength(bargv[2], BUFSIZE); else return 0;
-#endif
-		}
-    
-/* locate the string */
-	a=bfind(STRINGVAR, c, d);
-	if (er != 0) return 0;
-
-/* string does not yet exist, return length 0 */
-	if (a == 0) return 0;
-
-/* get the string length from memory */
-#ifndef HASSTRINGARRAYS
-	getnumber(a, strindexsize);
-	return z.a;
-#else 
-	a=a+(stringdim(c, d)+strindexsize)*(j-arraylimit);
-	getnumber(a, strindexsize);
-	return z.a;
-#endif
-}
-
-
 /* set the length of a string */
 void setstringlength(char c, char d, address_t l, address_t j) {
 	address_t a, zt; 
@@ -1639,6 +1601,14 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 	a=bfind(STRINGVAR, c, d);
 	if (er != 0) return;
 
+/* */
+
+
+
+
+
+
+
 	if (a == 0) { error(EVARIABLE); return; }
 
 /* multiple calls of bfind here is harmless as bfind caches  */ 
@@ -1649,6 +1619,12 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 	z.a=l;
 	setnumber(a, strindexsize);
 }
+
+
+
+
+
+
 
 /* the BASIC string mechanism for real time clocks, create a string with the clock data */
 #ifdef HASCLOCK
@@ -3357,34 +3333,34 @@ void sqr(){
 }
 #endif
 
-#ifndef HASFLOAT
 /*
- * POW(X, N) evaluates powers, replaces ^ 
+ * POW(X, N) evaluates powers
  */ 
+
+/* this function is called by POW(a, c) in BASIC */
 void xpow(){
 	number_t n;
 	number_t a;
-	address_t i;
-	number_t x;
 
 	n=pop();
 	a=pop();
+	push(bpow(a, n));
+}
 
-	x=1;
-	if (n>=0) 
-		for(i=0; i<n; i++) x*=a; 
-	else 
-		x=0;
-	
-	push(x);
-}
+/* while this is needed by ^*/
+number_t bpow(number_t x, number_t y) {
+#ifdef HASFLOAT
+	return pow(x, y);
 #else
-void xpow(){
-	number_t n;
-	n=pop();
-	push(pow(pop(),n));
-}
+	number_t r;
+
+	r=1;
+	if (y>=0) for(i=0; i<y; i++) r*=x; 
+	else r=0;
+	return r;
 #endif
+}
+
 
 /* 
  * stringvalue() evaluates a string value, 0 if there is no string
@@ -3762,6 +3738,8 @@ void xint() {}
  * NOT; AND; OR   
  *
  */
+
+#define DEBUG 0
 
 /*
  *	factor() - contrary to all other function
@@ -4148,24 +4126,41 @@ void factor(){
 	}
 }
 
+
+void power() { 
+	if (DEBUG) bdebug("power\n"); 
+	factor();
+	if (er != 0) return;
+
+	nexttoken(); 
+	if (DEBUG) bdebug("in power\n");
+	if (token == '^'){
+		parseoperator(power);
+		if (er != 0) return;
+		push(bpow(x,y));
+	} 
+	if (DEBUG) bdebug("leaving power\n");
+}
+
+
 /*
  *	term() evaluates multiplication, division and mod
  */
 void term(){
 	if (DEBUG) bdebug("term\n"); 
-	factor();
+	power();
 	if (er != 0) return;
 
 nextfactor:
-	nexttoken();
+	// nexttoken();
 	if (DEBUG) bdebug("in term\n");
 	if (token == '*'){
-		parseoperator(factor);
+		parseoperator(power);
 		if (er != 0) return;
 		push(x*y);
 		goto nextfactor;
 	} else if (token == '/'){
-		parseoperator(factor);
+		parseoperator(power);
 		if (er != 0) return;
 		if (y != 0)
 			push(x/y);
@@ -4174,8 +4169,8 @@ nextfactor:
 			return;	
 		}
 		goto nextfactor;
-	} else if (token == '%'){
-		parseoperator(factor);
+	} else if (token == '%') {
+		parseoperator(power);
 		if (er != 0) return;
 		if (y != 0)
 #ifndef HASFLOAT
@@ -4187,12 +4182,6 @@ nextfactor:
 			error(EDIVIDE);
 			return;	
 		}
-		goto nextfactor;
-	} else if (token == '^') {
-		nexttoken();
-		factor();
-		if (er != 0) return;
-		xpow(); /* call the interpreter function directly */
 		goto nextfactor;
 	}
 	if (DEBUG) bdebug("leaving term\n");
@@ -4315,6 +4304,8 @@ void expression(){
 }
 #endif
 
+
+#define DEBUG 0
 
 /* 
  * Layer 2 - The commands and their helpers
