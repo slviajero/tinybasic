@@ -4127,6 +4127,8 @@ void factor(){
 }
 
 
+#ifdef POWERRIGHTTOLEFT
+/* the recursive version */
 void power() { 
 	if (DEBUG) bdebug("power\n"); 
 	factor();
@@ -4141,6 +4143,28 @@ void power() {
 	} 
 	if (DEBUG) bdebug("leaving power\n");
 }
+#else 
+/* the left associative version */
+void power() { 
+	if (DEBUG) bdebug("power\n"); 
+	factor();
+	if (er != 0) return;
+
+nextpower:
+	nexttoken(); 
+	if (DEBUG) bdebug("in power\n");
+	if (token == '^'){
+		nexttoken();
+		factor(); 
+		if (er != 0) return;
+		y=pop();
+		x=pop();
+		push(bpow(x,y));
+		goto nextpower;
+	} 
+	if (DEBUG) bdebug("leaving power\n");
+}
+#endif
 
 
 /*
