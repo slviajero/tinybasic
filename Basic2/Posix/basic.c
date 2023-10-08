@@ -3407,7 +3407,7 @@ void parsestringvar(string_t* strp) {
 		lower=popaddress();
 		break;
 	case 1:
-		lower=popaddress()
+		lower=popaddress();
 		upper=0; /* flag for no length given */
 		break;
 	case 0: 
