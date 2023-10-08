@@ -36,9 +36,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#define	BASICFULL
+#undef	BASICFULL
 #undef	BASICINTEGER
-#undef	BASICSIMPLE
+#define	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
@@ -71,9 +71,18 @@
 /* 
  * Experimental features:
  * 
- * HASMSSTRINGS is a (rudimentary) string compatibility to MS Basic
+ * HASMSSTRINGS is a (rudimentary) string compatibility to MS Basic.
  */
 #define HASMSSTRINGS
+
+/*
+ * Odd stuff - these things change the behaviour of BASIC in some aspects 
+ * 	POWERRIGHTTOLEFT: normally the ^ operator works from left to right 
+ *		which means 2^3^2 = (2^3)^2 = 8^2 = 64. Setting this flag would 
+ *		change the behaviour to 2^3^2 = 2^(3^2) = 512
+ */
+#undef POWERRIGHTTOLEFT
+
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -243,11 +252,9 @@
 #endif
 
 /* dependencies on the hardware */
-
 #if !defined(DISPLAYHASGRAPH) 
 #undef HASGRAPH
 #endif
-
 
 /*
  * Some of the language features need long tokens 
@@ -255,3 +262,6 @@
 #ifdef HASMSSTRINGS
 #define HASLONGTOKENS
 #endif
+
+
+

@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.h,v 1.1 2023/08/26 08:23:23 stefan Exp stefan $
+ *	$Id: basic.h,v 1.1 2023/09/27 15:23:20 stefan Exp stefan $
  *
  *	Stefan's basic interpreter 
  *
@@ -300,9 +300,41 @@ typedef int16_t token_t; /* token type extension, allows an extra of 127 command
 typedef struct {mem_t l; mem_t h;} twobytes_t;
 typedef union { number_t i; address_t a; twobytes_t b; mem_t c[sizeof(number_t)]; } accu_t;
 
-/* the memreader function type */
+/* the memreader function type, a function accessing memory has to have this shape */
 typedef mem_t (*memreader_t)(address_t);
+typedef void (*memwriter_t)(mem_t, address_t);
 
+/* the new string type used in the reimplementation of the string functions */
+/* 
+ * stringlength_t is the maximum length of a string, currently only 2 bytes is really tested.
+ *      one byte lengthes may work, will be fixed soon to arbitrary types
+ *
+ * string_t says where we can find a string. It is either in BASIC memory and has a valid BASIC memory
+ *      address a, or it is in C memory outside mem[]. Then ir says where the string can be found.
+ *      This is necessary because BASIC can handle different memory layouts, EEPROM models and serial
+ *      memory chips. We cannot simply rely on data to be found in BASIC memory like in old 8 bit
+ *      computers or all in C memory like on modern Linux/Windows/Mac systems. 
+ *      
+ *      Components of the string_t:
+ *          - the address of the string in BASIC memory
+ *          - the C memory pointer ir to the string location, if this is 0, the string is somewhere outside C memory
+ *          - the length of the entire string 
+ *          - the dimension of the string strdim, this is the length of the memory segment reserved for the string
+ *          - the dimension of the string array, arraydim
+ */
+
+typedef uint16_t stringlength_t;
+
+typedef struct {
+    address_t address; 
+    char* ir; 
+    stringlength_t length;
+    address_t strdim; 
+    address_t arraydim;
+} string_t;
+
+
+/* the timing event type */
 typedef struct {
     mem_t enabled;
     unsigned long last;
@@ -323,7 +355,7 @@ typedef struct {
  *
  */
 
-/* event type */
+/* event type for external events*/
 typedef struct {
     mem_t enabled;
     mem_t pin;
@@ -389,7 +421,7 @@ void pgetnumber(address_t, mem_t);
 address_t createarray(mem_t, mem_t, address_t, address_t);
 void array(mem_t, mem_t, mem_t, address_t, address_t, number_t*);
 address_t createstring(char, char, address_t, address_t);
-char* getstring(char, char, address_t, address_t);
+void getstring(string_t*, char, char, address_t, address_t);
 number_t arraydim(char, char);
 address_t stringdim(char, char);
 address_t lenstring(char, char, address_t);
@@ -507,9 +539,11 @@ void xmap();
 void rnd();
 void sqr();
 void xpow();
+number_t bpow(number_t, number_t);
 
 /* string values and string evaluation */
-char stringvalue();
+void parsestringvar(string_t*);
+char stringvalue(string_t*);
 void streval();
 
 /* floating point functions */
@@ -531,7 +565,7 @@ void andexpression();
 void expression();
 
 /* real time clock string stuff */
-char* rtcmkstr();
+void rtcmkstr();
 
 /* 
  * Layer 2 - statements and functions 
@@ -540,8 +574,10 @@ char* rtcmkstr();
 
 /* basic commands of the core language set */
 void xprint();
+void getstringtobuffer(string_t*, char*, stringlength_t);
 void lefthandside(address_t*, address_t*, address_t*, mem_t*);
-void assignnumber(signed char, char, char, address_t, address_t, char);
+void assignnumber(signed char, char, char, address_t, address_t, char, number_t);
+void assignstring(string_t*, string_t*, stringlength_t);
 void assignment();
 void showprompt();
 void xinput();
@@ -580,7 +616,7 @@ void dumpmem(address_t, address_t, char);
 void xlocate();
 
 /* file access and other i/o */
-void stringtobuffer(char*);
+void stringtobuffer(char*, string_t*);
 void getfilename(char*, char);
 void xsave();
 void xload(const char*);
