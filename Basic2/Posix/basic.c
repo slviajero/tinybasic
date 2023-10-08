@@ -3353,6 +3353,7 @@ number_t bpow(number_t x, number_t y) {
 	return pow(x, y);
 #else
 	number_t r;
+	address_t i;
 
 	r=1;
 	if (y>=0) for(i=0; i<y; i++) r*=x; 
