@@ -1949,7 +1949,6 @@ int8_t spiram_robufferread(uint16_t a) {return spiram[a];}
  */
 
 char spistrbuf1[SPIRAMSBSIZE];
-char spistrbuf2[SPIRAMSBSIZE];
 #endif
 
 /* 
