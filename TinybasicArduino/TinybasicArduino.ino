@@ -3310,10 +3310,17 @@ void parsefunction(void (*f)(), short ae){
 
 /* helper function in the recursive decent parser */
 void parseoperator(void (*f)()) {
+	mem_t u=1;
+
 	nexttoken();
+	if (token == '-') {
+		u=-1;
+		nexttoken();
+	} 
 	f();
 	if (er !=0 ) return;
 	y=pop();
+	if (u == -1) y=-y;
 	x=pop();
 }
 
