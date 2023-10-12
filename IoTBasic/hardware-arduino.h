@@ -3328,8 +3328,9 @@ EepromFS EFSRAW(I2CEEPROMADDR);
  * As networking is only used for MQTT at the moment, 
  * mqtt, Wifi and Ethernet comes all in one. 
  *
- * No encryption/authetication is implemented in MQTT. 
- * Only public, open servers can be used.
+ * No encryption is implemented in MQTT. 
+ * Only basic username and password authentication can be used
+ * for MQTT.
  *
  * MQTT topics can only be 32 bytes long.
  * Buffered incoming and outgoing messages can be 128 bytes
@@ -3510,7 +3511,11 @@ char mqttreconnect() {
 
 /* try to reconnect assuming that the network is connected */
 	while (!bmqtt.connected() && timer < 400) {
-		bmqtt.connect(mqttname);
+		if (mqtt_username == "") {
+			bmqtt.connect(mqttname);
+		} else {
+			bmqtt.connect(mqttname, mqtt_username, mqtt_password);
+		}
 		bdelay(timer);
 		timer=timer*2;
     reconnect=1;
