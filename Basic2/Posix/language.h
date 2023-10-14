@@ -76,13 +76,21 @@
 #define HASMSSTRINGS
 
 /*
- * Odd stuff - these things change the behaviour of BASIC in some aspects 
+ * Odd stuff - these things change the behaviour of BASIC in some aspects.
+ * They can be used to make the interpreter compatible with other dialects.
+ * 
  * 	POWERRIGHTTOLEFT: normally the ^ operator works from left to right 
  *		which means 2^3^2 = (2^3)^2 = 8^2 = 64. Setting this flag would 
  *		change the behaviour to 2^3^2 = 2^(3^2) = 512
+ *  MSARRAYLIMITS: in BASIC arrays start at 1 and DIM A(10) creates 10 
+ *      elements. With MSARRAYLIMITS defined, arrays start at 0 and have 
+ *      n+1 elements.
+ *  SUPPRESSSUBSTRINGS: switch off substring logic, makes only sense with 
+ *      HASMSSTRINGS activated.
  */
 #undef POWERRIGHTTOLEFT
-
+#undef MSARRAYLIMITS
+#undef SUPPRESSSUBSTRINGS
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL

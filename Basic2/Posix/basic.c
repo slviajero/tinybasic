@@ -452,9 +452,6 @@ index_t forsp = 0;
 address_t gosubstack[GOSUBDEPTH];
 index_t gosubsp = 0;
 
-/* this variable stores the location in pushlocation() and poplocation(), used to rewind the program cursor */
-address_t slocation;
-
 /* arithmetic accumulators - used by many statements, y may be obsolete in future*/
 number_t x, y;
 
@@ -499,11 +496,18 @@ address_t nvars = 0;
 mem_t form = 0;
 
 /* the lower limit of the array is one by default, can be a variable */
-#ifdef HASARRAYLIMIT
+#if defined(HASARRAYLIMIT) && !defined(MSARRAYLIMITS)
 address_t arraylimit = 1;
+#elif !defined(HASARRAYLIMIT) && defined(MSARRAYLIMIT)
+const address_t arraylimit = 0;
+#elif defined(MSARRAYLIMITS)
+address_t arraylimit = 0;
 #else 
 const address_t arraylimit = 1;
 #endif
+
+/* the default size of a string now as a variable */
+stringlength_t defaultstrdim = STRSIZEDEF;
 
 /* the number of arguments parsed from a command */
 mem_t args;
@@ -1190,6 +1194,12 @@ void esetnumber(address_t m, mem_t n){
 address_t createarray(mem_t c, mem_t d, address_t i, address_t j) {
 	address_t a, zat, at;
 
+/* if we want to me MS compatible, the array ranges from 0-n */
+#ifdef MSARRAYLIMITS
+	i+=1;
+	j+=1;
+#endif
+
 #ifdef HASAPPLE1
 	if (DEBUG) { outsc("* create array "); outch(c); outch(d); outspc(); outnumber(i); outcr(); }
 #ifndef HASMULTIDIM
@@ -1336,6 +1346,11 @@ address_t createstring(char c, char d, address_t i, address_t j) {
 	
 	if (DEBUG) { outsc("Create string "); outch(c); outch(d); outspc(); outnumber(nvars); outcr(); }
 
+/* the MS string compatibility */
+#ifdef MSARRAYLIMITS
+	j+=1;
+#endif
+
 #ifndef HASSTRINGARRAYS
 /* if no string arrays are in the code, we reserve the number of bytes i and space for the index */
 	if (bfind(STRINGVAR, c, d)) error(EVARIABLE); else a=bmalloc(STRINGVAR, c, d, i+strindexsize);
@@ -1404,8 +1419,7 @@ address_t cstringlength(char* c, address_t l) {
 
 /* get a memory pointer to a string, new version */
 void getstring(string_t* strp, char c, char d, address_t b, address_t j) {	
-	address_t k, zt, dim, maxlen;
-
+	address_t k, zt;
 
 /* we know nothing about the string */
 	ax=0;
@@ -1421,60 +1435,58 @@ void getstring(string_t* strp, char c, char d, address_t b, address_t j) {
 		outnumber(j); outcr(); 
 	}
 
-
 /* special string variables */
 	if (c == '@')
-	switch(d) {
-	case 0: 
-		strp->ir=ibuffer+b;
-		strp->length=ibuffer[0];
-		return;
-	default:
-		error(EVARIABLE); 
-		return;
-	case 'U':
-		makeusrstring(); /* a user definable special string in sbuffer */
-		strp->ir=sbuffer+b;
-		strp->length=sbuffer[0];
-		return;
+		switch(d) {
+		case 0: 
+			strp->ir=ibuffer+b;
+			strp->length=ibuffer[0];
+			return;
+		default:
+			error(EVARIABLE); 
+			return;
+		case 'U':
+			makeusrstring(); /* a user definable special string in sbuffer */
+			strp->ir=sbuffer+b;
+			strp->length=sbuffer[0];
+			return;
 #ifdef HASCLOCK
-	case 'T':
-		rtcmkstr(); /* the time string */
-		strp->ir=rtcstring+b;
-		strp->length=rtcstring[0];
-		return;
+		case 'T':
+			rtcmkstr(); /* the time string */
+			strp->ir=rtcstring+b;
+			strp->length=rtcstring[0];
+			return;
 #endif	
 /* the arguments string on POSIX systems */
 #ifdef HASARGS
-	case 'A': 
-		if (bargc > 2) {
-			strp->ir=bargv[2];
-			strp->length=cstringlength(bargv[2], BUFSIZE);
-			return; 
-		}	
-		return;
+		case 'A': 
+			if (bargc > 2) {
+				strp->ir=bargv[2];
+				strp->length=cstringlength(bargv[2], BUFSIZE);
+				return; 
+			}	
+			return;
 #endif
-	}	
+		}	
 
 /* dynamically allocated strings, create on the fly */
-	if (!(ax=bfind(STRINGVAR, c, d))) ax=createstring(c, d, STRSIZEDEF, 1);
+	if (!(ax=bfind(STRINGVAR, c, d))) ax=createstring(c, d, defaultstrdim, arraylimit);
 
 	if (DEBUG) {
 		outsc("** heap address "); outnumber(ax); outcr(); 
-		outsc("** byte length of string"); outnumber(z.a); outcr(); 
+		outsc("** byte length of string memory segment "); outnumber(z.a); outcr(); 
 	}
+
 	if (er != 0) return;
 
 #ifndef HASSTRINGARRAYS
-
-
 /* the maximum length of the string */
 	strp->strdim=z.a-strindexsize;
 
 /* are we in range */
 	if ((b < 1) || (b > strp->strdim )) { error(EORANGE); return; }
 
-	if (DEBUG) { outsc("** maximum string length "); outnumber(maxlen); outcr(); }
+	if (DEBUG) { outsc("** maximum string length "); outnumber(strp->strdim); outcr(); }
 
 /* get the actual full length, this is redundant to lenstring but lenstring does 
 	not autocreate */
@@ -1484,7 +1496,6 @@ void getstring(string_t* strp, char c, char d, address_t b, address_t j) {
 
 /* now find the payload address */
 	ax=ax+strindexsize+(b-1);
-
 #else 
 
 /* the dimension of the string array */
@@ -1506,7 +1517,7 @@ void getstring(string_t* strp, char c, char d, address_t b, address_t j) {
 /* are we in range  */
 	if ((b < 1) || (b > strp->strdim )) { error(EORANGE); return; }
 
-	if (DEBUG) { outsc("** maximum string length "); outnumber(maxlen); outcr(); }
+	if (DEBUG) { outsc("** maximum string length "); outnumber(strp->strdim); outcr(); }
 	
 /* the base address of a string */
 	ax=ax+(j-arraylimit)*(strp->strdim + strindexsize);
@@ -1522,7 +1533,7 @@ void getstring(string_t* strp, char c, char d, address_t b, address_t j) {
 	ax=ax+b-1+strindexsize;
 
 /* leave the string array element data record length in z.a */
-	z.a=maxlen+strindexsize;
+	z.a=strp->strdim+strindexsize;
 #endif
 
 	if (DEBUG) { outsc("** payload address "); outnumber(ax); outcr(); }
@@ -2059,18 +2070,16 @@ void clrgosubstack() {
 
 /* two helper commands for structured BASIC, without the GOSUB stack */
 
-void pushlocation() {
-	if (st == SINT)
-		slocation=bi-ibuffer;
-	else 
-		slocation=here;
+void pushlocation(blocation_t* l) {
+	if (st == SINT) l->location=bi-ibuffer;
+	else  l->location=here;
+	l->token=token;
 }
 
-void poplocation() {
-	if (st == SINT)
-		bi=ibuffer+slocation;
-	else 
-		here=slocation;	
+void poplocation(blocation_t* l) {
+	if (st == SINT) bi=ibuffer+l->location;
+	else here=l->location;
+	token=l->token;
 }
 
 /* little helpers of the io functions */
@@ -2078,14 +2087,14 @@ void poplocation() {
 /* send a newline */
 void outcr() {
 #ifdef HASSERIAL1
-  if (sendcr) outch('\r');
+	if (sendcr) outch('\r');
 #endif
-  outch('\n');
+	outch('\n');
 } 
 
 /* send a space */
 void outspc() {
-  outch(' ');
+	outch(' ');
 }
 
 /* output a zero terminated string - c style */
@@ -2283,6 +2292,8 @@ address_t writenumber2(char *c, number_t vi) {
 /* remove trailing zeros */
 	for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
 	i--;
+
+/* */	
 	while (c[i] == '0' && i>1) { i--; }
 	i++;
     
@@ -2593,7 +2604,6 @@ void nexttoken() {
 		return;
 	}
 
-
 /* other single characters are parsed and stored */
 	token=*bi;
 	bi++;
@@ -2645,49 +2655,49 @@ char nomemory(number_t b){
 void storetoken() {
 	index_t i=x;
 	switch (token) {
-		case LINENUMBER:
-			if (nomemory(addrsize+1)) break;
+	case LINENUMBER:
+		if (nomemory(addrsize+1)) break;
+		memwrite2(top++, token);
+		z.a=ax;
+		setnumber(top, addrsize);
+		top+=addrsize;
+		return;	
+	case NUMBER:
+		if (nomemory(numsize+1)) break;
+		memwrite2(top++, token);
+		z.i=x;
+		setnumber(top, numsize);
+		top+=numsize;
+		return;
+	case ARRAYVAR:
+	case VARIABLE:
+	case STRINGVAR:
+		if (nomemory(3)) break;
+		memwrite2(top++, token);
+		memwrite2(top++, xc);
+		memwrite2(top++, yc);
+		return;
+	case STRING:
+		if (nomemory(x+2)) break;
+		memwrite2(top++, token);
+		memwrite2(top++, i);
+		while (i > 0) {
+			memwrite2(top++, *ir++);
+			i--;
+		}	
+		return;
+	default:
+		if (token >= -127) { /* the good old code with just one byte token */
+			if (nomemory(1)) break;
 			memwrite2(top++, token);
-			z.a=ax;
-			setnumber(top, addrsize);
-			top+=addrsize;
-			return;	
-		case NUMBER:
-			if (nomemory(numsize+1)) break;
-			memwrite2(top++, token);
-			z.i=x;
-			setnumber(top, numsize);
-			top+=numsize;
-			return;
-		case ARRAYVAR:
-		case VARIABLE:
-		case STRINGVAR:
-			if (nomemory(3)) break;
-			memwrite2(top++, token);
-			memwrite2(top++, xc);
-			memwrite2(top++, yc);
-			return;
-		case STRING:
-			if (nomemory(x+2)) break;
-			memwrite2(top++, token);
-			memwrite2(top++, i);
-			while (i > 0) {
-				memwrite2(top++, *ir++);
-				i--;
-			}	
-			return;
-		default:
-			if (token >= -127) { /* the good old code with just one byte token */
-				if (nomemory(1)) break;
-				memwrite2(top++, token);
-			} else {
+		} else {
 #ifdef HASLONGTOKENS
-				if (nomemory(2)) break; /* this is the two byte token extension */
-				memwrite2(top++, TEXT1);
-				memwrite2(top++, token+255);
+			if (nomemory(2)) break; /* this is the two byte token extension */
+			memwrite2(top++, TEXT1);
+			memwrite2(top++, token+255);
 #endif
-			}
-			return;
+		}
+		return;
 	}
 	error(EOUTOFMEMORY);
 } 
@@ -2951,22 +2961,15 @@ void moveblock(address_t b, address_t l, address_t d) {
 	}	
 	if (l<1) return;
 
-	if (b < d)
-		for (i=l; i>0; i--)
-			memwrite2(d+i-1, memread2(b+i-1));
-	else 
-		for (i=0; i<l; i++) 
-			memwrite2(d+i, memread2(b+i));
+	if (b < d) for (i=l; i>0; i--) memwrite2(d+i-1, memread2(b+i-1));
+	else for (i=0; i<l; i++) memwrite2(d+i, memread2(b+i));
 }
 
 /* zero a block of memory */
 void zeroblock(address_t b, address_t l){
 	address_t i;
 
-	if (b+l > himem) {
-		error(EOUTOFMEMORY);
-		return;
-	}
+	if (b+l > himem) { error(EOUTOFMEMORY); return; }
 	if (l<1) return;
 
 	for (i=0; i<l+1; i++) memwrite2(b+i, 0);
@@ -3167,8 +3170,7 @@ void parsearguments() {
 			expression();
 			if (er != 0) break;
 			argsl++;
-			if (token != ',') break;
-			nexttoken();
+			if (token == ',') nexttoken(); else break;
 		} while (1);
 	}
 
@@ -3183,27 +3185,55 @@ void parsenarguments(char n) {
 	if (args != n) error(EARGS);
 }
 
-/* counts and parses the number of arguments given in brakets */
+/* counts and parses the number of arguments given in brakets, this function 
+	should not advance to the next token because it is called in factor */
 void parsesubscripts() {
+	blocation_t l;
+
 	args=0;
-	if (token != '(') return; /* zero arguments is legal here */
+
+	if (DEBUG) {
+		outsc("** in parsesubscripts "); outcr();
+		bdebug("token "); 
+	}
+
+/* remember where we where */
+	pushlocation(&l);
+
+/* parsesubscripts is called directly after the object in question, it does 
+	nexttoken() itself now */
+	nexttoken(); 
+
+/* if we have no bracket here, we return with zero */
+	if (token != '(') { 
+		poplocation(&l);
+		return;
+	} 
 	nexttoken();
+
+/* if () we return also with -1 */
 #ifdef HASMULTIDIM
 	if (token == ')') {
 		args=-1;
-		return; /* () is interpreted as no argument at all -> needed for string arrays */
+		return; 
 	}
 #endif
+
+/* now we are ready to parse a set of arguments */
 	parsearguments();
 	if (er != 0) return; 
-	if (token != ')') {error(EARGS); return; } /* we return with ) as a last token on success */
+	
+	if (token != ')') { error(EARGS); return; } /* we return with ) as a last token on success */
+
+/* we end with the ) still as active token */
 }
 
-
 /* parse a function argument ae is the number of 
-	expected expressions in the argument list */
+	expected expressions in the argument list, parsesubscripts
+	should not avance precisely because it is used in factor */
+
 void parsefunction(void (*f)(), short ae){
-	nexttoken();
+	// nexttoken();
 	parsesubscripts();
 	if (er != 0) return;
 	if (args == ae) f(); else error(EARGS);
@@ -3382,6 +3412,7 @@ void parsestringvar(string_t* strp) {
 	address_t array_index;
 	address_t lower, upper;
 	mem_t a1;
+	blocation_t l;
 
 /* remember the variable name */
 	xcl=xc;
@@ -3391,19 +3422,15 @@ void parsestringvar(string_t* strp) {
 	array_index=arraylimit;
 
 /* remember the location */
-	pushlocation();
+	pushlocation(&l);
 
 /* and inspect the brackets */
-	nexttoken();
+	// nexttoken();
 	parsesubscripts();
 	if (er != 0) return; 
 
-
-/* we do this now directly and remove this function */
-	/* parsesubstring(); */
-
 #ifndef HASSTRINGARRAYS
-
+#ifndef SUPPRESSSUBSTRINGS
 /* the stack has - the first index, the second index */
 	switch(args) {
 	case 2: 
@@ -3416,7 +3443,7 @@ void parsestringvar(string_t* strp) {
 		break;
 	case 0: 
 /* rewind the token if there were no braces to be in sync	*/
-		poplocation();
+		poplocation(&l);
 /* no rewind in the () construct */			
 	case -1:	
 		lower=1;
@@ -3426,8 +3453,13 @@ void parsestringvar(string_t* strp) {
 
 /* happens when popaddress reported an error */
 	if (er != 0) return;
-
 #else 
+	if (args != 0) { error(EUNKNOWN); return; }
+	lower=1;
+	upper=0;
+#endif
+#else 
+#ifndef SUPPRESSSUBSTRINGS
 /* for a string array the situation is more complicated as we 
  		need to parse the argument completely including the possible subscript */
 
@@ -3438,7 +3470,7 @@ void parsestringvar(string_t* strp) {
 
 /* no args given, use the default */
 	if (args == 0) {
-		poplocation();
+		poplocation(&l);
 		lower=1;
 		upper=0;	
 
@@ -3447,10 +3479,10 @@ void parsestringvar(string_t* strp) {
 
 		a1=args; 
 
-		pushlocation(); /* overwrite of the stored location is good, don't worry */
+		pushlocation(&l); /* overwrite of the stored location is good, don't worry */
 
 /* scan the potential second pair of braces */
-		nexttoken();
+		// nexttoken();
 		parsesubscripts();
 
 		switch (args) {
@@ -3459,7 +3491,7 @@ void parsestringvar(string_t* strp) {
 			if (er != 0) return;
 			break;
 		case 0:
-			poplocation();
+			poplocation(&l);
 			break;
 		default:
 			error(EARGS);
@@ -3485,6 +3517,23 @@ void parsestringvar(string_t* strp) {
 
 		if (er != 0) return;
 	}
+#else
+	switch (args) {
+	case 0:
+		poplocation(&l);
+		array_index=arraylimit; 
+		break;
+	case 1: 
+		array_index=popaddress();
+		break;
+	default:
+		error(EUNKNOWN);
+		return;
+	}
+	lower=1;
+	upper=0;
+	if (er != 0) return;
+#endif
 #endif
 
 /* try to get the string */
@@ -3641,6 +3690,7 @@ void streval(){
 	string_t s1, s2;
 	char* ir;
 	address_t a;
+	blocation_t l;
 
 /* is the right side of the expression a string */
 	if (!stringvalue(&s1)) { error(EUNKNOWN); return; } 
@@ -3649,18 +3699,18 @@ void streval(){
 	if (DEBUG) { outsc("** in streval first string"); outcr(); }
 
 /* get ready for rewind to this location */
-	pushlocation();
+	pushlocation(&l);
 	t=token;
 
-/* is the next token a operator, hence we need to compare two strings */
+/* is the next token a operator, hence we need to compare two strings? */
 	nexttoken();
 	if (token != '=' && token != NOTEQUAL) {
 
 /* if not, rewind one token and evaluate the string as a boolean (yesss!) */
-		poplocation();
+		poplocation(&l);
 		token=t;
 
-/* a zero length string evaluates to zero else to 1 even if the first character is a 0 */
+/* a zero length string evaluates to zero else to the first character */
 		if (s1.length == 0) push(0); else {
 			if (s1.ir) push(s1.ir[0]); 
 			else if (s1.address) push(memread2(s1.address)); 
@@ -3744,8 +3794,6 @@ void xint() {}
  *
  */
 
-#define DEBUG 0
-
 /*
  *	factor() - contrary to all other function
  *	nothing here should end with a new token - this is handled 
@@ -3764,7 +3812,7 @@ void factorarray() {
 	ycl=yc;
 	xcl=xc;
 
-	nexttoken();
+	// nexttoken();
 	parsesubscripts();
 	if (er != 0 ) return;
 
@@ -3791,43 +3839,42 @@ void factorarray() {
 
 /* helpers of factor - string length */
 void factorlen() {
-		address_t a;
-		string_t s;
+	address_t a;
+	string_t s;
 
+	nexttoken();
+	if ( token != '(') { error(EARGS); return; }
+
+	nexttoken();
+	switch(token) {
+	case STRING:
+		push(sr.length);
 		nexttoken();
-		if ( token != '(') { error(EARGS); return; }
-
+		break;
+	case STRINGVAR:
+		parsestringvar(&s);
+		push(s.length);
 		nexttoken();
-
-		switch(token) {
-		case STRING:
-			push(sr.length);
-			nexttoken();
-			break;
-		case STRINGVAR:
-			parsestringvar(&s);
-			push(s.length);
-			nexttoken();
-			break;
+		break;
 #ifdef HASMSSTRINGS
-		case TRIGHT:
-		case TLEFT:
-		case TMID:
-		case TCHR:
+	case TRIGHT:
+	case TLEFT:
+	case TMID:
+	case TCHR:
 #endif			
-		case TSTR:
-			error(EARGS);
-			return;
-		default:
-			expression();
-			if (er != 0) return;
-			a=pop();
-			push(blength(TBUFFER, a%256, a/256));
-		}
-
+	case TSTR:
+		error(EARGS);
+		return;
+	default:
+		expression();
 		if (er != 0) return;
+		a=pop();
+		push(blength(TBUFFER, a%256, a/256));
+	}
 
-		if (token != ')') { error(EARGS); return; }
+	if (er != 0) return;
+
+	if (token != ')') { error(EARGS); return; }
 }
 
 /* helpers of factor - the VAL command */
@@ -3918,7 +3965,6 @@ void factorasc() {
 	if ( token != '(') { error(EARGS); return; }
 
 	nexttoken();
-
 	switch(token) {
 	case STRING:
 		if (sr.ir) push(sr.ir[0]); else push(memread2(sr.address));
@@ -4160,11 +4206,6 @@ nextpower:
 	if (DEBUG) bdebug("in power\n");
 	if (token == '^'){
 		parseoperator(factor);
-/*		nexttoken();
-		factor(); 
-		if (er != 0) return;
-		y=pop();
-		x=pop(); */
 		push(bpow(x,y));
 		goto nextpower;
 	} 
@@ -4247,36 +4288,36 @@ void compexpression() {
 	addexpression();
 	if (er != 0) return;
 	switch (token){
-		case '=':
-			parseoperator(compexpression);
-			if (er != 0) return;
-			push(x == y ? -1 : 0);
-			break;
-		case NOTEQUAL:
-			parseoperator(compexpression);
-			if (er != 0) return;
-			push(x != y ? -1 : 0);
-			break;
-		case '>':
-			parseoperator(compexpression);
-			if (er != 0) return;
-			push(x > y ? -1 : 0);
-			break;
-		case '<':
-			parseoperator(compexpression);
-			if (er != 0) return;
-			push(x < y ? -1 : 0);
-			break;
-		case LESSEREQUAL:
-			parseoperator(compexpression);
-			if (er != 0) return;
-			push(x <= y ? -1 : 0);
-			break;
-		case GREATEREQUAL:
-			parseoperator(compexpression);
-			if (er != 0) return;
-			push(x >= y ? -1 : 0);
-			break;
+	case '=':
+		parseoperator(compexpression);
+		if (er != 0) return;
+		push(x == y ? -1 : 0);
+		break;
+	case NOTEQUAL:
+		parseoperator(compexpression);
+		if (er != 0) return;
+		push(x != y ? -1 : 0);
+		break;
+	case '>':
+		parseoperator(compexpression);
+		if (er != 0) return;
+		push(x > y ? -1 : 0);
+		break;
+	case '<':
+		parseoperator(compexpression);
+		if (er != 0) return;
+		push(x < y ? -1 : 0);
+		break;
+	case LESSEREQUAL:
+		parseoperator(compexpression);
+		if (er != 0) return;
+		push(x <= y ? -1 : 0);
+		break;
+	case GREATEREQUAL:
+		parseoperator(compexpression);
+		if (er != 0) return;
+		push(x >= y ? -1 : 0);
+		break;
 	}
 }
 
@@ -4333,9 +4374,6 @@ void expression(){
 	}  
 }
 #endif
-
-
-#define DEBUG 0
 
 /* 
  * Layer 2 - The commands and their helpers
@@ -4399,12 +4437,12 @@ processsymbol:
 		if (er != 0) return;
 
 		switch(modifier) {
-			case '#':
-				form=pop();
-				break;
-			case '&':
-				od=pop();
-				break;
+		case '#':
+			form=pop();
+			break;
+		case '&':
+			od=pop();
+			break;
 		}
 		goto separators;
 	}
@@ -4419,15 +4457,15 @@ separators:
 	if (termsymbol()) goto processsymbol;
 
 	switch (token) {
-		case ',':
-			if (!modifier) outspc();
-		case ';':
-			semicolon=1;
-			nexttoken();
-			break;
-		default:
-			error(EUNKNOWN);
-			return;
+	case ',':
+		if (!modifier) outspc();
+	case ';':
+		semicolon=1;
+		nexttoken();
+		break;
+	default:
+		error(EUNKNOWN);
+		return;
 	}
 	modifier=0;
 
@@ -4456,108 +4494,132 @@ separators:
  * 
  */
 void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
-	number_t tmp;
+
 	switch (token) {
-		case VARIABLE:
-			nexttoken();
-			break;
-		case ARRAYVAR:
-			nexttoken();
-			parsesubscripts();
-			nexttoken();
+	case VARIABLE:
+		nexttoken();
+		break;
+	case ARRAYVAR:
+		// nexttoken();
+		parsesubscripts();
+		if (er != 0) return;
+		switch(args) {
+		case 1:
+			*i=popaddress();
 			if (er != 0) return;
-			switch(args) {
-				case 1:
-					*i=popaddress();
-					if (er != 0) return;
-					*j=arraylimit;
-					break;
-				case 2:
-					*j=popaddress();
-					if (er != 0) return;
-					*i=popaddress();
-					if (er != 0) return;
-					break;
-				default:
-					error(EARGS);
-					return;
-			}
+			*j=arraylimit;
 			break;
+		case 2:
+			*j=popaddress();
+			*i=popaddress();
+			if (er != 0) return;
+			break;
+		default:
+			error(EARGS);
+			return;
+		}
+		nexttoken();
+		break;
 #ifdef HASAPPLE1
 		case STRINGVAR:
 #ifndef HASSTRINGARRAYS
+#ifndef SUPPRESSSUBSTRINGS
 			*j=arraylimit;
-			nexttoken();
+			// nexttoken();
 			parsesubscripts();
 			if (er != 0) return;
 			switch(args) {
-				case 0:
-					*i=1;
-					*ps=1;
-					break;
-				case 1:
-					*ps=0;
-					nexttoken();
-					*i=popaddress();
-					if (er != 0) return;
-					break;
-				case 2:
-					*ps=0;
-					nexttoken();
-					*i2=popaddress();
-					if (er != 0) return;
-					*i=popaddress();
-					if (er != 0) return;
-					break; 
-				default:
-					error(EARGS);
-					return;
-			}
-#else /* can be simplified */
-			*j=arraylimit;
-			nexttoken();
-			parsesubscripts();
-			if (er != 0) return;
-			switch(args) {
-				case -1:
-					nexttoken();
-				case 0:
-					*i=1;
-					*ps=1;
-					break;
-				case 1:
-					*ps=0;
-					nexttoken();
-					*i=popaddress();
-					if (er != 0) return;
-					break;
-				case 2:
-					*ps=0;
-					nexttoken();
-					*i2=popaddress();
-					if (er != 0) return;
-					*i=popaddress();
-					if (er != 0) return;			
-					break;
-				default:
-					error(EARGS);
-					return;
-			}
-/* we deal with a string array */ 
-			if (token == '(') {
-				parsesubscripts();
+			case 0:
+				*i=1;
+				*ps=1;
+				break;
+			case 1:
+				*ps=0;
+				*i=popaddress();
 				if (er != 0) return;
-				switch(args) {
-					case 1:	
-						*j=popaddress();
-						if (er != 0) return;
-						nexttoken();
-						break;
-					default:
-						error(EARGS);
-						return;
-				}
+				break;
+			case 2:
+				*ps=0;
+				*i2=popaddress();
+				if (er != 0) return;
+				*i=popaddress();
+				if (er != 0) return;
+				break; 
+			default:
+				error(EARGS);
+				return;
 			}
+			nexttoken();
+#else
+			nexttoken();
+#endif
+#else /* can be simplified */
+#ifndef SUPPRESSSUBSTRINGS
+			*j=arraylimit;
+			// nexttoken();
+			parsesubscripts();
+			if (er != 0) return;
+			switch(args) {
+			case -1:
+				// nexttoken();
+			case 0:
+				*i=1;
+				*ps=1;
+				break;
+			case 1:
+				*ps=0;
+				// nexttoken();
+				*i=popaddress();
+				if (er != 0) return;
+				break;
+			case 2:
+				*ps=0;
+				// nexttoken();
+				*i2=popaddress();
+				if (er != 0) return;
+				*i=popaddress();
+				if (er != 0) return;			
+				break;
+			default:
+				error(EARGS);
+				return;
+			}
+
+/* we deal with a string array we look for a second pair of braces */ 
+			parsesubscripts();
+			if (er != 0) return;
+				
+			switch(args) {
+			case 1:	
+				*j=popaddress();
+				if (er != 0) return;
+				break;
+			case 0:
+				break;
+			default:
+				error(EARGS);
+				return;
+			}
+			nexttoken();
+		
+#else
+			*j=arraylimit;
+			*i=1;
+			// nexttoken();
+			parsesubscripts();
+			if (er != 0) return;
+			switch(args) {
+			case 1:
+				*j=popaddress();
+				break;
+			case 0:
+				break;
+			default:
+				error(EARGS);
+				return;
+			}
+			nexttoken();
+#endif
 #endif
 			break;
 #endif
@@ -4618,7 +4680,7 @@ void assignment() {
 	xcl=xc;
 	t=token;
 
-/* then try to parse the indices */
+/* then try to parse the indices and advance */
 	lefthandside(&i, &i2, &j, &ps);
 	if (er != 0) return;
 
@@ -4627,6 +4689,8 @@ void assignment() {
 		outnumber(i); outspc();
 		outnumber(j); outspc();
 		outnumber(ps); outcr();
+		outsc("   token is "); outputtoken(); 
+		outsc("   at "); outnumber(here); outcr();
 	}
 
 /* the assignment part */
@@ -4691,8 +4755,7 @@ nextstring:
 
 		if (DEBUG) { outsc("** assignment copybytes "); outnumber(copybytes); outcr(); }
 
-
-/* now do the heavy lifting */
+/* now do the heavy lifting in a seperate function to encasulate buffering */
 		assignstring(&sl, &sr, copybytes);
 
 /* 
@@ -4709,7 +4772,8 @@ nextstring:
 		setstringlength(xcl, ycl, newlength, j);
 /* 
  * we have processed one string and copied it fully to the destination 
- * see if there is more to come. 
+ * see if there is more to come. For inplace strings this is odd because 
+ * one term can change during adding (A$ = B$ + A$).
  */
 addstring:
 		if (token == '+') {
@@ -4853,7 +4917,7 @@ nextvariable:
 	if (token == ARRAYVAR) {
 		xcl=xc; 
 		ycl=yc;
-		nexttoken();
+		// nexttoken();
 		parsesubscripts();
 		if (er != 0 ) return;
 		if (args != 1) {
@@ -4874,7 +4938,7 @@ nextvariable:
 	if (token == ARRAYVAR) {
 		xcl=xc; 
 		ycl=yc;
-		nexttoken();
+		// nexttoken();
 		parsesubscripts();
 		if (er != 0 ) return;
 		switch(args) {
@@ -5656,7 +5720,8 @@ void xclr() {
 void xdim(){
 	mem_t xcl, ycl; 
 	token_t t;
-	number_t x, y;
+	address_t x;
+	address_t y=arraylimit;
 
 	nexttoken();
 
@@ -5667,41 +5732,35 @@ nextvariable:
 		xcl=xc;
 		ycl=yc;
 
-		nexttoken();
+		// nexttoken();
 		parsesubscripts();
 		if (er != 0) return;
 
 #ifndef HASMULTIDIM
 		if (args != 1) {error(EARGS); return; }
-
-		x=pop();
-		if (x<=0) {error(EORANGE); return; }
-		if (t == STRINGVAR) {
-			if ( (x>255) && (strindexsize==1) ) {error(EORANGE); return; }
-			(void) createstring(xcl, ycl, x, 1);
-		} else {
-			(void) createarray(xcl, ycl, x, 1);
-		}
+		x=popaddress();
 #else 
 		if (args != 1 && args != 2) {error(EARGS); return; }
+		if (args == 2) y=popaddress();
+		x=popaddress();
+#endif	
 
-		x=pop();
-		if (args == 2) {y=x; x=pop(); } else { y=1; }
-
-		if (x <= 0 || y<=0) {error(EORANGE); return; }
+		if (x<=0 || y<arraylimit) {error(EORANGE); return; }
 		if (t == STRINGVAR) {
-			if ( (x>255) && (strindexsize==1) ) {error(EORANGE); return; }
-/* running from an SPI RAM means that we need to go through buffers in real memory which 
-	limits string sizes, this should ne be here but encapsulated, todo after multidim string 
-	implementation is complete */
+			if ((x>255) && (strindexsize==1)) {error(EORANGE); return; }
+/* check if the string fits into the string buffer on an SPIRAM system*/
 #ifdef SPIRAMSBSIZE
 			if (x>SPIRAMSBSIZE-1) {error(EORANGE); return; }
-#endif			
+#endif
+#ifdef SUPPRESSSUBSTRINGS
+			if (args == 2) {error(EORANGE); return; }
+			y=x;
+			x=defaultstrdim;
+#endif
 			(void) createstring(xcl, ycl, x, y);
 		} else {
 			(void) createarray(xcl, ycl, x, y);
 		}
-#endif	
 	} else {
 		error(EUNKNOWN);
 		return;
@@ -6166,27 +6225,27 @@ void xput(){
  *	syntax, currently it is only SET expression, expression
  */
 void xset(){
-	address_t fn;
-	index_t args;
+	address_t function;
+	index_t argument;
 
 	nexttoken();
 	parsenarguments(2);
 	if (er != 0) return;
 
-	args=pop();
-	fn=pop();
-	switch (fn) {	
+	argument=pop();
+	function=pop();
+	switch (function) {	
 /* runtime debug level */
 		case 0:
-			debuglevel=args;
+			debuglevel=argument;
 			break;	
 /* autorun/run flag of the EEPROM 255 for clear, 0 for prog, 1 for autorun */
 		case 1: 
-			eupdate(0, args);
+			eupdate(0, argument);
 			break;
 /* change the output device */			
 		case 2: 
-			switch (args) {
+			switch (argument) {
 				case 0:
 					od=OSERIAL;
 					break;
@@ -6197,7 +6256,7 @@ void xset(){
 			break;
 /* change the default output device */			
 		case 3: 
-			switch (args) {
+			switch (argument) {
 				case 0:
 					od=(odd=OSERIAL);
 					break;
@@ -6208,7 +6267,7 @@ void xset(){
 			break;
  /* change the input device */			
 		case 4:
-			switch (args) {
+			switch (argument) {
 				case 0:
 					id=ISERIAL;
 					break;
@@ -6219,7 +6278,7 @@ void xset(){
 			break;
  /* change the default input device */					
 		case 5:
-			switch (args) {
+			switch (argument) {
 				case 0:
 					idd=(id=ISERIAL);
 					break;
@@ -6231,54 +6290,58 @@ void xset(){
 #ifdef HASSERIAL1
 /* set the cr behaviour */
 		case 6: 
-			sendcr=(char)args;
+			sendcr=(char)argument;
 			break;
 /* set the blockmode behaviour */
 		case 7: 
-			blockmode=args;
+			blockmode=argument;
 			break;
 /* set the second serial ports baudrate */
 		case 8:
-			prtset(args);
+			prtset(argument);
 			break;
 #endif
 /* set the power amplifier level of the radio module */
 #ifdef HASRF24
 		case 9: 
-			radioset(args);
+			radioset(argument);
 			break;
 #endif		
 /* display update control for paged displays */
 		case 10:
-			dspsetupdatemode(args);
+			dspsetupdatemode(argument);
 			break;
 /* change the output device to a true TAB */
 #ifdef HASMSTAB
 		case 11:
-    		reltab=args;
+    		reltab=argument;
 			break;
 #endif
 /* change the lower array limit */
 #ifdef HASARRAYLIMIT
 		case 12:
-			arraylimit=args;
+			arraylimit=argument;
 			break;
 #endif
 #ifdef HASKEYPAD
 		case 13:
-			kbdrepeat=args;
+			kbdrepeat=argument;
 			break;
 #endif
 #ifdef HASPULSE
 		case 14:
-			bpulseunit=args;
+			bpulseunit=argument;
 			break;
 #endif
 #ifdef POSIXVT52TOANSI 
 		case 15:
-			vt52active=args;
+			vt52active=argument;
 			break;
 #endif
+/* change the default size of a string at autocreate, important when SUPPRESSSUBSTRINGS is done*/
+		case 16:
+			defaultstrdim=argument;
+			break;
 	}
 }
 
@@ -7345,7 +7408,7 @@ void xusr() {
 				case 14: push(BUFSIZE); break;
 				case 15: push(SBUFSIZE); break;
 				case 16: push(ARRAYSIZEDEF); break;
-				case 17: push(STRSIZEDEF); break;
+				case 17: push(defaultstrdim); break;
 /* - 24 reserved, don't use */
 				case 24: push(top); break;
 				case 25: push(here); break;
@@ -7884,9 +7947,10 @@ void xwhile() {
 }
 
 void xwend() {
+	blocation_t l;
 
 /* remember where we are */
-	pushlocation();
+	pushlocation(&l);
 
 /* back to the condition */
 	popforstack();
@@ -7911,7 +7975,7 @@ void xwend() {
 /* if false, seek WEND */
 	if (!pop()) {
 		popforstack();
-		poplocation();
+		poplocation(&l);
 		nexttoken();
 	} 
 }
@@ -7932,12 +7996,13 @@ void xrepeat() {
 }
 
 void xuntil() {
+	blocation_t l;
 
 /* is there a valid condition */
 	if (!expectexpr()) return;
 
 /* remember the location */
-	pushlocation();
+	pushlocation(&l);
 
 /* look on the stack */
 	popforstack();
@@ -7961,7 +8026,7 @@ void xuntil() {
 	} else {
 
 /* back to where we were */
-		poplocation();
+		poplocation(&l);
 	}
 
 	nexttoken(); /* a bit of evil here, hobling over termsymbols */
@@ -7972,13 +8037,14 @@ void xswitch() {
 	number_t r;
 	mem_t match = 0;
 	mem_t swcount = 0;
+	blocation_t l;
 
 /* lets look at the condition */
 	if (!expectexpr()) return;
 	r=pop();
 
 /* remember where we are */
-	pushlocation();
+	pushlocation(&l);
 
 /* seek the first case to match the condition */
 	while (token != EOL) {
@@ -8022,7 +8088,7 @@ void xswitch() {
 	}
 
 /* return to the original location and continue if no case is found */
-	poplocation(); 	
+	poplocation(&l); 	
 }
 
 /* a nacked case statement always seeks the end of the switch */

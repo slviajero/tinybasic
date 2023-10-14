@@ -297,12 +297,15 @@ typedef int16_t token_t; /* token type extension, allows an extra of 127 command
 #endif
 
 /* this type maps numbers to bytes */
-typedef struct {mem_t l; mem_t h;} twobytes_t;
+typedef struct { mem_t l; mem_t h; } twobytes_t;
 typedef union { number_t i; address_t a; twobytes_t b; mem_t c[sizeof(number_t)]; } accu_t;
 
 /* the memreader function type, a function accessing memory has to have this shape */
 typedef mem_t (*memreader_t)(address_t);
 typedef void (*memwriter_t)(mem_t, address_t);
+
+/* the location type, this is the cursor on the actual interpreter location */
+typedef struct { address_t location; token_t token; } blocation_t;
 
 /* the new string type used in the reimplementation of the string functions */
 /* 
@@ -469,11 +472,14 @@ void popgosubstack();
 void dropgosubstack();
 void clrgosubstack();
 
+/* handling location rewinds */
+void pushlocation(blocation_t*);
+void poplocation(blocation_t*); 
+
 /* signal handling */
 void signalon();
 void signaloff();
 void signalhandler(int);
-
 
 /* output */
 void outcr();
