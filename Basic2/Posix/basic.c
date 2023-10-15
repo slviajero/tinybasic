@@ -1201,7 +1201,7 @@ address_t createarray(mem_t c, mem_t d, address_t i, address_t j) {
 #endif
 
 #ifdef HASAPPLE1
-	if (DEBUG) { outsc("* create array "); outch(c); outch(d); outspc(); outnumber(i); outcr(); }
+	if (DEBUG) { outsc("* create array "); outch(c); outch(d); outspc(); outnumber(i); outspc(); outnumber(j); outcr(); }
 #ifndef HASMULTIDIM
 	if (bfind(ARRAYVAR, c, d)) error(EVARIABLE); else return bmalloc(ARRAYVAR, c, d, i);
 #else
@@ -1477,6 +1477,7 @@ void getstring(string_t* strp, char c, char d, address_t b, address_t j) {
 		outsc("** byte length of string memory segment "); outnumber(z.a); outcr(); 
 	}
 
+/* string creating has caused an error, typically no memoryy */
 	if (er != 0) return;
 
 #ifndef HASSTRINGARRAYS
@@ -3425,7 +3426,6 @@ void parsestringvar(string_t* strp) {
 	pushlocation(&l);
 
 /* and inspect the brackets */
-	// nexttoken();
 	parsesubscripts();
 	if (er != 0) return; 
 
@@ -3435,6 +3435,7 @@ void parsestringvar(string_t* strp) {
 	switch(args) {
 	case 2: 
 		upper=popaddress();
+		if (er != 0) return; 
 		lower=popaddress();
 		break;
 	case 1:
@@ -3450,8 +3451,6 @@ void parsestringvar(string_t* strp) {
 		upper=0; /* flag for no length given */
 		break;
 	}
-
-/* happens when popaddress reported an error */
 	if (er != 0) return;
 #else 
 	if (args != 0) { error(EUNKNOWN); return; }
@@ -3482,13 +3481,12 @@ void parsestringvar(string_t* strp) {
 		pushlocation(&l); /* overwrite of the stored location is good, don't worry */
 
 /* scan the potential second pair of braces */
-		// nexttoken();
 		parsesubscripts();
+		if (er != 0) return;
 
 		switch (args) {
 		case 1:
 			array_index=popaddress();
-			if (er != 0) return;
 			break;
 		case 0:
 			poplocation(&l);
@@ -3502,6 +3500,7 @@ void parsestringvar(string_t* strp) {
 		switch(a1) {
 		case 2: 
 			upper=popaddress();
+			if (er != 0) return;
 			lower=popaddress();
 			break;
 		case 1:
@@ -3514,7 +3513,6 @@ void parsestringvar(string_t* strp) {
 			lower=1;
 			break;
 		}
-
 		if (er != 0) return;
 	}
 #else
@@ -3532,12 +3530,15 @@ void parsestringvar(string_t* strp) {
 	}
 	lower=1;
 	upper=0;
-	if (er != 0) return;
 #endif
 #endif
 
+/* in the second index popaddress threw an error */
+	if (er != 0) return;
+
 /* try to get the string */
 	getstring(strp, xcl, ycl, lower, array_index);
+	if (er != 0) return;
 
 /* look what we do with the upper index */
 	if (!upper) upper=strp->length;
@@ -3631,8 +3632,8 @@ char stringvalue(string_t* strp) {
 		nexttoken();
 		if (token != STRINGVAR) { error(EARGS); return 0; }
 		parsestringvar(strp);
+		nexttoken();
 		if (token != ',') { error(EARGS); return 0; }
-		nexttoken(); /* undo the rewind of parsestrinvar ? */
 		nexttoken();
 		expression();
 		if (er != 0) return 0;
@@ -4511,6 +4512,7 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 			break;
 		case 2:
 			*j=popaddress();
+			if (er != 0) return;
 			*i=popaddress();
 			if (er != 0) return;
 			break;
@@ -4666,7 +4668,7 @@ void assignment() {
 	token_t t;  /* remember the left hand side token until the end of the statement, type of the lhs */
 	mem_t ps=1;  /* also remember if the left hand side is a pure string of something with an index */
 	mem_t xcl, ycl; /* to preserve the left hand side variable names */
-	address_t i=1; /* and the beginning of the destination string */
+	address_t i=1; /* and the beginning of the destination string, or the first array dim */
 	address_t i2=0; /* and the end of the destination string */  
 	address_t j=arraylimit; /* the second dimension of the array */
 	address_t newlength, copybytes;
@@ -5721,7 +5723,7 @@ void xdim(){
 	mem_t xcl, ycl; 
 	token_t t;
 	address_t x;
-	address_t y=arraylimit;
+	address_t y=1; 
 
 	nexttoken();
 
@@ -5732,7 +5734,6 @@ nextvariable:
 		xcl=xc;
 		ycl=yc;
 
-		// nexttoken();
 		parsesubscripts();
 		if (er != 0) return;
 
@@ -5745,7 +5746,10 @@ nextvariable:
 		x=popaddress();
 #endif	
 
-		if (x<=0 || y<arraylimit) {error(EORANGE); return; }
+/* we create at least one element */ 
+		if (x<1 || y<1) {error(EORANGE); return; }
+
+
 		if (t == STRINGVAR) {
 			if ((x>255) && (strindexsize==1)) {error(EORANGE); return; }
 /* check if the string fits into the string buffer on an SPIRAM system*/
