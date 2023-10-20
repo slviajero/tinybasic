@@ -1488,10 +1488,7 @@ Color vga_graph_pen = Color::BrightWhite;
 Color vga_graph_brush = Color::Black;
 Color vga_txt_pen = Color::BrightGreen;
 Color vga_txt_background = Color::Black;
-#ifdef HASTONE
 fabgl::SoundGenerator soundGenerator;
-#endif
-
 
 /* this starts the vga controller and the terminal right now */
 void vgabegin() {
