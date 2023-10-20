@@ -4213,7 +4213,7 @@ void factor(){
 }
 
 /* this is how the power operator ^ is handled */
-#if defined(POWERRIGHTTOLEFT)
+#ifdef POWERRIGHTTOLEFT
 /* the recursive version */
 void power() { 
 	if (DEBUG) bdebug("power\n"); 
@@ -4229,7 +4229,7 @@ void power() {
 	} 
 	if (DEBUG) bdebug("leaving power\n");
 }
-#elif defined(POWERLEFTTORIGHT)
+#else 
 /* the left associative version */
 void power() { 
 	if (DEBUG) bdebug("power\n"); 

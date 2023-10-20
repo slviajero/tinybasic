@@ -3268,12 +3268,13 @@ void parsefunction(void (*f)(), short ae){
 /* helper function in the recursive decent parser */
 void parseoperator(void (*f)()) {
 	mem_t u=1;
-
 	nexttoken();
+/* unary minuses in front of an operator are consumed once! */
 	if (token == '-') {
 		u=-1;
 		nexttoken();
 	} 
+/* the operator */
 	f();
 	if (er !=0 ) return;
 	y=pop();
@@ -4204,7 +4205,6 @@ void factor(){
 		factorasc();
 		break;	
 #endif
-
 /* unknown function */
 	default:
 		error(EUNKNOWN);
@@ -4212,42 +4212,41 @@ void factor(){
 	}
 }
 
-
+/* this is how the power operator ^ is handled */
 #ifdef POWERRIGHTTOLEFT
 /* the recursive version */
 void power() { 
-  if (DEBUG) bdebug("power\n"); 
-  factor();
-  if (!USELONGJUMP && er) return;
+	if (DEBUG) bdebug("power\n"); 
+	factor();
+	if (!USELONGJUMP && er) return;
 
-  nexttoken(); 
-  if (DEBUG) bdebug("in power\n");
-  if (token == '^'){
-    parseoperator(power);
-    if (!USELONGJUMP && er) return;
-    push(bpow(x,y));
-  } 
-  if (DEBUG) bdebug("leaving power\n");
+	nexttoken(); 
+	if (DEBUG) bdebug("in power\n");
+	if (token == '^'){
+		parseoperator(power);
+		if (!USELONGJUMP && er) return;
+		push(bpow(x,y));
+	} 
+	if (DEBUG) bdebug("leaving power\n");
 }
 #else 
 /* the left associative version */
 void power() { 
-  if (DEBUG) bdebug("power\n"); 
-  factor();
-  if (!USELONGJUMP && er) return;
+	if (DEBUG) bdebug("power\n"); 
+	factor();
+	if (!USELONGJUMP && er) return;
 
 nextpower:
-  nexttoken(); 
-  if (DEBUG) bdebug("in power\n");
-  if (token == '^'){
-    parseoperator(factor);
-    push(bpow(x,y));
-    goto nextpower;
-  } 
-  if (DEBUG) bdebug("leaving power\n");
+	nexttoken(); 
+	if (DEBUG) bdebug("in power\n");
+	if (token == '^'){
+		parseoperator(factor);
+		push(bpow(x,y));
+		goto nextpower;
+	} 
+	if (DEBUG) bdebug("leaving power\n");
 }
 #endif
-
 
 /*
  *	term() evaluates multiplication, division and mod
