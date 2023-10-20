@@ -1603,27 +1603,19 @@ void vgawrite(char c){}
  * 	kbdavailable(), kbdread(), kbdcheckch()
  * the later is for interrupting running BASIC code
  */
-#ifdef ARDUINO_TTGO_T7_V14_Mini32
-#define PS2FABLIB
-#define HASKEYBOARD
+#if defined(ARDUINO_TTGO_T7_V14_Mini32) && defined(ARDUINOVGA)
 fabgl::PS2Controller PS2Controller;
 char fabgllastchar = 0;
 #else
 #if defined(ARDUINO) && defined(ARDUINOPS2)
-#define PS2KEYBOARD
-#define HASKEYBOARD
 PS2Keyboard keyboard;
 #else 
 #if defined(ARDUINO) && defined(ARDUINOUSBKBD)
-#define HASKEYBOARD
-#define USBKEYBOARD
 USBHost usb;
 KeyboardController keyboard(usb);
 char usbkey=0;
 #else 
 #if defined(ARDUINOZX81KBD)
-#define HASKEYBOARD
-#define ZX81KEYBOARD
 ZX81Keyboard keyboard;
 #endif
 #endif
@@ -3708,7 +3700,7 @@ void tonetoggle() {
     digitalWrite(tone_pin, tone_pinstate);
   }
 }
-#elif defined(ARDUINO_TTGO_T7_V14_Mini32) 
+#elif defined(ARDUINO_TTGO_T7_V14_Mini32) && defined(PS2FABLIB)
 /* fabGL soundgenerator code of suggestes by testerrossa
  * pin numbers below 128 are real arduino pins while 
  * pin numvers from 128 onwards are sound generator capabilities

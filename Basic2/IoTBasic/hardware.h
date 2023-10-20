@@ -849,7 +849,7 @@
  * 	kbdavailable(), kbdread(), kbdcheckch()
  * the later is for interrupting running BASIC code
  */
-#ifdef ARDUINO_TTGO_T7_V14_Mini32
+#if defined(ARDUINO_TTGO_T7_V14_Mini32) && defined(ARDUINOVGA)
 #define PS2FABLIB
 #define HASKEYBOARD
 #endif 
