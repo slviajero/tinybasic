@@ -201,13 +201,3 @@ unsigned long millis();
  * Does the platform has command line args and do we want to use them 
  */
 #define HASARGS
-
-/*
- * dependecies 
- */
-
-#ifdef SPIRAMSIMULATOR
-#define USEMEMINTERFACE
-#endif
-
-
