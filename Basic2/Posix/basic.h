@@ -304,6 +304,9 @@ typedef union { number_t i; address_t a; twobytes_t b; mem_t c[sizeof(number_t)]
 typedef mem_t (*memreader_t)(address_t);
 typedef void (*memwriter_t)(mem_t, address_t);
 
+/* the worker function type - experimental */
+typedef void (*bworkfunction_t)();
+
 /* the location type, this is the cursor on the actual interpreter location */
 typedef struct { address_t location; token_t token; } blocation_t;
 
@@ -563,6 +566,7 @@ void xint();
 
 /* expression evaluation */
 void factor();
+void power();
 void term();
 void addexpression();
 void compexpression();

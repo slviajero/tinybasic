@@ -24,6 +24,9 @@
  * 	The interface to BASIC is identical. 
  */
 
+
+
+/* the runtime environment */
 #include "hardware.h"
 #include "runtime.h"
 
@@ -32,6 +35,11 @@
  */
 #include "language.h"
 #include "basic.h"
+
+/* use long jump for error handling */
+#if USELONGJUMP == 1
+#include "setjmp.h"
+#endif
 
 /* Global BASIC definitions */
 
@@ -349,6 +357,10 @@ const token_t tokens[] PROGMEM = {
 	0
 };
 
+const bworkfunction_t workfunctions[] PROGMEM = { 
+	0, 0, 0, xprint, 0
+};
+
 /* errors and messages */
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "> ";
@@ -408,7 +420,6 @@ const int addrsize=sizeof(address_t);
 const int eheadersize=sizeof(address_t)+1;
 const int strindexsize=sizeof(stringlength_t); /* default in the meantime, strings up to unsigned 16 bit length */
 const address_t maxaddr=(address_t)(~0); 
-
 
 /*
  *	The basic interpreter is implemented as a stack machine
@@ -474,8 +485,12 @@ string_t sr;
 /* the active token */
 token_t token;
 
-/* the curent error, can be a token, hance token type */
+/* the curent error, can be a token, hence token type */
 token_t er;
+/* the jmp buffer for the error handling */
+#if USELONGJUMP == 1
+jmp_buf sthook;
+#endif
 
 /* a trapable error */
 mem_t ert;
@@ -1000,7 +1015,7 @@ number_t getvar(mem_t c, mem_t d){
 #ifdef HASAPPLE1
 /* dynamically allocated vars, create them on the fly if needed */
 	if (!(a=bfind(VARIABLE, c, d))) a=bmalloc(VARIABLE, c, d, 0);
-	if (er != 0) return 0;
+	if (!USELONGJUMP && er) return 0;
 	
 /* retrieve the value */
 	getnumber(a, numsize);
@@ -1069,7 +1084,7 @@ void setvar(mem_t c, mem_t d, number_t v){
 #ifdef HASAPPLE1
 /* dynamically allocated vars */
 	if (!(a=bfind(VARIABLE, c, d))) a=bmalloc(VARIABLE, c, d, 0);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 /* set the value */
 	z.i=v;
@@ -1291,7 +1306,7 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 #ifdef HASAPPLE1
 /* dynamically allocated arrays autocreated if needed */ 
 		if ( !(a=bfind(ARRAYVAR, c, d)) ) a=createarray(c, d, ARRAYSIZEDEF, 1);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 #ifndef HASMULTIDIM
 		h=z.a/numsize;
 #else 
@@ -1478,7 +1493,7 @@ void getstring(string_t* strp, char c, char d, address_t b, address_t j) {
 	}
 
 /* string creating has caused an error, typically no memoryy */
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 #ifndef HASSTRINGARRAYS
 /* the maximum length of the string */
@@ -1611,7 +1626,7 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 
 /* find the variable address */
 	a=bfind(STRINGVAR, c, d);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 /* */
 
@@ -1813,7 +1828,11 @@ void error(token_t e){
 
 /* is the error handler active? then silently go if we do GOTO or CONT actions in it */
 #ifdef HASERRORHANDLING
+#if !USELONGJUMP
 	if (st != SINT && (berrorh.type == TGOTO || berrorh.type == TCONT)) return;
+#else
+	if (st != SINT && (berrorh.type == TGOTO || berrorh.type == TCONT)) longjmp(sthook, er);
+#endif
 #endif
 
 /* set input and output device back to default, and delete the form */
@@ -1844,6 +1863,12 @@ void error(token_t e){
 #endif
 	if (DEBUG) { outsc("** at "); outnumber(here); }
 	outcr();
+
+/* we return to the statement loop, bringing the error with us */
+#if USELONGJUMP == 1
+	longjmp(sthook, er);
+#endif 
+
 }
 
 void reseterror() {
@@ -3046,7 +3071,7 @@ void storeline() {
 	if (linelength == (lnlength)) {  		
 		top-=(lnlength);				
 		findline(ax);
-		if (er != 0) return;	
+		if (er) return;	
 		y=here-lnlength;							
 		nextline();			
 		here-=lnlength;
@@ -3222,7 +3247,7 @@ void parsesubscripts() {
 
 /* now we are ready to parse a set of arguments */
 	parsearguments();
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 	
 	if (token != ')') { error(EARGS); return; } /* we return with ) as a last token on success */
 
@@ -3236,19 +3261,20 @@ void parsesubscripts() {
 void parsefunction(void (*f)(), short ae){
 	// nexttoken();
 	parsesubscripts();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	if (args == ae) f(); else error(EARGS);
 }
 
 /* helper function in the recursive decent parser */
 void parseoperator(void (*f)()) {
 	mem_t u=1;
-
 	nexttoken();
+/* unary minuses in front of an operator are consumed once! */
 	if (token == '-') {
 		u=-1;
 		nexttoken();
 	} 
+/* the operator */
 	f();
 	if (er !=0 ) return;
 	y=pop();
@@ -3427,7 +3453,7 @@ void parsestringvar(string_t* strp) {
 
 /* and inspect the brackets */
 	parsesubscripts();
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 
 #ifndef HASSTRINGARRAYS
 #ifndef SUPPRESSSUBSTRINGS
@@ -3435,7 +3461,7 @@ void parsestringvar(string_t* strp) {
 	switch(args) {
 	case 2: 
 		upper=popaddress();
-		if (er != 0) return; 
+		if (!USELONGJUMP && er) return; 
 		lower=popaddress();
 		break;
 	case 1:
@@ -3451,7 +3477,7 @@ void parsestringvar(string_t* strp) {
 		upper=0; /* flag for no length given */
 		break;
 	}
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 #else 
 	if (args != 0) { error(EUNKNOWN); return; }
 	lower=1;
@@ -3482,7 +3508,7 @@ void parsestringvar(string_t* strp) {
 
 /* scan the potential second pair of braces */
 		parsesubscripts();
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 
 		switch (args) {
 		case 1:
@@ -3500,7 +3526,7 @@ void parsestringvar(string_t* strp) {
 		switch(a1) {
 		case 2: 
 			upper=popaddress();
-			if (er != 0) return;
+			if (!USELONGJUMP && er) return;
 			lower=popaddress();
 			break;
 		case 1:
@@ -3513,7 +3539,7 @@ void parsestringvar(string_t* strp) {
 			lower=1;
 			break;
 		}
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 	}
 #else
 	switch (args) {
@@ -3534,11 +3560,11 @@ void parsestringvar(string_t* strp) {
 #endif
 
 /* in the second index popaddress threw an error */
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 /* try to get the string */
 	getstring(strp, xcl, ycl, lower, array_index);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 /* look what we do with the upper index */
 	if (!upper) upper=strp->length;
@@ -3570,6 +3596,7 @@ char stringvalue(string_t* strp) {
 	address_t k, l;
 	address_t i;
 	token_t t;
+	mem_t args=1;
 
 	if (DEBUG) outsc("** entering stringvalue \n");
 
@@ -3632,35 +3659,41 @@ char stringvalue(string_t* strp) {
 		nexttoken();
 		if (token != STRINGVAR) { error(EARGS); return 0; }
 		parsestringvar(strp);
+		if (er != 0) return 0;
+		k=strp->length; /* the length of the original string variable */
 		nexttoken();
 		if (token != ',') { error(EARGS); return 0; }
 		nexttoken();
 		expression();
 		if (er != 0) return 0;
-		if (t == TMID) {
-			if (token != ',') { error(EARGS); return 0; }
-			nexttoken();
-			expression();
-			if (er != 0) return 0;
-		}
-		if (token != ')') {error(EARGS); return 0; }
-		l=popaddress(); /* the length of the string from left */
-		if (t == TMID) {
-			i=popaddress(); /* the start position */
-			if (i < 1) { error(EARGS); }
-		}
-		k=strp->length; /* the length of the original string variable */
-		if (er != 0) return 0;
+/* all the rest depends on the function */
 		switch (t) {
 		case TRIGHT:
+			l=popaddress();
 			if (k < l) l=k; 
 			if (strp->address) strp->address=strp->address+(k-l);
 			if (strp->ir) strp->ir=strp->ir+(k-l);
 			break;
 		case TLEFT:
+			l=popaddress();
 			if (k < l) l=k; 
 			break;
 		case TMID:
+			if (token == ',') { 
+				nexttoken();
+				expression();
+				if (er != 0) return 0;
+				args++;
+			}
+			if (args == 1) {
+				i=popaddress();
+				l=0; 
+				if (i < k) l=k-i;
+			} else {
+				l=popaddress();
+				if (er != 0) return 0;
+				i=popaddress(); 
+			}
 			if (k < i+l) l=k-i+1;
 			if (l < 0) l=0; 
 			if (strp->address != 0) strp->address=strp->address+i-1;
@@ -3668,6 +3701,8 @@ char stringvalue(string_t* strp) {
 			break;	
 		}
 		strp->length=l;
+
+		if (token != ')') {error(EARGS); return 0; }
 		break; 
 #endif
 #endif
@@ -3695,7 +3730,7 @@ void streval(){
 
 /* is the right side of the expression a string */
 	if (!stringvalue(&s1)) { error(EUNKNOWN); return; } 
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	if (DEBUG) { outsc("** in streval first string"); outcr(); }
 
@@ -3734,7 +3769,7 @@ void streval(){
 
 /* get the second string */
 	if (!stringvalue(&s2)){ error(EUNKNOWN); return; } 
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	if (DEBUG) { outsc("** in streval result: "); outnumber(x); outcr(); }
 
@@ -3820,14 +3855,14 @@ void factorarray() {
 	switch(args) {
 	case 1:
 		ix=popaddress();
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		iy=arraylimit;
 		break;
 #ifdef HASMULTIDIM
 	case 2:
 		iy=popaddress();
 		ix=popaddress();
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		break;
 #endif
 	default:
@@ -3868,12 +3903,12 @@ void factorlen() {
 		return;
 	default:
 		expression();
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		a=pop();
 		push(blength(TBUFFER, a%256, a/256));
 	}
 
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	if (token != ')') { error(EARGS); return; }
 }
@@ -3890,7 +3925,7 @@ void factorval() {
 
 	nexttoken();
 	if (!stringvalue(&s)) { error(EUNKNOWN); return; }
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 /* the length of the strings consumed */
 	vlength=0;
@@ -3930,13 +3965,13 @@ void factorinstr() {
 			
 	nexttoken();
 	expression();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	if (token != ',') { error(EARGS); return; }
 	nexttoken();
 			
 	if (!stringvalue(&s)) { error(EUNKNOWN); return; }
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	ch=pop();
 	if (s.address) {
@@ -3984,7 +4019,7 @@ void factorasc() {
 		return;
 	}
 
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	if (token != ')') { error(EARGS); return; }
 }
@@ -4170,7 +4205,6 @@ void factor(){
 		factorasc();
 		break;	
 #endif
-
 /* unknown function */
 	default:
 		error(EUNKNOWN);
@@ -4178,29 +4212,29 @@ void factor(){
 	}
 }
 
-
-#ifdef POWERRIGHTTOLEFT
+/* this is how the power operator ^ is handled */
+#if defined(POWERRIGHTTOLEFT)
 /* the recursive version */
 void power() { 
 	if (DEBUG) bdebug("power\n"); 
 	factor();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	nexttoken(); 
 	if (DEBUG) bdebug("in power\n");
 	if (token == '^'){
 		parseoperator(power);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		push(bpow(x,y));
 	} 
 	if (DEBUG) bdebug("leaving power\n");
 }
-#else 
+#elif defined(POWERLEFTTORIGHT)
 /* the left associative version */
 void power() { 
 	if (DEBUG) bdebug("power\n"); 
 	factor();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 nextpower:
 	nexttoken(); 
@@ -4214,26 +4248,25 @@ nextpower:
 }
 #endif
 
-
 /*
  *	term() evaluates multiplication, division and mod
  */
 void term(){
 	if (DEBUG) bdebug("term\n"); 
 	power();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 nextfactor:
 	// nexttoken();
 	if (DEBUG) bdebug("in term\n");
 	if (token == '*'){
 		parseoperator(power);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		push(x*y);
 		goto nextfactor;
 	} else if (token == '/'){
 		parseoperator(power);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		if (y != 0)
 			push(x/y);
 		else {
@@ -4243,7 +4276,7 @@ nextfactor:
 		goto nextfactor;
 	} else if (token == '%') {
 		parseoperator(power);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		if (y != 0)
 #ifndef HASFLOAT
 			push(x%y);
@@ -4264,7 +4297,7 @@ void addexpression(){
 	if (DEBUG) bdebug("addexp\n");
 	if (token != '+' && token != '-') {
 		term();
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 	} else {
 		push(0);
 	}
@@ -4272,12 +4305,12 @@ void addexpression(){
 nextterm:
 	if (token == '+' ) { 
 		parseoperator(term);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		push(x+y);
 		goto nextterm;
 	} else if (token == '-'){
 		parseoperator(term);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		push(x-y);
 		goto nextterm;
 	}
@@ -4287,36 +4320,36 @@ nextterm:
 void compexpression() {
 	if (DEBUG) bdebug("compexp\n"); 
 	addexpression();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	switch (token){
 	case '=':
 		parseoperator(compexpression);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		push(x == y ? -1 : 0);
 		break;
 	case NOTEQUAL:
 		parseoperator(compexpression);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		push(x != y ? -1 : 0);
 		break;
 	case '>':
 		parseoperator(compexpression);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		push(x > y ? -1 : 0);
 		break;
 	case '<':
 		parseoperator(compexpression);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		push(x < y ? -1 : 0);
 		break;
 	case LESSEREQUAL:
 		parseoperator(compexpression);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		push(x <= y ? -1 : 0);
 		break;
 	case GREATEREQUAL:
 		parseoperator(compexpression);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		push(x >= y ? -1 : 0);
 		break;
 	}
@@ -4329,7 +4362,7 @@ void notexpression() {
 	if (token == TNOT) {
 		nexttoken();
 		expression();
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		push(~(int)pop());
 	} else 
 		compexpression();
@@ -4339,10 +4372,10 @@ void notexpression() {
 void andexpression() {
 	if (DEBUG) bdebug("andexp\n");
 	notexpression();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	if (token == TAND) {
 		parseoperator(expression);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		/* push(x && y); */
 		push((int)x & (int)y);
 	} 
@@ -4352,10 +4385,10 @@ void andexpression() {
 void expression(){
 	if (DEBUG) bdebug("exp\n"); 
 	andexpression();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	if (token == TOR) {
 		parseoperator(expression);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		/* push(x || y); */
 		push((int)x | (int)y);
 	}  
@@ -4366,10 +4399,10 @@ void expression(){
 void expression(){
 	if (DEBUG) bdebug("exp\n"); 
 	compexpression();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	if (token == TOR) {
 		parseoperator(expression);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		/* push(x || y); */
 		push((int)x | (int)y);
 	}  
@@ -4410,7 +4443,7 @@ processsymbol:
 
 /* output a string if we found it */
 	if (stringvalue(&s)) {
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 
 /* buffer must be used here for machine code to work */
 #ifdef USEMEMINTERFACE
@@ -4435,7 +4468,7 @@ processsymbol:
 		modifier=token;
 		nexttoken();
 		expression();
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 
 		switch(modifier) {
 		case '#':
@@ -4450,7 +4483,7 @@ processsymbol:
 
 	if (token != ',' && token != ';') {
 		expression();
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		outnumber(pop());
 	}
 
@@ -4503,18 +4536,18 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 	case ARRAYVAR:
 		// nexttoken();
 		parsesubscripts();
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		switch(args) {
 		case 1:
 			*i=popaddress();
-			if (er != 0) return;
+			if (!USELONGJUMP && er) return;
 			*j=arraylimit;
 			break;
 		case 2:
 			*j=popaddress();
-			if (er != 0) return;
+			if (!USELONGJUMP && er) return;
 			*i=popaddress();
-			if (er != 0) return;
+			if (!USELONGJUMP && er) return;
 			break;
 		default:
 			error(EARGS);
@@ -4529,7 +4562,7 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 			*j=arraylimit;
 			// nexttoken();
 			parsesubscripts();
-			if (er != 0) return;
+			if (!USELONGJUMP && er) return;
 			switch(args) {
 			case 0:
 				*i=1;
@@ -4538,14 +4571,14 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 			case 1:
 				*ps=0;
 				*i=popaddress();
-				if (er != 0) return;
+				if (!USELONGJUMP && er) return;
 				break;
 			case 2:
 				*ps=0;
 				*i2=popaddress();
-				if (er != 0) return;
+				if (!USELONGJUMP && er) return;
 				*i=popaddress();
-				if (er != 0) return;
+				if (!USELONGJUMP && er) return;
 				break; 
 			default:
 				error(EARGS);
@@ -4560,7 +4593,7 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 			*j=arraylimit;
 			// nexttoken();
 			parsesubscripts();
-			if (er != 0) return;
+			if (!USELONGJUMP && er) return;
 			switch(args) {
 			case -1:
 				// nexttoken();
@@ -4572,15 +4605,15 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 				*ps=0;
 				// nexttoken();
 				*i=popaddress();
-				if (er != 0) return;
+				if (!USELONGJUMP && er) return;
 				break;
 			case 2:
 				*ps=0;
 				// nexttoken();
 				*i2=popaddress();
-				if (er != 0) return;
+				if (!USELONGJUMP && er) return;
 				*i=popaddress();
-				if (er != 0) return;			
+				if (!USELONGJUMP && er) return;			
 				break;
 			default:
 				error(EARGS);
@@ -4589,12 +4622,12 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 
 /* we deal with a string array we look for a second pair of braces */ 
 			parsesubscripts();
-			if (er != 0) return;
+			if (!USELONGJUMP && er) return;
 				
 			switch(args) {
 			case 1:	
 				*j=popaddress();
-				if (er != 0) return;
+				if (!USELONGJUMP && er) return;
 				break;
 			case 0:
 				break;
@@ -4609,7 +4642,7 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 			*i=1;
 			// nexttoken();
 			parsesubscripts();
-			if (er != 0) return;
+			if (!USELONGJUMP && er) return;
 			switch(args) {
 			case 1:
 				*j=popaddress();
@@ -4646,7 +4679,7 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
 
 /* find the string variable */
 		getstring(&sr, xcl, ycl, i, j);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 
 /* the first character of the string is set to the number */
 		if (sr.ir) sr.ir[0]=x; else if (sr.address) memwrite2(ax, x); else error(EUNKNOWN);
@@ -4684,7 +4717,7 @@ void assignment() {
 
 /* then try to parse the indices and advance */
 	lefthandside(&i, &i2, &j, &ps);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	if (DEBUG) {
 		outsc("** in assignment lefthandside with ");
@@ -4705,7 +4738,7 @@ void assignment() {
 	case VARIABLE:
 	case ARRAYVAR: 
 		expression();
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		assignnumber(t, xcl, ycl, i, j, ps, pop());
 		break;
 #ifdef HASAPPLE1
@@ -4715,12 +4748,12 @@ nextstring:
 
 /* do we deal with a string as righthand side */
 		s=stringvalue(&sr);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 
 /* and then as an expression if it is no string, any number appearing in a string expression terminates the addition loop */
 		if (!s) {
 			expression();
-			if (er != 0) return;
+			if (!USELONGJUMP && er) return;
 			tmpchar=pop();
 			sr.length=1;
 			sr.ir=&tmpchar;
@@ -4736,7 +4769,7 @@ nextstring:
 
 /* getstring of the destination */         
 		getstring(&sl, xcl, ycl, i, j);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 
 /* this debug messes up sbuffer hence all functions that use it in stringvalue produce wrong results */
 		if (DEBUG) {
@@ -5037,13 +5070,13 @@ void xgoto() {
 
 	if (!expectexpr()) return;
 	if (t == TGOSUB) pushgosubstack(0);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	x=pop();
 
 	if (DEBUG) { outsc("** goto/gosub evaluated line number "); outnumber(x); outcr(); }
 	findline((address_t) x);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	if (DEBUG) { outsc("** goto/gosub branches to "); outnumber(here); outcr(); }
 
 /* goto in interactive mode switched to RUN mode
@@ -5060,7 +5093,7 @@ void xgoto() {
 void xreturn(){ 
 	popgosubstack();
 	if (DEBUG) { outsc("** restored location "); outnumber(here); outcr(); }
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	nexttoken();
 #ifdef HASEVENTS 
 /* we return from an interrupt and reenable them */
@@ -5262,7 +5295,7 @@ void xfor(){
 
 	if (DEBUG) { outsc("** for loop target location"); outnumber(here); outcr(); }
 	pushforstack();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 /*
  *	this tests the condition and stops if it is fulfilled already from start 
@@ -5283,7 +5316,7 @@ void xfor(){
 void xbreak(){
 	token_t t;
 	t=peekforstack(); 
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	dropforstack();
 	switch (t) {
 		case TWHILE: 
@@ -5304,7 +5337,7 @@ void xbreak(){
 #else
 void xbreak(){
 	dropforstack();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	findbraket(TFOR, TNEXT);
 	nexttoken();	
 	if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
@@ -5319,7 +5352,7 @@ void xbreak(){
 void xcont() {
 	token_t t;
 	t=peekforstack(); 
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	switch (t) {
 		case TWHILE: 
 			findbraket(TWHILE, TWEND);
@@ -5364,7 +5397,7 @@ void xnext(){
 /* remember the current position */
 	h=here;
 	popforstack();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 /* check if this is really a FOR loop */
 #ifdef HASSTRUCT
@@ -5379,7 +5412,7 @@ void xnext(){
 	if (xcl) {
 		while (xcl != xc || ycl != yc ) {
 			popforstack();
-			if (er != 0) return;
+			if (!USELONGJUMP && er) return;
 		} 
 	}
 
@@ -5487,7 +5520,7 @@ void xlist(){
 
 	nexttoken();
  	parsearguments();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	switch (args) {
 		case 0: 
@@ -5547,7 +5580,7 @@ void xrun(){
 		} else {
 			findline(pop());
 		}
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		if (st == SINT) st=SRUN;
 		clrvars();
 		clrgosubstack();
@@ -5689,7 +5722,7 @@ void xclr() {
 			break;
 		default:
 			expression();
-			if (er != 0) return;
+			if (!USELONGJUMP && er) return;
 			ax=pop();
 			xcl=ax%256;
 			ycl=ax/256;
@@ -5735,7 +5768,7 @@ nextvariable:
 		ycl=yc;
 
 		parsesubscripts();
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 
 #ifndef HASMULTIDIM
 		if (args != 1) {error(EARGS); return; }
@@ -5793,7 +5826,7 @@ void xpoke(){
 
 	nexttoken();
 	parsenarguments(2);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	v=pop(); /* the value */
 	a=pop(); /* the address */
@@ -5815,10 +5848,10 @@ void xtab(){
 
 	nexttoken();
 	parsenarguments(1);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	ax=popaddress();
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
   
 #ifdef HASMSTAB
 	if (reltab && od <= OPRT && od > 0) {
@@ -5838,11 +5871,11 @@ void xlocate() {
 
 	nexttoken();
 	parsenarguments(2);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	cy=popaddress();
 	cx=popaddress();
-  if (er != 0) return;
+  if (!USELONGJUMP && er) return;
 
 /* for locate we go through the VT52 interface for cursor positioning*/
 	if (cx > 0 && cy > 0 && cx < 224 && cy < 224) {
@@ -5874,7 +5907,7 @@ void xdump() {
 	nexttoken();
 	if (token == '!') { eflag=1; nexttoken(); }
 	parsearguments();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	switch (args) {
 		case 0: 
@@ -5957,7 +5990,7 @@ void getfilename(char *buffer, char d) {
 	string_t sr;
 
 	s=stringvalue(&sr);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	if (DEBUG) {outsc("** in getfilename2 stringvalue delivered "); outnumber(s); outcr(); }
 
 	if (s) {
@@ -5982,7 +6015,7 @@ void getfilename(char *buffer, char d) {
 		nexttoken();
 	} else {
 		expression();
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		buffer[0]=pop();
 		buffer[1]=0;
 	}
@@ -5999,7 +6032,7 @@ void xsave() {
 
 	nexttoken();
 	getfilename(filename, 1);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	t=token;
 
 	if (filename[0] == '!') {
@@ -6059,7 +6092,7 @@ void xload(const char* f) {
 	if (f == 0) {
 		nexttoken();
 		getfilename(filename, 1);
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 	} else {
 		for(ch=0; ch<SBUFSIZE && f[ch]!=0; ch++) filename[ch]=f[ch];
 	}
@@ -6176,7 +6209,7 @@ void xget(){
 
 /* find the indices */
 	lefthandside(&i, &i2, &j, &ps);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 /* get the data, non blocking on Arduino */
 	if (availch()) ch=inch(); else ch=0;
@@ -6215,7 +6248,7 @@ void xput(){
 	}
 
 	parsearguments();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	for (i=args-1; i>=0; i--) sbuffer[i]=pop();
 	outs(sbuffer, args);
@@ -6234,7 +6267,7 @@ void xset(){
 
 	nexttoken();
 	parsenarguments(2);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	argument=pop();
 	function=pop();
@@ -6357,7 +6390,7 @@ void xnetstat(){
 
 	nexttoken();
  	parsearguments();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	
 	switch (args) {
 		case 0: 
@@ -6417,10 +6450,10 @@ void xdwrite(){
   address_t x,y;
 	nexttoken();
 	parsenarguments(2);
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 	x=popaddress();
 	y=popaddress();
-  if (er !=0) return;
+	if (!USELONGJUMP && er) return;
 	dwrite(y, x);	
 }
 
@@ -6431,11 +6464,11 @@ void xawrite(){
   address_t x,y;
 	nexttoken();
 	parsenarguments(2);
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 	x=popaddress();
   if (x > 255) error(EORANGE); 
 	y=popaddress();
-  if (er != 0) return;
+  if (!USELONGJUMP && er) return;
 	awrite(y, x);
 }
 
@@ -6446,11 +6479,11 @@ void xpinm(){
   address_t x,y;
 	nexttoken();
 	parsenarguments(2);
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 	x=popaddress();
   if (x > 1) error(EORANGE);
 	y=popaddress();
-  if (er != 0) return;
+  if (!USELONGJUMP && er) return;
 	pinm(y, x);	
 }
 
@@ -6464,7 +6497,7 @@ void xpinm(){
 void xdelay(){
 	nexttoken();
 	parsenarguments(1);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	bdelay(pop());
 }
 
@@ -6479,7 +6512,7 @@ void xtone(){
 /* get minimum of 2 and maximum of 4 args */
 	nexttoken();
 	parsearguments();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
   if (args > 4 || args < 2) { error(EARGS); return; }
 
 /* a switch would be more elegant but needs more progspace ;-) */
@@ -6487,7 +6520,7 @@ void xtone(){
   if (args >= 3) d=popaddress();
   f=popaddress();
   p=popaddress();
-  if (er != 0) return; 
+  if (!USELONGJUMP && er) return; 
 
   playtone(p, f, d, v);
 }
@@ -6504,7 +6537,7 @@ void xpulse(){
 /* do we have at least 2 and not more than 5 arguments */
 	nexttoken();
 	parsearguments();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	if (args>5 || args<2) { error(EARGS); return; }
 
 /* get the data from stack */
@@ -6513,7 +6546,7 @@ void xpulse(){
   if (args > 2) val=popaddress();
   duration=popaddress();
   pin=popaddress();
-  if (er != 0) return;
+  if (!USELONGJUMP && er) return;
   
 /* low level run time function for the pulse */ 
 	pulseout(bpulseunit, pin, duration, val, repetition, interval);	
@@ -6527,7 +6560,7 @@ void bpulsein() {
   t=((unsigned long) popaddress())*1000;
   y=popaddress(); 
   x=popaddress();
-  if (er != 0) return;
+  if (!USELONGJUMP && er) return;
 
   push(pulsein(x, y, t)/bpulseunit); 
 }
@@ -6542,7 +6575,7 @@ void xcolor() {
 	int r, g, b;
 	nexttoken();
 	parsearguments();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	switch(args) {
 	case 1: 
 		vgacolor(pop());
@@ -6566,7 +6599,7 @@ void xplot() {
 	int x0, y0;
 	nexttoken();
 	parsenarguments(2);
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 	y0=pop();
 	x0=pop();
 	plot(x0, y0);
@@ -6579,7 +6612,7 @@ void xline() {
 	int x0, y0, x1, y1;
 	nexttoken();
 	parsenarguments(4);
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 	y1=pop(); 
 	x1=pop();
 	y0=pop();
@@ -6591,7 +6624,7 @@ void xrect() {
 	int x0, y0, x1, y1;
 	nexttoken();
 	parsenarguments(4);
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 	y1=pop(); 
 	x1=pop();
 	y0=pop();
@@ -6603,7 +6636,7 @@ void xcircle() {
 	int x0, y0, r;
 	nexttoken();
 	parsenarguments(3);
-	if (er != 0) return;  
+	if (!USELONGJUMP && er) return;  
 	r=pop();
 	y0=pop();
 	x0=pop();
@@ -6614,7 +6647,7 @@ void xfrect() {
 	int x0, y0, x1, y1;
 	nexttoken();
 	parsenarguments(4);
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 	y1=pop(); 
 	x1=pop();
 	y0=pop();
@@ -6626,7 +6659,7 @@ void xfcircle() {
 	int x0, y0, r;
 	nexttoken();
 	parsenarguments(3);
-	if (er != 0) return;  
+	if (!USELONGJUMP && er) return;  
 	r=pop();
 	y0=pop();
 	x0=pop();
@@ -6644,7 +6677,7 @@ void xmalloc() {
   
 	s=popaddress();
 	a=popaddress();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
   
 	push(bmalloc(TBUFFER, a%256, a/256, s));
 }
@@ -6676,9 +6709,9 @@ void xfind() {
 		break;
 	default:
 		expression(); /* do not use expectexpr here because of the token sequence */
-		if (er != 0) return;
+		if (!USELONGJUMP && er) return;
 		n=popaddress();
-      	if (er != 0) return;
+      	if (!USELONGJUMP && er) return;
 		a=bfind(TBUFFER, n%256, n/256);
 	}
 
@@ -6702,7 +6735,7 @@ void xeval(){
 /* get the line number to store */
 	if (!expectexpr()) return;
 	line=popaddress();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	if (token != ',') { error(EUNKNOWN); return; }
 
@@ -6713,7 +6746,7 @@ void xeval(){
 /* here we have the string to evaluate it to the ibuffer
 		only one line allowed, BUFSIZE is the limit */
 	l=s.length;
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	
 	if (l>BUFSIZE-1) {error(EORANGE); return; }
 
@@ -6756,7 +6789,7 @@ void xavail() {
 	mem_t oid=id;
 
 	id=popaddress();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	push(availch());
 	id=oid;
 }
@@ -6768,8 +6801,9 @@ void xfsensor() {
 	address_t s, a;
 
 	a=popaddress();
+	if (!USELONGJUMP && er) return; 
 	s=popaddress();
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 	push(sensorread(s, a));
 }
 
@@ -6782,7 +6816,7 @@ void xfsensor() {
 void xsleep() {
 	nexttoken();
 	parsenarguments(1);
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 	activatesleep(pop());
 }
 
@@ -6795,7 +6829,7 @@ void xwire() {
 	nexttoken();
 #ifdef HASWIRE
 	parsearguments();
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 
 	if (args == 3) {
 		data2=pop();
@@ -7029,7 +7063,7 @@ void xevent() {
 
 /* argument parsing */  
 	parsearguments();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	switch(args) {
 		case 2:
@@ -7096,8 +7130,8 @@ slotfound:
 	eventlist[i].enabled=0;
 	eventlist[i].pin=pin;
 	eventlist[i].mode=mode;
-  eventlist[i].type=type;
-  eventlist[i].linenumber=linenumber;
+	eventlist[i].type=type;
+	eventlist[i].linenumber=linenumber;
 	eventlist[i].active=0;
 	nevents++;
 	return 1;
@@ -7107,7 +7141,7 @@ void deleteevent(mem_t pin) {
 	int i;
 
 /* do we have the event? */
-  i=eventindex(pin);
+	i=eventindex(pin);
 
 	if (i>=0){
     eventlist[i].enabled=0;
@@ -7146,7 +7180,7 @@ void xcatalog() {
 
 	nexttoken();
 	getfilename(filename, 0);
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 
 	rootopen();
 	while (rootnextfile()) {
@@ -7176,7 +7210,7 @@ void xdelete() {
 
 	nexttoken();
 	getfilename(filename, 0);
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 
 	removefile(filename);
 #else 
@@ -7204,7 +7238,7 @@ void xopen() {
 	
 /* the filename and its length */
 	getfilename(filename, 0);
-	if (er != 0) return; 
+	if (!USELONGJUMP && er) return; 
 
 /* and the arguments */
 	args=0;
@@ -7331,7 +7365,7 @@ void xfdisk() {
 #if defined(FILESYSTEMDRIVER)
 	nexttoken();
 	parsearguments();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	if (args > 1) error(EORANGE);
 	if (args == 0) push(0);
 	outsc("Format disk (y/N)?");
@@ -7636,7 +7670,7 @@ nextdata:
 
 /* find the indices and draw the next token of read */
 	lefthandside(&i, &i2, &j, &ps);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 /* if the token after lhs is not a termsymbol or a comma, something is wrong */
 	if (!termsymbol() && token != ',') { error(EUNKNOWN); return; }
@@ -7646,7 +7680,7 @@ nextdata:
 
 /* find the data and assign */ 
 	nextdatarecord();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 /* assign the value to the lhs - somewhar redundant code to assignment */
 
@@ -7664,7 +7698,7 @@ nextdata:
 /* we have all we need in sr */
 /* the destination address of the lefthandside, on the fly create included */
 				getstring(&s, xcl, ycl, i, j);
-				if (er != 0) return;
+				if (!USELONGJUMP && er) return;
 
 /* the length of the lefthandside string */
 				lendest=s.length;
@@ -7724,7 +7758,7 @@ void xrestore(){
 
 /* something with an argument */
 	expression();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 /* we search a record */
 	rec=pop();
@@ -7815,7 +7849,7 @@ void xfn() {
 
 	nexttoken();
 	expression();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	if (token != ')') {error(EUNKNOWN); return; }
 
@@ -7876,7 +7910,7 @@ void xon(){
 /* how many arguments have we got here */
 	nexttoken();
 	parsearguments();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 	if (args == 0) { error(EARGS); return; }
 	
 /* do we have more arguments then the condition? */
@@ -7908,10 +7942,10 @@ void xon(){
 
 /* prepare for the jump	*/
 	if (t == TGOSUB) pushgosubstack(0);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 	findline(line);
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 /* goto in interactive mode switched to RUN mode
 		no clearing of variables and stacks */
@@ -7958,7 +7992,7 @@ void xwend() {
 
 /* back to the condition */
 	popforstack();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 /* interactive run */
 	if (st == SINT) bi=ibuffer+here;
@@ -8010,7 +8044,7 @@ void xuntil() {
 
 /* look on the stack */
 	popforstack();
-	if (er != 0) return;
+	if (!USELONGJUMP && er) return;
 
 /* if false, go back to the repeat */
 	if (!pop()) {
@@ -8063,7 +8097,7 @@ void xswitch() {
 
 			if (DEBUG) { outsc("** in SWITCH SWEND found at "); outnumber(here); outcr(); }
 
-			if (er != 0) return;
+			if (!USELONGJUMP && er) return;
 		}
 		/* a true case */
 		if (token == TCASE) {
@@ -8074,7 +8108,7 @@ void xswitch() {
 
 			if (DEBUG) { outsc("** in CASE found "); outnumber(args); outsc(" arguments"); outcr(); }
 
-			if (er != 0) return;
+			if (!USELONGJUMP && er) return;
 			if (args == 0) {
 				error(TCASE);
 				return;
@@ -8126,8 +8160,18 @@ void xcase() {
  *	statement is called once in interactive mode and terminates 
  *	at end of a line. 
  */
+
 void statement(){
+
 	if (DEBUG) bdebug("statement \n"); 
+
+/* we can long jump out out any function now, making error handling easier */
+/* if we return here with a long jump, only the error handler is triggered */
+#if USELONGJUMP == 1
+	if (setjmp(sthook)) goto errorhandler;
+#endif
+
+/* the core loop processing commands */
 	while (token != EOL) {
 #ifdef HASSTEFANSEXT
 /* debug level 1 happens only in the statement loop */
@@ -8453,6 +8497,7 @@ void statement(){
 		byield();
 
 /* if error handling is compiled into the code, errors can be trapped here */
+errorhandler:
 #ifdef HASERRORHANDLING
 		if (er) {
 			if (st != SINT) {
@@ -8473,7 +8518,7 @@ void statement(){
 					default:
 						nexttoken();
 				} 
-			}	else 
+			} else 
 				return;
 		}
 #else
@@ -8502,7 +8547,7 @@ void statement(){
 						pushgosubstack(0);
 					}
 					findline(after_timer.linenumber);
-          if (er) return; 
+          			if (er) return; 
 				}
 			}
 /* periodic events */
@@ -8513,10 +8558,10 @@ void statement(){
 							if (token == TNEXT || token == ':') here--;
 							if (token == LINENUMBER) here-=(1+sizeof(address_t));	
 							pushgosubstack(0);
-              if (er != 0) return;
+							if (er) return;
 						}
 						findline(every_timer.linenumber);
-            if (er != 0) return; 
+						if (er) return; 
 				}
 			}
 		}
@@ -8533,10 +8578,10 @@ void statement(){
               if (token == TNEXT || token == ':') here--;
 							if (token == LINENUMBER) here-=(1+sizeof(address_t));	
 							pushgosubstack(TEVENT);
-              if (er != 0) return;
+              if (er) return;
             }
             findline(eventlist[ievent].linenumber);  
-            if (er != 0) return; 
+            if (er) return; 
             eventlist[ievent].active=0;
             enableevent(eventlist[ievent].pin); /* events are disabled in the interrupt function, here they are activated again */
             events_enabled=0; /* once we have jumped, we keep the events in BASIC off until reenabled by the program*/
@@ -8652,7 +8697,7 @@ void loop() {
 
 /* always return to default io channels once interactive mode is reached */
 	iodefaults();
-  form=0;
+	form=0;
 
 /* the prompt and the input request */
 	printmessage(MPROMPT);

@@ -87,10 +87,15 @@
  *      n+1 elements.
  *  SUPPRESSSUBSTRINGS: switch off substring logic, makes only sense with 
  *      HASMSSTRINGS activated.
+ *  USELONGJUMP: use the longjmp feature of C. This greatly simplifies 
+ *      error handling at the cost of portability to some MCU platforms
+ *      currently only experimental. LONGJUMP must be set to 0 or 1 as 
+ *      it is used in boolean expression in the code
  */
 #undef POWERRIGHTTOLEFT
 #undef MSARRAYLIMITS
 #undef SUPPRESSSUBSTRINGS
+#define USELONGJUMP 1 
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
