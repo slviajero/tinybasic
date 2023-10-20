@@ -73,16 +73,29 @@
  * 
  * HASMSSTRINGS is a (rudimentary) string compatibility to MS Basic.
  */
-#define HASMSSTRINGS
+#undef HASMSSTRINGS
 
 /*
- * Odd stuff - these things change the behaviour of BASIC in some aspects 
+ * Odd stuff - these things change the behaviour of BASIC in some aspects.
+ * They can be used to make the interpreter compatible with other dialects.
+ * 
  * 	POWERRIGHTTOLEFT: normally the ^ operator works from left to right 
  *		which means 2^3^2 = (2^3)^2 = 8^2 = 64. Setting this flag would 
  *		change the behaviour to 2^3^2 = 2^(3^2) = 512
+ *  MSARRAYLIMITS: in BASIC arrays start at 1 and DIM A(10) creates 10 
+ *      elements. With MSARRAYLIMITS defined, arrays start at 0 and have 
+ *      n+1 elements.
+ *  SUPPRESSSUBSTRINGS: switch off substring logic, makes only sense with 
+ *      HASMSSTRINGS activated.
+ *  USELONGJUMP: use the longjmp feature of C. This greatly simplifies 
+ *      error handling at the cost of portability to some MCU platforms
+ *      currently only experimental. LONGJUMP must be set to 0 or 1 as 
+ *      it is used in boolean expression in the code
  */
 #undef POWERRIGHTTOLEFT
-
+#undef MSARRAYLIMITS
+#undef SUPPRESSSUBSTRINGS
+#define USELONGJUMP 0
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -262,6 +275,3 @@
 #ifdef HASMSSTRINGS
 #define HASLONGTOKENS
 #endif
-
-
-

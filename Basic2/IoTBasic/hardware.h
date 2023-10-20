@@ -4,7 +4,7 @@
  *
  * Stefan's basic interpreter 
  *
- * See the licence file on 
+ * Playing around with frugal programming. See the licence file on 
  * https://github.com/slviajero/tinybasic for copyright/left.
  *   (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
  *
