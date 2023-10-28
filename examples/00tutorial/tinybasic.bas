@@ -1,6 +1,7 @@
 10 REM "Tinybasic interpreter written in BASIC"
 20 REM "This code is written in Stefan's Arduino BASIC aks IoT Basic"
-30 REM "It also runs on MS BASIC interpreters. Set LL to 0 for this."
+30 REM "It also runs on MS BASIC interpreters. Set LL to 0 for this"
+35 REM "and remove the ()() and @V constructs."
 40 REM "The interpreter implements Dr. Wang'S Palo Alto BASIC "
 50 REM "See http://www.bitsavers.org/pdf/interfaceAge/197612/092-108.pdf for"
 60 REM "On the implemented language."
