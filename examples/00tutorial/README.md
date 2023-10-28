@@ -105,6 +105,7 @@ BASIC graphics commands are plotting and setting colours.
 - Calculator: calc.bas - RPN pocket calculator in BASIC
 - CalculatePI: cpinew1.bas - calculate PI to arbitrary precision (thanks to Guido for this program)
 - CalculatePI2: cpinew2.bas - using the dark arts feature and char / string conversion
+- Tinybasic: tinybasic.bas - a BASIC interpreter for Palo Alto BASIC written in BASIC
 
 ## The structured language set
 
@@ -207,6 +208,8 @@ timestop.bas: AFTER command to brach after a given time
 calc.bas: GOSUB with an expression, @S with READ and DATA, VAL
 
 calcs.bas: WHILE and WEND, SWITCH CASE SWEND, @S with READ and DATA, VAL
+
+tinybasic.bas: VAL and the @V construct. The MS string compatibility functions MID, RIGHT, LEFT
 
 
 
