@@ -2,7 +2,8 @@
 20 REM "This code is written in Stefan's Arduino BASIC aks IoT Basic"
 30 REM "It also runs on MS BASIC interpreters. Set LL to 0 for this."
 40 REM "The interpreter implements Dr. Wang'S Palo Alto BASIC "
-50 REM 
+50 REM "See http://www.bitsavers.org/pdf/interfaceAge/197612/092-108.pdf for"
+60 REM "On the implemented language."
 100 REM "****************** Parameters and declarations ********************"
 110 NL=100: REM "Maximum number of lines"
 120 AS=100: REM "Number of elements in the @() array"
