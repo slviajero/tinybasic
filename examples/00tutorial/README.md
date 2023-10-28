@@ -105,7 +105,7 @@ BASIC graphics commands are plotting and setting colours.
 - Calculator: calc.bas - RPN pocket calculator in BASIC
 - CalculatePI: cpinew1.bas - calculate PI to arbitrary precision (thanks to Guido for this program)
 - CalculatePI2: cpinew2.bas - using the dark arts feature and char / string conversion
-- Tinybasic: tinybasic.bas - a BASIC interpreter for Palo Alto BASIC written in BASIC
+- Tinybasic: tinybasic.bas - a BASIC interpreter for Palo Alto BASIC written in BASIC, requires V2
 
 ## The structured language set
 
