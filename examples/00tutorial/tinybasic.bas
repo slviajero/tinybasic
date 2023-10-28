@@ -1,17 +1,32 @@
 10 REM "Tinybasic interpreter written in BASIC"
-20 REM "This code is written in Stefan's Arduino BASIC aks IoT Basic"
-30 REM "It also runs on MS BASIC interpreters. Set LL to 0 for this"
-35 REM "and remove the ()() and @V constructs."
-40 REM "The interpreter implements Dr. Wang'S Palo Alto BASIC "
-50 REM "See http://www.bitsavers.org/pdf/interfaceAge/197612/092-108.pdf for"
-60 REM "On the implemented language."
+15 REM 
+20 REM "Written in Stefan's Arduino BASIC aka IoT Basic Version 2(!!)"
+25 REM "It also runs on MS BASIC interpreters. Set LL to 0 for this"
+30 REM "and remove the ()() and @V constructs."
+35 REM "The interpreter implements Dr. Wang'S Palo Alto BASIC "
+40 REM "See http://www.bitsavers.org/pdf/interfaceAge/197612/092-108.pdf for"
+45 REM "On the implemented language."
+50 REM 
+55 REM "Main components of this program:"
+57 REM "GOSUB 11000: the lexer. It decomposes the string A$ into tokens."
+60 REM "   There is one token produced in T, C, C$ after each call until"
+62 REM "   the end of the line which is T=0."
+65 REM "GOSUB 12000: the expression evaluation. This is a recursive decent"
+67 REM "    parser using a stack ST. In the end the result is on the stack."
+70 REM "GOSUB 14000: the command code. For each command there is one section."
+72 REM "    At the end of the command a new token must be produced by calling"
+75 REM "    The lexer with GOSUB 11000."
+77 REM "GOSUB 13xxx: helper routines for the stack, parser and line storage."
+80 REM "30000: keywords. First data is the number of keywords."
+82 REM "The input loop from 2000-6000 ties it all together."
+85 REM
 100 REM "****************** Parameters and declarations ********************"
 110 NL=100: REM "Maximum number of lines"
 120 AS=100: REM "Number of elements in the @() array"
 130 SS=16: REM "The size of the arithmetic stack"
 140 LL=80: REM "The line length, set to 0 if you run on MS BASIC dialects."
 150 GD=4: REM "Maximum depth of GOSUB statements"
-160 FD=4: REM "Maximum number of active FOR loops (nested)"
+160 FM=4: REM "Maximum number of active FOR loops (nested)"
 200 REM "The debug flag, settings are"
 210 REM "0: no debug, 1: lexer debug, 2: expression debug, 4: command debug"
 220 DE=0
@@ -42,7 +57,7 @@
 1250 HE=0
 1260 REM "The tables for GOSUB and FOR with their indices GS and FS"
 1270 DIM GH(GD), GI(GD): GS=0
-1280 DIM FV(GD), FE(GD), FD(GD), FH(GD), FI(GD): FS=0
+1280 DIM FV(FM), FE(FM), FD(FM), FH(FM), FI(FM): FS=0
 1995 REM
 2000 REM "************************* input loop *****************************"
 2010 INPUT "]", A$: I=1: GOSUB 11000: REM "Input a line and get the first token"
@@ -209,7 +224,14 @@
 13610 GOSUB 11000: IF T<>0 AND T<>ASC(":") THEN 13610
 13620 RETURN
 13700 REM "check if FOR already exists, purge the FOR stack then"
-13710 RETURN
+13710 IF FS=1 THEN RETURN
+13720 FOR F=FS-1 TO 1 STEP -1
+13730 IF FV(FS)=FV(F) THEN 13760
+13740 NEXT
+13750 RETURN
+13760 FD(F)=FD(FS): FE(F)=FE(FS): FH(F)=FH(FS): FI(F)=FI(FS)
+13770 FOR K=FM TO FS+1: FV(K)=0: NEXT : REM "delete all inner loops"
+13780 RETURN
 14000 REM "*********** statements are parsed here ************************"
 14010 REM
 14015 REM "******** PRINT *********"
@@ -270,7 +292,7 @@
 15260 RETURN
 15395 REM "********* FOR, TO, STEP *********"
 15400 IF T<>-111 THEN 15800
-15410 IF FS=FD THEN PRINT "For error": E=-1: RETURN
+15410 IF FS=FM THEN PRINT "For error": E=-1: RETURN
 15420 FS=FS+1
 15430 GOSUB 11000
 15440 IF T<>-124 THEN E=-1: RETURN
