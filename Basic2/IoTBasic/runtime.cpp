@@ -1667,7 +1667,11 @@ void keyReleased() {
       break;
     default:
       usbkey=keyboard.getKey(); 
+#if ARDUINOKBDLANG == GERMAN
       if (usbkey>31 && usbkey<128) usbkey=usbkeymapGerman[usbkey-32]; 
+#else 
+      if (usbkey>31 && usbkey<128) usbkey=usbkeymapUS[usbkey-32]; 
+#endif
   }
 }
 #endif
@@ -1682,11 +1686,19 @@ const byte zx81pins[] = {ZX81PINS};
 
 void kbdbegin() {
 #ifdef PS2KEYBOARD
+#if ARDUINOKBDLANG == GERMAN
 	keyboard.begin(PS2DATAPIN, PS2IRQPIN, PS2Keymap_German);
+#else
+  keyboard.begin(PS2DATAPIN, PS2IRQPIN, PS2Keymap_US);
+#endif
 #else
 #ifdef PS2FABLIB
 	PS2Controller.begin(PS2Preset::KeyboardPort0);
+#if ARDUINOKBDLANG == GERMAN
 	PS2Controller.keyboard()->setLayout(&fabgl::GermanLayout);
+#else
+  PS2Controller.keyboard()->setLayout(&fabgl::USLayout);
+#endif
 #else 
 #ifdef USBKEYBOARD
 /* nothing to be done here */

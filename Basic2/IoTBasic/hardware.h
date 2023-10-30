@@ -291,6 +291,14 @@
 #endif
 
 /*
+ * Keyboard configuation code, currently only GERMAN and US are supported
+ * This is used for PS2, FABGL and USB. USB very raw.
+ * ZX81 is not supported with different languages, I only have a UK one.
+ */
+
+#define ARDUINOKBDLANG GERMAN
+/* #define ARDUINOKBDLANG US */
+/*
  * The hardware models.
  * These are predefined hardware configurations.
  */
@@ -852,6 +860,8 @@
 #if defined(ARDUINO_TTGO_T7_V14_Mini32) && defined(ARDUINOVGA)
 #define PS2FABLIB
 #define HASKEYBOARD
+#define DISPLAYHASCOLOR
+#define DISPLAYHASGRAPH
 #endif 
 
 #if defined(ARDUINO) && defined(ARDUINOPS2)
@@ -1000,6 +1010,6 @@
 
 /*
  * Does the platform has command line args and do we want to use them 
- * Arduinos don't habe them
+ * Arduinos don't have them
  */
 #undef HASARGS
