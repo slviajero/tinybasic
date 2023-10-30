@@ -95,7 +95,7 @@
 #undef POWERRIGHTTOLEFT
 #undef MSARRAYLIMITS
 #undef SUPPRESSSUBSTRINGS
-#define USELONGJUMP 1
+#define USELONGJUMP 1 
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL

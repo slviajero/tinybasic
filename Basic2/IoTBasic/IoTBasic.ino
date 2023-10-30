@@ -3688,7 +3688,7 @@ char stringvalue(string_t* strp) {
 			if (args == 1) {
 				i=popaddress();
 				l=0; 
-				if (i < k) l=k-i;
+				if (i <= k) l=k-i+1;
 			} else {
 				l=popaddress();
 				if (er != 0) return 0;
@@ -3919,6 +3919,7 @@ void factorval() {
 	number_t x;
 	string_t s;
 	address_t a;
+	char *ir;
  
 	nexttoken();
 	if (token != '(') { error(EARGS); return; }
@@ -3930,22 +3931,26 @@ void factorval() {
 /* the length of the strings consumed */
 	vlength=0;
 
-/* get the string */
+/* get the string if it is in serial memory */
 #ifdef USEMEMINTERFACE
 	if (!s.ir) getstringtobuffer(&s, spistrbuf1, SPIRAMSBSIZE);
 #endif	
 
+/* generate a 0 terminated string for use with parsenumber */
+	stringtobuffer(sbuffer, &s);
+	ir=sbuffer;
+
 /* remove whitespaces */
-	while(*s.ir==' ' || *s.ir=='\t') { s.ir++; vlength++; }
+	while(*ir==' ' || *ir=='\t') { ir++; vlength++; }
 
 /* find a sign */
-	if(*s.ir=='-') { y=-1; s.ir++; vlength++; } else y=1;
+	if(*ir=='-') { y=-1; ir++; vlength++; } else y=1;
     
 	x=0;
 #ifdef HASFLOAT
-	if ((a=parsenumber2(s.ir, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
+	if ((a=parsenumber2(ir, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
 #else 
-	if ((a=parsenumber(s.ir, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
+	if ((a=parsenumber(ir, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
 #endif
 	push(x*y);
     
@@ -5970,7 +5975,6 @@ void dumpmem(address_t r, address_t b, char eflag) {
  */
 void stringtobuffer(char *buffer, string_t* s) {
 	index_t i = s->length;
-
 	if (i >= SBUFSIZE) i=SBUFSIZE-1;
 	buffer[i--]=0;
 	while (i >= 0) { buffer[i]=s->ir[i]; i--; }
