@@ -816,8 +816,15 @@ long freememorysize() {
 #if defined(ARDUINO_ARCH_RENESAS)
   return freeRam() - 2000;
 #endif
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_STM32) 
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_STM32) 
   return freeRam() - 4000;
+#endif
+#if defined(ARDUINO_ARCH_ESP32) 
+#if defined(ARDUINO_TTGO_T7_V14_Mini32)
+  return freeRam() - 4000; 
+#else
+  return freeRam() - 4000;
+#endif
 #endif
 #if defined(ARDUINO_ARCH_XMC) 
   return freeRam() - 2000;

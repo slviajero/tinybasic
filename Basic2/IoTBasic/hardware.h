@@ -296,8 +296,9 @@
  * ZX81 is not supported with different languages, I only have a UK one.
  */
 
-#define ARDUINOKBDLANG GERMAN
-/* #define ARDUINOKBDLANG US */
+#define ARDUINOKBDLANG_GERMAN
+//#define ARDUINOKBDLANG_US 
+
 /*
  * The hardware models.
  * These are predefined hardware configurations.
