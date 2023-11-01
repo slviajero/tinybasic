@@ -617,7 +617,9 @@ uint16_t consins(char *b, uint16_t nb) {
   z=1;
   while(z < nb) {
       c=inch();
-      if (id == ISERIAL || id == IKEYBOARD) outch(c); /* this is local echo */
+      if (id == ISERIAL || id == IKEYBOARD) {
+        outch(c); /* this is local echo */
+      }
       if (c == '\r') c=inch();      /* skip carriage return */
       if (c == '\n' || c == -1 || c == 255) {   /* terminal character is either newline or EOF */
         break;
@@ -1667,7 +1669,7 @@ void keyReleased() {
       break;
     default:
       usbkey=keyboard.getKey(); 
-#if ARDUINOKBDLANG == GERMAN
+#if ARDUINOKBDLANG_GERMAN
       if (usbkey>31 && usbkey<128) usbkey=usbkeymapGerman[usbkey-32]; 
 #else 
       if (usbkey>31 && usbkey<128) usbkey=usbkeymapUS[usbkey-32]; 
@@ -1686,16 +1688,17 @@ const byte zx81pins[] = {ZX81PINS};
 
 void kbdbegin() {
 #ifdef PS2KEYBOARD
-#if ARDUINOKBDLANG == GERMAN
+#if ARDUINOKBDLANG_GERMAN
 	keyboard.begin(PS2DATAPIN, PS2IRQPIN, PS2Keymap_German);
 #else
   keyboard.begin(PS2DATAPIN, PS2IRQPIN, PS2Keymap_US);
 #endif
 #else
+
 #ifdef PS2FABLIB
 	PS2Controller.begin(PS2Preset::KeyboardPort0);
-#if ARDUINOKBDLANG == GERMAN
-	PS2Controller.keyboard()->setLayout(&fabgl::GermanLayout);
+#ifdef ARDUINOKBDLANG_GERMAN
+  PS2Controller.keyboard()->setLayout(&fabgl::GermanLayout);
 #else
   PS2Controller.keyboard()->setLayout(&fabgl::USLayout);
 #endif
