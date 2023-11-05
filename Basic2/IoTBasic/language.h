@@ -73,7 +73,7 @@
  * 
  * HASMSSTRINGS is a (rudimentary) string compatibility to MS Basic.
  */
-#undef HASMSSTRINGS
+#define HASMSSTRINGS
 
 /*
  * Odd stuff - these things change the behaviour of BASIC in some aspects.

@@ -8702,11 +8702,11 @@ void loop() {
 /* always return to default io channels once interactive mode is reached */
 	iodefaults();
 	form=0;
-
+ 
 /* the prompt and the input request */
 	printmessage(MPROMPT);
 	z.a=ins(ibuffer, BUFSIZE-2);
-        
+
 /* tokenize first token from the input buffer */
 	bi=ibuffer;
 	nexttoken();

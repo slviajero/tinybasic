@@ -113,7 +113,7 @@
 #undef ARDUINOPGMEEPROM
 
 /* IO control, emulate real tab */
-#undef HASMSTAB
+#define HASMSTAB
 
 /* interrupts for the EVENT command */
 #undef ARDUINOINTERRUPTS
@@ -173,6 +173,9 @@
 #undef ESP32BOARD
 #undef MKR1010BOARD
 
+#define ALTSERIAL Serial1
+
+
 /* the default EEPROM dummy size */
 #define EEPROMSIZE 1024
 
@@ -226,6 +229,8 @@
 /* the primary serial stream aka serial aka sream 1 */
 #ifndef ALTSERIAL
 #define SERIALPORT Serial
+#else 
+#define SERIALPORT ALTSERIAL
 #endif
 
 /* the secondary serial port aka prt aka stream 4 */

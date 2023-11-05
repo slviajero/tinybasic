@@ -1516,7 +1516,7 @@ int vgastat(uint8_t c) {return 0; }
 
 /* scale the screen size */
 void vgascale(int* x, int* y) {
-	*y=*y*10/24;
+	*y=*y*10/16;
 }
 
 void rgbcolor(uint8_t r, uint8_t g, uint8_t b) {
@@ -4469,7 +4469,7 @@ char serialread() {
 	return c;	
 #else
 	while (!SERIALPORT.available()) byield();
-	return SERIALPORT.read();
+  return SERIALPORT.read();
 #endif
 }
 
@@ -4540,14 +4540,15 @@ uint16_t serialins(char *b, uint16_t nb) {
 #endif  
 }
 
-
 /* 
  * Start a secondary serial port for printing and/or networking 
  * This is either Serial1 on a MEGA or DUE or Nano Every or a SoftwareSerial 
  * instance
  */
 #ifdef ARDUINOPRT
-#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE) && !defined(ARDUINO_AVR_NANO_EVERY) && !defined(ARDUINO_NANO_RP2040_CONNECT) && !defined(ARDUINO_RASPBERRY_PI_PICO) && !defined(ARDUINO_SEEED_XIAO_M0)
+#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE) && !defined(ARDUINO_AVR_NANO_EVERY) \ 
+    && !defined(ARDUINO_NANO_RP2040_CONNECT) && !defined(ARDUINO_RASPBERRY_PI_PICO) \
+    && !defined(ARDUINO_SEEED_XIAO_M0) && !defined(ARDUINO_ARCH_RENESAS)
 #include <SoftwareSerial.h>
 SoftwareSerial PRTSERIAL(SOFTSERIALRX, SOFTSERIALTX);
 #endif
