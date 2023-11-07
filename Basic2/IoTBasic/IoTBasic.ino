@@ -5593,10 +5593,13 @@ void xrun(){
 		clrdata();
 		clrlinecache();
 		ert=0;
-    ioer=0;
+		ioer=0;
 #ifdef HASEVENTS
-    events_enabled=1;
+		resettimer(&every_timer);
+		resettimer(&after_timer);
+    	events_enabled=1;
 #endif
+
 		nexttoken();
 	}
 
@@ -5725,6 +5728,18 @@ void xclr() {
 		case STRINGVAR:
 			if (xcl == '@') { error(EVARIABLE); return; }
 			break;
+		case TGOSUB:
+			clrgosubstack();
+			goto next;
+		case TFOR: 
+			clrforstack();
+			goto next;
+		case TEVERY:
+			resettimer(&every_timer);
+			goto next;
+		case TAFTER:
+			resettimer(&after_timer);
+			goto next;	
 		default:
 			expression();
 			if (!USELONGJUMP && er) return;
@@ -5748,8 +5763,10 @@ void xclr() {
 	clrdata();
 	clrlinecache();
 	ert=0;
-  ioer=0;
+	ioer=0;
 #endif
+
+next:
 	nexttoken();
 }
 
@@ -8702,11 +8719,11 @@ void loop() {
 /* always return to default io channels once interactive mode is reached */
 	iodefaults();
 	form=0;
- 
+
 /* the prompt and the input request */
 	printmessage(MPROMPT);
 	z.a=ins(ibuffer, BUFSIZE-2);
-
+        
 /* tokenize first token from the input buffer */
 	bi=ibuffer;
 	nexttoken();
