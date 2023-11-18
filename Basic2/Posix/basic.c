@@ -709,6 +709,7 @@ void esave() {
 void eload() {
 #ifndef EEPROMMEMINTERFACE
 	address_t a=0;
+
 	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { 
 
 		/* have we stored a program */
@@ -819,11 +820,9 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 
 /* store the name of the objects (2 chars) plus the type (1 char) as identifier */
 	b=himem;
-
 	memwrite2(b--, c);
 	memwrite2(b--, d);
 	memwrite2(b--, t);
-
 
 /* for strings, arrays and buffers write the (maximum) length 
 	  directly after the header */
@@ -841,6 +840,7 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 	himem-=vsize;
 	nvars++;
 
+/* return value is the position of the mem segment on the heap */ 
 	return himem+1;
 }
 
@@ -863,27 +863,29 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 		return bfinda;
 	}
 
-
 /* walk through the heap now */
 	while (i < nvars) { 
 
+/* get the name */
 		c1=memread2(b--);
 		d1=memread2(b--);
 		t1=memread2(b--);
 
+/* determine the size of the object and advance */
 		switch(t1) {
 		case VARIABLE:
 			z.a=numsize;
 			break;
+#ifdef HASDARTMOUTH
 		case TFN:
 			z.a=addrsize+2;
 			break;
+#endif
 		default:
 			b=b-addrsize+1;
 			getnumber(b, addrsize);
 			b--;
 		}
-
 		b-=z.a;
 
 /* once we found we cache and return the location */
@@ -902,8 +904,10 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 	return 0;
 }
 
-/* finds an object and deletes the heap from this object on 
-	including the object itself */
+/* 
+ * bfree() finds an object and deletes the heap 
+ * from this object on including the object itself 
+ */
 address_t bfree(mem_t t, mem_t c, mem_t d) {
 	address_t b = memsize;
 	mem_t t1;
@@ -915,6 +919,7 @@ address_t bfree(mem_t t, mem_t c, mem_t d) {
 /* walk through the heap to find the location */
 	while (i < nvars) { 
 
+/* get the name */
 		c1=memread2(b--);
 		d1=memread2(b--);
 		t1=memread2(b--);
@@ -942,6 +947,7 @@ address_t bfree(mem_t t, mem_t c, mem_t d) {
 			return himem;
 		}
 
+/* determine the size and advance */
 		switch(t1) {
 		case VARIABLE:
 			z.a=numsize;
@@ -1039,7 +1045,6 @@ void setvar(mem_t c, mem_t d, number_t v){
 		vars[c-65]=v;
 		return;
 	}
-
 
 /* the special variables */
 	if ( c == '@' )
@@ -1428,6 +1433,7 @@ void storecstring(address_t ax, address_t s, char* b) {
 /* length of a c string up to a limit l */
 address_t cstringlength(char* c, address_t l) {
 	address_t a;
+
 	while(a < l && c[a] != 0) a++;
 	return a;
 }
@@ -1570,6 +1576,7 @@ void getstring(string_t* strp, char c, char d, address_t b, address_t j) {
 /* in case of a string array, this function finds the number of array elements */
 	address_t strarraydim(char c, char d) {
 	address_t a, b;
+
 #ifndef HASSTRINGARRAYS
 	return 1;
 #else 
@@ -1630,12 +1637,6 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 
 /* */
 
-
-
-
-
-
-
 	if (a == 0) { error(EVARIABLE); return; }
 
 /* multiple calls of bfind here is harmless as bfind caches  */ 
@@ -1646,12 +1647,6 @@ void setstringlength(char c, char d, address_t l, address_t j) {
 	z.a=l;
 	setnumber(a, strindexsize);
 }
-
-
-
-
-
-
 
 /* the BASIC string mechanism for real time clocks, create a string with the clock data */
 #ifdef HASCLOCK
@@ -2680,6 +2675,7 @@ char nomemory(number_t b){
 /* store a token - check free memory before changing anything */
 void storetoken() {
 	index_t i=x;
+
 	switch (token) {
 	case LINENUMBER:
 		if (nomemory(addrsize+1)) break;
@@ -2897,6 +2893,7 @@ unsigned char linecachehere = 0;
 
 void clrlinecache() {
 	unsigned char i;
+
 	for(i=0; i<linecachedepth; i++) linecache[i].l=linecache[i].h=0;
 	linecachehere=0;
 }
@@ -2909,6 +2906,7 @@ void addlinecache(address_t l, address_t h) {
 
 address_t findinlinecache(address_t l){
 	unsigned char i;
+
 	for(i=0; i<linecachedepth && linecache[i].l != 0; i++) {
 		if (linecache[i].l == l) return linecache[i].h;
 	}
@@ -3268,6 +3266,7 @@ void parsefunction(void (*f)(), short ae){
 /* helper function in the recursive decent parser */
 void parseoperator(void (*f)()) {
 	mem_t u=1;
+
 	nexttoken();
 /* unary minuses in front of an operator are consumed once! */
 	if (token == '-') {
@@ -3286,7 +3285,8 @@ void parseoperator(void (*f)()) {
  * ABS absolute value 
  */
 void xabs(){
-  number_t x;
+	number_t x;
+
 	if ((x=pop())<0) { x=-x; }
 	push(x);
 }
@@ -3295,7 +3295,8 @@ void xabs(){
  * SGN evaluates the sign
  */
 void xsgn(){
-  number_t x;
+	number_t x;
+
 	x=pop();
 	if (x>0) x=1;
 	if (x<0) x=-1;
@@ -3330,6 +3331,7 @@ void xpeek(){
  */ 
 void xmap() {
 	long v, in_min, in_max, out_min, out_max;
+
 	out_max=pop();
 	out_min=pop();
 	in_max=pop();
@@ -3344,6 +3346,7 @@ void xmap() {
  */
 void rnd() {
 	number_t r;
+
 	r=pop();
 #ifndef HASFLOAT
 /* the original 16 bit congruence */
@@ -3993,6 +3996,7 @@ void factorinstr() {
 /* helpers of factor - the NETSTAT command */
 void factornetstat() {
 	address_t x=0;
+
 	if (netconnected()) x=1;
 	if (mqttstate() == 0) x+=2;
 	push(x);
@@ -5214,11 +5218,16 @@ void findbraket(token_t bra, token_t ket){
 	address_t fnc = 0;
 
 	while (1) {
+		
+		if (DEBUG) { 
+			outsc("** skpping braket "); 
+			outputtoken(); outspc(); 
+			outnumber(here); outspc(); 
+			outnumber(fnc); outcr(); 
+		}		
 
 		if (token == ket) {
-	    	if (fnc == 0) {
-	    		return; 
-	    	} else fnc--;
+	    	if (fnc == 0) return; else fnc--;
 		}
 
 		if (token == bra) fnc++;
@@ -5226,17 +5235,9 @@ void findbraket(token_t bra, token_t ket){
 /* no NEXT found - different for interactive and program mode, should never happen */
 		if (token == EOL) {
 			error(bra);
-	    return;
+	    	return;
 		}
 		nexttoken();
-
-/* yap yap yap */		
-		if (DEBUG) { 
-			outsc("** skpping braket "); 
-			outputtoken(); outspc(); 
-			outnumber(here); outspc(); 
-			outnumber(fnc); outcr(); 
-		}
 	}
 }
 
@@ -5320,23 +5321,24 @@ void xfor(){
 #ifdef HASSTRUCT
 void xbreak(){
 	token_t t;
+
 	t=peekforstack(); 
 	if (!USELONGJUMP && er) return;
 	dropforstack();
 	switch (t) {
-		case TWHILE: 
-			findbraket(TWHILE, TWEND);
-			nexttoken();
-			break;
-		case TREPEAT:
-			findbraket(TREPEAT, TUNTIL);
-			while (!termsymbol()) nexttoken();
-			break;	
-		default: /* a FOR loop is the default */
-			findbraket(TFOR, TNEXT);
-			nexttoken();	
-			if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
-			break;	
+	case TWHILE: 
+		findbraket(TWHILE, TWEND);
+		nexttoken();
+		break;
+	case TREPEAT:
+		findbraket(TREPEAT, TUNTIL);
+		while (!termsymbol()) nexttoken();
+		break;	
+	default: /* a FOR loop is the default */
+		findbraket(TFOR, TNEXT);
+		nexttoken();	
+		if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
+		break;	
 	}
 }
 #else
@@ -5356,18 +5358,19 @@ void xbreak(){
 #ifdef HASSTRUCT
 void xcont() {
 	token_t t;
+
 	t=peekforstack(); 
 	if (!USELONGJUMP && er) return;
 	switch (t) {
-		case TWHILE: 
-			findbraket(TWHILE, TWEND);
-			break;
-		case TREPEAT:
-			findbraket(TREPEAT, TUNTIL);
-			break;
-		default: /* a FOR loop is the default */
-			findbraket(TFOR, TNEXT);
-			break;
+	case TWHILE: 
+		findbraket(TWHILE, TWEND);
+		break;
+	case TREPEAT:
+		findbraket(TREPEAT, TUNTIL);
+		break;
+	default: /* a FOR loop is the default */
+		findbraket(TFOR, TNEXT);
+		break;
 	}
 }
 #else
@@ -5528,21 +5531,21 @@ void xlist(){
 	if (!USELONGJUMP && er) return;
 
 	switch (args) {
-		case 0: 
-			b=0;
-			e=32767;
-			break;
-		case 1: 
-			b=pop();
-			e=b;
-			break;
-		case 2: 
-			e=pop();
-			b=pop();
-			break;
-		default:
-			error(EARGS);
-			return;
+	case 0: 
+		b=0;
+		e=32767;
+		break;
+	case 1: 
+		b=pop();
+		e=b;
+		break;
+	case 2: 
+		e=pop();
+		b=pop();
+		break;
+	default:
+		error(EARGS);
+		return;
 	}
 
 	if ( top == 0 ) { nexttoken(); return; }
@@ -5587,6 +5590,8 @@ void xrun(){
 		}
 		if (!USELONGJUMP && er) return;
 		if (st == SINT) st=SRUN;
+
+
 		clrvars();
 		clrgosubstack();
 		clrforstack();
@@ -5708,7 +5713,7 @@ void xclr() {
 		clrdata();
 		clrlinecache();
 		ert=0;
-    ioer=0;
+    	ioer=0;
 	} else {
 
 		xcl=xc;
@@ -5749,13 +5754,13 @@ void xclr() {
 			t=TBUFFER;
 		}
 
+/* we have to clear an object, call free */
 		ax=bfree(t, xcl, ycl);
 		if (ax == 0) { 
 			if (t != TBUFFER) { error(EVARIABLE); return; }
 			else ert=1;
 		}
 	}
-
 #else
 	clrvars();
 	clrgosubstack();
@@ -5932,21 +5937,21 @@ void xdump() {
 	if (!USELONGJUMP && er) return;
 
 	switch (args) {
-		case 0: 
-			x=0;
-			a=memsize;
-			break;
-		case 1: 
-			x=pop();
-			a=memsize;
-			break;
-		case 2: 
-			a=pop();
-			x=pop();
-			break;
-		default:
-			error(EARGS);
-			return;
+	case 0: 
+		x=0;
+		a=memsize;
+		break;
+	case 1: 
+		x=pop();
+		a=memsize;
+		break;
+	case 2: 
+		a=pop();
+		x=pop();
+		break;
+	default:
+		error(EARGS);
+		return;
 	}
 
 	form=6;
@@ -5992,6 +5997,7 @@ void dumpmem(address_t r, address_t b, char eflag) {
  */
 void stringtobuffer(char *buffer, string_t* s) {
 	index_t i = s->length;
+
 	if (i >= SBUFSIZE) i=SBUFSIZE-1;
 	buffer[i--]=0;
 	while (i >= 0) { buffer[i]=s->ir[i]; i--; }
@@ -6000,6 +6006,7 @@ void stringtobuffer(char *buffer, string_t* s) {
 /* helper for the memintercase code */
 void getstringtobuffer(string_t* strp, char *buffer, stringlength_t maxlen) {
 	stringlength_t i;
+
 	for (i=0; i<strp->length && i<maxlen; i++) buffer[i]=memread2(strp->address+i);
 	strp->ir=buffer;
 }
@@ -6138,23 +6145,22 @@ void xload(const char* f) {
 		if (!f)
 			if (!ifileopen(filename)) { error(EFILE); return; } 
 
-    	bi=ibuffer+1;
+		bi=ibuffer+1;
 		while (fileavailable()) {
 			ch=fileread();
 
 			if (ch == '\n' || ch == '\r' || cheof(ch)) {
-        		*bi=0;
-        		bi=ibuffer+1;
-        		if (*bi != '#') { /* lines starting with a # are skipped - Unix style shell startup */
-				nexttoken();
-	    			if (token == NUMBER) {
-        				ax=x;
-        				storeline();
-        			}
+				*bi=0;
+				bi=ibuffer+1;
+				if (*bi != '#') { /* lines starting with a # are skipped - Unix style shell startup */
+					nexttoken();
+					if (token == NUMBER) {
+						ax=x;
+						storeline();
+					}
         			if (er != 0 ) break;
         			bi=ibuffer+1;
         		}
-
       		} else {
         		*bi++=ch;
       		}
@@ -6294,112 +6300,112 @@ void xset(){
 	function=pop();
 	switch (function) {	
 /* runtime debug level */
-		case 0:
-			debuglevel=argument;
-			break;	
+	case 0:
+		debuglevel=argument;
+		break;	
 /* autorun/run flag of the EEPROM 255 for clear, 0 for prog, 1 for autorun */
-		case 1: 
-			eupdate(0, argument);
-			break;
+	case 1: 
+		eupdate(0, argument);
+		break;
 /* change the output device */			
-		case 2: 
-			switch (argument) {
-				case 0:
-					od=OSERIAL;
-					break;
-				case 1:
-					od=ODSP;
-					break;
-			}		
+	case 2: 
+		switch (argument) {
+		case 0:
+			od=OSERIAL;
 			break;
+		case 1:
+			od=ODSP;
+			break;
+		}		
+		break;
 /* change the default output device */			
-		case 3: 
-			switch (argument) {
-				case 0:
-					od=(odd=OSERIAL);
-					break;
-				case 1:
-					od=(odd=ODSP);
-					break;
-			}		
+	case 3: 
+		switch (argument) {
+		case 0:
+			od=(odd=OSERIAL);
 			break;
+		case 1:
+			od=(odd=ODSP);
+			break;
+		}		
+		break;
  /* change the input device */			
-		case 4:
-			switch (argument) {
-				case 0:
-					id=ISERIAL;
-					break;
-				case 1:
-					id=IKEYBOARD;
-					break;
-			}		
+	case 4:
+		switch (argument) {
+		case 0:
+			id=ISERIAL;
 			break;
+		case 1:
+			id=IKEYBOARD;
+			break;
+		}		
+		break;
  /* change the default input device */					
-		case 5:
-			switch (argument) {
-				case 0:
-					idd=(id=ISERIAL);
-					break;
-				case 1:
-					idd=(id=IKEYBOARD);
-					break;
-			}		
-			break;	
+	case 5:
+		switch (argument) {
+		case 0:
+			idd=(id=ISERIAL);
+			break;
+		case 1:
+			idd=(id=IKEYBOARD);
+			break;
+		}		
+		break;	
 #ifdef HASSERIAL1
 /* set the cr behaviour */
-		case 6: 
-			sendcr=(char)argument;
-			break;
+	case 6: 
+		sendcr=(char)argument;
+		break;
 /* set the blockmode behaviour */
-		case 7: 
-			blockmode=argument;
-			break;
+	case 7: 
+		blockmode=argument;
+		break;
 /* set the second serial ports baudrate */
-		case 8:
-			prtset(argument);
-			break;
+	case 8:
+		prtset(argument);
+		break;
 #endif
 /* set the power amplifier level of the radio module */
 #ifdef HASRF24
-		case 9: 
-			radioset(argument);
-			break;
+	case 9: 
+		radioset(argument);
+		break;
 #endif		
 /* display update control for paged displays */
-		case 10:
-			dspsetupdatemode(argument);
-			break;
+	case 10:
+		dspsetupdatemode(argument);
+		break;
 /* change the output device to a true TAB */
 #ifdef HASMSTAB
-		case 11:
-    		reltab=argument;
-			break;
+	case 11:
+    	reltab=argument;
+		break;
 #endif
 /* change the lower array limit */
 #ifdef HASARRAYLIMIT
-		case 12:
-			arraylimit=argument;
-			break;
+	case 12:
+		arraylimit=argument;
+		break;
 #endif
 #ifdef HASKEYPAD
-		case 13:
-			kbdrepeat=argument;
-			break;
+	case 13:
+		kbdrepeat=argument;
+		break;
 #endif
 #ifdef HASPULSE
-		case 14:
-			bpulseunit=argument;
-			break;
+	case 14:
+		bpulseunit=argument;
+		break;
 #endif
 #ifdef POSIXVT52TOANSI 
-		case 15:
-			vt52active=argument;
-			break;
+	case 15:
+		vt52active=argument;
+		break;
 #endif
 /* change the default size of a string at autocreate, important when SUPPRESSSUBSTRINGS is done*/
-		case 16:
-			defaultstrdim=argument;
-			break;
+	case 16:
+		defaultstrdim=argument;
+		break;
 	}
 }
 
@@ -6414,33 +6420,33 @@ void xnetstat(){
 	if (!USELONGJUMP && er) return;
 	
 	switch (args) {
+	case 0: 
+		if (netconnected()) outsc("Network connected \n"); else outsc("Network not connected \n");
+		outsc("MQTT state "); outnumber(mqttstate()); outcr();
+ 		outsc("MQTT out topic "); outsc(mqtt_otopic); outcr();
+		outsc("MQTT inp topic "); outsc(mqtt_itopic); outcr();
+		outsc("MQTT name "); outsc(mqttname); outcr();
+		break;
+	case 1: 
+		ax=pop();
+		switch (ax) {
 		case 0: 
-			if (netconnected()) outsc("Network connected \n"); else outsc("Network not connected \n");
-			outsc("MQTT state "); outnumber(mqttstate()); outcr();
- 			outsc("MQTT out topic "); outsc(mqtt_otopic); outcr();
-			outsc("MQTT inp topic "); outsc(mqtt_itopic); outcr();
-			outsc("MQTT name "); outsc(mqttname); outcr();
+			netstop();
 			break;
-		case 1: 
-			ax=pop();
-			switch (ax) {
-				case 0: 
-					netstop();
-					break;
-				case 1:
-					netbegin();
-					break;
-				case 2:
-					if (!mqttreconnect()) ert=1;
-					break;
-				default:
-					error(EARGS);
-					return;
-			}
+		case 1:
+			netbegin();
+			break;
+		case 2:
+			if (!mqttreconnect()) ert=1;
 			break;
 		default:
 			error(EARGS);
 			return;
+		}
+		break;
+	default:
+		error(EARGS);
+		return;
 	}
 #endif	
 	nexttoken();		
@@ -6457,18 +6463,19 @@ void xnetstat(){
  */
 
 void xaread(){ 
-  push(aread(popaddress())); 
+	push(aread(popaddress())); 
 }
 
 void xdread(){ 
-  push(dread(popaddress())); 
+	push(dread(popaddress())); 
 }
 
  /*
   *	DWRITE - digital write 
   */
 void xdwrite(){
-  address_t x,y;
+ 	address_t x,y;
+
 	nexttoken();
 	parsenarguments(2);
 	if (!USELONGJUMP && er) return; 
@@ -6482,7 +6489,8 @@ void xdwrite(){
  * AWRITE - analog write 
  */
 void xawrite(){
-  address_t x,y;
+	address_t x,y;
+
 	nexttoken();
 	parsenarguments(2);
 	if (!USELONGJUMP && er) return; 
@@ -6497,14 +6505,15 @@ void xawrite(){
  * PINM - pin mode
  */
 void xpinm(){
-  address_t x,y;
+	address_t x,y;
+
 	nexttoken();
 	parsenarguments(2);
 	if (!USELONGJUMP && er) return; 
 	x=popaddress();
-  if (x > 1) error(EORANGE);
+	if (x > 1) error(EORANGE);
 	y=popaddress();
-  if (!USELONGJUMP && er) return;
+	if (!USELONGJUMP && er) return;
 	pinm(y, x);	
 }
 
@@ -6526,34 +6535,34 @@ void xdelay(){
 #ifdef HASTONE
 /* play a tone */
 void xtone(){
-  address_t d = 0;
-  address_t v = 100;
-  address_t f, p;
+	address_t d = 0;
+	address_t v = 100;
+	address_t f, p;
 
 /* get minimum of 2 and maximum of 4 args */
 	nexttoken();
 	parsearguments();
 	if (!USELONGJUMP && er) return;
-  if (args > 4 || args < 2) { error(EARGS); return; }
+	if (args > 4 || args < 2) { error(EARGS); return; }
 
 /* a switch would be more elegant but needs more progspace ;-) */
-  if (args == 4) v=popaddress(); 
-  if (args >= 3) d=popaddress();
-  f=popaddress();
-  p=popaddress();
-  if (!USELONGJUMP && er) return; 
+	if (args == 4) v=popaddress(); 
+	if (args >= 3) d=popaddress();
+	f=popaddress();
+	p=popaddress();
+	if (!USELONGJUMP && er) return; 
 
-  playtone(p, f, d, v);
+	playtone(p, f, d, v);
 }
 #endif
 
 /* pulse output - pin, duration, [value], [repetitions, delay] */
 #ifdef HASPULSE
 void xpulse(){
-  address_t pin, duration;
-  address_t val = 1;
-  address_t interval = 0;
-  address_t repetition = 1;
+	address_t pin, duration;
+	address_t val = 1;
+	address_t interval = 0;
+	address_t repetition = 1;
 
 /* do we have at least 2 and not more than 5 arguments */
 	nexttoken();
@@ -6562,12 +6571,12 @@ void xpulse(){
 	if (args>5 || args<2) { error(EARGS); return; }
 
 /* get the data from stack */
-  if (args == 5) { interval=popaddress(); repetition=popaddress(); }
-  if (args == 4) { error(EARGS); return; }
-  if (args > 2) val=popaddress();
-  duration=popaddress();
-  pin=popaddress();
-  if (!USELONGJUMP && er) return;
+	if (args == 5) { interval=popaddress(); repetition=popaddress(); }
+	if (args == 4) { error(EARGS); return; }
+	if (args > 2) val=popaddress();
+	duration=popaddress();
+	pin=popaddress();
+	if (!USELONGJUMP && er) return;
   
 /* low level run time function for the pulse */ 
 	pulseout(bpulseunit, pin, duration, val, repetition, interval);	
@@ -6575,15 +6584,15 @@ void xpulse(){
 
 /* read a pulse, units given by bpulseunit - default 10 microseconds */
 void bpulsein() { 
-  address_t x,y;
-  unsigned long t, pt;
+	address_t x,y;
+	unsigned long t, pt;
   
-  t=((unsigned long) popaddress())*1000;
-  y=popaddress(); 
-  x=popaddress();
-  if (!USELONGJUMP && er) return;
+	t=((unsigned long) popaddress())*1000;
+	y=popaddress(); 
+	x=popaddress();
+	if (!USELONGJUMP && er) return;
 
-  push(pulsein(x, y, t)/bpulseunit); 
+	push(pulsein(x, y, t)/bpulseunit); 
 }
 #endif
 
@@ -6618,6 +6627,7 @@ void xcolor() {
  */
 void xplot() {
 	int x0, y0;
+
 	nexttoken();
 	parsenarguments(2);
 	if (!USELONGJUMP && er) return; 
@@ -6631,6 +6641,7 @@ void xplot() {
  */
 void xline() {
 	int x0, y0, x1, y1;
+
 	nexttoken();
 	parsenarguments(4);
 	if (!USELONGJUMP && er) return; 
@@ -6643,6 +6654,7 @@ void xline() {
 
 void xrect() {
 	int x0, y0, x1, y1;
+
 	nexttoken();
 	parsenarguments(4);
 	if (!USELONGJUMP && er) return; 
@@ -6655,6 +6667,7 @@ void xrect() {
 
 void xcircle() {
 	int x0, y0, r;
+
 	nexttoken();
 	parsenarguments(3);
 	if (!USELONGJUMP && er) return;  
@@ -6666,6 +6679,7 @@ void xcircle() {
 
 void xfrect() {
 	int x0, y0, x1, y1;
+
 	nexttoken();
 	parsenarguments(4);
 	if (!USELONGJUMP && er) return; 
@@ -6678,6 +6692,7 @@ void xfrect() {
 
 void xfcircle() {
 	int x0, y0, r;
+
 	nexttoken();
 	parsenarguments(3);
 	if (!USELONGJUMP && er) return;  
@@ -6751,7 +6766,6 @@ void xeval(){
 	address_t i, l;
 	address_t mline, line;
 	string_t s;
-
 
 /* get the line number to store */
 	if (!expectexpr()) return;
@@ -6847,6 +6861,7 @@ void xsleep() {
 
 void xwire() {
 	short port, data1, data2;
+
 	nexttoken();
 #ifdef HASWIRE
 	parsearguments();
@@ -6882,7 +6897,6 @@ void xfwire() {
  */
 #ifdef HASERRORHANDLING
 void xerror() {
-
 	berrorh.type=0;
 	erh=0;
 	nexttoken();
@@ -6929,32 +6943,32 @@ void xtimer() {
 	/* after that, a command GOTO or GOSUB with a line number
 			more commands thinkable */
 	switch(token) {
-		case TGOSUB:
-		case TGOTO:
-			t=token;
-			if (!expectexpr()) return;
-			timer->last=millis();
-			timer->type=t;
-			timer->linenumber=pop();
-			timer->interval=pop();
-			timer->enabled=1;
-			break;
-		default:
-			if (termsymbol()) {
-				x=pop();
-				if (x == 0) 
-					timer->enabled=0;
-				else {
-					if (timer->linenumber) {
-						timer->enabled=1;
-						timer->interval=x;
-						timer->last=millis();	
-					} else 
-						error(EARGS);
-				}
-			} else 
-				error(EUNKNOWN);
-			return;
+	case TGOSUB:
+	case TGOTO:
+		t=token;
+		if (!expectexpr()) return;
+		timer->last=millis();
+		timer->type=t;
+		timer->linenumber=pop();
+		timer->interval=pop();
+		timer->enabled=1;
+		break;
+	default:
+		if (termsymbol()) {
+			x=pop();
+			if (x == 0) 
+				timer->enabled=0;
+			else {
+				if (timer->linenumber) {
+					timer->enabled=1;
+					timer->interval=x;
+					timer->last=millis();	
+				} else 
+					error(EARGS);
+			}
+		} else 
+			error(EUNKNOWN);
+		return;
 	}	
 }
 #endif
@@ -6978,69 +6992,71 @@ void xtimer() {
 
 /* interrupts in BASIC fire once and then disable themselves, BASIC reenables them */
 void bintroutine0() {
-  eventlist[0].active=1;
-  detachinterrupt(eventlist[0].pin); 
+	eventlist[0].active=1;
+	detachinterrupt(eventlist[0].pin); 
 }
 void bintroutine1() {
-  eventlist[1].active=1;
-  detachinterrupt(eventlist[1].pin); 
+	eventlist[1].active=1;
+	detachinterrupt(eventlist[1].pin); 
 }
 void bintroutine2() {
-  eventlist[2].active=1;
-  detachinterrupt(eventlist[2].pin); 
+	eventlist[2].active=1;
+	detachinterrupt(eventlist[2].pin); 
 }  
 void bintroutine3() {
-  eventlist[3].active=1;
-  detachinterrupt(eventlist[3].pin); 
+	eventlist[3].active=1;
+	detachinterrupt(eventlist[3].pin); 
 }
 
 mem_t eventindex(mem_t pin) {
-  mem_t i;
-  for(i=0; i<EVENTLISTSIZE; i++ ) if (eventlist[i].pin == pin) return i; 
-  return -1;
+ 	mem_t i;
+
+	for(i=0; i<EVENTLISTSIZE; i++ ) if (eventlist[i].pin == pin) return i; 
+	return -1;
 }
 
 mem_t enableevent(mem_t pin) {
-  mem_t interrupt;
-  mem_t i;
+	mem_t interrupt;
+	mem_t i;
 
 /* do we have the data */
-  if ((i=eventindex(pin))<0) return 0;
+	if ((i=eventindex(pin))<0) return 0;
 
 /* can we use this pin? */  
-  interrupt=pintointerrupt(eventlist[i].pin);
-  if (interrupt < 0) return 0;
+	interrupt=pintointerrupt(eventlist[i].pin);
+	if (interrupt < 0) return 0;
 
 /* attach the interrupt function to this pin */
-  switch(i) {
-    case 0: 
-      attachinterrupt(interrupt, bintroutine0, eventlist[i].mode); 
-      break;
-    case 1:
-      attachinterrupt(interrupt, bintroutine1, eventlist[i].mode); 
-      break;
-    case 2:
-      attachinterrupt(interrupt, bintroutine2, eventlist[i].mode); 
-      break;
-    case 3:
-      attachinterrupt(interrupt, bintroutine3, eventlist[i].mode); 
-      break;
-    default:
-      return 0;
-  }
+	switch(i) {
+	case 0: 
+		attachinterrupt(interrupt, bintroutine0, eventlist[i].mode); 
+		break;
+	case 1:
+		attachinterrupt(interrupt, bintroutine1, eventlist[i].mode); 
+		break;
+	case 2:
+		attachinterrupt(interrupt, bintroutine2, eventlist[i].mode); 
+		break;
+	case 3:
+		attachinterrupt(interrupt, bintroutine3, eventlist[i].mode); 
+		break;
+	default:
+		return 0;
+	}
 
 /* now set it enabled in BASIC */
-  eventlist[i].enabled=1; 
-  return 1;
+	eventlist[i].enabled=1; 
+	return 1;
 }
 
 void disableevent(mem_t pin) {
-  detachinterrupt(pin); 
+	detachinterrupt(pin); 
 }
 
 /* the event BASIC commands */
 void initevents() {
 	mem_t i;
+
 	for(i=0; i<EVENTLISTSIZE; i++) eventlist[i].pin=-1;
 }
 
@@ -7054,50 +7070,50 @@ void xevent() {
 	nexttoken();
   
 /* debug code, display the event list */
-  if (termsymbol()) {
-    for (ax=0; ax<EVENTLISTSIZE; ax++) {
-      if (eventlist[ax].pin >= 0) {
-        outnumber(eventlist[ax].pin); outspc();
-        outnumber(eventlist[ax].mode); outspc();
-        outnumber(eventlist[ax].type); outspc();
-        outnumber(eventlist[ax].linenumber); outspc();
-        outcr();
-      }  
-    }
-    outnumber(nevents); outcr();
-    nexttoken();
-    return;
-  }
+	if (termsymbol()) {
+		for (ax=0; ax<EVENTLISTSIZE; ax++) {
+			if (eventlist[ax].pin >= 0) {
+				outnumber(eventlist[ax].pin); outspc();
+				outnumber(eventlist[ax].mode); outspc();
+				outnumber(eventlist[ax].type); outspc();
+				outnumber(eventlist[ax].linenumber); outspc();
+				outcr();
+			}  
+		}
+		outnumber(nevents); outcr();
+		nexttoken();
+		return;
+	}
 
 /* control of events */
-  if (token == TSTOP) {
-    events_enabled=0;
-    nexttoken();
-    return; 
-  }
+	if (token == TSTOP) {
+		events_enabled=0;
+		nexttoken();
+		return; 
+	}
 
-  if (token == TCONT) {
-    events_enabled=1;
-    nexttoken();
-    return; 
-  }
+	if (token == TCONT) {
+		events_enabled=1;
+		nexttoken();
+		return; 
+	}
 
 /* argument parsing */  
 	parsearguments();
 	if (!USELONGJUMP && er) return;
 
 	switch(args) {
-		case 2:
-			mode=pop();
-      if (mode > 3) {
-        error(EARGS);
-        return;
-      }
-		case 1: 
-			pin=pop();
-			break;
-		default:
+	case 2:
+		mode=pop();
+		if (mode > 3) {
 			error(EARGS);
+			return;
+		}
+	case 1: 
+		pin=pop();
+		break;
+	default:
+		error(EARGS);
 	}
 
 /* followed by termsymbol, GOTO or GOSUB */
@@ -7119,7 +7135,7 @@ void xevent() {
 	} else {
 		disableevent(pin);
 		deleteevent(pin);
-    return;
+		return;
 	}
 
 /* enable the interrupt */
@@ -7135,16 +7151,16 @@ mem_t addevent(mem_t pin, mem_t mode, mem_t type, address_t linenumber) {
 	int i;
 
 /* is the event already there */
-  for (i=0; i<EVENTLISTSIZE; i++) 
-    if (pin == eventlist[i].pin) goto slotfound;
+	for (i=0; i<EVENTLISTSIZE; i++) 
+		if (pin == eventlist[i].pin) goto slotfound;
 
 /* if not, look for a free slot */
-  if (nevents >= EVENTLISTSIZE) return 0;
-  for (i=0; i<EVENTLISTSIZE; i++) 
-    if (eventlist[i].pin == -1) goto slotfound;
+	if (nevents >= EVENTLISTSIZE) return 0;
+	for (i=0; i<EVENTLISTSIZE; i++) 
+    	if (eventlist[i].pin == -1) goto slotfound;
 
 /* no free event slot */
-  return 0;
+	return 0;
 
 /* we have a slot */
 slotfound:
@@ -7164,26 +7180,26 @@ void deleteevent(mem_t pin) {
 /* do we have the event? */
 	i=eventindex(pin);
 
-	if (i>=0){
-    eventlist[i].enabled=0;
-    eventlist[i].pin=-1;
-    eventlist[i].mode=0;
-    eventlist[i].type=0;
-    eventlist[i].linenumber=0;
-    eventlist[i].active=0;
-    nevents--;
+	if (i >= 0) {
+		eventlist[i].enabled=0;
+		eventlist[i].pin=-1;
+		eventlist[i].mode=0;
+		eventlist[i].type=0;
+		eventlist[i].linenumber=0;
+		eventlist[i].active=0;
+		nevents--;
 	}
 }
-
 #endif
 
 /*
  *	BASIC DOS - disk access programs, to control mass storage from BASIC
  */
 
-// string match helper in catalog 
+/* string match helper in catalog */
 char streq(const char *s, char *m){
 	short i=0;
+
 	while (m[i]!=0 && s[i]!=0 && i < SBUFSIZE){
 		if (s[i] != m[i]) return 0;
 		i++;
@@ -7279,58 +7295,57 @@ void xopen() {
 	}
 	switch(stream) {
 #ifdef HASSERIAL1
-		case ISERIAL1:
-			prtclose();
-			if (mode == 0) mode=9600;
-			if (prtopen(filename, mode)) ert=0; else ert=1;
-			break;
+	case ISERIAL1:
+		prtclose();
+		if (mode == 0) mode=9600;
+		if (prtopen(filename, mode)) ert=0; else ert=1;
+		break;
 #endif
 #ifdef FILESYSTEMDRIVER
-		case IFILE:
-			switch (mode) {
-				case 1:
-					ofileclose();
-					if (ofileopen(filename, "w")) ert=0; else ert=1;
-					break;
-				case 2:
-					ofileclose();
-					if (ofileopen(filename, "a")) ert=0; else ert=1;
-					break;
-				default:
-				case 0:
-					ifileclose();
-					if (ifileopen(filename)) ert=0; else ert=1;		
-					break;
-			}
+	case IFILE:
+		switch (mode) {
+		case 1:
+			ofileclose();
+			if (ofileopen(filename, "w")) ert=0; else ert=1;
 			break;
+		case 2:
+			ofileclose();
+			if (ofileopen(filename, "a")) ert=0; else ert=1;
+			break;
+		default:
+		case 0:
+			ifileclose();
+			if (ifileopen(filename)) ert=0; else ert=1;		
+			break;
+		}
+		break;
 #endif
 #ifdef HASRF24
-		case IRADIO:
-			if (mode == 0) {
-				iradioopen(filename);
-			} else if (mode == 1) {
-				oradioopen(filename);
-			}
-			break;
+	case IRADIO:
+		if (mode == 0) {
+			iradioopen(filename);
+		} else if (mode == 1) {
+			oradioopen(filename);
+		}
+		break;
 #endif
 #if (defined(HASWIRE) && defined(HASFILEIO))
-		case IWIRE:
-			wireopen(filename[0], mode);
-			break;
+	case IWIRE:
+		wireopen(filename[0], mode);
+		break;
 #endif
 #ifdef HASMQTT
-		case IMQTT:
-			if (mode == 0) {
-				mqttsubscribe(filename);
-			} else if (mode == 1) {
-				mqttsettopic(filename); 
-			}
-			break;
+	case IMQTT:
+		if (mode == 0) {
+			mqttsubscribe(filename);
+		} else if (mode == 1) {
+			mqttsettopic(filename); 
+		}
+		break;
 #endif
-		default:
-			error(EORANGE);
-			return;
-
+	default:
+		error(EORANGE);
+		return;
 	}
 #endif
 	nexttoken();
@@ -7341,6 +7356,7 @@ void xopen() {
  */
 void xfopen() {
 	short chan = pop();
+
 	if (chan == 9) push(mqttstate()); else push(0);
 }
 
@@ -7371,9 +7387,9 @@ void xclose() {
 	}
 
 	switch(stream) {
-		case IFILE:
-			if (mode == 1 || mode == 2) ofileclose(); else if (mode == 0) ifileclose();
-			break;
+	case IFILE:
+		if (mode == 1 || mode == 2) ofileclose(); else if (mode == 0) ifileclose();
+		break;
 	}
 #endif
 	nexttoken();
@@ -7384,6 +7400,7 @@ void xclose() {
  */
 void xfdisk() {
 #if defined(FILESYSTEMDRIVER)
+
 	nexttoken();
 	parsearguments();
 	if (!USELONGJUMP && er) return;
@@ -7392,7 +7409,7 @@ void xfdisk() {
 	outsc("Format disk (y/N)?");
 	z.a=consins(sbuffer, SBUFSIZE);
 	if (sbuffer[1] == 'y') formatdisk(pop());
-  if (fsstat(1) > 0) outsc("ok\n"); else outsc("fail\n");
+	if (fsstat(1) > 0) outsc("ok\n"); else outsc("fail\n");
 #endif
 	nexttoken();
 }
@@ -7419,134 +7436,135 @@ void xusr() {
 	fn=pop();
 	switch(fn) {
 /* USR(0,y) delivers all the internal constants and variables or the interpreter */		
+	case 0: 
+		switch(arg) {
 		case 0: 
-			switch(arg) {
-				case 0: push(bsystype); break;
-				case 1: /* language set identifier, odd because USR is part of STEFANSEXT*/
-					a=0;
+			push(bsystype); 
+			break;
+		case 1: /* language set identifier, odd because USR is part of STEFANSEXT*/
+			a=0;
 #ifdef HASAPPLE1
-					a|=1;	
+			a|=1;	
 #endif
 #ifdef HASARDUINOIO
-					a|=2;
+			a|=2;
 #endif
 #ifdef HASFILEIO
-					a|=4;
+			a|=4;
 #endif 
 #ifdef HASDARTMOUTH
-					a|=8;
+			a|=8;
 #endif
 #ifdef HASGRAPH
-					a|=16;
+			a|=16;
 #endif
 #ifdef HASDARKARTS
-					a|=32;
+			a|=32;
 #endif
 #ifdef HASIOT
-					a|=64;
+			a|=64;
 #endif
-					push(a);
-					break;
-				case 2: push(0); break; /* reserved for system speed identifier */	
+			push(a); break;
+		case 2: 
+			push(0); break; /* reserved for system speed identifier */	
 
 #ifdef HASFLOAT
-				case 3:	push(-1); break;
+		case 3:	push(-1); break;
 #else 
-				case 3: push(0); break;
+		case 3: push(0); break;
 #endif
-				case 4: push(numsize); break;
-				case 5: push(maxnum); break;
-				case 6: push(addrsize); break;
-				case 7: push(maxaddr); break;
-				case 8: push(strindexsize); break;
-				case 9: push(memsize+1); break;
-				case 10: push(elength()); break;
-				case 11: push(GOSUBDEPTH); break;
-				case 12: push(FORDEPTH); break;
-				case 13: push(STACKSIZE); break;
-				case 14: push(BUFSIZE); break;
-				case 15: push(SBUFSIZE); break;
-				case 16: push(ARRAYSIZEDEF); break;
-				case 17: push(defaultstrdim); break;
+		case 4: push(numsize); break;
+		case 5: push(maxnum); break;
+		case 6: push(addrsize); break;
+		case 7: push(maxaddr); break;
+		case 8: push(strindexsize); break;
+		case 9: push(memsize+1); break;
+		case 10: push(elength()); break;
+		case 11: push(GOSUBDEPTH); break;
+		case 12: push(FORDEPTH); break;
+		case 13: push(STACKSIZE); break;
+		case 14: push(BUFSIZE); break;
+		case 15: push(SBUFSIZE); break;
+		case 16: push(ARRAYSIZEDEF); break;
+		case 17: push(defaultstrdim); break;
 /* - 24 reserved, don't use */
-				case 24: push(top); break;
-				case 25: push(here); break;
-				case 26: push(himem); break;
-				case 27: push(nvars); break;
-				case 28: push(freeRam()); break;
-				case 29: push(gosubsp); break;
-				case 30: push(forsp); break;
-				case 31: push(0); break; /* fnc removed as interpreter variable */
-				case 32: push(sp); break;
+		case 24: push(top); break;
+		case 25: push(here); break;
+		case 26: push(himem); break;
+		case 27: push(nvars); break;
+		case 28: push(freeRam()); break;
+		case 29: push(gosubsp); break;
+		case 30: push(forsp); break;
+		case 31: push(0); break; /* fnc removed as interpreter variable */
+		case 32: push(sp); break;
 #ifdef HASDARTMOUTH
-				case 33: push(data); break;
+		case 33: push(data); break;
 #else
-				case 33: push(0); break;
+		case 33: push(0); break;
 #endif
-        		case 34: push(0); break;
+		case 34: push(0); break;
 #ifdef FASTTICKERPROFILE
-				case 35: push(avgfasttick); break;
+		case 35: push(avgfasttick); break;
 #endif
 /* - 48 reserved, don't use */
-				case 48: push(id); break;
-				case 49: push(idd); break;
-				case 50: push(od); break;
-				case 51: push(odd); break;
-				default: push(0);
-			}
-			break;	
+		case 48: push(id); break;
+		case 49: push(idd); break;
+		case 50: push(od); break;
+		case 51: push(odd); break;
+		default: push(0);
+		}
+		break;	
 /* access to properties of stream 1 - serial	*/
-		case 1:
-			push(serialstat(arg));
-			break;
+	case 1:
+		push(serialstat(arg));
+		break;
 /* access to properties of stream 2 - display and keyboard */			
-		case 2: 
+	case 2: 
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
-			push(dspstat(arg));
+		push(dspstat(arg));
 #elif defined(ARDUINOVGA)
-			push(vgastat(arg));
+		push(vgastat(arg));
 #else 
-			push(0);
+		push(0);
 #endif
-			break;
+		break;
 /* access to properties of stream 4 - printer */
 #ifdef HASSERIAL1		
-		case 4: 
-			push(prtstat(arg));	
-			break;			
+	case 4: 
+		push(prtstat(arg));	
+		break;			
 #endif	
 /* access to properties of stream 7 - wire */
 #if (defined(HASWIRE) && defined(HASFILEIO))		
-		case 7: 
-			push(wirestat(arg));	
-			break;			
+	case 7: 
+		push(wirestat(arg));	
+		break;			
 #endif
 /* access to properties of stream 8 - radio */
 #ifdef HASRF24	
-		case 8: 
-			push(radiostat(arg));	
-			break;			
+	case 8: 
+		push(radiostat(arg));	
+		break;			
 #endif
 /* access to properties of stream 9 - mqtt */
 #ifdef HASMQTT	
-		case 9: 
-			push(mqttstat(arg));	
-			break;			
+	case 9: 
+		push(mqttstat(arg));	
+		break;			
 #endif
 /* access to properties of stream 16 - file */
 #ifdef FILESYSTEMDRIVER	
-		case 16: 
-			push(fsstat(arg));	
-			break;			
+	case 16: 
+		push(fsstat(arg));	
+		break;			
 #endif
-		case 32:
+	case 32:
 /* user function 32 and beyond can be used freely */
 /* all USR values not assigned return 0 */
-		default:
-			if (fn>31) push(usrfunction(fn, v)); else push(0);
+	default:
+		if (fn>31) push(usrfunction(fn, v)); else push(0);
 	}
 }
-
 #endif
 
 /*
@@ -7558,25 +7576,25 @@ void xcall() {
 	if (!expectexpr()) return;
 	r=pop();
 	switch(r) {
-		case 0:
+	case 0:
 /* flush the EEPROM dummy and the output file and then exit */
-			eflush();  
-			ofileclose();
+		eflush();  
+		ofileclose();
 #if defined(POSIXFRAMEBUFFER)
-			vgaend();  /* clean up if you have played with the framebuffer */
+		vgaend();  /* clean up if you have played with the framebuffer */
 #endif
-			restartsystem();
-			break;
+		restartsystem();
+		break;
 /* restart the filesystem - only test code */
-		case 1:
-			fsbegin();
-			break;
+	case 1:
+		fsbegin();
+		break;
 /* call values to 31 reserved! */
-		default:
+	default:
 /* your custom code into usrcall() */
-			if (r > 31) usrcall(r); else { error(EORANGE); return; }
-			nexttoken();
-			return;		
+		if (r > 31) usrcall(r); else { error(EORANGE); return; }
+		nexttoken();
+		return;		
 	}
 }
 
@@ -7659,7 +7677,6 @@ enddatarecord:
 		outnumber(data); outspc(); 
 		outnumber(here); outcr(); 
 	}
-
 }
 
 /*
@@ -7706,46 +7723,46 @@ nextdata:
 /* assign the value to the lhs - somewhar redundant code to assignment */
 
 	switch (token) {
-		case NUMBER:
+	case NUMBER:
 /* a number is stored on the stack */
-			assignnumber(t, xcl, ycl, i, j, ps, x);
-			break;
-		case STRING:	
-			if (t != STRINGVAR) {
+		assignnumber(t, xcl, ycl, i, j, ps, x);
+		break;
+	case STRING:	
+		if (t != STRINGVAR) {
 /* we read a string into a numerical variable */
-				if (sr.address) assignnumber(t, xcl, ycl, i, j, ps, memread2(sr.address));
-				else assignnumber(t, xcl, ycl, i, j, ps, *sr.ir);
-			} else {
+			if (sr.address) assignnumber(t, xcl, ycl, i, j, ps, memread2(sr.address));
+			else assignnumber(t, xcl, ycl, i, j, ps, *sr.ir);
+		} else {
 /* we have all we need in sr */
 /* the destination address of the lefthandside, on the fly create included */
-				getstring(&s, xcl, ycl, i, j);
-				if (!USELONGJUMP && er) return;
+			getstring(&s, xcl, ycl, i, j);
+			if (!USELONGJUMP && er) return;
 
 /* the length of the lefthandside string */
-				lendest=s.length;
+			lendest=s.length;
 
-				if (DEBUG) {
-					outsc("* read stringcode "); outch(xcl); outch(ycl); outcr();
-					outsc("** read source string length "); outnumber(sr.length); outcr();
-					outsc("** read dest string length "); outnumber(s.length); outcr();
-					outsc("** read dest string dimension "); outnumber(s.strdim); outcr();
-				}
+			if (DEBUG) {
+				outsc("* read stringcode "); outch(xcl); outch(ycl); outcr();
+				outsc("** read source string length "); outnumber(sr.length); outcr();
+				outsc("** read dest string length "); outnumber(s.length); outcr();
+				outsc("** read dest string dimension "); outnumber(s.strdim); outcr();
+			}
 
 /* does the source string fit into the destination */
-				if ((i+sr.length-1) > s.strdim) { error(EORANGE); return; }
+			if ((i+sr.length-1) > s.strdim) { error(EORANGE); return; }
 
 /* now write the string */
-				assignstring(&s, &sr, sr.length);
+			assignstring(&s, &sr, sr.length);
 
 /* classical Apple 1 behaviour is string truncation in substring logic */
-				newlength = i+sr.length-1;	
-				setstringlength(xcl, ycl, newlength, j);
+			newlength = i+sr.length-1;	
+			setstringlength(xcl, ycl, newlength, j);
 
-			}
-			break;
-		default:
-			error(EUNKNOWN);
-			return;
+		}
+		break;
+	default:
+		error(EUNKNOWN);
+		return;
 	}
 
 /* next list item */
@@ -7795,7 +7812,6 @@ void xrestore(){
 
 /* token is poisoned after nextdatarecord, need to cure this here */
 	nexttoken();
-
 }
 
 /*
@@ -7951,8 +7967,7 @@ void xon(){
 		}
 		args--;
 	}
-
-	if (er) return;
+	if (!USELONGJUMP && er) return;
 	
 	if (DEBUG) { outsc("** in on found line as target "); outnumber(line); outcr(); }
 /* no line found to jump to */
@@ -7975,15 +7990,12 @@ void xon(){
 	/* removed to avoid blocking in AFTER, EVERY and EVENT infinite loops */
 	/* nexttoken(); */
 }
-
 #endif
 
 /* the structured BASIC extensions, WHILE, UNTIL, and SWITCH */
 
 #ifdef HASSTRUCT
-
 void xwhile() {
-
 /* what? */
 	if (DEBUG) { outsc("** in while "); outnumber(here); outspc(); outnumber(token); outcr(); }
 
@@ -8000,6 +8012,7 @@ void xwhile() {
 	if (!pop()) {
 		popforstack();
 		if (st == SINT) bi=ibuffer+here;
+		nexttoken();
 		findbraket(TWHILE, TWEND);
 		nexttoken();
 	}
@@ -8019,10 +8032,7 @@ void xwend() {
 	if (st == SINT) bi=ibuffer+here;
 
 /* is this a while loop */
-	if (token != TWHILE ) {
-		error(TWEND);
-		return;
-	}
+	if (token != TWHILE ) { error(TWEND); return; }
 
 /* run the loop again - same code as xwhile */
 	if (st == SINT) here=bi-ibuffer;
@@ -8051,7 +8061,6 @@ void xrepeat() {
 
 /* we are done here */
 	nexttoken();
-
 }
 
 void xuntil() {
@@ -8089,7 +8098,6 @@ void xuntil() {
 	}
 
 	nexttoken(); /* a bit of evil here, hobling over termsymbols */
-
 }
 
 void xswitch() {
@@ -8199,275 +8207,275 @@ void statement(){
 		if (debuglevel == 1) { debugtoken(); outcr(); }
 #endif
 		switch(token){
-			case ':':
-			case LINENUMBER:
-				nexttoken();
-				break;
+		case ':':
+		case LINENUMBER:
+			nexttoken();
+			break;
 /* Palo Alto BASIC language set + BREAK */
-			case TPRINT:
-				xprint();
+		case TPRINT:
+			xprint();
+			break;
+		case TLET:
+			nexttoken();
+			if ((token != ARRAYVAR) && (token != STRINGVAR) && (token != VARIABLE)) {
+				error(EUNKNOWN);
 				break;
-			case TLET:
-				nexttoken();
-				if ((token != ARRAYVAR) && (token != STRINGVAR) && (token != VARIABLE)) {
-					error(EUNKNOWN);
-					break;
-				}
-			case STRINGVAR:
-			case ARRAYVAR:
-			case VARIABLE:	
-				assignment();
+			}
+		case STRINGVAR:
+		case ARRAYVAR:
+		case VARIABLE:	
+			assignment();
+			break;
+		case TINPUT:
+			xinput();
+			break;
+		case TRETURN:
+			xreturn();
+			break;
+		case TGOSUB:
+		case TGOTO:
+			xgoto();	
+			break;
+		case TIF:
+			xif();
+			break;
+		case TFOR:
+			xfor();
+			break;		
+		case TNEXT:
+			xnext();
+			break;
+		case TBREAK:
+			xbreak();
+			break;
+		case TSTOP:
+		case TEND:		/* return here because new input is needed, end as a block end is handles elsewhere */
+			*ibuffer=0;	/* clear ibuffer - this is a hack */
+			st=SINT;		/* switch to interactive mode */
+			eflush(); 	/* if there is an EEPROM dummy, flush it here (protects flash storage!) */
+			ofileclose();
+			return;
+		case TLIST:		
+			xlist();
+			break;
+		case TNEW: 		/* return here because new input is needed */
+			xnew();
+			return;
+		case TCONT:		/* cont behaves differently in interactive and in run mode */
+			if (st==SRUN || st==SERUN) {
+				xcont();
 				break;
-			case TINPUT:
-				xinput();
-				break;
-			case TRETURN:
-				xreturn();
-				break;
-			case TGOSUB:
-			case TGOTO:
-				xgoto();	
-				break;
-			case TIF:
-				xif();
-				break;
-			case TFOR:
-				xfor();
-				break;		
-			case TNEXT:
-				xnext();
-				break;
-			case TBREAK:
-				xbreak();
-				break;
-			case TSTOP:
-			case TEND:		/* return here because new input is needed, end as a block end is handles elsewhere */
-				*ibuffer=0;	/* clear ibuffer - this is a hack */
-				st=SINT;		/* switch to interactive mode */
-				eflush(); 	/* if there is an EEPROM dummy, flush it here (protects flash storage!) */
-				ofileclose();
-				return;
-			case TLIST:		
-				xlist();
-				break;
-			case TNEW: 		/* return here because new input is needed */
-				xnew();
-				return;
-			case TCONT:		/* cont behaves differently in interactive and in run mode */
-				if (st==SRUN || st==SERUN) {
-					xcont();
-					break;
-				}		/* no break here, because interactively CONT=RUN minus CLR */
-			case TRUN:
-				xrun();
-				return;	
-			case TREM:
-				xrem();
-				break;
+			}		/* no break here, because interactively CONT=RUN minus CLR */
+		case TRUN:
+			xrun();
+			return;	
+		case TREM:
+			xrem();
+			break;
 /* Apple 1 language set */
 #ifdef HASAPPLE1
-			case TDIM:
-				xdim();
-				break;
-			case TCLR:
-				xclr();
-				break;
-			case TTAB:
-				xtab();
-				break;	
-			case TPOKE:
-				xpoke();
-				break;
+		case TDIM:
+			xdim();
+			break;
+		case TCLR:
+			xclr();
+			break;
+		case TTAB:
+			xtab();
+			break;	
+		case TPOKE:
+			xpoke();
+			break;
 #endif
 /* Stefan's tinybasic additions */
-			case TSAVE:
-				xsave();
-				break;
-			case TLOAD: 
-				xload(0);
-				if (st == SINT) return; /* interactive load doesn't like break as the ibuffer is messed up; */
-				else break;
+		case TSAVE:
+			xsave();
+			break;
+		case TLOAD: 
+			xload(0);
+			if (st == SINT) return; /* interactive load doesn't like break as the ibuffer is messed up; */
+			else break;
 #ifdef HASSTEFANSEXT
-			case TDUMP:
-				xdump();
-				break;	
-			case TGET:
-				xget();
-				break;
-			case TPUT:
-				xput();
-				break;			
-			case TSET:
-				xset();
-				break;
-			case TNETSTAT:
-				xnetstat();
-				break;
-			case TCLS:
-				xc=od; 
+		case TDUMP:
+			xdump();
+			break;	
+		case TGET:
+			xget();
+			break;
+		case TPUT:
+			xput();
+			break;			
+		case TSET:
+			xset();
+			break;
+		case TNETSTAT:
+			xnetstat();
+			break;
+		case TCLS:
+			xc=od; 
 /* if we have a display it is the default for CLS */
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)		
-				od=ODSP;
+			od=ODSP;
 #endif
-				outch(12);
-				od=xc;
-				nexttoken();
-				break;
-			case TLOCATE:
-				xlocate();
-				break;
+			outch(12);
+			od=xc;
+			nexttoken();
+			break;
+		case TLOCATE:
+			xlocate();
+			break;
 /* low level functions as part of Stefan's extension */
-			case TCALL:
-				xcall();
-				break;	
+		case TCALL:
+			xcall();
+			break;	
 #endif
 /* Arduino IO */
 #ifdef HASARDUINOIO
-			case TDWRITE:
-				xdwrite();
-				break;	
-			case TAWRITE:
-				xawrite();
-				break;
-			case TPINM:
-				xpinm();
-				break;
-			case TDELAY:
-				xdelay();
-				break;
+		case TDWRITE:
+			xdwrite();
+			break;	
+		case TAWRITE:
+			xawrite();
+			break;
+		case TPINM:
+			xpinm();
+			break;
+		case TDELAY:
+			xdelay();
+			break;
 #ifdef HASTONE
-			case TTONE:
-				xtone();
-				break;	
+		case TTONE:
+			xtone();
+			break;	
 #endif
 #ifdef HASPULSE
-			case TPULSE:
-				xpulse();
-				break;
+		case TPULSE:
+			xpulse();
+			break;
 #endif
 #endif
 /* BASIC DOS function */
 #ifdef HASFILEIO
-			case TCATALOG:
-				xcatalog();
-				break;
-			case TDELETE:
-				xdelete();
-				break;
-			case TOPEN:
-				xopen();
-				break;
-			case TCLOSE:
-				xclose();
-				break;
-			case TFDISK:
-				xfdisk();
-				break;
+		case TCATALOG:
+			xcatalog();
+			break;
+		case TDELETE:
+			xdelete();
+			break;
+		case TOPEN:
+			xopen();
+			break;
+		case TCLOSE:
+			xclose();
+			break;
+		case TFDISK:
+			xfdisk();
+			break;
 #endif
 /* graphics */
 #ifdef HASGRAPH
-			case TCOLOR:
-				xcolor();
-				break;
-			case TPLOT:
-				xplot();
-				break;
-			case TLINE:
-				xline();
-				break;
-			case TRECT:
-				xrect();
-				break;
-			case TCIRCLE:
-				xcircle();
-				break;
-			case TFRECT:
-				xfrect();
-				break;
-			case TFCIRCLE:
-				xfcircle();
-				break;
+		case TCOLOR:
+			xcolor();
+			break;
+		case TPLOT:
+			xplot();
+			break;
+		case TLINE:
+			xline();
+			break;
+		case TRECT:
+			xrect();
+			break;
+		case TCIRCLE:
+			xcircle();
+			break;
+		case TFRECT:
+			xfrect();
+			break;
+		case TFCIRCLE:
+			xfcircle();
+			break;
 #endif
 #ifdef HASDARTMOUTH
-			case TDATA:
-				xdata();
-				break;
-			case TREAD:
-				xread();
-				break;
-			case TRESTORE:
-				xrestore();
-				break;
-			case TDEF:
-				xdef();
-				break;
-			case TON:
-				xon();
-				break;
+		case TDATA:
+			xdata();
+			break;
+		case TREAD:
+			xread();
+			break;
+		case TRESTORE:
+			xrestore();
+			break;
+		case TDEF:
+			xdef();
+			break;
+		case TON:
+			xon();
+			break;
 #endif
 #ifdef HASSTEFANSEXT
-			case TELSE:
-				xelse();
-				break;
+		case TELSE:
+			xelse();
+			break;
 #endif
 #ifdef HASDARKARTS
-			case TEVAL:
-				xeval();
-				break;
+		case TEVAL:
+			xeval();
+			break;
 #endif
 #ifdef HASERRORHANDLING
-			case TERROR:
-				xerror();
-				break;
+		case TERROR:
+			xerror();
+			break;
 #endif
 #ifdef HASIOT
-			case TSLEEP:
-				xsleep();
-				break;	
-			case TWIRE:
-				xwire();
-				break;
+		case TSLEEP:
+			xsleep();
+			break;	
+		case TWIRE:
+			xwire();
+			break;
 #endif
 #ifdef HASTIMER
-			case TAFTER:
-			case TEVERY:
-				xtimer();
-				break;
+		case TAFTER:
+		case TEVERY:
+			xtimer();
+			break;
 #endif
 #ifdef HASEVENTS
-			case TEVENT:
-				xevent();
-				break;
+		case TEVENT:
+			xevent();
+			break;
 #endif
 #ifdef HASSTRUCT
-			case TWHILE:
-				xwhile();
-				break;
-			case TWEND:
-				xwend();
-				break;
-			case TREPEAT:
-				xrepeat();
-				break;				
-			case TUNTIL:
-				xuntil();
-				break;				
-			case TSWITCH:
-				xswitch();
-				break;	
-			case TCASE:
-				xcase();
-				break;	
-			case TSWEND:
-			case TDO:
-			case TDEND:
-				nexttoken();
-				break;
+		case TWHILE:
+			xwhile();
+			break;
+		case TWEND:
+			xwend();
+			break;
+		case TREPEAT:
+			xrepeat();
+			break;				
+		case TUNTIL:
+			xuntil();
+			break;				
+		case TSWITCH:
+			xswitch();
+			break;	
+		case TCASE:
+			xcase();
+			break;	
+		case TSWEND:
+		case TDO:
+		case TDEND:
+			nexttoken();
+			break;
 #endif
-			default:
+		default:
 /*  strict syntax checking */
-				error(EUNKNOWN);
-				return;
+			error(EUNKNOWN);
+			return;
 		}
 
 
@@ -8592,26 +8600,26 @@ errorhandler:
 #ifdef HASEVENTS
 		if ((token == LINENUMBER || token == ':' || token == TNEXT) && (st == SERUN || st == SRUN)) {
 /* interrupts */
-      if (events_enabled) {
-        for (ax=0; ax<EVENTLISTSIZE; ax++) {
-          if (eventlist[ievent].pin && eventlist[ievent].enabled && eventlist[ievent].active) {
-            if (eventlist[ievent].type == TGOSUB) {
-              if (token == TNEXT || token == ':') here--;
+			if (events_enabled) {
+				for (ax=0; ax<EVENTLISTSIZE; ax++) {
+					if (eventlist[ievent].pin && eventlist[ievent].enabled && eventlist[ievent].active) {
+						if (eventlist[ievent].type == TGOSUB) {
+							if (token == TNEXT || token == ':') here--;
 							if (token == LINENUMBER) here-=(1+sizeof(address_t));	
 							pushgosubstack(TEVENT);
-              if (er) return;
-            }
-            findline(eventlist[ievent].linenumber);  
-            if (er) return; 
-            eventlist[ievent].active=0;
-            enableevent(eventlist[ievent].pin); /* events are disabled in the interrupt function, here they are activated again */
-            events_enabled=0; /* once we have jumped, we keep the events in BASIC off until reenabled by the program*/
-            break;
-          }
-          ievent=(ievent+1)%EVENTLISTSIZE;
-        }
-      }
-    }
+							if (er) return;
+						}
+						findline(eventlist[ievent].linenumber);  
+						if (er) return; 
+						eventlist[ievent].active=0;
+						enableevent(eventlist[ievent].pin); /* events are disabled in the interrupt function, here they are activated again */
+						events_enabled=0; /* once we have jumped, we keep the events in BASIC off until reenabled by the program*/
+						break;
+					}
+					ievent=(ievent+1)%EVENTLISTSIZE;
+				}
+			}
+		}
 #endif			
 	}
 }
@@ -8636,7 +8644,7 @@ void setup() {
 #endif
 
 /* setup for all non BASIC stuff */
-  bsetup();
+	bsetup();
 
 /* get the BASIC memory, either as memory array with
 	ballocmem() or as an SPI serical memory */
@@ -8655,14 +8663,12 @@ void setup() {
 #endif
 
 #ifndef EEPROMMEMINTERFACE
-
 	if (DEBUG) { outsc("** on startup, memsize is "); outnumber(memsize); outcr(); }
 
 /* be ready for a new program if we run on RAM*/
  	xnew();	
 
 	if (DEBUG) { outsc("** on startup, ran xnew "); outcr(); }
-
 #else
 /* if we run on an EEPROM system, more work is needed */
 	if (eread(0) == 0 || eread(0) == 1) { /* have we stored a program and don't do new */
@@ -8690,7 +8696,6 @@ void setup() {
 
 /* activate the BREAKPIN */
 	breakpinbegin();
-
 }
 
 /* 
