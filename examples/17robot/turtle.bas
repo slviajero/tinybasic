@@ -1,9 +1,12 @@
 10 REM "engine code, the pins of the Arduino motor shield"
 20 DA=12: SA=3: BA=9
 30 DB=13: SB=11: BB=8
+40 TP=4: EP=5
 100 REM "set the pins, Dx is direction, Bx is break"
 110 PINM DA,1: PINM BA,1
 120 PINM DB,1: PINM BB,1
+130 AWRITE SA,0: AWRITE SB,0
+140 PINM TP, 1: PINM EP, 0
 200 REM "some parameters, TT is step time, S is speed ie voltage"
 210 TT=5
 220 S=140
@@ -32,5 +35,9 @@
 8310 DWRITE BA,0: DWRITE BB,0
 8320 DELAY 100+TT*100
 8330 DWRITE BA,1: DWRITE BB,1
-8340 WEND
+8400 REM "Report the distance"
+8410 DWRITE TP,0: PULSE TP,10
+8420 E=PULSE(EP,1,100)/29*100/2
+8430 PRINT "Distance:",E
+8500 WEND
 8900 RETURN
