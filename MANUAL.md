@@ -2,7 +2,7 @@
 
 ## Version information
 
-This manual is for the released version 1.3 of Stefan's IoT BASIC interpreter. 
+This manual is for the released version 1.4 and 2.0 of Stefan's IoT BASIC interpreter. 
 
 ## BASIC language sets
 
@@ -1529,7 +1529,7 @@ GET &2, A
 
 will contain either 0 if no key is pressed or the ASCII code of the key. The command will wait until the key is released. Keypad input is unbuffered. No interrupt or timer function is currently implemented on keypads. This will change for future releases of the code. 
 
-ASCII output to a display is sent through the output stream 2. Displays are handled by a generic display driver. For low memory systems the display driver supports a non scrolling / unbuffered mode. Only a few basic display functions are supported. If there is enough memory, the display driver can be compiled in scrolling / buffered mode. For the the option DISPLAYCANSCROLL has to be defined in hardware-arduino.h. All characters are buffered in a display buffer which can be accessed byte wise. 
+ASCII output to a display is sent through the output stream 2. Displays are handled by a generic display driver. For low memory systems the display driver supports a non scrolling / unbuffered mode. Only a few basic display functions are supported. If there is enough memory, the display driver can be compiled in scrolling / buffered mode. For the the option DISPLAYCANSCROLL has to be defined in hardware-arduino.h (1.x) or hardware.h (2.x). All characters are buffered in a display buffer which can be accessed byte wise. 
 
 In non buffered mode the display driver has the following functions: 
 
@@ -1701,7 +1701,7 @@ Color is set with ESC c.
 
 ### Secondary serial stream
 
-The secondary serial stream is addressed through stream number 4. For microcontroller platforms with a hardware secondary serial port, the Serial1 object on the Arduino library is used. This can be changed in hardware-arduino.h by modifiying the functions beginning with prt. For microcontrollers without multiple hardware serial ports Softwareserial is used. The RX and TX pins are set through the macro SOFTSERIALRX and SOFTSERIALTX. Default are pin 11 and 12. This conflicts with the SPI pins. If SPI is to be used the soft serial pins have to be changed.
+The secondary serial stream is addressed through stream number 4. For microcontroller platforms with a hardware secondary serial port, the Serial1 object on the Arduino library is used. This can be changed in hardware-arduino.h (1.x) or hardware.h (2.x) by modifiying the functions beginning with prt. For microcontrollers without multiple hardware serial ports Softwareserial is used. The RX and TX pins are set through the macro SOFTSERIALRX and SOFTSERIALTX. Default are pin 11 and 12. This conflicts with the SPI pins. If SPI is to be used the soft serial pins have to be changed.
 
 Default baudrate on the secondary serial port is 9600 baud.
 
@@ -1923,7 +1923,7 @@ Currently the built-in clocks of ESP32, STM32 and Arduino MKR and I2C clocks DS1
 
 Real time clock support for I2C is now built-in. No external library is used for this. For STM32 and Ardunio MKR the clock and low power libraries are automatically used by BASIC. 
 
-For systems without a hardware clock ARDUINORTCEMULATION can be activated in hardware-ardunio.h. It uses millis() to emulate a Unix style real time clock.
+For systems without a hardware clock ARDUINORTCEMULATION can be activated in hardware-ardunio.h (1.x) or hardware.h (2.x). It uses millis() to emulate a Unix style real time clock.
 
 ## Special systems and hardware components
 
@@ -2067,7 +2067,7 @@ Parameters changed with SET will stay active until the system is rebooted or the
 
 SET 0,n switches on the debug mode. The token stream in the statement loop is displayed. SET 0,0 resets the interpreter to normal mode. SET 0,1 shows the token stream of the statement loop. SET 0,2 shows the entire token stream, including arithmetic operations, SET 0,3 displays the memory addresses with this data. The latter two settings produce a lot of output and are meant for interpreter testing. SET 0,-1 will switch on the REM pribt mode. In this mode the arguments all REM commands will be printed but no other debug output. This makes it easier to identify the location of an error.
 
-SET 1,1 activates the autorun mode of the EEPROM. SET 1,0 resets the autorun mode. SET 1,255 marks the EEPROM as not to contain a program. SET 1,1 should only be used if a program was stored with SAVE "!" to the EEPROM. There is no safety net here. A running program in EEPROM autorun mode can always interrupted by sending the break character. This is '#' by default and defined in the BREAKCHAR macro. Alternatively the BREAKPIN macro can be defined in hardware-arduino.h. This this case the pin it is set to will interrupt the program if set to low.
+SET 1,1 activates the autorun mode of the EEPROM. SET 1,0 resets the autorun mode. SET 1,255 marks the EEPROM as not to contain a program. SET 1,1 should only be used if a program was stored with SAVE "!" to the EEPROM. There is no safety net here. A running program in EEPROM autorun mode can always interrupted by sending the break character. This is '#' by default and defined in the BREAKCHAR macro. Alternatively the BREAKPIN macro can be defined in hardware-arduino.h (1.x) or hardware.h (2.x). This this case the pin it is set to will interrupt the program if set to low.
 
 SET 2,1 sets the output to display mode, SET 2,0 to serial mode. This is a deprecated feature. Using @O is a better way to do this.
 
@@ -2129,7 +2129,7 @@ If BREAKCHAR is defined in the BASIC code, this character will stop the program 
 
 If BREAKPIN is defined, the interpreter will stop once this pin is pulled to low. By default, BREAKPIN is not defined, i.e. there is no BREAKPIN. This mechanism is for use cases where using BREAKCHAR is not practical. One can implement a separate stop button with it. 
 
-If HASSIGNALS is defined in hardware-posix.h then Ctrl-C will stop a running program. This does not work on Arduino because there are no POSIX signals on the platform. This feature is alpha and currently only briefly tested on Mac and Windows. 
+If HASSIGNALS is defined in hardware-posix.h (1.x) or hardware.h (2.x) then Ctrl-C will stop a running program. This does not work on Arduino because there are no POSIX signals on the platform. This feature is alpha and currently only briefly tested on Mac and Windows. 
 
 ### Extending basic 
 
