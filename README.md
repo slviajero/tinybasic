@@ -30,30 +30,41 @@ Microcontroller specific features are EEPROM access, EEPROM program storage and 
 
 ## Files in this archive 
 
-basic.c is the program source. basic.h is the header file. 
+Basic1: The 1.x version of the interpreter. This version is no longer supported. I do bugfixes now and then. 
 
-IoTBasic/IoTBasic.ino is a copy of basic.c. The Arduino and POSIX source code is the same. 
+Files of the 1.x versions
+- basic.c is the program source
+- basic.h is the header file
+- IoTBasic/IoTBasic.ino is a copy of basic.c
+- hardware-arduino.h is the hardware definition file for Arduino 
+- hardware-posix.h is the hardware definition file for Posix
+- TinyVT52 is a VT52 terminal emulation for Arduinos, this is unfinished
 
-In addition to this file and basic.h you need a hardware definition file.
 
-For the Arduino IDE place hardware-arduino.h in your Arduino sketch directory. These are the platform specific definitions and a thin OS like layer for hardware abstraction. All platforms from tiny AVR168 up to the powerful ESP32, RP2040 and STM32 are covered by this one file. Actually this is not only a header but really a complete library. I will rewrite this code in the future and make it a library.
+Basic2: The 2.x version. It separates the interpreter from the runtime envirnoment. There is a Arduino IDE version runtime.cpp and a Posix version runtime.c. The interface of the runtime environment for both platforms is idential just as the BASIC interpreter file basic.c or IotBasic.ino.
 
-For POSIX OSes you need hardware-posix.h in your working directory. GCC compiles BASIC for Linux, Mac (primary dev platform), Windows (with MINGW), and MSDOS (Turbo C 2).
+Files of the 2.x version
+- basic.c identical to IoTBasic/IoTBasic.ino are identical, this is the interpreter
+- basic.h is the header of the interpreter
+- language.h is the configuration file for the language features
+- Posix/runtime.c is the runtime environment for Posix environment
+- Posix/hardware.h is the hardware configuration for Posix
+- IoTBasic/runtime.cpp is the runtime environment for Arduino
+- IoTBasic/hardware.h is the hardware configuration for Arduino
+- runtime.h is identical for all platforms, it is the interface definition of the runtime code
 
-utility/monitor.py is a little serial monitor to interact with the running BASIC interpreter on the Arduino. It allows very simple loading of files into the Arduino and saving of output to a file on a computer. utility/arduinoterm is a wrapper of monitor.py.
+To compile Basic2 you would check and edit hardware.h and language.h for your platform to set the hardware and language features. On Posix you would then do 
 
-utility/dosify converts the code to tcc 2.01 ready format to be compiled in DOSBOX.
+gcc basic.c runtime.c -lm
+
+while on Arduino you would compile and upload in the IDE.
+
+
+utility/dosify converts the code to tcc 2.01 ready format to be compiled in DOSBOX, Basic2 is not tested on DOS.
 
 examples contains a lot of demo programs and games ported to BASIC.
 
 MANUAL.md is the BASIC manual.
-
-The folder TinybasicArduino is kept for compatibility purposes. This is my working code. Things may be broken here.
-
-TinyVT52 is a VT52 terminal emulation for Arduinos.
-
-Version 2 of the BASIC interpreter is in preparation. Look into Basic2 for more. 
-
 
 ## Software and documentation
 
@@ -109,5 +120,5 @@ Please consult the wiki https://github.com/slviajero/tinybasic/wiki/Hardware-Pla
 
 ## What's next
 
-More IoT functionality. More devices. Code cleanup. Getting version 1.4. released. Then more cloud / networking functions.
+Code cleanup of the 2.x versions. Release 2.0.
 
