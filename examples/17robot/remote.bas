@@ -1,0 +1,14 @@
+10 OPEN &9,"littlerobot/data"
+20 OPEN &9,"littlerobot/command",1
+30 S=0
+40 WHILE -1
+50 GET &2,C
+60 SWITCH C
+70 CASE "1": PRINT &9,"l"
+80 CASE "2": PRINT &9,"r"
+90 CASE "3": PRINT &9,"b"
+100 CASE "4": PRINT &9,"f"
+110 SWEND
+120 IF AVAIL(9)=0 THEN CONT
+130 INPUT &9,A$: IF A$<>"" THEN CLS: PRINT &2,INT(VAL(A$))
+140 WEND
