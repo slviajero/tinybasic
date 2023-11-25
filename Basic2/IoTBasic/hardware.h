@@ -97,11 +97,12 @@
 #undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#undef ARDUINOMQTT
+#undef ARDUINOMQTT 
 #undef ARDUINOSENSORS
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
 #undef STANDALONESECONDSERIAL
+//#define ALTSERIAL Serial1
 
 /* experimental features, don't use unless you know the code */
 /* 
@@ -172,9 +173,6 @@
 #undef RP2040BOARD2
 #undef ESP32BOARD
 #undef MKR1010BOARD
-
-#define ALTSERIAL Serial1
-
 
 /* the default EEPROM dummy size */
 #define EEPROMSIZE 1024
@@ -737,6 +735,17 @@
 #endif
 
 /* 
+ *  heuristic for LCD shield pins, real evil
+ *  default for Arduinos is LCDSHIELDPINS 8,9,4,5,6,7
+ *  
+ *  ESP8266_WEMOS_D1R1 are the Arduino formfactor ESP8266 board
+ *  
+ */
+#ifdef ESP8266_WEMOS_D1R1
+#define LCDSHIELDPINS 0,2,4,14,12,13
+#endif
+ 
+/* 
  * A LCD display connnected via I2C, uses the standard 
  * Arduino I2C display library.
  */ 
@@ -885,8 +894,6 @@
 #define ZX81KEYBOARD
 #endif
 
-
-
 /* 
  * Arduino Real Time clock. The interface here offers the values as number_t 
  * combining all values. 
@@ -1019,3 +1026,9 @@
  * Arduinos don't have them
  */
 #undef HASARGS
+
+
+
+
+// #define LCDSHIELDPINS 8,9,4,5,6,7
+#define LCDSHIELDPINS 0,2,4,14,12,13
