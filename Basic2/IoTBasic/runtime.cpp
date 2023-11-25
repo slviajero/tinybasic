@@ -1008,8 +1008,15 @@ uint8_t rgbtovga(uint8_t r, uint8_t g, uint8_t b) {
  *  RS, EN, d4, d5, d6, d7; 
  * backlight on pin 10;
  */
+
+ 
 #ifndef LCDSHIELDPINS 
+#ifdef ARDUINO_ESP8266_WEMOS_D1R1
+#define LCDSHIELDPINS 0,2,4,14,12,13
+#define LCD3VOLTS
+#else
 #define LCDSHIELDPINS 8,9,4,5,6,7
+#endif
 #endif
 const int dsp_rows=2;
 const int dsp_columns=16;
@@ -1027,12 +1034,21 @@ uint8_t dspident() {return 0; }
 /* elementary keypad reader left=1, right=2, up=3, down=4, select=<lf> */
 char keypadread(){
 	int a=analogRead(A0);
+#ifndef LCD3VOLTS
 	if (a >= 850) return 0;
 	else if (a>=600 && a<850) return 10;
 	else if (a>=400 && a<600) return '1'; 
 	else if (a>=200 && a<400) return '3';
 	else if (a>=60  && a<200) return '4';
 	else return '2';
+#else
+  if (a >= 1000) return 0;
+  else if (a>=900 && a<1000) return 10;
+  else if (a>=700 && a<900) return '1'; 
+  else if (a>=400 && a<700) return '3';
+  else if (a>=100  && a<400) return '4';
+  else return '2';
+#endif
 }
 /* repeat mode of the keypad - off means block, on means return immediately */
 uint8_t kbdrepeat=0;

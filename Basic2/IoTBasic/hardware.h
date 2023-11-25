@@ -72,7 +72,7 @@
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
+#define DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
@@ -80,14 +80,14 @@
 #undef ARDUINOMCUFRIEND
 #undef ARDUINOEDP47
 #undef ARDUINOGRAPHDUMMY
-#undef LCDSHIELD
+#define LCDSHIELD
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #define ARDUINOEEPROM
 #undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
-#undef ESPSPIFFS
+#define ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef STM32SDIO
 #undef ARDUINORTC
@@ -97,7 +97,7 @@
 #undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#undef ARDUINOMQTT 
+#define ARDUINOMQTT 
 #undef ARDUINOSENSORS
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
@@ -733,17 +733,6 @@
 #undef DISPLAYHASCOLOR
 #undef DISPLAYHASGRAPH
 #endif
-
-/* 
- *  heuristic for LCD shield pins, real evil
- *  default for Arduinos is LCDSHIELDPINS 8,9,4,5,6,7
- *  
- *  ESP8266_WEMOS_D1R1 are the Arduino formfactor ESP8266 board
- *  
- */
-#ifdef ESP8266_WEMOS_D1R1
-#define LCDSHIELDPINS 0,2,4,14,12,13
-#endif
  
 /* 
  * A LCD display connnected via I2C, uses the standard 
@@ -1026,9 +1015,3 @@
  * Arduinos don't have them
  */
 #undef HASARGS
-
-
-
-
-// #define LCDSHIELDPINS 8,9,4,5,6,7
-#define LCDSHIELDPINS 0,2,4,14,12,13
