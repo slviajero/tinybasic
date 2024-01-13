@@ -2102,17 +2102,17 @@ char dspwaitonscroll() {
 /* code for low memory simple display access */
 #else 
 /* buffer access functions */
-char dspget(uint16_t i) { return 0; }
+dspbuffer_t dspget(uint16_t i) { return 0; }
 
-char dspgetrc(uint8_t r, uint8_t c) { return 0; }
+dspbuffer_t dspgetrc(uint8_t r, uint8_t c) { return 0; }
 
-char dspgetc(uint8_t c) { return 0; }
+dspbuffer_t dspgetc(uint8_t c) { return 0; }
 
-void dspsetxy(char ch, uint8_t c, uint8_t r) {
+void dspsetxy(dspbuffer_t ch, uint8_t c, uint8_t r) {
   if (ch != 0) dspprintchar(ch, c, r); else dspprintchar(' ', c, r);
 }
 
-void dspset(uint16_t i, char ch) {
+void dspset(uint16_t i, dspbuffer_t ch) {
   uint8_t c=i%dsp_columns;
   uint8_t r=i/dsp_columns;
   dspsetxy(ch, c, r);
