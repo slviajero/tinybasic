@@ -357,6 +357,7 @@ const token_t tokens[] PROGMEM = {
 	0
 };
 
+/* experimental, do not use right now */
 const bworkfunction_t workfunctions[] PROGMEM = { 
 	0, 0, 0, xprint, 0
 };
@@ -575,7 +576,7 @@ address_t bfinda, bfindz;
  * a variable for string to numerical conversion, 
  * telling you were the number ended 
  */
-int vlength;
+address_t vlength;
 
 /* the timer code - very simple needs to to to a struct */
 /* timer type */
@@ -635,17 +636,19 @@ void bmillis() {
 /*
  *  Determine the possible basic memory size.
  *	using malloc causes some overhead which can be relevant on the smaller  
- *	boards. set MEMSIZE instead to a static value. In this case ballocmem 
+ *	boards. 
+ *
+ * 	Set MEMSIZE instead to a static value. In this case ballocmem 
  *	just returns the static MEMSIZE.
  * 
- * if SPIRAMINTERFACE is defined, we use the memory from a serial RAM and dont 
- * allocate it here at all.
+ *	If SPIRAMINTERFACE is defined, we use the memory from a serial RAM and dont 
+ *	allocate it here at all.
  *
  */
 #if MEMSIZE == 0 && !(defined(SPIRAMINTERFACE))
 address_t ballocmem() { 
 
-/* on most platforms we know the free memory for BASIC */
+/* on most platforms we know the free memory for BASIC, this comes from runtime */
 	long m=freememorysize();
 
 /* we allocate as much as address_t can handle */
@@ -671,9 +674,13 @@ address_t ballocmem(){ return MEMSIZE-1; };
  */
 
 /*
- * eeprom load / save / autorun functions 
- * needed for SAVE and LOAD to an EEPROM
- * autorun is generic
+ *	Eeprom load / save / autorun functions 
+ *	needed for SAVE and LOAD to an EEPROM
+ *	autorun is generic.
+ * 
+ *	The eeprom is accessed through the runtime functions 
+ * 	elength(), eupdate(), ewrite() and eflush();
+ * 	
  */
 
 /* save a file to EEPROM, disabled if we use the EEPROM directly */
@@ -681,8 +688,9 @@ void esave() {
 #ifndef EEPROMMEMINTERFACE
 	address_t a=0;
 	
+	/* does the program fit into the eeprom */
 	if (top+eheadersize < elength()) {
-		a=0;
+
 		/* EEPROM per default is 255, 0 indicates that there is a program */
 		eupdate(a++, 0); 
 
@@ -691,17 +699,20 @@ void esave() {
 		esetnumber(a, addrsize);
 		a+=addrsize;
 
+		/* store the program */
 		while (a < top+eheadersize){
 			eupdate(a, memread2(a-eheadersize));
 			a++;
 		}
 		eupdate(a++,0);
+
+		/* needed on I2C EEPROM and other platforms where we buffer */
+		eflush();
+
 	} else {
 		error(EOUTOFMEMORY);
 		er=0;
 	}
-/* needed on I2C EEPROM and other platforms where we buffer */
-	eflush();
 #endif
 }
 
@@ -710,16 +721,16 @@ void eload() {
 #ifndef EEPROMMEMINTERFACE
 	address_t a=0;
 
+	/* have we stored a program? */
 	if (elength()>0 && (eread(a) == 0 || eread(a) == 1)) { 
 
-		/* have we stored a program */
-		a++;
-
 		/* how long is it? */
+		a++;
 		egetnumber(a, addrsize);
 		top=z.a;
 		a+=addrsize;
 
+		/* load it to memory, memwrite2 is direct mem access */
 		while (a < top+eheadersize){
 			memwrite2(a-eheadersize, eread(a));
 			a++;
@@ -769,7 +780,7 @@ char autorun() {
 
 #ifdef HASAPPLE1
 /*
- *	bmalloc() allocates a junk of memory for a variable on the 
+ *	bmalloc() allocates memory for an object on the 
  *		heap, every objects is identified by name (c,d) and type t
  *		3 bytes are used here.
  */
@@ -1102,7 +1113,7 @@ void setvar(mem_t c, mem_t d, number_t v){
 /* clr all variables */
 void clrvars() {
 
-/* delete all static variables if the have no heap */
+/* delete all static variables */
 	address_t i;
 
 	for (i=0; i<VARSIZE; i++) vars[i]=0;
@@ -2557,9 +2568,8 @@ void nexttoken() {
 	x=0;
 	ir=bi;
 	while (-1) {
-/* toupper code */
 		if (*ir >= 'a' && *ir <= 'z') {
-			*ir-=32;
+			*ir-=32; /* toupper code */
 			ir++;
 			x++;
 		} else if (*ir >= '@' && *ir <= 'Z') { 
@@ -4372,7 +4382,15 @@ void notexpression() {
 		nexttoken();
 		expression();
 		if (!USELONGJUMP && er) return;
-		push(~(int)pop());
+#if BOOLEANMODE == 0
+		push(~(short)pop());
+#elif BOOLEANMODE == 1
+    if (pop() == 0) push(1); else push(0);
+#elif BOOLEANMODE == 2
+    push(~(int)pop());
+#elif BOOLEANMODE == 3
+    push(~(signed char)pop());
+#endif
 	} else 
 		compexpression();
 }
@@ -4385,8 +4403,15 @@ void andexpression() {
 	if (token == TAND) {
 		parseoperator(expression);
 		if (!USELONGJUMP && er) return;
-		/* push(x && y); */
-		push((int)x & (int)y);
+#if BOOLEANMODE == 0
+    push((short)x & (short)y);
+#elif BOOLEANMODE == 1
+    push(x && y);
+#elif BOOLEANMODE == 2
+    push((int)x & (int)y);;
+#elif BOOLEANMODE == 3
+    push((signed char)x & (signed char)y);
+#endif
 	} 
 }
 
@@ -4398,8 +4423,15 @@ void expression(){
 	if (token == TOR) {
 		parseoperator(expression);
 		if (!USELONGJUMP && er) return;
-		/* push(x || y); */
-		push((int)x | (int)y);
+#if BOOLEANMODE == 0
+    push((short)x | (short)y);
+#elif BOOLEANMODE == 1
+    push(x || y);
+#elif BOOLEANMODE == 2
+    push((int)x | (int)y);;
+#elif BOOLEANMODE == 3
+    push((signed char)x | (signed char)y);
+#endif  
 	}  
 }
 #else 
@@ -4412,8 +4444,15 @@ void expression(){
 	if (token == TOR) {
 		parseoperator(expression);
 		if (!USELONGJUMP && er) return;
-		/* push(x || y); */
-		push((int)x | (int)y);
+#if BOOLEANMODE == 0
+    push((short)x | (short)y);
+#elif BOOLEANMODE == 1
+    push(x || y);
+#elif BOOLEANMODE == 2
+    push((int)x | (int)y);;
+#elif BOOLEANMODE == 3
+    push((signed char)x | (signed char)y);
+#endif
 	}  
 }
 #endif
