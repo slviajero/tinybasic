@@ -36,7 +36,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#define	BASICFULL
+#define  BASICFULL
 #undef	BASICINTEGER
 #undef	BASICSIMPLE
 #undef	BASICMINIMAL
@@ -91,11 +91,17 @@
  *      error handling at the cost of portability to some MCU platforms
  *      currently only experimental. LONGJUMP must be set to 0 or 1 as 
  *      it is used in boolean expression in the code
+ *  BOOLEANMODE: switch the behaviour of BASICs boolean operators. Default (0)
+ *      is to cast all numbers to signed 16bit and then do bitwise arithemtic.
+ *      In this mode false is 0 and -1 is true. (1) is C style boolean arithemtic.
+ *      (2) is like 0 but with the default integer size as number type. (3) is like
+ *      (0) with signed 8 bit. 
  */
 #undef POWERRIGHTTOLEFT
 #undef MSARRAYLIMITS
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 1 
+#define BOOLEANMODE 0
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -275,6 +281,3 @@
 #ifdef HASMSSTRINGS
 #define HASLONGTOKENS
 #endif
-
-
-
