@@ -467,7 +467,7 @@ char inch() {
     return kbdread();
 #endif
 #endif
-#if defined(HASWIRE) && defined(HASFILEIO)
+#if defined(HASWIRE)
   case IWIRE:
     return wireread();
 #endif
@@ -508,7 +508,7 @@ char checkch(){
   case IMQTT:
     return mqttcheckch();
 #endif   
-#if (defined(HASWIRE) && defined(HASFILEIO))
+#if defined(HASWIRE) 
   case IWIRE:
     return 0;
 #endif
@@ -542,7 +542,7 @@ uint16_t availch(){
   case IMQTT:
     return mqttavailable();
 #endif        
-#if (defined(HASWIRE) && defined(HASFILEIO))
+#if defined(HASWIRE)
   case IWIRE:
     return wireavailable();
 #endif
@@ -654,7 +654,6 @@ uint16_t ins(char *b, uint16_t nb) {
   switch(id) {
   case ISERIAL:
     return serialins(b, nb);
-    break;
 #if defined(HASKEYBOARD) || defined(HASKEYPAD)
   case IKEYBOARD:
     return kbdins(b, nb);
@@ -663,7 +662,7 @@ uint16_t ins(char *b, uint16_t nb) {
   case ISERIAL1:
     return prtins(b, nb);
  #endif   
-#if defined(HASWIRE) && defined(HASFILEIO)
+#if defined(HASWIRE)
   case IWIRE:
     return wireins(b, nb);
 #endif
@@ -749,7 +748,7 @@ void outs(char *b, uint16_t l){
       radioouts(b, l);
       break;
 #endif
-#if (defined(HASWIRE) && defined(HASFILEIO))
+#if (defined(HASWIRE))
     case OWIRE:
       wireouts(b, l);
       break;
@@ -838,7 +837,7 @@ long freememorysize() {
   overhead+=96;
 #endif
 #ifdef ARDUINOWIRE
-  overhead+=128;
+  overhead+=192;
 #endif
 #ifdef ARDUINORF24
   overhead+=128;
@@ -853,7 +852,7 @@ long freememorysize() {
   overhead+=256;
 #endif
 #ifdef HASGRAPH
-  overhead+=256; /* a bit on the safe side */
+  overhead+=256; 
 #endif
   return freeRam() - overhead;
 #endif
@@ -4643,7 +4642,7 @@ void wirebegin() {
 #endif
 
 /* this is code needed for the OPEN/CLOSE and wireslave mechanisms */
-#if (defined(ARDUINOWIRE) && defined(HASFILEIO))
+#if defined(HASWIRE)
 uint8_t wire_slaveid = 0;
 uint8_t wire_myid = 0;
 #define ARDUINOWIREBUFFER 32
@@ -4722,8 +4721,7 @@ void wireopen(char s, uint8_t m) {
     Wire.onReceive(&wireonreceive);
     Wire.onRequest(&wireonrequest);
 #endif
-	} else 
-		error(EORANGE);
+	} 
 }
 
 /* input an entire string */
@@ -4747,7 +4745,7 @@ uint16_t wireins(char *b, uint8_t l) {
 /* just a helper to make GET work, wire is string oriented */
 char wireread() {
     char wbuffer[2];
-    if wireins(wbuffer, 1) return wbuffer[1]; else return 0;
+    if (wireins(wbuffer, 1)) return wbuffer[1]; else return 0;
 }
 
 /* send an entire string - truncate radically */
@@ -4771,7 +4769,7 @@ void wireouts(char *b, uint8_t l) {
 #endif
 
 /* plain wire without FILE I/O functions */
-#if (defined(ARDUINOWIRE))
+#if defined(HASWIRE)
 /* single byte access functions on Wire */
 int16_t wirereadbyte(uint8_t port) { 
     if (!Wire.requestFrom(port,(uint8_t) 1)) ioer=1;
@@ -4790,15 +4788,7 @@ void wirewriteword(uint8_t port, int16_t data1, int16_t data2) {
 }
 #endif
 
-#if (defined(ARDUINOWIRE) && !defined(HASFILEIO))
-uint8_t wirestat(uint8_t c) {return 0; }
-void wireopen(char s, uint8_t m) {}
-uint16_t wireins(char *b, uint8_t l) { b[0]=0; return 0; }
-void wireouts(char *b, uint8_t l) {}
-uint16_t wireavailable() { return 0; }
-#endif
-
-#ifndef ARDUINOWIRE
+#ifndef HASWIRE
 void wirebegin() {}
 uint8_t wirestat(uint8_t c) {return 0; }
 void wireopen(char s, uint8_t m) {}
