@@ -122,7 +122,7 @@ uint8_t reltab = 0;
 #endif
 
 /* Standard wire - triggered by the HASWIRE macro now */
-#ifdef HASWIRE
+#if defined(HASWIRE) || defined(HASSIMPLEWIRE)
 #include <Wire.h>
 #endif
 
@@ -508,7 +508,7 @@ char checkch(){
   case IMQTT:
     return mqttcheckch();
 #endif   
-#if defined(HASWIRE) 
+#ifdef HASWIRE 
   case IWIRE:
     return 0;
 #endif
@@ -829,14 +829,15 @@ long freememorysize() {
   return freeRam() - 2000;
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_LGT8F) 
-  int overhead=192;
+  int overhead=480; 
+  /* int overhead=320; */
 #ifdef HASFLOAT 
   overhead+=96;
 #endif
 #ifdef ARDUINO_AVR_MEGA2560
   overhead+=96;
 #endif
-#ifdef ARDUINOWIRE
+#if defined(ARDUINOWIRE) || defined(ARDUINOSIMPLEWIRE) 
   overhead+=192;
 #endif
 #ifdef ARDUINORF24
@@ -4626,7 +4627,7 @@ uint16_t prtins(char* b, uint16_t nb) {
  */ 
 
 /* this is always here, if Wire is needed by a subsysem */
-#ifdef HASWIRE
+#if defined(HASWIRE) || defined(HASSIMPLEWIRE)
 /* default begin is as a master 
  * This doesn't work properly on the ESP32C3 platform
  * See  https://github.com/espressif/arduino-esp32/issues/6376 
@@ -4769,7 +4770,7 @@ void wireouts(char *b, uint8_t l) {
 #endif
 
 /* plain wire without FILE I/O functions */
-#if defined(HASWIRE)
+#if defined(HASSIMPLEWIRE) || defined(HASWIRE)
 /* single byte access functions on Wire */
 int16_t wirereadbyte(uint8_t port) { 
     if (!Wire.requestFrom(port,(uint8_t) 1)) ioer=1;
@@ -4788,6 +4789,7 @@ void wirewriteword(uint8_t port, int16_t data1, int16_t data2) {
 }
 #endif
 
+/*
 #ifndef HASWIRE
 void wirebegin() {}
 uint8_t wirestat(uint8_t c) {return 0; }
@@ -4799,6 +4801,7 @@ int16_t wirereadbyte(uint8_t port) { return 0; }
 void wirewritebyte(uint8_t port, int16_t data) { return; }
 void wirewriteword(uint8_t port, int16_t data1, int16_t data2) { return; }
 #endif
+*/
 
 /* 
  *	Read from the radio interface, radio is always block 
