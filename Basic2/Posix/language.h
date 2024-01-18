@@ -100,7 +100,7 @@
 #undef POWERRIGHTTOLEFT
 #undef MSARRAYLIMITS
 #undef SUPPRESSSUBSTRINGS
-#define USELONGJUMP 1 
+#define USELONGJUMP 1
 #define BOOLEANMODE 0
 
 /* Palo Alto plus Arduino functions */
@@ -280,4 +280,11 @@
  */
 #ifdef HASMSSTRINGS
 #define HASLONGTOKENS
+#endif
+
+/* what is true? */
+#if BOOLEANMODE == 1
+#define BTRUE 1 /* C style boolean */
+#else
+#define BTRUE -1 /* BASIC style boolean */
 #endif

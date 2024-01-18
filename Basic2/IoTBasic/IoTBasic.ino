@@ -655,7 +655,10 @@ address_t ballocmem() {
 	small Arduino boards with memories below 16kb */
 	if (m < 16000) {
 #ifdef HASAPPLE1
-		m-=256; /* strings are expensive */
+  m-=64; /* strings are expensive */
+#endif
+#ifdef USELONGJUMP
+  m-=160; /* odd but true on Ardunio UNO and the like */
 #endif
 #ifdef HASFLOAT 
 	  	m-=96;
@@ -3821,10 +3824,10 @@ void streval(){
 #endif
 
 /* which operator did we use */
-	if (t == '=') push(1); else push(0);
+	if (t == '=') push(BTRUE); else push(0);
 	return;
 neq:
-	if (t == '=') push(0); else push(1);
+	if (t == '=') push(0); else push(BTRUE);
 	return;
 }
 
@@ -4361,32 +4364,32 @@ void compexpression() {
 	case '=':
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x == y ? -1 : 0);
+		push(x == y ? BTRUE : 0);
 		break;
 	case NOTEQUAL:
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x != y ? -1 : 0);
+		push(x != y ? BTRUE : 0);
 		break;
 	case '>':
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x > y ? -1 : 0);
+		push(x > y ? BTRUE : 0);
 		break;
 	case '<':
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x < y ? -1 : 0);
+		push(x < y ? BTRUE : 0);
 		break;
 	case LESSEREQUAL:
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x <= y ? -1 : 0);
+		push(x <= y ? BTRUE : 0);
 		break;
 	case GREATEREQUAL:
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x >= y ? -1 : 0);
+		push(x >= y ? BTRUE : 0);
 		break;
 	}
 }
