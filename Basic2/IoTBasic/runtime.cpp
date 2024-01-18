@@ -829,11 +829,7 @@ long freememorysize() {
   return freeRam() - 2000;
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_LGT8F) 
-  int overhead=480; 
-  /* int overhead=320; */
-#ifdef HASFLOAT 
-  overhead+=96;
-#endif
+  int overhead=256;
 #ifdef ARDUINO_AVR_MEGA2560
   overhead+=96;
 #endif
@@ -851,9 +847,6 @@ long freememorysize() {
 #endif
 #ifdef ARDUINOETH
   overhead+=256;
-#endif
-#ifdef HASGRAPH
-  overhead+=256; 
 #endif
   return freeRam() - overhead;
 #endif

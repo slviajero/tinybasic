@@ -651,6 +651,23 @@ address_t ballocmem() {
 /* on most platforms we know the free memory for BASIC, this comes from runtime */
 	long m=freememorysize();
 
+/* we subtract some language feature depended things, this is only needed on
+	small Arduino boards with memories below 16kb */
+	if (m < 16000) {
+#ifdef HASAPPLE1
+		m-=256; /* strings are expensive */
+#endif
+#ifdef HASFLOAT 
+	  	m-=96;
+#endif
+#ifdef HASGRAPH
+  		m-=256; 
+#endif		
+	}
+
+/* and keep fingers crossed here */
+	if (m<0) m=128;
+
 /* we allocate as much as address_t can handle */
 	if (m>maxaddr) m=maxaddr;
 
@@ -4385,11 +4402,11 @@ void notexpression() {
 #if BOOLEANMODE == 0
 		push(~(short)pop());
 #elif BOOLEANMODE == 1
-    if (pop() == 0) push(1); else push(0);
+		if (pop() == 0) push(1); else push(0);
 #elif BOOLEANMODE == 2
-    push(~(int)pop());
+    	push(~(int)pop());
 #elif BOOLEANMODE == 3
-    push(~(signed char)pop());
+    	push(~(signed char)pop());
 #endif
 	} else 
 		compexpression();
@@ -4404,13 +4421,13 @@ void andexpression() {
 		parseoperator(expression);
 		if (!USELONGJUMP && er) return;
 #if BOOLEANMODE == 0
-    push((short)x & (short)y);
+		push((short)x & (short)y);
 #elif BOOLEANMODE == 1
-    push(x && y);
+		push(x && y);
 #elif BOOLEANMODE == 2
-    push((int)x & (int)y);;
+		push((int)x & (int)y);;
 #elif BOOLEANMODE == 3
-    push((signed char)x & (signed char)y);
+		push((signed char)x & (signed char)y);
 #endif
 	} 
 }
@@ -4424,13 +4441,13 @@ void expression(){
 		parseoperator(expression);
 		if (!USELONGJUMP && er) return;
 #if BOOLEANMODE == 0
-    push((short)x | (short)y);
+		push((short)x | (short)y);
 #elif BOOLEANMODE == 1
-    push(x || y);
+		push(x || y);
 #elif BOOLEANMODE == 2
-    push((int)x | (int)y);;
+		push((int)x | (int)y);;
 #elif BOOLEANMODE == 3
-    push((signed char)x | (signed char)y);
+		push((signed char)x | (signed char)y);
 #endif  
 	}  
 }
@@ -4445,13 +4462,13 @@ void expression(){
 		parseoperator(expression);
 		if (!USELONGJUMP && er) return;
 #if BOOLEANMODE == 0
-    push((short)x | (short)y);
+	push((short)x | (short)y);
 #elif BOOLEANMODE == 1
-    push(x || y);
+	push(x || y);
 #elif BOOLEANMODE == 2
-    push((int)x | (int)y);;
+	push((int)x | (int)y);;
 #elif BOOLEANMODE == 3
-    push((signed char)x | (signed char)y);
+	push((signed char)x | (signed char)y);
 #endif
 	}  
 }
