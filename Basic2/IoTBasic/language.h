@@ -100,7 +100,7 @@
 #undef POWERRIGHTTOLEFT
 #undef MSARRAYLIMITS
 #undef SUPPRESSSUBSTRINGS
-#define USELONGJUMP 1
+#define USELONGJUMP 0
 #define BOOLEANMODE 0
 
 /* Palo Alto plus Arduino functions */
