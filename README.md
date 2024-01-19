@@ -30,7 +30,7 @@ Microcontroller specific features are EEPROM access, EEPROM program storage and 
 
 ## Files in this archive 
 
-Basic1: The 1.x version of the interpreter. This version is no longer supported. I do bugfixes now and then. 
+Basic1: The 1.x version of the interpreter. This version is stable but will not be developed further. I do bugfixes now and then. 
 
 Files of the 1.x versions
 - basic.c is the program source
@@ -59,7 +59,6 @@ gcc basic.c runtime.c -lm
 
 while on Arduino you would compile and upload in the IDE.
 
-
 utility/dosify converts the code to tcc 2.01 ready format to be compiled in DOSBOX, Basic2 is not tested on DOS.
 
 examples contains a lot of demo programs and games ported to BASIC.
@@ -75,7 +74,6 @@ The interpreter can be compliled with standard gcc on almost any architecture or
 A manual of the BASIC interpreter is in the repo https://github.com/slviajero/tinybasic/blob/main/MANUAL.md
 
 Look at the WIKI https://github.com/slviajero/tinybasic/wiki for more information.
-
 
 ## Language features in a nutshell 
 
