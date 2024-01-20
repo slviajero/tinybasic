@@ -35,6 +35,9 @@
 #define ARRAYSIZEDEF    10
 #define STRSIZEDEF      32
 
+/* maximum number of nested function calls to protect form C stack overflows */
+#define FNLIMIT 4
+
 /*
  * The tokens for the BASIC keywords
  *
@@ -177,9 +180,9 @@
 #define TSWEND -13
 #define TDO -12
 #define TDEND -11
+#define TFNEND -10
 /* these are multibyte token extension, currently unused */
 /* using them would allow over 1000 BASIC keywords */
-#define TEXT8 -10
 #define TEXT7 -9
 #define TEXT6 -8
 #define TEXT5 -7

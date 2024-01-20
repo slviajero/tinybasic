@@ -72,8 +72,10 @@
  * Experimental features:
  * 
  * HASMSSTRINGS is a (rudimentary) string compatibility to MS Basic.
+ * HASMULTILINEFNCTIONS is a bit like the old DEC BASIC on the PDP
  */
 #define HASMSSTRINGS
+#define HASMULTILINEFUNCTIONS
 
 /*
  * Odd stuff - these things change the behaviour of BASIC in some aspects.
@@ -173,6 +175,7 @@
 #define HASERRORHANDLING
 #undef 	HASARRAYLIMIT
 #undef 	HASSTRUCT
+#undef  HASMSSTRINGS
 #endif
 
 /* all features activated */

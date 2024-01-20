@@ -24,8 +24,6 @@
  * 	The interface to BASIC is identical. 
  */
 
-
-
 /* the runtime environment */
 #include "hardware.h"
 #include "runtime.h"
@@ -206,6 +204,7 @@ const char scase[]		PROGMEM	= "CASE";
 const char sswend[]     PROGMEM = "SWEND";
 const char sdo[]        PROGMEM = "DO";
 const char sdend[]      PROGMEM = "DEND";
+const char sfnend[]      PROGMEM = "FEND";
 #endif
 #ifdef HASMSSTRINGS
 const char sasc[]		PROGMEM	= "ASC";
@@ -280,7 +279,7 @@ const char* const keyword[] PROGMEM = {
 #endif
 #ifdef HASSTRUCT
 	swhile, swend, srepeat, suntil, sswitch, scase, sswend,	
-    sdo, sdend, 
+    sdo, sdend, sfnend,
 #endif 
 #ifdef HASMSSTRINGS
     sasc, schr, sright, sleft, smid,
@@ -349,7 +348,7 @@ const token_t tokens[] PROGMEM = {
 #endif
 #ifdef HASSTRUCT
 	TWHILE, TWEND, TREPEAT, TUNTIL, TSWITCH, TCASE, TSWEND,
-    TDO, TDEND, 
+    TDO, TDEND, TFNEND,
 #endif
 #ifdef HASMSSTRINGS
 	TASC, TCHR, TRIGHT, TLEFT, TMID,
@@ -480,7 +479,7 @@ accu_t z;
 /* string index registers, */
 char* ir;
 
-/* a string index registers, new style identifying a s string either in C memory or BASIC memory */
+/* a string index registers, new style identifying a string either in C memory or BASIC memory */
 string_t sr; 
 
 /* the active token */
@@ -499,7 +498,7 @@ mem_t ert;
 /* the interpreter state, interactive, run or run from EEPROM */
 mem_t st; 
 
-/* the current program location or "cursor" */
+/* the current program location */
 address_t here; 
 
 /* the topmost byte of a program in memory, beginning of free BASIC RAM */
@@ -621,6 +620,9 @@ address_t bpulseunit = 10;
 /* only needed for POSIXNONBLOCKING */
 mem_t breakcondition = 0;
 
+/* the fn context, how deep are we in a nested function call */
+mem_t fncontext = 0; 
+
 /*
  * BASIC timer stuff, this is a core interpreter function now
  */
@@ -655,10 +657,10 @@ address_t ballocmem() {
 	small Arduino boards with memories below 16kb */
 	if (m < 16000) {
 #ifdef HASAPPLE1
-  m-=64; /* strings are expensive */
+		m-=64; /* strings cost memory */
 #endif
 #ifdef USELONGJUMP
-  m-=160; /* odd but true on Ardunio UNO and the like */
+		m-=160; /* odd but true on Ardunio UNO and the like */
 #endif
 #ifdef HASFLOAT 
 	  	m-=96;
@@ -834,9 +836,15 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 		break;
 #endif
 #ifdef HASDARTMOUTH
+/* in the multiline implementation, we need one more byte to remember the function type */
 	case TFN:
+#ifndef HASMULTILINEFUNCTIONS
 		vsize=addrsize+2+3;
 		break;
+#else
+		vsize=addrsize+3+3;
+		break;
+#endif
 #endif
 	default:
 		vsize=l+addrsize+3;
@@ -909,7 +917,12 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 			break;
 #ifdef HASDARTMOUTH
 		case TFN:
+/* in the multiline implementation, we need one more byte to remember the function type */
+#ifndef HASMULTILINEFUNCTIONS
 			z.a=addrsize+2;
+#else
+			z.a=addrsize+3;
+#endif
 			break;
 #endif
 		default:
@@ -985,7 +998,12 @@ address_t bfree(mem_t t, mem_t c, mem_t d) {
 			break;
 #ifdef HASDARTMOUTH
 		case TFN:
+/* in the multiline implementation, we need one more byte to remember the function type */
+#ifndef HASMULTILINEFUNCTIONS
 			z.a=addrsize+2;
+#else
+			z.a=addrsize+3;
+#endif		
 			break;
 #endif
 		default:
@@ -1890,6 +1908,9 @@ void error(token_t e){
 	if (DEBUG) { outsc("** at "); outnumber(here); }
 	outcr();
 
+/* reset fncontext - this is odd */
+	fncontext=0;
+
 /* we return to the statement loop, bringing the error with us */
 #if USELONGJUMP == 1
 	longjmp(sthook, er);
@@ -2459,7 +2480,7 @@ void nexttoken() {
   
 /* RUN mode vs. INT mode, in RUN mode we read from mem via gettoken() */
 	if (st == SRUN || st == SERUN) {
-/* in the token stream we call the fastticker - all fast timing functions are in stream*/
+/* in the token stream we call fastticker - all fast timing functions are in stream */
 		fastticker(); 
 /* read the token from memory */
 		gettoken();
@@ -3775,7 +3796,7 @@ void streval(){
 	nexttoken();
 	if (token != '=' && token != NOTEQUAL) {
 
-/* if not, rewind one token and evaluate the string as a boolean (yesss!) */
+/* if not, rewind one token and evaluate the string as a boolean */
 		poplocation(&l);
 		token=t;
 
@@ -4891,7 +4912,7 @@ addstring:
 
 
 /* 
- * try to copy one string to the other, assumes that getstring did its work
+ * Try to copy one string to the other, assumes that getstring did its work
  * and that copybyte is correct.
  * BASICs in place strings make this a non trivial exercise as we need to 
  * avoid overwrites. 
@@ -7895,8 +7916,8 @@ void xdef(){
 	ycl2=yc;
 	if (!expect(')', EUNKNOWN)) return;
 
-/* the assignment */
-	if (!expect('=', EUNKNOWN)) return;
+/* which type of function do we store is found in token */
+	nexttoken();
 
 /* ready to store the function */
 	if (DEBUG) {
@@ -7909,7 +7930,7 @@ void xdef(){
 		outcr();
 	}
 
-/* find the function */
+/* find the function, we allow redefinition */
 	if ((a=bfind(TFN, xcl1, ycl1))==0) a=bmalloc(TFN, xcl1, ycl1, 0);
 	if (DEBUG) {outsc("** found function structure at "); outnumber(a); outcr(); }
 
@@ -7920,12 +7941,27 @@ void xdef(){
 	memwrite2(a+addrsize, xcl2);
 	memwrite2(a+addrsize+1, ycl2);
 
-/* skip whatever comes next */
+#ifndef HASMULTILINEFUNCTIONS
+/* skip whatever comes after = */
+	if (token != '=') { error(EFUN); return; }
 	while (!termsymbol()) nexttoken();
+#else 
+	if (token == '=') {
+		memwrite2(a+addrsize+2, '=');
+		while (!termsymbol()) nexttoken();
+	} else {
+		memwrite2(a+addrsize+2, 0);
+		while (token != TFNEND) {
+			nexttoken();
+			if (token == TDEF || token == EOL) { error(EFUN); return; }
+		}
+		nexttoken();
+	}
+#endif
 }
 
 /*
- * FN function evaluation
+ * FN function evaluation, this is a call from factor!!
  */
 void xfn() {
 	char fxc, fyc;
@@ -7968,7 +8004,21 @@ void xfn() {
 	here=h1;
 	if (DEBUG) {outsc("** evaluating expressing at "); outnumber(here); outcr(); }
 
+/* for simple singleline function, we directly do experession evaluation */
+#ifndef HASMULTILINEFUNCTIONS
 	if (!expectexpr()) return;
+#else
+	if (memread2(a+addrsize+2) == '=') {;
+		if (!expectexpr()) return;
+	} else {
+/* here comes the tricky part */ 
+		nexttoken();
+		outsc("** before statement "); debugtoken(); outcr();
+		fncontext++;
+		if (fncontext > FNLIMIT) { error(EFUN); return; }
+		statement();
+	}
+#endif
 
 /* restore everything */
 	here=h2;
@@ -8255,8 +8305,9 @@ void statement(){
 
 /* we can long jump out out any function now, making error handling easier */
 /* if we return here with a long jump, only the error handler is triggered */
+/* this mechanism always branches to the highest context */
 #if USELONGJUMP == 1
-	if (setjmp(sthook)) goto errorhandler;
+	if (fncontext == 0) if (setjmp(sthook)) goto errorhandler;
 #endif
 
 /* the core loop processing commands */
@@ -8289,7 +8340,18 @@ void statement(){
 			xinput();
 			break;
 		case TRETURN:
+#ifndef HASMULTILINEFUNCTIONS
 			xreturn();
+#else 
+			if (fncontext > 0) {
+				nexttoken();
+				if (termsymbol()) { push(0); }
+				else expression();
+				fncontext--;
+				return;
+			} else 
+				xreturn();
+#endif
 			break;
 		case TGOSUB:
 		case TGOTO:
@@ -8530,6 +8592,17 @@ void statement(){
 		case TDEND:
 			nexttoken();
 			break;
+		case TFNEND:
+#ifdef HASMULTILINEFUNCTIONS
+/* we leave the statement loop and return to the calling expression() */
+/* if the function is ended with FEND we return 0 */ 
+			if (fncontext == 0) { error(EFUN); return; } 
+			else { fncontext--; push(0); return; } 
+			break;
+#else 
+			nexttoken(); 
+			break;
+#endif
 #endif
 		default:
 /*  strict syntax checking */
@@ -8621,12 +8694,15 @@ errorhandler:
  * a termsymbol : or LINENUMBER. NEXT is a special case. We need to 
  * catch this here because empty FOR loops never even have a termsymbol
  * a : is swallowed after FOR.
+ * 
+ * the interrupts are only triggered in fncontext 0, i.e. in the 
+ * main loop. While in functions, all interrupts are disabled.
  *
  */		
 #ifdef HASTIMER
 		if ((token == LINENUMBER || token == ':' || token == TNEXT) && (st == SERUN || st == SRUN)) {
 /* after is always processed before every */
-			if (after_timer.enabled) {
+			if (after_timer.enabled && fncontext == 0) {
 				if (millis() > after_timer.last + after_timer.interval) {
 					after_timer.enabled=0;
 					if (after_timer.type == TGOSUB) {
@@ -8639,7 +8715,7 @@ errorhandler:
 				}
 			}
 /* periodic events */
-			if (every_timer.enabled ) {
+			if (every_timer.enabled && fncontext == 0) {
 				if (millis() > every_timer.last + every_timer.interval) {
 						every_timer.last=millis();
 						if (every_timer.type == TGOSUB) {
@@ -8659,7 +8735,7 @@ errorhandler:
 #ifdef HASEVENTS
 		if ((token == LINENUMBER || token == ':' || token == TNEXT) && (st == SERUN || st == SRUN)) {
 /* interrupts */
-			if (events_enabled) {
+			if (events_enabled && fncontext == 0) {
 				for (ax=0; ax<EVENTLISTSIZE; ax++) {
 					if (eventlist[ievent].pin && eventlist[ievent].enabled && eventlist[ievent].active) {
 						if (eventlist[ievent].type == TGOSUB) {
