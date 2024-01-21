@@ -155,11 +155,3 @@ These tests stress test BASIC, provoke errors or go to limits.
 56tinybasic.bas - a BASIC interpreter written in BASIC. Test on many string functions.
 
 57multifunc.bas - multi line function code tests
-
-
-
-
-
-
-
-
