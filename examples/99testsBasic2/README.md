@@ -148,7 +148,13 @@ These tests stress test BASIC, provoke errors or go to limits.
 
 54word.bas - word guessing game, tests strings, data and string to ASCII conversion
 
+## Feature test programs 
 
+55valtest.bas - correct handling of VAL in the new string code 
+
+56tinybasic.bas - a BASIC interpreter written in BASIC. Test on many string functions.
+
+57multifunc.bas - multi line function code tests
 
 
 
