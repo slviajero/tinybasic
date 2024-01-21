@@ -694,7 +694,7 @@ void nextdatarecord();
 void xread();
 void xrestore();
 void xdef();
-void xfn();
+void xfn(mem_t);
 void xon();
 
 /* timers and interrupts */

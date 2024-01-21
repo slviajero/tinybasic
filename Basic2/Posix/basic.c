@@ -4240,7 +4240,7 @@ void factor(){
 		break;
 #ifdef HASDARTMOUTH
 	case TFN:
-		xfn();
+		xfn(0);
 		break;
 /* an arcane feature, DATA evaluates to the data record number */
 	case TDATA:
@@ -7911,10 +7911,19 @@ void xdef(){
 
 /* the argument variable */ 
 	if (!expect('(', EUNKNOWN)) return;
-	if (!expect(VARIABLE, EUNKNOWN)) return;
-	xcl2=xc;
-	ycl2=yc;
-	if (!expect(')', EUNKNOWN)) return;
+	nexttoken(); 
+	if (token == ')') { 
+		xcl2=0;
+		ycl2=0;
+	} else if (token == VARIABLE) {
+		xcl2=xc;
+		ycl2=yc;
+		nexttoken();
+	} else {
+		error(EUNKNOWN);
+		return;
+	}
+	if (token != ')') { error(EUNKNOWN); return; }
 
 /* which type of function do we store is found in token */
 	nexttoken();
@@ -7961,9 +7970,12 @@ void xdef(){
 }
 
 /*
- * FN function evaluation, this is a call from factor!!
+ * FN function evaluation, this is a call from factor or directly from
+ * statement, the variable m tells xfn which one it is. 0 is from 
+ * factore and 1 is from statement. This mechanism is only needed in 
+ * multiline functions.
  */
-void xfn() {
+void xfn(mem_t m) {
 	char fxc, fyc;
 	char vxc, vyc;
 	address_t a;
@@ -7976,13 +7988,16 @@ void xfn() {
 	fyc=yc;
 
 /* and the argument */
-	nexttoken();
-	if (token != '(') {error(EUNKNOWN); return; }
+	if (!expect('(', EUNKNOWN)) return;
 
 	nexttoken();
-	expression();
-	if (!USELONGJUMP && er) return;
-
+/* if there is no argument, set it to zero */
+	if (token == ')') {
+		push(0);
+	} else {
+		expression();
+		if (!USELONGJUMP && er) return;	
+	}
 	if (token != ')') {error(EUNKNOWN); return; }
 
 /* find the function structure and retrieve the payload */
@@ -7994,7 +8009,7 @@ void xfn() {
 	vyc=memread2(a+addrsize+1);
 
 /* remember the original value of the variable and set it */
-	xt=getvar(vxc, vyc);
+	if (vxc) xt=getvar(vxc, vyc);
 	if (DEBUG) {outsc("** saving the original running var "); outch(vxc); outch(vyc); outspc(); outnumber(xt); outcr();}
 
 	setvar(vxc, vyc, pop());
@@ -8011,18 +8026,25 @@ void xfn() {
 	if (memread2(a+addrsize+2) == '=') {;
 		if (!expectexpr()) return;
 	} else {
-/* here comes the tricky part */ 
+/* here comes the tricky part, we start a new interpreter instance */ 
 		nexttoken();
-		outsc("** before statement "); debugtoken(); outcr();
 		fncontext++;
 		if (fncontext > FNLIMIT) { error(EFUN); return; }
 		statement();
+		if (!USELONGJUMP && er) return;
+		if (fncontext > 0) fncontext--; else error(EFUN);
+	}
+/* now, depending on how this was called, make things right, we remove 
+	the return value from the stack and call nexttoken */
+	if (m == 1) {
+		pop();
+		nexttoken();
 	}
 #endif
 
 /* restore everything */
 	here=h2;
-	setvar(vxc, vyc, xt);
+	if (vxc) setvar(vxc, vyc, xt);
 
 /* no nexttoken as this is called in factor during expectexpr() !! */
 }
@@ -8347,16 +8369,23 @@ void statement(){
 				nexttoken();
 				if (termsymbol()) { push(0); }
 				else expression();
-				fncontext--;
 				return;
 			} else 
 				xreturn();
 #endif
 			break;
+#ifndef HASMULTILINEFUNCTIONS
 		case TGOSUB:
 		case TGOTO:
 			xgoto();	
 			break;
+#else 
+		case TGOSUB:
+			if (fncontext > 0) { error(EFUN); return; }
+		case TGOTO:
+			xgoto();
+			break;
+#endif
 		case TIF:
 			xif();
 			break;
@@ -8533,6 +8562,11 @@ void statement(){
 		case TON:
 			xon();
 			break;
+#ifdef HASMULTILINEFUNCTIONS
+		case TFN:
+			xfn(1);
+			break;
+#endif
 #endif
 #ifdef HASSTEFANSEXT
 		case TELSE:
@@ -8597,7 +8631,7 @@ void statement(){
 /* we leave the statement loop and return to the calling expression() */
 /* if the function is ended with FEND we return 0 */ 
 			if (fncontext == 0) { error(EFUN); return; } 
-			else { fncontext--; push(0); return; } 
+			else { push(0); return; } 
 			break;
 #else 
 			nexttoken(); 
