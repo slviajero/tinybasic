@@ -898,9 +898,35 @@ Functions can have one numerical argument and a two character name. Example:
 
 10 DEF FN TK(X) = X+SIN(X)
 
-Functions have to be DEFed before use. 
+Functions have to be DEFed before use. Redefinition is allowed. Functions without an argument are allowed as DEF FNPI()=4\*ATAN(1). 
 
 Tutorial: func.bas
+
+There is an extended language set, activated by the macro HASMULTILINEFUNCTIONS. With this, constructs like 
+
+10 DEF FNA(X)
+
+20 IF X>10 THEN RETURN 1 ELSE RETURN 2
+
+30 FEND
+
+are possible. Function can be multi line. Return values are give as an argument of RETURN. In multiline functions, GOSUB statements are not allowed. The interrupts of AFTER, EVERY, and EVENT are disabled in multiline functions. ERROR handling is also disabled. 
+
+Multiline functions invoke a new instance of the core interpreter loop. This costs memory. Maximum depth of multiline function calls is 4. This is a parameter set in basic.h.
+
+With the multiline function extension, functions can be called as statements. The functions
+
+10 DEF FNP(X)
+
+20 PRINT X+4
+
+30 FEND
+
+can be called as 
+
+100 FNP(10)
+
+The multiline function construct was rarely implemented in microprocessor BASICs. They appeared in many early dialects from Dartmouth to DEC BASIC.
 
 ### ON 
 
