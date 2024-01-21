@@ -204,7 +204,11 @@ const char scase[]		PROGMEM	= "CASE";
 const char sswend[]     PROGMEM = "SWEND";
 const char sdo[]        PROGMEM = "DO";
 const char sdend[]      PROGMEM = "DEND";
-const char sfnend[]      PROGMEM = "FEND";
+#endif
+#ifdef HASDARTMOUTH
+#ifdef HASMULTILINEFUNCTIONS
+const char sfend[]      PROGMEM = "FEND";
+#endif
 #endif
 #ifdef HASMSSTRINGS
 const char sasc[]		PROGMEM	= "ASC";
@@ -279,8 +283,13 @@ const char* const keyword[] PROGMEM = {
 #endif
 #ifdef HASSTRUCT
 	swhile, swend, srepeat, suntil, sswitch, scase, sswend,	
-    sdo, sdend, sfnend,
+    sdo, sdend, 
 #endif 
+#ifdef HASDARTMOUTH
+#ifdef HASMULTILINEFUNCTIONS
+	sfend,
+#endif
+#endif
 #ifdef HASMSSTRINGS
     sasc, schr, sright, sleft, smid,
 #endif
@@ -348,7 +357,12 @@ const token_t tokens[] PROGMEM = {
 #endif
 #ifdef HASSTRUCT
 	TWHILE, TWEND, TREPEAT, TUNTIL, TSWITCH, TCASE, TSWEND,
-    TDO, TDEND, TFNEND,
+    TDO, TDEND,
+#endif
+#ifdef HASDARTMOUTH
+#ifdef HASMULTILINEFUNCTIONS
+	TFEND,
+#endif
 #endif
 #ifdef HASMSSTRINGS
 	TASC, TCHR, TRIGHT, TLEFT, TMID,
@@ -7960,7 +7974,7 @@ void xdef(){
 		while (!termsymbol()) nexttoken();
 	} else {
 		memwrite2(a+addrsize+2, 0);
-		while (token != TFNEND) {
+		while (token != TFEND) {
 			nexttoken();
 			if (token == TDEF || token == EOL) { error(EFUN); return; }
 		}
@@ -8034,6 +8048,11 @@ void xfn(mem_t m) {
 		if (!USELONGJUMP && er) return;
 		if (fncontext > 0) fncontext--; else error(EFUN);
 	}
+
+/* now that all the function stuff is done, return to here and set the variable right */
+	here=h2;
+	if (vxc) setvar(vxc, vyc, xt);
+
 /* now, depending on how this was called, make things right, we remove 
 	the return value from the stack and call nexttoken */
 	if (m == 1) {
@@ -8042,11 +8061,6 @@ void xfn(mem_t m) {
 	}
 #endif
 
-/* restore everything */
-	here=h2;
-	if (vxc) setvar(vxc, vyc, xt);
-
-/* no nexttoken as this is called in factor during expectexpr() !! */
 }
 
 /*
@@ -8566,6 +8580,12 @@ void statement(){
 		case TFN:
 			xfn(1);
 			break;
+		case TFEND:
+/* we leave the statement loop and return to the calling expression() */
+/* if the function is ended with FEND we return 0 */ 
+			if (fncontext == 0) { error(EFUN); return; } 
+			else { push(0); return; } 
+			break;
 #endif
 #endif
 #ifdef HASSTEFANSEXT
@@ -8626,17 +8646,6 @@ void statement(){
 		case TDEND:
 			nexttoken();
 			break;
-		case TFNEND:
-#ifdef HASMULTILINEFUNCTIONS
-/* we leave the statement loop and return to the calling expression() */
-/* if the function is ended with FEND we return 0 */ 
-			if (fncontext == 0) { error(EFUN); return; } 
-			else { push(0); return; } 
-			break;
-#else 
-			nexttoken(); 
-			break;
-#endif
 #endif
 		default:
 /*  strict syntax checking */

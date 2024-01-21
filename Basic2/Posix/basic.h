@@ -180,7 +180,8 @@
 #define TSWEND -13
 #define TDO -12
 #define TDEND -11
-#define TFNEND -10
+/* multiline function extension */
+#define TFEND -10
 /* these are multibyte token extension, currently unused */
 /* using them would allow over 1000 BASIC keywords */
 #define TEXT7 -9
