@@ -5578,7 +5578,7 @@ void outputtoken() {
 		outch('"');
 		break;
 	default:
-		if ( (token < -3 && token >= BASEKEYWORD) || token < -127) {	
+		if ( (token < 32 && token >= BASEKEYWORD) || token < -127) {	
 			if ((token == TTHEN || 
 				token == TELSE ||
 				token == TTO || 
@@ -5588,8 +5588,7 @@ void outputtoken() {
 				token == TOR ||
 				token == TAND ) && lastouttoken != LINENUMBER) outspc();
 			else 
-				if (lastouttoken == NUMBER || lastouttoken == VARIABLE) outspc(); 
-			
+				if (lastouttoken == NUMBER || lastouttoken == VARIABLE) outspc(); 	
 			for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 			outsc(getkeyword(i)); 
 			if (token != GREATEREQUAL && 

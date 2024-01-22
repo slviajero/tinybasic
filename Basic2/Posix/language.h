@@ -279,11 +279,8 @@
 #endif
 
 /*
- * Some of the language features need long tokens 
+ * Some of the language features may need long tokens 
  */
-#ifdef HASMSSTRINGS
-#define HASLONGTOKENS
-#endif
 
 /* what is true? */
 #if BOOLEANMODE == 1

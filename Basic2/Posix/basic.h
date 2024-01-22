@@ -205,11 +205,21 @@
  * one needs to set HASLONGTOKENS. Currently ony one set of 
  * extension tokens is implemented ranging from -128 to -255.
  */
+/*
 #define TASC -128
 #define TCHR -129
 #define TRIGHT -130
 #define TLEFT -131
 #define TMID -132
+*/
+
+/* alternative implementation using positive token values */
+#define TASC 1
+#define TCHR 2
+#define TRIGHT 3
+#define TLEFT 4
+#define TMID 5
+
 
 /* BASEKEYWORD is used by the lexer. From this keyword on it tries to match. */
 #define BASEKEYWORD -121
