@@ -5010,7 +5010,7 @@ void xinput(){
 	}
 /* unlink print, form can appear only once in input after the
 		stream, it controls character counts in wire */
-#if (defined(HASWIRE) && defined(HASFILEIO))
+#if defined(HASWIRE)
 	if (token == '#') {
 		if(!expectexpr()) return;
 		form=pop();
@@ -6956,7 +6956,7 @@ void xwire() {
 	short port, data1, data2;
 
 	nexttoken();
-#ifdef HASWIRE
+#if defined(HASWIRE) || defined(HASSIMPLEWIRE)
 	parsearguments();
 	if (!USELONGJUMP && er) return; 
 
@@ -6977,7 +6977,7 @@ void xwire() {
 }
 
 void xfwire() {
-#ifdef HASWIRE
+#if defined(HASWIRE) || defined(HASSIMPLEWIRE) 
 	push(wirereadbyte(pop()));
 #else 
 #endif
@@ -7352,7 +7352,7 @@ void xdelete() {
  *	OPEN a file or I/O stream - very raw mix of different functions
  */
 void xopen() {
-#if defined(FILESYSTEMDRIVER) || defined(HASRF24) || defined(HASMQTT) || (defined(HASWIRE) && defined(HASFILEIO))
+#if defined(FILESYSTEMDRIVER) || defined(HASRF24) || defined(HASMQTT) || defined(HASWIRE)
 	char stream = IFILE; // default is file operation
 	char filename[SBUFSIZE];
 	int mode;
@@ -7422,7 +7422,7 @@ void xopen() {
 		}
 		break;
 #endif
-#if (defined(HASWIRE) && defined(HASFILEIO))
+#if defined(HASWIRE)
 	case IWIRE:
 		wireopen(filename[0], mode);
 		break;
@@ -7457,7 +7457,7 @@ void xfopen() {
  *	CLOSE a file or stream 
  */
 void xclose() {
-#if defined(FILESYSTEMDRIVER) || defined(HASRF24) || defined(HASMQTT) || (defined(HASWIRE) && defined(HASFILEIO))
+#if defined(FILESYSTEMDRIVER) || defined(HASRF24) || defined(HASMQTT) || defined(HASWIRE)
 	char stream = IFILE;
 	char mode;
 
@@ -7628,7 +7628,7 @@ void xusr() {
 		break;			
 #endif	
 /* access to properties of stream 7 - wire */
-#if (defined(HASWIRE) && defined(HASFILEIO))		
+#if defined(HASWIRE)	
 	case 7: 
 		push(wirestat(arg));	
 		break;			
