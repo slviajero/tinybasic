@@ -35,6 +35,9 @@
 #define ARRAYSIZEDEF    10
 #define STRSIZEDEF      32
 
+/* maximum number of nested function calls to protect form C stack overflows */
+#define FNLIMIT 4
+
 /*
  * The tokens for the BASIC keywords
  *
@@ -177,9 +180,10 @@
 #define TSWEND -13
 #define TDO -12
 #define TDEND -11
+/* multiline function extension */
+#define TFEND -10
 /* these are multibyte token extension, currently unused */
 /* using them would allow over 1000 BASIC keywords */
-#define TEXT8 -10
 #define TEXT7 -9
 #define TEXT6 -8
 #define TEXT5 -7
@@ -201,11 +205,21 @@
  * one needs to set HASLONGTOKENS. Currently ony one set of 
  * extension tokens is implemented ranging from -128 to -255.
  */
+/*
 #define TASC -128
 #define TCHR -129
 #define TRIGHT -130
 #define TLEFT -131
 #define TMID -132
+*/
+
+/* alternative implementation using positive token values */
+#define TASC 1
+#define TCHR 2
+#define TRIGHT 3
+#define TLEFT 4
+#define TMID 5
+
 
 /* BASEKEYWORD is used by the lexer. From this keyword on it tries to match. */
 #define BASEKEYWORD -121
@@ -691,7 +705,7 @@ void nextdatarecord();
 void xread();
 void xrestore();
 void xdef();
-void xfn();
+void xfn(mem_t);
 void xon();
 
 /* timers and interrupts */

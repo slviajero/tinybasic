@@ -36,9 +36,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#undef  BASICFULL
+#define  BASICFULL
 #undef	BASICINTEGER
-#define	BASICSIMPLE
+#undef	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
@@ -72,8 +72,10 @@
  * Experimental features:
  * 
  * HASMSSTRINGS is a (rudimentary) string compatibility to MS Basic.
+ * HASMULTILINEFNCTIONS is a bit like the old DEC BASIC on the PDP
  */
 #define HASMSSTRINGS
+#define HASMULTILINEFUNCTIONS
 
 /*
  * Odd stuff - these things change the behaviour of BASIC in some aspects.
@@ -89,7 +91,8 @@
  *      HASMSSTRINGS activated.
  *  USELONGJUMP: use the longjmp feature of C. This greatly simplifies 
  *      error handling at the cost of portability to some MCU platforms
- *      currently only experimental. LONGJUMP must be set to 0 or 1 as 
+ *      currently only experimental. It costs memory for the jump buffer. 
+ *      Don't use it on very small systems. LONGJUMP must be set to 0 or 1 as 
  *      it is used in boolean expression in the code
  *  BOOLEANMODE: switch the behaviour of BASICs boolean operators. Default (0)
  *      is to cast all numbers to signed 16bit and then do bitwise arithemtic.
@@ -125,6 +128,8 @@
 #undef HASERRORHANDLING
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
+#undef HASMSSTRINGS
+#define 
 #endif
 
 /* all features minus float and tone */
@@ -149,6 +154,7 @@
 #define HASERRORHANDLING
 #define HASARRAYLIMIT
 #define HASSTRUCT
+#define HASMSSTRINGS
 #endif
 
 /* a simple integer basic for small systems (UNO etc) */
@@ -173,6 +179,7 @@
 #define HASERRORHANDLING
 #undef 	HASARRAYLIMIT
 #undef 	HASSTRUCT
+#undef  HASMSSTRINGS
 #endif
 
 /* all features activated */
@@ -197,6 +204,7 @@
 #define HASERRORHANDLING
 #define HASARRAYLIMIT
 #define HASSTRUCT
+#define HASMSSTRINGS
 #endif
 
 /* a simple BASIC with float support */
@@ -221,6 +229,7 @@
 #undef HASERRORHANDLING
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
+#undef HASMSSTRINGS
 #endif
 
 /* a Tinybasic with float support */
@@ -245,6 +254,7 @@
 #undef HASERRORHANDLING
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
+#undef HASMSSTRINGS
 #endif
 
 /* 
@@ -276,11 +286,8 @@
 #endif
 
 /*
- * Some of the language features need long tokens 
+ * Some of the language features may need long tokens 
  */
-#ifdef HASMSSTRINGS
-#define HASLONGTOKENS
-#endif
 
 /* what is true? */
 #if BOOLEANMODE == 1
