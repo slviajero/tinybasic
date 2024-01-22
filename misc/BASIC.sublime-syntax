@@ -24,13 +24,13 @@ contexts:
           scope: punctuation.definition.string.end
           pop: true
 
-    - match: '\b(?i:goto|if|then|for|to|step|next|gosub|return|pop|stop|cont|end|break|on|else|def|fn)(?![$])\b'
+    - match: '\b(?i:goto|if|then|for|to|step|next|gosub|return|pop|stop|cont|end|break|on|else|def|fn|fend|switch|case|swend|repeat|until|while|wend|do|dend)(?![$])\b'
       scope: keyword.control
-    - match: '\b(?i:list|dump|run)(?![$])\b'
+    - match: '\b(?i:list|dump|run|new)(?![$])\b'
       scope: keyword.control.immediate
-    - match: '\b(?i:poke|call|usr|set|new|clr|delay)(?![$])\b'
+    - match: '\b(?i:poke|call|usr|set|clr|delay)(?![$])\b'
       scope: keyword.utility
-    - match: '\b(?i:himem|size|azero):'
+    - match: '\b(?i:himem|size|azero|sleep):'
       scope: keyword.utility.colon
     - match: \b(?i:peek)(?=\()
       scope: support.function.utility
@@ -38,11 +38,11 @@ contexts:
       scope: keyword.graphics
     - match: \b(?i:scrn)(?=\()
       scope: support.function.graphics
-    - match: '\b(?i:tab|print|input|open|close|read|data|restore|delete|fdisk|netstat|load|save|put|get|pinm|awrite|dwrite|play|every|after|error|pulse)(?![$])\b'
+    - match: '\b(?i:tab|print|input|open|close|read|data|restore|delete|fdisk|netstat|load|save|put|get|pinm|awrite|dwrite|play|every|after|error|event|pulse|wire)(?![$])\b'
       scope: keyword.io
     - match: '\b(?i:in|pr)#'
       scope: keyword.io.hash
-    - match: \b(?i:aread|dread|pulse|millis|malloc|find|sensor)(?=\()
+    - match: \b(?i:aread|dread|pulse|millis|malloc|find|sensor|wire)(?=\()
       scope: support.function.io
     - match: '\b(?i:and|or|not)(?![$])\b'
       scope: keyword.operator.logical
