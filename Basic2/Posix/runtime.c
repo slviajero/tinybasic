@@ -1167,7 +1167,6 @@ char fileread(){
 
 uint8_t ifileopen(const char* filename){
   ifile=fopen(filename, "r");
-  // return (int) ifile;
   return ifile!=0;
 }
 
@@ -1178,7 +1177,6 @@ void ifileclose(){
 
 uint8_t ofileopen(const char* filename, const char* m){
   ofile=fopen(filename, m);
-  // return (int) ofile; 
   return ofile!=0;
 }
 

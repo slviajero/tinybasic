@@ -5589,6 +5589,7 @@ void outputtoken() {
 				token == TAND ) && lastouttoken != LINENUMBER) outspc();
 			else 
 				if (lastouttoken == NUMBER || lastouttoken == VARIABLE) outspc(); 	
+
 			for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 			outsc(getkeyword(i)); 
 			if (token != GREATEREQUAL && 
@@ -5684,7 +5685,7 @@ void xrun(){
 		if (!USELONGJUMP && er) return;
 		if (st == SINT) st=SRUN;
 
-
+/* all reset on run */
 		clrvars();
 		clrgosubstack();
 		clrforstack();
@@ -5692,6 +5693,7 @@ void xrun(){
 		clrlinecache();
 		ert=0;
 		ioer=0;
+		fncontext=0;
 #ifdef HASEVENTS
 		resettimer(&every_timer);
 		resettimer(&after_timer);
@@ -5737,6 +5739,9 @@ void resetbasicstate() {
 
 /* let here point to the beginning of the program */
 	here=0;
+
+/* function context back to zero */
+	fncontext=0;
 
 /* interactive mode */
 	st=SINT;
@@ -6825,11 +6830,16 @@ void xfind() {
 
 /* after that, try to find the object on the heap */
 	nexttoken();
+	if (token == TFN) {
+		nexttoken();
+		token=TFN;
+	}
 	a=bfind(token, xc, yc);
 
 /* depending on the object, interpret the result */
 	switch (token) {
 	case ARRAYVAR:
+	case TFN:
 		if (!expect('(', EUNKNOWN)) return;
 		if (!expect(')', EUNKNOWN)) return; 	
 	case VARIABLE:
