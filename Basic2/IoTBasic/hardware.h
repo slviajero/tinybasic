@@ -44,7 +44,6 @@
  *
  */
 
-
 /* 
  * Arduino hardware settings , set here what you need or
  * use one of the predefined configurations below
@@ -55,7 +54,7 @@
  *  ARDUINOSSD1306, ARDUINOMCUFRIEND
  * storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS
  * storage ARDUINOEFS, SM32SDIO
- * sensors ARDUINOWIRE, ARDUINOSENSORS
+ * sensors ARDUINOWIRE, ARDUINOSIMPLEWIRE, ARDUINOSENSORS
  * network ARDUINORF24, ARDUNIOMQTT 
  * memory ARDUINOSPIRAM
  * real time clocks ARDUINORTC, ARDUINORTCEMULATION
@@ -94,6 +93,7 @@
 #undef ARDUINORTCEMULATION
 #undef ARDUINOTONEEMULATION
 #undef ARDUINOWIRE
+#undef ARDUINOSIMPLEWIRE
 #undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
 #undef ARDUINOETH
@@ -188,6 +188,7 @@
 
 /* PS2 Keyboard pins for AVR - use one interrupt pin 2 and one date pin 
     5 not 4 because 4 conflicts with SDPIN of the standard SD shield */
+
 #define PS2DATAPIN 3
 #define PS2IRQPIN  2
 
@@ -289,8 +290,8 @@
 #endif
 
 
-#if defined(ARDUINOSHT) || defined(ARDUINOLMS6) || defined(ARDUINOAHT) || defined(ARDUINOBMP280) || defined(RDUINOBME280)
-#define ARDUINOWIRE
+#if defined(ARDUINOSHT) || defined(ARDUINOLMS6) || defined(ARDUINOAHT) || defined(ARDUINOBMP280) || defined(ARDUINOBME280)
+#define ARDUINOSIMPLEWIRE
 #endif
 
 /*
@@ -560,27 +561,31 @@
 
 /* a clock needs wire */
 #ifdef ARDUINORTC
-#define ARDUINOWIRE
+#define HASSIMPLEWIRE
 #endif
 
 /* a display needs wire */
 #if defined(ARDUINOLCDI2C) || defined(ARDUINOSSD1306) 
-#define ARDUINOWIRE
+#define HASSIMPLEWIRE
 #endif
 
 /* EEPROM storage needs wire */
 #if defined(ARDUINOEFS)
-#define ARDUINOWIRE
+#define HASSIMPLEWIRE
 #endif
 
 /* external EEPROMs also need wire */
 #if defined(ARDUINOI2CEEPROM)
-#define ARDUINOWIRE
+#define HASSIMPLEWIRE
 #endif
 
 /* plain Wire support also needs wire ;-) */
-#if defined(ARDUINOWIRE)
+#if defined(ARDUINOWIRE) || defined(ARDUINOWIRESLAVE)
 #define HASWIRE
+#endif
+
+#if defined (ARDUINOSIMPLEWIRE)
+#define HASSIMPLEWIRE
 #endif
 
 /* radio needs SPI */

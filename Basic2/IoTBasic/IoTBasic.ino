@@ -1,4 +1,4 @@
-/*
+ /*
  *
  *	$Id: basic.c,v 1.2 2023/09/27 15:23:20 stefan Exp stefan $ 
  *

@@ -1707,7 +1707,7 @@ const byte zx81pins[] = {ZX81PINS};
 
 void kbdbegin() {
 #ifdef PS2KEYBOARD
-#if ARDUINOKBDLANG_GERMAN
+#ifdef ARDUINOKBDLANG_GERMAN
 	keyboard.begin(PS2DATAPIN, PS2IRQPIN, PS2Keymap_German);
 #else
   keyboard.begin(PS2DATAPIN, PS2IRQPIN, PS2Keymap_US);
@@ -3354,6 +3354,11 @@ uint8_t mqttreconnect() {
 
 /* try to reconnect assuming that the network is connected */
 	while (!bmqtt.connected() && timer < 400) {
+    if (*mqtt_user == 0) {
+      bmqtt.connect(mqttname);
+    } else {
+      bmqtt.connect(mqttname, mqtt_user, mqtt_passwd);
+    }
 		bmqtt.connect(mqttname);
 		bdelay(timer);
 		timer=timer*2;
@@ -3914,7 +3919,9 @@ File file;
 #endif
 #endif
 #ifdef ARDUINO_ARCH_ESP8266
-#define FILE_OWRITE (sdfat::O_READ | sdfat::O_WRITE | sdfat::O_CREAT | sdfat::O_TRUNC)
+#define FILE_OWRITE (O_READ | O_WRITE | O_CREAT | O_TRUNC)
+/* this is the ESP8266 definition for kernel 3.0, 3.1 has fixed this */
+/* #define FILE_OWRITE (sdfat::O_READ | sdfat::O_WRITE | sdfat::O_CREAT | sdfat::O_TRUNC) */
 #else 
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_STM32)
 #define FILE_OWRITE FILE_WRITE
@@ -4558,7 +4565,7 @@ uint16_t serialins(char *b, uint16_t nb) {
  * instance
  */
 #ifdef ARDUINOPRT
-#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE) && !defined(ARDUINO_AVR_NANO_EVERY) \ 
+#if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE) && !defined(ARDUINO_AVR_NANO_EVERY) \
     && !defined(ARDUINO_NANO_RP2040_CONNECT) && !defined(ARDUINO_RASPBERRY_PI_PICO) \
     && !defined(ARDUINO_SEEED_XIAO_M0) && !defined(ARDUINO_ARCH_RENESAS)
 #include <SoftwareSerial.h>
