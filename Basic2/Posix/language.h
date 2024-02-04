@@ -36,7 +36,7 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#define  BASICFULL
+#define BASICFULL
 #undef	BASICINTEGER
 #undef	BASICSIMPLE
 #undef	BASICMINIMAL
@@ -76,6 +76,7 @@
  */
 #define HASMSSTRINGS
 #define HASMULTILINEFUNCTIONS
+#define HASEDITOR
 
 /*
  * Odd stuff - these things change the behaviour of BASIC in some aspects.
@@ -88,16 +89,18 @@
  *      elements. With MSARRAYLIMITS defined, arrays start at 0 and have 
  *      n+1 elements.
  *  SUPPRESSSUBSTRINGS: switch off substring logic, makes only sense with 
- *      HASMSSTRINGS activated.
+ *      HASMSSTRINGS activated. With this, the syntax of strings and string 
+ *      arrays is comaptible to MS strings. 
  *  USELONGJUMP: use the longjmp feature of C. This greatly simplifies 
  *      error handling at the cost of portability to some MCU platforms
- *      currently only experimental. LONGJUMP must be set to 0 or 1 as 
+ *      currently only experimental. It costs memory for the jump buffer. 
+ *      Don't use it on very small systems. LONGJUMP must be set to 0 or 1 as 
  *      it is used in boolean expression in the code
  *  BOOLEANMODE: switch the behaviour of BASICs boolean operators. Default (0)
  *      is to cast all numbers to signed 16bit and then do bitwise arithemtic.
  *      In this mode false is 0 and -1 is true. (1) is C style boolean arithemtic.
- *      (2) is like 0 but with the default integer size as number type. (3) is like
- *      (0) with signed 8 bit. 
+ *      (2) is like 0 but with the default integer size as number type. This means that
+ *      32 bit platforms will cast to 32 bit integers. (3) is like (0) with signed 8 bit. 
  */
 #undef POWERRIGHTTOLEFT
 #undef MSARRAYLIMITS
@@ -127,6 +130,8 @@
 #undef HASERRORHANDLING
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
+#undef HASMSSTRINGS
+#define 
 #endif
 
 /* all features minus float and tone */
@@ -151,6 +156,7 @@
 #define HASERRORHANDLING
 #define HASARRAYLIMIT
 #define HASSTRUCT
+#define HASMSSTRINGS
 #endif
 
 /* a simple integer basic for small systems (UNO etc) */
@@ -200,6 +206,7 @@
 #define HASERRORHANDLING
 #define HASARRAYLIMIT
 #define HASSTRUCT
+#define HASMSSTRINGS
 #endif
 
 /* a simple BASIC with float support */
@@ -224,6 +231,7 @@
 #undef HASERRORHANDLING
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
+#undef HASMSSTRINGS
 #endif
 
 /* a Tinybasic with float support */
@@ -248,6 +256,7 @@
 #undef HASERRORHANDLING
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
+#undef HASMSSTRINGS
 #endif
 
 /* 
@@ -269,7 +278,7 @@
 #define HASMULTIDIM
 #endif
 
-#ifdef HASSTRUCT
+#if defined(HASSTRUCT)
 #define HASSTEFANSEXT
 #endif
 
@@ -279,12 +288,13 @@
 #endif
 
 /*
- * Some of the language features may need long tokens 
+ * Some of the language features may need long tokens.
+ * *** removed for new, will be added later ***
  */
 
 /* what is true? */
 #if BOOLEANMODE == 1
-#define BTRUE 1 /* C style boolean */
+#define BTRUE 1 /* C style and Apple 1 style boolean */
 #else
-#define BTRUE -1 /* BASIC style boolean */
+#define BTRUE -1 /* MS BASIC style boolean */
 #endif

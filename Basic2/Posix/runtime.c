@@ -34,12 +34,15 @@ int8_t idd = ISERIAL; // default input stream in interactive mode
 int8_t odd = OSERIAL; // default output stream in interactive mode 
 int8_t ioer = 0; // the io error variable, always or-ed with ert in BASIC
 
-
 /* counts the outputed characters on streams 0-3, used to emulate a real tab */
 #ifdef HASMSTAB
 uint8_t charcount[3]; /* devices 1-4 support tabing */
 uint8_t reltab = 0;
 #endif
+
+/* the pointer to the buffer used for the &0 device */
+char* nullbuffer = ibuffer;
+uint16_t nullbufsize = BUFSIZE; 
 
 /* the system type */
 #if defined(MSDOS)
@@ -54,7 +57,6 @@ uint8_t bsystype = SYSTYPE_POSIX;
 uint8_t bsystype = SYSTYPE_UNKNOWN;
 #endif
 
-
 /* libraries from OSes */
 
 /* Wiring Code, which library to use */
@@ -67,7 +69,6 @@ uint8_t bsystype = SYSTYPE_UNKNOWN;
 #undef POSIXWIRING
 int pigpio_pi = 0;
 #endif
-
 
 /* 
  * Default serial baudrate and serial flags for the 
@@ -193,6 +194,8 @@ int cheof(int c) { if ((c == -1) || (c == 255)) return 1; else return 0; }
 /* the generic inch code reading one character from a stream */
 char inch() {
   switch(id) {
+  case ONULL:
+    return bufferread();
   case ISERIAL:
     return serialread();   
 #ifdef POSIXPRT
@@ -235,6 +238,8 @@ char inch() {
  */
 char checkch(){
   switch (id) {
+  case ONULL:
+    return buffercheckch();
   case ISERIAL:
     return serialcheckch();
 #ifdef FILESYSTEMDRIVER
@@ -269,6 +274,8 @@ char checkch(){
 /* character availability */
 uint16_t availch(){
   switch (id) {
+  case ONULL:
+    return bufferavailable();
   case ISERIAL:
     return serialavailable(); 
 #ifdef FILESYSTEMDRIVER
@@ -342,7 +349,7 @@ uint16_t inb(char *b, int16_t nb) {
   } else {
     b[0]=0;
     z=0;
-    b[1]=0;
+    b[1]=0; 
   } 
   return z;
 }
@@ -388,6 +395,8 @@ uint16_t consins(char *b, uint16_t nb) {
  */
 uint16_t ins(char *b, uint16_t nb) {
   switch(id) {
+  case ONULL:
+    return bufferins(b, nb);
   case ISERIAL:
     return serialins(b, nb);
     break;
@@ -438,6 +447,9 @@ void outch(char c) {
 #endif
 
   switch(od) {
+  case ONULL:
+    bufferwrite(c);
+    break;
   case OSERIAL:
     serialwrite(c);
     break;
@@ -481,27 +493,27 @@ void outs(char *ir, uint16_t l){
 
   switch (od) {
 #ifdef HASRF24
-    case ORADIO:
-      radioouts(ir, l);
-      break;
+  case ORADIO:
+    radioouts(ir, l);
+    break;
 #endif
 #if (defined(HASWIRE) && defined(HASFILEIO))
-    case OWIRE:
-      wireouts(ir, l);
-      break;
+  case OWIRE:
+    wireouts(ir, l);
+    break;
 #endif
 #ifdef POSIXMQTT
-    case OMQTT:
-      mqttouts(ir, l);
-      break;
+  case OMQTT:
+    mqttouts(ir, l);
+     break;
 #endif
 #ifdef GRAPHDISPLAYDRIVER
-    case ODSP:
-      dspouts(ir, l);
-      break;
+  case ODSP:
+    dspouts(ir, l);
+    break;
 #endif
-    default:
-      for(i=0; i<l; i++) outch(ir[i]);
+  default:
+    for(i=0; i<l; i++) outch(ir[i]);
   }
   byield(); /* triggers yield after each character output */
 }
@@ -1265,6 +1277,46 @@ void removefile(const char *filename) {
 void formatdisk(uint8_t i) {
   puts("Format not implemented on this platform.");
 }
+
+/* 
+ *  The buffer code, a simple buffer to store output and 
+ *  input data. It can be used as a device in BASIC using the 
+ *  modifier &0. 
+ */
+
+/* use the input buffer variable from BASIC here, it is extern to runtime */
+void bufferbegin() {}
+
+/* write to the buffer, works only until 127 
+  uses vt52 style commands to handle the buffer content*/
+void bufferwrite(char c) {
+  if (!nullbuffer) return;
+  switch (c) {
+  case 12: /* clear screen */
+    nullbuffer[nullbuffer[0]+1]=0;
+    nullbuffer[0]=0;
+    break;
+  case 10: 
+  case 13: /* cr and lf ignored */
+    break;
+  case 8: /* backspace */
+    if (nullbuffer[0]>0) nullbuffer[0]--;
+    break;
+  default:
+    if (nullbuffer[0] < nullbufsize-1 && nullbuffer[0] < 127) {
+      nullbuffer[++nullbuffer[0]]=c;
+      nullbuffer[nullbuffer[0]+1]=0; /* null terminate */
+    }    
+    break;
+  }
+}
+
+/* read not needed right now */
+char bufferread() { return 0; }
+uint16_t bufferavailable() { return 0; }
+char buffercheckch() { return 0; }
+void bufferflush() { }
+uint16_t bufferins(char *b, uint16_t nb) { return 0; }
 
 /*
  * Primary serial code, if NONBLOCKING is set, 

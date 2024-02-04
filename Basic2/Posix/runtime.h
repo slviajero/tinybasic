@@ -35,8 +35,21 @@
 #define SYSTYPE_RASPPI  35
 
 /* 
- *  Input and output channels
+ *  Input and output channels.
+    *  The channels are used to identify the I/O devices in the
+    * runtime environment. 
+    * 
+    * NULL is the memory channel outputting to a buffer.
+    * SERIAL is the standard serial channel and the default device. 
+    * DSP is the display channel.
+    * PRT is the second serial channel used for printing and communication
+    *   with external devices.
+    * WIRE is the I2C channel.
+    * RADIO is the RF24 channel.
+    * MQTT is the MQTT channel.
+    * FILE is the file system channel.
  */
+#define ONULL 0
 #define OSERIAL 1
 #define ODSP 2
 #define OPRT 4
@@ -45,6 +58,7 @@
 #define OMQTT  9
 #define OFILE 16
 
+#define INULL 0
 #define ISERIAL 1
 #define IKEYBOARD 2
 #define ISERIAL1 4
@@ -91,6 +105,9 @@ extern uint8_t sendcr;
 /* counts the outputed characters on streams 0-3, used to emulate a real tab */
 extern uint8_t charcount[3]; /* devices 1-4 support tabing */
 extern uint8_t reltab; /* flag for tabing */
+
+/* the memory buffer comes from BASIC in this version */
+extern char ibuffer[BUFSIZE]; /* the input buffer */
 
 /* only needed in POSIX worlds */
 extern uint8_t breaksignal; 
@@ -555,6 +572,20 @@ void removefile(const char*);
  * formatting for fdisk of the internal filesystems
  */
 void formatdisk(uint8_t);
+
+/*
+ * The buffer I/O device. This is a stream to write to a given bufer
+ * from BASIC.
+ */
+
+void bufferbegin();
+uint8_t bufferstat(uint8_t);
+void bufferwrite(char);
+char bufferread();
+char buffercheckch();
+uint16_t bufferavailable();
+uint16_t bufferins(char*, uint16_t);
+void bufferouts(char*, uint16_t);
 
 /*
  *	Primary serial code uses the Serial object or Picoserial
