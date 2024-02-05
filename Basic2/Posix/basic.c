@@ -5670,6 +5670,11 @@ void outputtoken() {
 void listlines(address_t b, address_t e) {
 	mem_t oflag=0;
 
+/* global variables controlling outputtoken, reset to default */
+	lastouttoken=0;
+	spaceafterkeyword=0;
+
+/* if there is a programm ... */
 	if ( top != 0 ) {
 		here=0;
 		gettoken();
@@ -5694,13 +5699,12 @@ void listlines(address_t b, address_t e) {
 void xlist(){
 	number_t b, e;
 
-	lastouttoken=0;
-	spaceafterkeyword=0;
-
+/* get the argument */
 	nexttoken();
  	parsearguments();
 	if (!USELONGJUMP && er) return;
 
+/* parse the arguments */
 	switch (args) {
 	case 0: 
 		b=0;
@@ -5719,8 +5723,10 @@ void xlist(){
 		return;
 	}
 
+/* list the line from b to e in the default output device */
 	listlines(b, e);
 
+/* we are done */
 	nexttoken();
  }
 
@@ -5728,10 +5734,12 @@ void xlist(){
  * The progam line editor, first version. The code is 
  * not save for BUFSIZE greater than 127. A cast to 
  * unsigned char aka uint8_t is needed for the string 
- * length.  
+ * length as some platforms have a signed char and some 
+ * don't.
  */
 void xedit(){
 	mem_t ood = od;
+	address_t line;
 	address_t l;
 	int i, k, j;
 	char ch;
@@ -5743,21 +5751,21 @@ void xedit(){
 	if(!expectexpr()) { error(EARGS); return; }
 
 /* this uses the input buffer now */
-	od=0;
+	line=pop();
+undo: /* this is the undo point */
 	ibuffer[0]=0;
-	l=pop();
-	listlines(l, l);
+	od=0;
+	listlines(line, line);
 	od=ood;
 
-/* set the cursor to the last character, empty sets cursor to 1 */
-	l=ibuffer[0];
-	if (!l) l=1; 
+/* set the cursor to the first character */
+	l=1;
 
 /* editing loop for blocking and non blocking terminals */
 	while (-1) {
 
 /* show the line and indicate the cursor */
-		for(i=1; i<ibuffer[i]; i++) outch(ibuffer[i]);
+		for(i=1; i<=(unsigned char)ibuffer[0]; i++) outch(ibuffer[i]);
 		outcr(); 
 		for(i=0; i<l-1; i++) outspc();
 		outch('^'); 
@@ -5770,26 +5778,26 @@ void xedit(){
 			switch (ch) {
 			case 'q': /* quit the editor*/
 				goto done;
-			case 'x': /* delete the last character */
+			case 'x': /* end the editor without saving */
 				goto endnosave;
 				break;
 			case 'D': /* delete from cursor until the end of the line */
-				ibuffer[0]=l;
+				ibuffer[0]=(char)l;
 				ibuffer[l]=0;
 				break;
 			case 'j': /* vi style left */
 				if (l > 1) l--;
 				break;
 			case 'k': /* vi style right */
-				if (l<ibuffer[0]) l++;
+				if (l<(unsigned char)ibuffer[0]) l++;
 				break;
 			case 'd': /* delete the cursor character */
-				if (ibuffer[0]>0) {
-					for (j=l; j<ibuffer[0]; j++) ibuffer[j]=ibuffer[j+1]; 
+				if ((unsigned char)ibuffer[0]>0) {
+					for (j=l; j<(unsigned char)ibuffer[0]; j++) ibuffer[j]=ibuffer[j+1]; 
 					ibuffer[j]=0;
-					ibuffer[0]--;
+					ibuffer[0]=(unsigned char)ibuffer[0]-1;
 				}
-				if (ibuffer[0]<l) l=ibuffer[0];
+				if ((unsigned char)ibuffer[0]<l) l=(unsigned char)ibuffer[0];
 				break;
 			case 's': /* substitute one character at the cursor position */
 				if (k<i) {
@@ -5798,19 +5806,40 @@ void xedit(){
 				}
 				break;
 			case 'a': /* append multiple characters at the end of the line */
-				l=ibuffer[0];
-				if (!l) l=1; 
+				l=(unsigned char)ibuffer[0]+1;
 			case 'i': /* insert multiple characters at the cursor position */
-				if (i-k+ibuffer[0] < BUFSIZ) {
-					for (j=i-k+ibuffer[0]; j>=l; j--) {
+				if (i-k+(unsigned char)ibuffer[0] < BUFSIZ) {
+					for (j=i-k+(unsigned char)ibuffer[0]; j>=l; j--) {
 						ibuffer[j+i-k]=ibuffer[j];
 						if (j<=l+i-k) ibuffer[j]=sbuffer[k+1+(j-l)];
 					}
 				}
-				ibuffer[0]+=i-k;
+				ibuffer[0]=(unsigned char)ibuffer[0]+i-k;
 				k=i;
 				break;
-
+			case '^': /* vi style start of line */
+				l=1;
+				break;
+			case '$': /* vi style end of line */
+				l=(unsigned char)ibuffer[0]+1;
+				break;
+			case 'h': /* vi style backspace */
+				if (l > 1) {
+					for (j=l-1; j<(unsigned char)ibuffer[0]; j++) ibuffer[j]=ibuffer[j+1]; 
+					ibuffer[j]=0;
+					ibuffer[0]=(unsigned char)ibuffer[0]-1;
+					l--;
+				}
+				break;
+			case 'u': /* vi style undo */
+				goto undo;
+				break;
+			case ':':  /* find the next colon : character*/
+				if (l <= (unsigned char)ibuffer[0]) {
+					while (l <= (unsigned char)ibuffer[0] && ibuffer[l] != ':') l++;
+					if (l <= (unsigned char)ibuffer[0]) l++;
+				}
+				break;
 			default: /* do nothing if the character is not recogized */
 				break;
 			}
