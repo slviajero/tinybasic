@@ -76,6 +76,7 @@
  */
 #define HASMSSTRINGS
 #define HASMULTILINEFUNCTIONS
+#define HASEDITOR
 
 /*
  * Odd stuff - these things change the behaviour of BASIC in some aspects.

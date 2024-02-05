@@ -61,6 +61,10 @@ uint8_t charcount[3]; /* devices 1-4 support tabing */
 uint8_t reltab = 0;
 #endif
 
+/* the pointer to the buffer used for the &0 device */
+char* nullbuffer = ibuffer;
+uint16_t nullbufsize = BUFSIZE; 
+
 /* 
  * Keyboard library, on AVR systems Paul Stoffregens original 
  * PS2 library works.
@@ -452,6 +456,8 @@ int cheof(int c) { if ((c == -1) || (c == 255)) return 1; else return 0; }
 /* the generic inch code reading one character from a stream */
 char inch() {
   switch(id) {
+  case ONULL:
+    return bufferread();
   case ISERIAL:
     return serialread();   
 #ifdef ARDUINOPRT
@@ -494,6 +500,8 @@ char inch() {
  */
 char checkch(){
   switch (id) {
+  case ONULL:
+    return buffercheckch();
   case ISERIAL:
     return serialcheckch();
 #ifdef FILESYSTEMDRIVER
@@ -528,6 +536,8 @@ char checkch(){
 /* character availability */
 uint16_t availch(){
   switch (id) {
+  case ONULL:
+    return bufferavailable();
   case ISERIAL:
     return serialavailable(); 
 #ifdef FILESYSTEMDRIVER
@@ -652,6 +662,8 @@ uint16_t consins(char *b, uint16_t nb) {
  */
 uint16_t ins(char *b, uint16_t nb) {
   switch(id) {
+  case ONULL:
+    return bufferins(b, nb);
   case ISERIAL:
     return serialins(b, nb);
 #if defined(HASKEYBOARD) || defined(HASKEYPAD)
@@ -701,6 +713,9 @@ void outch(char c) {
 #endif
 
   switch(od) {
+  case ONULL:
+    bufferwrite(c);
+    break;
   case OSERIAL:
     serialwrite(c);
     break;
@@ -4360,6 +4375,46 @@ void formatdisk(uint8_t i) {
 	return;
 #endif
 }
+
+/* 
+ *  The buffer code, a simple buffer to store output and 
+ *  input data. It can be used as a device in BASIC using the 
+ *  modifier &0. 
+ */
+
+/* use the input buffer variable from BASIC here, it is extern to runtime */
+void bufferbegin() {}
+
+/* write to the buffer, works only until 127 
+  uses vt52 style commands to handle the buffer content*/
+void bufferwrite(char c) {
+  if (!nullbuffer) return;
+  switch (c) {
+  case 12: /* clear screen */
+    nullbuffer[nullbuffer[0]+1]=0;
+    nullbuffer[0]=0;
+    break;
+  case 10: 
+  case 13: /* cr and lf ignored */
+    break;
+  case 8: /* backspace */
+    if (nullbuffer[0]>0) nullbuffer[0]--;
+    break;
+  default:
+    if (nullbuffer[0] < nullbufsize-1 && nullbuffer[0] < 127) {
+      nullbuffer[++nullbuffer[0]]=c;
+      nullbuffer[nullbuffer[0]+1]=0; /* null terminate */
+    }    
+    break;
+  }
+}
+
+/* read not needed right now */
+char bufferread() { return 0; }
+uint16_t bufferavailable() { return 0; }
+char buffercheckch() { return 0; }
+void bufferflush() { }
+uint16_t bufferins(char *b, uint16_t nb) { return 0; }
 
 /*
  *	Primary serial code uses the Serial object or Picoserial

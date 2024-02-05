@@ -220,6 +220,8 @@
 #define TLEFT 4
 #define TMID 5
 
+/* The editor and other helpers */
+#define TEDIT 6
 
 /* BASEKEYWORD is used by the lexer. From this keyword on it tries to match. */
 #define BASEKEYWORD -121
@@ -310,13 +312,9 @@ typedef int8_t token_t; /* the type of tokens, normally mem_t with a maximum of 
 typedef int16_t token_t; /* token type extension, allows an extra of 127 commands and symbols */
 #endif
 
-/* this type maps numbers to bytes */
-typedef struct { mem_t l; mem_t h; } twobytes_t;
-typedef union { number_t i; address_t a; twobytes_t b; mem_t c[sizeof(number_t)]; } accu_t;
-
 /* the memreader function type, a function accessing memory has to have this shape */
 typedef mem_t (*memreader_t)(address_t);
-typedef void (*memwriter_t)(mem_t, address_t);
+typedef void (*memwriter_t)(address_t, mem_t);
 
 /* the worker function type - experimental */
 typedef void (*bworkfunction_t)();
@@ -353,6 +351,9 @@ typedef struct {
     address_t arraydim;
 } string_t;
 
+/* this type maps numbers to bytes */
+typedef struct { mem_t l; mem_t h; } twobytes_t;
+typedef union { number_t i; address_t a; stringlength_t s; twobytes_t b; mem_t c[sizeof(number_t)]; } accu_t;
 
 /* the timing event type */
 typedef struct {
@@ -428,6 +429,7 @@ number_t getvar(mem_t, mem_t);
 void setvar(mem_t, mem_t, number_t);
 void clrvars();
 
+/* this is the old code with a global variable */
 /*	low level memory access packing n*8bit bit into n 8 bit objects
 	e* is for Arduino EEPROM */
 void getnumber(address_t, mem_t);
@@ -435,6 +437,14 @@ void setnumber(address_t, mem_t);
 void egetnumber(address_t, mem_t);
 void esetnumber(address_t, mem_t);
 void pgetnumber(address_t, mem_t);
+
+/* the new set of functions replacimg the ones above */
+number_t getnumber2(address_t, memreader_t);
+address_t getaddress(address_t, memreader_t); 
+stringlength_t getstrlength(address_t, memreader_t);
+void setnumber2(address_t, memwriter_t, number_t);
+void setaddress(address_t, memwriter_t, address_t);
+void setstrlength(address_t, memwriter_t, stringlength_t);
 
 /* array and string handling */
 /* the multidim extension is experimental, here only 2 array dimensions implemented as test */
