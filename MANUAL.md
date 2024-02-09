@@ -1465,9 +1465,9 @@ $: go to end of line
 
 :: got to the next colon
 
-d: delete cursor character
+x: delete cursor character
 
-D: delete all characters until end of line
+X: delete all characters until end of line
 
 s: substitute cursor character
 
@@ -1475,7 +1475,7 @@ i: insert at cursor position
 
 a: append at end of line
 
-x: exit the editor without saving
+Q: exit the editor without saving
 
 u: undo all edits and stay in editor
 

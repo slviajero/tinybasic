@@ -5783,10 +5783,10 @@ undo: /* this is the undo point */
 			switch (ch) {
 			case 'q': /* quit the editor*/
 				goto done;
-			case 'x': /* end the editor without saving */
+			case 'Q': /* end the editor without saving */
 				goto endnosave;
 				break;
-			case 'D': /* delete from cursor until the end of the line */
+			case 'X': /* delete from cursor until the end of the line */
 				ibuffer[0]=(char)l;
 				ibuffer[l]=0;
 				break;
@@ -5796,7 +5796,7 @@ undo: /* this is the undo point */
 			case 'k': /* vi style right */
 				if (l<(unsigned char)ibuffer[0]) l++;
 				break;
-			case 'd': /* delete the cursor character */
+			case 'x': /* delete the cursor character */
 				if ((unsigned char)ibuffer[0]>0) {
 					for (j=l; j<(unsigned char)ibuffer[0]; j++) ibuffer[j]=ibuffer[j+1]; 
 					ibuffer[j]=0;
