@@ -73,6 +73,7 @@
  * 
  * HASMSSTRINGS is a (rudimentary) string compatibility to MS Basic.
  * HASMULTILINEFNCTIONS is a bit like the old DEC BASIC on the PDP
+ * HASEDITOR is a line editor for the console
  */
 #define HASMSSTRINGS
 #define HASMULTILINEFUNCTIONS
@@ -131,7 +132,8 @@
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
 #undef HASMSSTRINGS
-#define 
+#undef HASMULTILINEFUNCTIONS
+#undef HASEDITOR
 #endif
 
 /* all features minus float and tone */
@@ -157,6 +159,8 @@
 #define HASARRAYLIMIT
 #define HASSTRUCT
 #define HASMSSTRINGS
+#define HASMULTILINEFUNCTIONS
+#define HASEDITOR
 #endif
 
 /* a simple integer basic for small systems (UNO etc) */
@@ -182,6 +186,8 @@
 #undef 	HASARRAYLIMIT
 #undef 	HASSTRUCT
 #undef  HASMSSTRINGS
+#undef HASMULTILINEFUNCTIONS
+#undef HASEDITOR
 #endif
 
 /* all features activated */
@@ -207,6 +213,8 @@
 #define HASARRAYLIMIT
 #define HASSTRUCT
 #define HASMSSTRINGS
+#define HASMULTILINEFUNCTIONS
+#define HASEDITOR
 #endif
 
 /* a simple BASIC with float support */
@@ -232,6 +240,8 @@
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
 #undef HASMSSTRINGS
+#undef HASMULTILINEFUNCTIONS
+#undef HASEDITOR
 #endif
 
 /* a Tinybasic with float support */
@@ -257,6 +267,8 @@
 #undef HASARRAYLIMIT
 #undef HASSTRUCT
 #undef HASMSSTRINGS
+#undef HASMULTILINEFUNCTIONS
+#undef HASEDITOR
 #endif
 
 /* 
