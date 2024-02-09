@@ -5754,8 +5754,13 @@ void xedit(){
 	line=pop();
 undo: /* this is the undo point */
 	ibuffer[0]=0;
+	ibuffer[1]=0;
 	od=0;
 	listlines(line, line);
+	if (ibuffer[0] == 0) {
+		outnumber(line);
+		outspc();
+	}
 	od=ood;
 
 /* set the cursor to the first character */
