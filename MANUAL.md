@@ -902,7 +902,7 @@ Functions have to be DEFed before use. Redefinition is allowed. Functions withou
 
 Tutorial: func.bas
 
-There is an extended language set, activated by the macro HASMULTILINEFUNCTIONS. With this, constructs like 
+In BASIC 2 there is an extended language set, activated by the macro HASMULTILINEFUNCTIONS. With this, constructs like 
 
 10 DEF FNA(X)
 
@@ -912,7 +912,7 @@ There is an extended language set, activated by the macro HASMULTILINEFUNCTIONS.
 
 are possible. Function can be multi line. Return values are give as an argument of RETURN. In multiline functions, GOSUB statements are not allowed. The interrupts of AFTER, EVERY, and EVENT are disabled in multiline functions. ERROR handling is also disabled. 
 
-Multiline functions invoke a new instance of the core interpreter loop. This costs memory. Maximum depth of multiline function calls is 4. This is a parameter set in basic.h.
+Multiline functions invoke a new instance of the core interpreter loop. This costs memory. Maximum depth of multiline function calls is 4. This is a parameter set in basic.h. For real computers this limit can be extended a lot an recursive programming is possible. The limit of 4 is set only for smaller Arduinos-
 
 With the multiline function extension, functions can be called as statements. The functions
 
@@ -1371,7 +1371,7 @@ BASIC 2 seperates the runtime environment from the interpreter code. In addition
 
 In BASIC 2, string functions are supported. Currently RIGHT\$(), LEFT\$(), MID\$(), CHR\$() and ASC() are implemented. Strings can be concatenated using the + operator. These functions are there for compatibility. They are not really needed as the subscript notation offers all the necessary functionality. 
 
-Note that the undelying string code is still static, i.e. it has no garbage collection and no dynamic string space. For this reason functionality and compatibility are limited. This is done by design. 
+Note that the underlying string code is still static, i.e. it has no garbage collection and no dynamic string space. For this reason functionality and compatibility are limited. This is done by design. 
 
 Examples: 
 
@@ -1434,6 +1434,50 @@ The compatibility code also includes CHR\$() and ASC(). They convert a number to
 TAB can be used in print commands as well. 
 
 PRINT TAB(20); "hello" is legal now and produces the same result as TAB(20): PRINT "hello"
+
+### The line editor
+
+The EDIT command starts a vi style line editor optimized for serial terminals. The line number has to be given as an argument.
+
+With the program 
+
+10 PRINT "hello world" 
+
+in memory, the editor can be started by calling 
+
+EDIT 10 
+
+It produces the two line output
+
+10 PRINT "hello"
+
+^
+
+The arrow below the line is the cursor position. The following commands are supported
+
+j: move cursor left
+
+k: move cursor right 
+
+^: go to beginning of line
+
+$: go to end of line
+
+:: got to the next colon
+
+d: delete cursor character
+
+D: delete all characters until end of line
+
+s: substitute cursor character
+
+i: insert at cursor position
+
+a: append at end of line
+
+x: exit the editor without saving
+
+u: undo all edits and stay in editor
 
 # Hardware drivers 
 
