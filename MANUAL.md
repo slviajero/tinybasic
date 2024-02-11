@@ -98,13 +98,33 @@ INPUT A, B
 
 would prompt for two separate number inputs even if two number like e.g. 17,19 are enters after the first prompt. This saves memory. Please look at IOT extension for a way to split lists.
 
-In version 1.3. INPUT cannot read elements of string arrays. Only not indexed string variables are implemented.
+Until version 1.4. INPUT cannot read elements of string arrays. Only not indexed string variables are implemented.
 
 Like PRINT, the & modifier can be used to specify an input stream.
 
 INPUT &2, A
 
 would read data from the keyboard of a Arduino standalone system.
+
+In version 2.0 INPUT can do most of the things MS BASIC INPUT does. Arrays and string arrays are fully supported. The string substring notation can also be used in INPUT. 
+
+Comma seperated input of numbers is fed into comma separated variable lists. Hence
+
+10 INPUT A, B
+
+accepts the user responses 
+
+1, 2
+
+or 
+
+1
+
+2
+
+This works only for numbers. Strings have to be given in one line. INPUT still avoids buffering and does in place variable assignment for strings. This saves a lot of memory on small systems. 
+
+For INPUT the # modifier limits the number of bytes in string input. This can be used to control I2C code and other low level functions. 
 
 ### GOTO
 
