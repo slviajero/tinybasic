@@ -5051,10 +5051,17 @@ void xinput2() {
 	int k=0; /* the result of the number conversion */
 	string_t s;
 	char* buffer; /* the buffer we use for input */
+	address_t bufsize = SBUFSIZE; /* the size of the buffer */
 
 /* depending on the RUN state we use either the input buffer or the string buffer */
 /* this ways we can pocess long inputs in RUN and don't need a lot of memory */
-if (st == SRUN || st == SERUN) buffer=ibuffer; else buffer=sbuffer;
+if (st == SRUN || st == SERUN) {
+	buffer=ibuffer; 
+	bufsize=BUFSIZE;
+} else {
+	buffer=sbuffer;
+	bufsize=SBUFSIZE;
+}
 
 /* get the next token and check what we are dealing with */
 	nexttoken();
@@ -5129,7 +5136,7 @@ again:
 /* if we have no buffer or are at the end, read it and set cursor k to the beginning */
 			if (k == 0 || (address_t) buffer[0] < k) { 
 				if (prompt) showprompt();
-				(void) ins(buffer, SBUFSIZE); 
+				(void) ins(buffer, bufsize); 
 				k=1;
 			}
 /* read a number from the buffer and return it, advance the cursor k */
