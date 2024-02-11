@@ -2453,7 +2453,6 @@ int innumber2(number_t *r, char* buffer, address_t k) {
 #endif
 		if (buffer[i] == ' ' || buffer[i] == '\t') { i++; continue; } /* all whitespaces are skipped */
 
-
 /* all other characters are not allowed */
 		ert=1; 
 		return 0; 
@@ -5143,7 +5142,7 @@ again:
 /* read a number from the buffer and return it, advance the cursor k */
 			k=innumber2(&xv, buffer, k);
 
-      outsc("returned a count of "); outnumber(k); outcr();
+      // outsc("returned a count of "); outnumber(k); outcr();
 
 /* if we break, end it here */
 			if (k == -1) {
