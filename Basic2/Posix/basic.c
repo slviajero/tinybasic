@@ -5024,7 +5024,11 @@ void assignstring(string_t* sl, string_t* sr, stringlength_t copybytes) {
 }
 
 /*
- *	INPUT ["string",] variable [,["string",] variable]* 
+ * INPUT ["string",] variable [,["string",] variable]
+ *
+ * The original version of input only processes simple variables one at a time 
+ * and does not support arrays. The code is redudant to assignment and read. 
+ * It also does not support comma separated lists of values to be input.
  */
 void showprompt() {
 	outsc("? ");
@@ -5053,7 +5057,9 @@ void xinput(){
 		} else 
 			nexttoken();
 	}
-/* unlink print, form can appear only once in input after the
+
+
+/* unlike print, form can appear only once in input after the
 		stream, it controls character counts in wire */
 #if defined(HASWIRE)
 	if (token == '#') {
@@ -5100,7 +5106,6 @@ nextvariable:
 	if (token == ARRAYVAR) {
 		xcl=xc; 
 		ycl=yc;
-		// nexttoken();
 		parsesubscripts();
 		if (er != 0 ) return;
 		if (args != 1) {
@@ -5121,7 +5126,6 @@ nextvariable:
 	if (token == ARRAYVAR) {
 		xcl=xc; 
 		ycl=yc;
-		// nexttoken();
 		parsesubscripts();
 		if (er != 0 ) return;
 		switch(args) {
@@ -5209,6 +5213,169 @@ resetinput:
 	id=oldid;
 	form=0;
 }
+
+/* 
+ * Reimplementation of input using the same pattern as read and print . 
+ */
+void xinput2() {
+
+	mem_t oldid = id; /* remember the stream on modify */
+	mem_t prompt = 1; /* determine if we show the prompt */
+	number_t xv; /* for number conversion with innumber */
+
+/* this set of variables is also used by read */
+	token_t t;	/* remember the left hand side token until the end of the statement, type of the lhs */
+	mem_t ps=1;	/* also remember if the left hand side is a pure string of something with an index 	*/
+	mem_t xcl, ycl; /* to preserve the left hand side variable names	*/
+	address_t i=1;  /* and the beginning of the destination string */
+	address_t i2=0;  /* and the end of the destination string */
+	address_t j=arraylimit;	/* the second dimension of the array if needed */
+	address_t maxlen, newlength;
+	int k;
+	string_t s;
+
+/* get the next token and check what we are dealing with */
+	nexttoken();
+
+/* modifiers of the input statement (stream) */
+	if (token == '&') {
+		if(!expectexpr()) return;
+		oldid=id;
+		id=pop();
+		if (id != ISERIAL || id !=IKEYBOARD) prompt=0;
+		if (token != ',') {
+			error(EUNKNOWN);
+			return;
+		} else 
+			nexttoken();
+	}
+
+
+/* unlike print, form can appear only once in input after the
+		stream, it controls character counts in wire */
+	if (token == '#') {
+		if(!expectexpr()) return;
+		form=pop();
+		if (token != ',') {
+			error(EUNKNOWN);
+			return;
+		} else 
+			nexttoken();
+	}
+
+/* we have a string to be printed to prompt the user */
+nextstring:
+	if (token == STRING && id != IFILE) {
+		prompt=0;
+#ifdef USEMEMINTERFACE
+		if (!sr.ir) getstringtobuffer(&sr, spistrbuf1, SPIRAMSBSIZE);
+#endif
+		outs(sr.ir, sr.length);
+		nexttoken();
+		if (token != ',' && token != ';') {
+			error(EUNKNOWN);
+			return;
+		} else 
+			nexttoken();
+	}
+
+/* now we check for a variable and parse it */
+nextvariable:
+	if (token == VARIABLE || token == ARRAYVAR || token == STRINGVAR) {  
+
+/* check for a valid lefthandside expression */ 
+		t=token;
+		xcl=xc;
+		ycl=yc;
+		lefthandside(&i, &i2, &j, &ps);
+		if (!USELONGJUMP && er) return;
+
+	if (DEBUG) {
+		outsc("** in input lefthandside with ");
+		outnumber(i); outspc();
+		outnumber(i2); outspc();
+		outnumber(j); outspc();
+		outnumber(ps); outcr();
+		outsc("   token is "); outnumber(t); 
+		outsc("   at "); outnumber(here); outcr();
+	}
+
+/* get the data we need */
+		if (prompt) showprompt();
+
+/* which data type do we input */
+		switch (t) {
+		case VARIABLE:
+		case ARRAYVAR: 
+			if (innumber(&xv) == BREAKCHAR) {
+				st=SINT;
+				token=EOL;
+				goto resetinput;
+			}
+			assignnumber(t, xcl, ycl, i, j, ps, xv);
+			break;
+#ifdef HASAPPLE1
+		case STRINGVAR:
+/* the destination address of the lefthandside, on the fly create included */
+			getstring(&s, xcl, ycl, i, j);
+			if (!USELONGJUMP && er) return;
+
+			if (DEBUG) {
+				outsc("** input stringcode at "); outnumber(here); outcr();
+				outsc("** input stringcode "); outch(xcl); outch(ycl); outcr();
+				outsc("** input stringcode length "); outnumber(s.length); outcr();
+				outsc("** input stringcode dimension "); outnumber(s.strdim); outcr();
+				outsc("** input stringcode address "); outnumber(s.address); outcr();
+				outsc("** input stringcode ir "); outnumber((int) s.ir); outcr();
+			}
+
+/* the length of the lefthandside string */
+			if (i2 == 0) {
+				maxlen=s.strdim-i+1;
+			} else {
+				maxlen=i2-i+1;
+				if (maxlen > s.strdim) maxlen=s.strdim-i+1;
+			}
+
+/* the number of bytes we want to read the form parameter in WIRE can be used 
+	to set the expected number of bytes */
+			if (form != 0 && form < maxlen) maxlen=form;
+
+/* what is going on */
+			if (DEBUG) {
+				outsc("** input stringcode at "); outnumber(here); outcr();
+				outsc("** input stringcode "); outch(xcl); outch(ycl); outcr();
+				outsc("** input stringcode maximum length "); outnumber(maxlen); outcr();
+			}
+
+/* now read the string inplace */
+			z.a=ins(s.ir-1, maxlen);
+
+/* set the right string length */
+/* classical Apple 1 behaviour is string truncation in substring logic */
+			newlength = i+z.a-1;	
+			setstringlength(xcl, ycl, newlength, j);
+			break;
+#endif		
+		}
+	}
+
+/* seperators and termsymbols */
+	if (token == ',' || token == ';') {
+		nexttoken();
+		goto nextstring;
+	}
+
+/* no further data */
+	if (!termsymbol()) {
+		error(EUNKNOWN);
+	}
+
+resetinput:
+	id=oldid;
+	form=0;
+}
+
 
 /*
  *	GOTO, GOSUB, RETURN and their helpers
@@ -5590,6 +5757,8 @@ void xnext(){
  */
 void outputtoken() {
 	address_t i;
+
+	if (token == EOL) return;
 
 	if (token == LINENUMBER) outliteral=0;
 
@@ -7923,7 +8092,7 @@ void nextdatarecord() {
 	address_t h;
 	mem_t s=1;
 
-/* save the location of the interpreter */
+/* save the location of the interpreter and the token we are processing */
 	h=here;
 
 /* data at zero means we need to init it, by searching the first data record */
@@ -7976,7 +8145,7 @@ processdata:
 	error(EUNKNOWN);
 
 enddatarecord:
-	if (token == NUMBER && s == -1) { x=-x; s=1; }
+	if (token == NUMBER && s == -1) { x=-x; s=1; } /* this is needed because we tokenize only positive numbers */
 	data=here;
 	datarc++;
 	here=h;
@@ -8593,7 +8762,7 @@ void statement(){
 			assignment();
 			break;
 		case TINPUT:
-			xinput();
+			xinput2();
 			break;
 		case TRETURN:
 #ifndef HASMULTILINEFUNCTIONS
