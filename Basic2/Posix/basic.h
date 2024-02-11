@@ -520,7 +520,7 @@ address_t parsenumber2(char*, number_t*);
 address_t writenumber(char*, wnumber_t); 
 address_t writenumber2(char*, number_t);
 address_t tinydtostrf(number_t, index_t, char*);
-char innumber(number_t*);
+char innumber(number_t*,char*);
 void outnumber(number_t);
 
 /* 	

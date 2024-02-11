@@ -2425,51 +2425,47 @@ address_t writenumber2(char *c, number_t vi) {
 }
 #endif
 
-/*
- * innumber() uses sbuffer as a char buffer to get a number input 
- */
-char innumber(number_t *r) {
-	index_t i = 1;
-	index_t s = 1;
+/* innumber() and xinput() have been removed now */
 
-again:
+/*
+ * innumber2 is used as a helper only by xinput2(). It reads a number from an input
+ * buffer and returns it in the number_t r. It returns 0 if the number is invalid, 1 if
+ * the number is valid, and -1 if the user has pressed the BREAKCHAR key.
+ * 
+ * Unlike the old innumber() implementation it is meant to read comma separated numbers
+ * through input. Handling of the buffer is done by the calling function.  
+ */
+int innumber2(number_t *r, char* buffer, address_t k) {
+	address_t i = k;
+	int s = 1;
+
+/* result is zero*/
 	*r=0;
-	sbuffer[1]=0;
-	z.a=ins(sbuffer, SBUFSIZE); /* we use max number length of one byte */
-	while (i < SBUFSIZE) {
-		if (sbuffer[i] == ' ' || sbuffer[i] == '\t') i++;
-		if (sbuffer[i] == BREAKCHAR) return BREAKCHAR;
-		if (sbuffer[i] == 0) { ert=1; return 1; }
-		if (sbuffer[i] == '-') {
-			s=-1;
-			i++;
-		}
+
+/* look at the things in from of the potential number */
+	while (i < (address_t) buffer[0]) {
+		if (buffer[i] == '-') { s=-1; i++; continue;}
 #ifndef HASFLOAT
-		if (sbuffer[i] >= '0' && sbuffer[i] <= '9') {
-			(void) parsenumber(&sbuffer[i], r);
+		if (buffer[i] >= '0' && buffer[i] <= '9') break;
 #else
-		if ((sbuffer[i] >= '0' && sbuffer[i] <= '9') || sbuffer[i] == '.') {
-			(void) parsenumber2(&sbuffer[i], r);
+		if ((buffer[i] >= '0' && buffer[i] <= '9') || buffer[i] == '.') break;
 #endif
-			*r*=s;
-			return 0;
-		} else {
-			if (id == ISERIAL || id == IKEYBOARD) {
-				printmessage(ENUMBER); 
-				outspc(); 
-				printmessage(EGENERAL);
-				outcr();
-				*r=0;
-				s=1;
-				i=1;
-				goto again; 
-			} else { 
-				ert=1; 
-				return 1; 
-			}
-		}
+		if (buffer[i] == ' ' || buffer[i] == '\t') { i++; continue; } /* all whitespaces are skipped */
+		if (buffer[i] == BREAKCHAR) return -1; 	/* the break character */
+
+/* all other characters are not allowed */
+		ert=1; 
+		return 0; 
 	}
-	return 0;
+
+/* once we have found a digit we parse a number */
+#ifndef HASFLOAT
+	i+=parsenumber(&buffer[i], r);
+#else
+	i+=parsenumber2(&buffer[i], r);
+#endif
+	*r*=s;
+	return i;
 }
 
 /* prints a number */
@@ -5034,185 +5030,6 @@ void showprompt() {
 	outsc("? ");
 }
 
-void xinput(){
-	mem_t oldid = id;
-	mem_t prompt = 1;
-	address_t l;
-	number_t xv;
-	mem_t xcl, ycl;
-	address_t k;
-	string_t s;
-
-	nexttoken();
-
-/* modifiers of the input statement (stream) */
-	if (token == '&') {
-		if(!expectexpr()) return;
-		oldid=id;
-		id=pop();
-		if (id != ISERIAL || id !=IKEYBOARD) prompt=0;
-		if (token != ',') {
-			error(EUNKNOWN);
-			return;
-		} else 
-			nexttoken();
-	}
-
-
-/* unlike print, form can appear only once in input after the
-		stream, it controls character counts in wire */
-#if defined(HASWIRE)
-	if (token == '#') {
-		if(!expectexpr()) return;
-		form=pop();
-		if (token != ',') {
-			error(EUNKNOWN);
-			return;
-		} else 
-			nexttoken();
-	}
-#endif
-
-nextstring:
-	if (token == STRING && id != IFILE) {
-		prompt=0;   
-#ifdef USEMEMINTERFACE
-		if (!sr.ir) getstringtobuffer(&sr, spistrbuf1, SPIRAMSBSIZE);
-#endif
-		outs(sr.ir, sr.length);
-		nexttoken();
-		if (token != ',' && token != ';') {
-			error(EUNKNOWN);
-			return;
-		} else 
-			nexttoken();
-	}
-
-nextvariable:
-	if (token == VARIABLE) {   
-		if (prompt) showprompt();
-		if (innumber(&xv) == BREAKCHAR) {
-			st=SINT;
-			token=EOL;
-			goto resetinput;
-		} else {
-			setvar(xc, yc, xv);
-		}
-	} 
-
-/* we don't use the lefthandside call here because the input loop token handling
-	is different */
-#ifndef HASMULTIDIM
-	if (token == ARRAYVAR) {
-		xcl=xc; 
-		ycl=yc;
-		parsesubscripts();
-		if (er != 0 ) return;
-		if (args != 1) {
-			error(EARGS);
-			return;
-		}
-
-		if (prompt) showprompt();
-		if (innumber(&xv) == BREAKCHAR) {
-			st=SINT;
-			token=EOL;
-			goto resetinput;
-		} else {
-			array('s', xcl, ycl, pop(), arraylimit, &xv);
-		}
-	}
-#else
-	if (token == ARRAYVAR) {
-		xcl=xc; 
-		ycl=yc;
-		parsesubscripts();
-		if (er != 0 ) return;
-		switch(args) {
-			case 1:
-				x=pop();
-				y=arraylimit; 
-				break;
-			case 2:
-				y=pop();
-				x=pop();
-				break;
-			default:
-				error(EARGS);
-				return;
-		}
-
-		if (prompt) showprompt();
-		if (innumber(&xv) == BREAKCHAR) {
-			st=SINT;
-			token=EOL;
-			goto resetinput;
-		} else {
-			array('s', xcl, ycl, x, y, &xv);
-		}
-	}
-#endif
-
-#ifdef HASAPPLE1
-/* strings are not passed through the input buffer but inputed directly 
-    in the string memory location, ir after getstring points to the first data byte */
-	if (token == STRINGVAR) {
-
-/* this should parse the string variable and get the string array params */
-/* tbd */
-
-/* find the string information, on reular system this has an ir */
-		getstring(&s, xc, yc, 1, arraylimit); 
-
-/* show the prompt */
-		if (prompt) showprompt();
-
-/* the number of bytes we want to read the form parameter in WIRE can be used 
-	to set the expected number of bytes */
-		l=s.strdim;
-		if (id == IWIRE && form != 0 && form < l) l=form; 
-
-#ifndef USEMEMINTERFACE   
-		z.a=ins(s.ir-1, l);
-/* this is the length information correction for large strings, ins
-    stored the string length in z.a as a side effect */
-		if (strindexsize > 1 && xc != '@') { 
-			*(s.ir-2)=z.b.l;
-			*(s.ir-1)=z.b.h;
-		}
-#else
-		if (s.ir == 0) {
-			z.a=ins(spistrbuf1, l);
-			for(int k=0; k<SPIRAMSBSIZE && k<l; k++) memwrite2(ax+k, spistrbuf1[k+1]);
-			memwrite2(ax-2, z.b.l);
-			memwrite2(ax-1, z.b.h);
-		} else {
-			z.a=ins(s.ir-1, l);
-/* this is the length information correction for large strings, ins
-    stored the string length in z.a as a side effect */
-			if (xc != '@' && strindexsize == 2) { 
-				*(s.ir-2)=z.b.l;
-				*(s.ir-1)=z.b.h;
-			} 
-		}
-#endif
-	}
-#endif
-
-	nexttoken();
-	if (token == ',' || token == ';') {
-		nexttoken();
-		goto nextstring;
-	}
-
-	if (!termsymbol()) {
-		error(EUNKNOWN);
-	}
-
-resetinput:
-	id=oldid;
-	form=0;
-}
 
 /* 
  * Reimplementation of input using the same pattern as read and print . 
@@ -5230,9 +5047,14 @@ void xinput2() {
 	address_t i=1;  /* and the beginning of the destination string */
 	address_t i2=0;  /* and the end of the destination string */
 	address_t j=arraylimit;	/* the second dimension of the array if needed */
-	address_t maxlen, newlength;
-	int k;
+	address_t maxlen, newlength; /* the maximum length of the string to be read */
+	int k=0; /* the result of the number conversion */
 	string_t s;
+	char* buffer; /* the buffer we use for input */
+
+/* depending on the RUN state we use either the input buffer or the string buffer */
+/* this ways we can pocess long inputs in RUN and don't need a lot of memory */
+if (st == SRUN || st == SERUN) buffer=ibuffer; else buffer=sbuffer;
 
 /* get the next token and check what we are dealing with */
 	nexttoken();
@@ -5249,7 +5071,6 @@ void xinput2() {
 		} else 
 			nexttoken();
 	}
-
 
 /* unlike print, form can appear only once in input after the
 		stream, it controls character counts in wire */
@@ -5300,34 +5121,61 @@ nextvariable:
 		outsc("   at "); outnumber(here); outcr();
 	}
 
-/* get the data we need */
-		if (prompt) showprompt();
-
 /* which data type do we input */
 		switch (t) {
 		case VARIABLE:
 		case ARRAYVAR: 
-			if (innumber(&xv) == BREAKCHAR) {
+again:
+/* if we have no buffer or are at the end, read it and set cursor k to the beginning */
+			if (k == 0 || (address_t) buffer[0] < k) { 
+				if (prompt) showprompt();
+				(void) ins(buffer, SBUFSIZE); 
+				k=1;
+			}
+/* read a number from the buffer and return it, advance the cursor k */
+			k=innumber2(&xv, buffer, k);
+
+/* if we break, end it here */
+			if (k == -1) {
 				st=SINT;
 				token=EOL;
 				goto resetinput;
 			}
+
+/* if we have no valid number, ask again */
+			if (k == 0) {
+				if (id == ISERIAL || id == IKEYBOARD) {
+					printmessage(ENUMBER); 
+					outspc(); 
+					printmessage(EGENERAL);
+					outcr();
+					xv=0;
+					k=0;
+					goto again; 
+				} else { 
+					ert=1; 
+					xv=0; 
+					goto resetinput;
+				}
+			}
+
+/* now assign the number */
 			assignnumber(t, xcl, ycl, i, j, ps, xv);
+			
+/* look if there is a comma coming in the buffer and keep it */
+			while (k < (address_t) buffer[0]) {
+				if (buffer[k] == ',') {
+					k++;
+					goto nextvariable;
+				}
+				k++;
+			}
 			break;
 #ifdef HASAPPLE1
 		case STRINGVAR:
 /* the destination address of the lefthandside, on the fly create included */
 			getstring(&s, xcl, ycl, i, j);
 			if (!USELONGJUMP && er) return;
-
-			if (DEBUG) {
-				outsc("** input stringcode at "); outnumber(here); outcr();
-				outsc("** input stringcode "); outch(xcl); outch(ycl); outcr();
-				outsc("** input stringcode length "); outnumber(s.length); outcr();
-				outsc("** input stringcode dimension "); outnumber(s.strdim); outcr();
-				outsc("** input stringcode address "); outnumber(s.address); outcr();
-				outsc("** input stringcode ir "); outnumber((int) s.ir); outcr();
-			}
 
 /* the length of the lefthandside string */
 			if (i2 == 0) {
@@ -5349,11 +5197,12 @@ nextvariable:
 			}
 
 /* now read the string inplace */
-			z.a=ins(s.ir-1, maxlen);
+			if (prompt) showprompt();
+			newlength=ins(s.ir-1, maxlen);
 
 /* set the right string length */
 /* classical Apple 1 behaviour is string truncation in substring logic */
-			newlength = i+z.a-1;	
+			newlength = i+newlength-1;	
 			setstringlength(xcl, ycl, newlength, j);
 			break;
 #endif		
@@ -5375,7 +5224,6 @@ resetinput:
 	id=oldid;
 	form=0;
 }
-
 
 /*
  *	GOTO, GOSUB, RETURN and their helpers
