@@ -429,20 +429,12 @@ number_t getvar(mem_t, mem_t);
 void setvar(mem_t, mem_t, number_t);
 void clrvars();
 
-/* this is the old code with a global variable */
-/*	low level memory access packing n*8bit bit into n 8 bit objects
-	e* is for Arduino EEPROM */
-void getnumber(address_t, mem_t);
-void setnumber(address_t, mem_t);
-void egetnumber(address_t, mem_t);
-void esetnumber(address_t, mem_t);
-void pgetnumber(address_t, mem_t);
 
-/* the new set of functions replacimg the ones above */
-number_t getnumber2(address_t, memreader_t);
+/* the new set of functions for memory access */
+number_t getnumber(address_t, memreader_t);
 address_t getaddress(address_t, memreader_t); 
 stringlength_t getstrlength(address_t, memreader_t);
-void setnumber2(address_t, memwriter_t, number_t);
+void setnumber(address_t, memwriter_t, number_t);
 void setaddress(address_t, memwriter_t, address_t);
 void setstrlength(address_t, memwriter_t, stringlength_t);
 

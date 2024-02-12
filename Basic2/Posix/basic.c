@@ -772,8 +772,6 @@ void eload() {
 
 		/* how long is it? */
 		a++;
-		/* old code */
-		/* egetnumber(a, addrsize); top=z.a;*/
 		top=getaddress(a, eread);
 		a+=addrsize;
 
@@ -794,7 +792,6 @@ char autorun() {
 
 /* autorun from EEPROM if there is an EEPROM flagged for autorun */	
 	if (elength()>0 && eread(0) == 1) { /* autorun from the EEPROM */
-  		/* egetnumber(1, addrsize); top=z.a; */
 		top=getaddress(1, eread);
   		st=SERUN;
   		return 1; /* EEPROM autorun overrules filesystem autorun */
@@ -955,7 +952,6 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 #endif
 		default:
 			b=b-addrsize+1;
-			/* getnumber(b, addrsize); */
 			z.a=getaddress(b, memread2);
 			b--;
 		}
@@ -1037,7 +1033,6 @@ address_t bfree(mem_t t, mem_t c, mem_t d) {
 #endif
 		default:
 			b=b-addrsize+1;
-			/* getnumber(b, addrsize); */
 			z.a=getaddress(b, memread2);
 			b--;
 		}
@@ -1103,9 +1098,7 @@ number_t getvar(mem_t c, mem_t d){
 	if (!USELONGJUMP && er) return 0;
 	
 /* retrieve the value */
-/*	getnumber(a, numsize);
-	return z.i; */
-	return getnumber2(a, memread2);
+	return getnumber(a, memread2);
 
 #else
 /* systems without Apple1 extension i.e. HEAP throw an error */
@@ -1172,10 +1165,7 @@ void setvar(mem_t c, mem_t d, number_t v){
 	if (!USELONGJUMP && er) return;
 
 /* set the value */
-/*	z.i=v;
-	setnumber(a, numsize); */
-	setnumber2(a, memwrite2, v);
-
+	setnumber(a, memwrite2, v);
 #else 	
 	error(EVARIABLE);
 #endif
@@ -1208,19 +1198,13 @@ void clrvars() {
 /* 
  * The BASIC memory access function.
  * 
- * In version 1 the functions getnumber(), pgetnumber() and egetnumber()
- * retrieve a number from memory. This can be a a byte, an address 
- * or a real number. setnumber() and esetnumber() stored the object.
- *
- * All operations are always went through the global structure z. 
- * 
  * getnumber2, getaddress and getstrlength are purely local, they
- * can be used with any memory reader function.
- * 
+ * can be used with any memory reader function unlike the old BASIC 1 
+ * code.
  */
 
 /* a generic memory reader for numbers - will replace getnumber in future */
-number_t getnumber2(address_t m, memreader_t f) {
+number_t getnumber(address_t m, memreader_t f) {
 	mem_t i;
 	accu_t z;
 
@@ -1248,7 +1232,7 @@ stringlength_t getstrlength(address_t m, memreader_t f) {
 }
 
 /* set a number at a memory location, new version */
-void setnumber2(address_t m, memwriter_t f, number_t v){
+void setnumber(address_t m, memwriter_t f, number_t v){
 	mem_t i;
 	accu_t z;
 
@@ -1274,50 +1258,6 @@ void setstrlength(address_t m, memwriter_t f, stringlength_t s){
 	for (i=0; i<strindexsize; i++) f(m++, z.c[i]);
 }
 
-/* these functions are replaced now by the get/setnumber2 mechanism */
-/* ******************************************************************/
-
-void getnumber(address_t m, mem_t n){
-	mem_t i;
-
-	z.i=0;
-	for (i=0; i<n; i++) z.c[i]=memread2(m++);
-}
-
-/* code only for the USEMEMINTERFACE code, this function goes through the 
-  ro buffer to avoit rw buffer page faults, do not use this unless
-  you understand the USEMEMINTERFACE mechanism completely */
-void pgetnumber(address_t m, mem_t n){
-	mem_t i;
-
-	z.i=0;
-	for (i=0; i<n; i++) z.c[i]=memread(m++);
-}
-
-/* the eeprom memory access */
-void egetnumber(address_t m, mem_t n){
-	mem_t i;
-
-	z.i=0;
-	for (i=0; i<n; i++) z.c[i]=eread(m++);
-}
-
-/* set a number at a memory location */
-void setnumber(address_t m, mem_t n){
-	mem_t i;
-
-	for (i=0; i<n; i++) memwrite2(m++, z.c[i]);
-}
-
-/* set a number at a eepromlocation */
-void esetnumber(address_t m, mem_t n){
-	mem_t i; 
-
-	for (i=0; i<n; i++) eupdate(m++, z.c[i]);
-}
-
-/* ************ end of replaced functions ***********************/
-
 /* create an array */
 address_t createarray(mem_t c, mem_t d, address_t i, address_t j) {
 /*	address_t a, zat, at; */
@@ -1338,14 +1278,7 @@ address_t createarray(mem_t c, mem_t d, address_t i, address_t j) {
 		error(EVARIABLE); 
 	else {
 		a=bmalloc(ARRAYVAR, c, d, i*j);
-/*
-		zat=z.a; // preserve z.a because it is needed on autocreate later 
-		z.a=j; 
-		at=a+i*j*numsize; 
-		memwrite2(at++, z.b.l);
-		memwrite2(at, z.b.h);
-		z.a=zat;
-*/
+
 /* new code to set an address in memory */
 		setaddress(a+i*j*numsize, memwrite2, j);
 
@@ -1446,10 +1379,10 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 
 /* set or get the array */
 	if (m == 'g') {
-		if (!e) *v=getnumber2(a, memread2); else *v=getnumber2(a, eread); 	
+		if (!e) *v=getnumber(a, memread2); else *v=getnumber(a, eread); 	
 	} else if ( m == 's') {
 		z.i=*v;
-		if (!e) setnumber2(a, memwrite2, *v); else setnumber2(a, eupdate, *v);
+		if (!e) setnumber(a, memwrite2, *v); else setnumber(a, eupdate, *v);
 	}
 }
 
@@ -1477,15 +1410,7 @@ address_t createstring(char c, char d, address_t i, address_t j) {
 	if (bfind(STRINGVAR, c, d)) error(EVARIABLE); else a=bmalloc(STRINGVAR, c, d, addrsize+j*(i+strindexsize));
 	if (er != 0) return 0;
 
-/* preserve z.a, this is a side effect of bmalloc and bfind */
-/*	zt=z.a; */
-
-/* set the dimension of the array */
-/*
-	z.a=j;
-	setnumber(a+j*(i+strindexsize), addrsize);
-	z.a=zt;
-*/
+/* set the array length */
 	setaddress(a+j*(i+strindexsize), memwrite2, j);
 	return a;
 #endif
@@ -1524,10 +1449,6 @@ void storecstring(address_t ax, address_t s, char* b) {
 
 	for (k=0; k<s-strindexsize && b[k] != 0; k++) memwrite2(ax+k+strindexsize, b[k]); 
 	setstrlength(ax, memwrite2, k);
-/*
-	memwrite2(ax, k%256); // also this should be setnumber 
-	if (strindexsize == 2) memwrite2(ax+1, k/256);
-*/
 }
 
 /* length of a c string up to a limit l */
@@ -1612,8 +1533,6 @@ void getstring(string_t* strp, char c, char d, address_t b, address_t j) {
 
 /* get the actual full length, this is redundant to lenstring but lenstring does 
 	not autocreate */
-	// getnumber(ax, strindexsize);
-	// strp->length=z.a;
 	strp->length=getstrlength(ax, memread2);
 
 /* now find the payload address */
@@ -1621,10 +1540,6 @@ void getstring(string_t* strp, char c, char d, address_t b, address_t j) {
 #else 
 
 /* the dimension of the string array */
-	// zt=z.a;
-	// getnumber(ax+z.a-addrsize, addrsize);
-	// strp->arraydim=z.a;
-
 /* it is at the top of the string, this uses a side effect of bfind, z.a is the data record length */
 	strp->arraydim=getaddress(ax + z.a - addrsize, memread2);
 
@@ -1647,8 +1562,6 @@ void getstring(string_t* strp, char c, char d, address_t b, address_t j) {
 	if (DEBUG) { outsc("** string base address "); outnumber(ax); outcr(); }
 
 /* from this base address we can get the actual length of the string */
-	// getnumber(ax, strindexsize);
-	// strp->length=z.a;
 	strp->length=getstrlength(ax, memread2);
 
 /* the address of the payload */
@@ -2795,7 +2708,7 @@ void storetoken() {
 		memwrite2(top++, token);
 /*		z.i=x;
 		setnumber(top, numsize); */
-		setnumber2(top, memwrite2, x);
+		setnumber(top, memwrite2, x);
 		top+=numsize;
 		return;
 	case ARRAYVAR:
@@ -2917,14 +2830,6 @@ void gettoken() {
  /* otherwise we check for the argument */
 	switch (token) {
 	case LINENUMBER:
-/*
-#ifdef USEMEMINTERFACE
-		if (st != SERUN) pgetnumber(here, addrsize); else egetnumber(here+eheadersize, addrsize);
-#else
-		if (st != SERUN) getnumber(here, addrsize); else egetnumber(here+eheadersize, addrsize);
-#endif
-		ax=z.a;
-*/
 #ifdef USEMEMINTERFACE
 		if (st != SERUN) ax=getaddress(here, memread); else ax=getaddress(here+eheadersize, eread); 
 #else
@@ -2933,18 +2838,10 @@ void gettoken() {
 		here+=addrsize;
 		break;
 	case NUMBER:	
-/*
 #ifdef USEMEMINTERFACE
-		if (st !=SERUN) pgetnumber(here, numsize); else egetnumber(here+eheadersize, numsize);
+		if (st !=SERUN) x=getnumber(here, memread); else x=getnumber(here+eheadersize, eread);
 #else
-		if (st !=SERUN) getnumber(here, numsize); else egetnumber(here+eheadersize, numsize);
-#endif
-		x=z.i;
-*/
-#ifdef USEMEMINTERFACE
-		if (st !=SERUN) x=getnumber2(here, memread); else x=getnumber2(here+eheadersize, eread);
-#else
-		if (st !=SERUN) x=getnumber2(here, memread2); else x=getnumber2(here+eheadersize, eread);
+		if (st !=SERUN) x=getnumber(here, memread2); else x=getnumber(here+eheadersize, eread);
 #endif
 		here+=numsize;	
 		break;
@@ -8271,10 +8168,8 @@ void xfn(mem_t m) {
 
 /* find the function structure and retrieve the payload */
 	if ((a=bfind(TFN, fxc, fyc))==0) {error(EUNKNOWN); return; }
-/*
-	getnumber(a, addrsize);
-	h1=z.a;
-*/
+
+/* where is the function */
 	h1=getaddress(a, memread2);
 
 /* load the name of the function */
@@ -9114,15 +9009,11 @@ void setup() {
 #else
 /* if we run on an EEPROM system, more work is needed */
 	if (eread(0) == 0 || eread(0) == 1) { /* have we stored a program and don't do new */
-/*	egetnumber(1, addrsize);
-		top=z.a;    */
 		top=getaddress(1, eread);
 		resetbasicstate(); /* the little brother of new, reset the state but let the program memory be */
 		for (address_t a=elength(); a<memsize; a++) memwrite2(a, 0); /* clear the heap i.e. the basic RAM*/
   	} else {
 		eupdate(0, 0); /* now we have stored a program of length 0 */
-/*		z.a=0;
-		esetnumber(1, addrsize); */
 		setaddress(1, eupdate, 0);
 		xnew();
 	}
