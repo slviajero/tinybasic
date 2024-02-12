@@ -44,7 +44,7 @@ Files of the 1.x versions
 Basic2: The 2.x version. It separates the interpreter from the runtime envirnoment. There is a Arduino IDE version runtime.cpp and a Posix version runtime.c. The interface of the runtime environment for both platforms is idential just as the BASIC interpreter file basic.c or IotBasic.ino.
 
 Files of the 2.x version
-- basic.c identical to IoTBasic/IoTBasic.ino are identical, this is the interpreter
+- basic.c identical to IoTBasic/IoTBasic.ino, this is the interpreter
 - basic.h is the header of the interpreter
 - language.h is the configuration file for the language features
 - Posix/runtime.c is the runtime environment for Posix environment
