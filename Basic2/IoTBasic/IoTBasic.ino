@@ -2443,27 +2443,42 @@ int innumber2(number_t *r, char* buffer, address_t k) {
 	*r=0;
 
 /* look at the things in from of the potential number */
-	while (i < (address_t) buffer[0]) {
-    if (buffer[i] == BREAKCHAR) return -1;  /* the break character */
-		if (buffer[i] == '-') { s=-1; i++; continue;}
-#ifndef HASFLOAT
-		if (buffer[i] >= '0' && buffer[i] <= '9') break;
-#else
-		if ((buffer[i] >= '0' && buffer[i] <= '9') || buffer[i] == '.') break;
-#endif
-		if (buffer[i] == ' ' || buffer[i] == '\t') { i++; continue; } /* all whitespaces are skipped */
-
+//	while (i < (address_t) buffer[0]) {
+//		if (buffer[i] == '-') { s=-1; i++; continue;}
+//#ifndef HASFLOAT
+//		if (buffer[i] >= '0' && buffer[i] <= '9') break;
+//#else
+//		if ((buffer[i] >= '0' && buffer[i] <= '9') || buffer[i] == '.') break;
+//#endif
+//		if (buffer[i] == ' ' || buffer[i] == '\t') { i++; continue; } /* all whitespaces are skipped */
+//		if (buffer[i] == BREAKCHAR) return -1; 	/* the break character */
 /* all other characters are not allowed */
-		ert=1; 
-		return 0; 
-	}
+//		ert=1; 
+//		return 0; 
+//	}
 
-/* once we have found a digit we parse a number */
+/* remove all leading whitespaces first */
+	while ((buffer[i] == ' ' || buffer[i] == '\t') && i <= (address_t) buffer[0]) i++;
+
+/* is there anything left */
+	if (i > (address_t) buffer[0]) return 0;
+
+/* now the sign */
+	if (buffer[i] == '-') { s=-1; i++; }
+
+/* check for the break character */
+	if (buffer[i] == BREAKCHAR) return -1;
+
+/* the number */	
 #ifndef HASFLOAT
+	if (buffer[i] < '0' || buffer[i] > '9') return 0;
 	i+=parsenumber(&buffer[i], r);
 #else
+	if ((buffer[i] < '0' || buffer[i] > '9') && buffer[i] != '.') return 0;
 	i+=parsenumber2(&buffer[i], r);
 #endif
+
+/* the sign */
 	*r*=s;
 	return i;
 }
@@ -5055,13 +5070,13 @@ void xinput2() {
 
 /* depending on the RUN state we use either the input buffer or the string buffer */
 /* this ways we can pocess long inputs in RUN and don't need a lot of memory */
-if (st == SRUN || st == SERUN) {
-	buffer=ibuffer; 
-	bufsize=BUFSIZE;
-} else {
-	buffer=sbuffer;
-	bufsize=SBUFSIZE;
-}
+	if (st == SRUN || st == SERUN) {
+		buffer=ibuffer; 
+		bufsize=BUFSIZE;
+	} else {
+		buffer=sbuffer;
+		bufsize=SBUFSIZE;
+	}
 
 /* get the next token and check what we are dealing with */
 	nexttoken();
@@ -5141,8 +5156,6 @@ again:
 			}
 /* read a number from the buffer and return it, advance the cursor k */
 			k=innumber2(&xv, buffer, k);
-
-      // outsc("returned a count of "); outnumber(k); outcr();
 
 /* if we break, end it here */
 			if (k == -1) {
