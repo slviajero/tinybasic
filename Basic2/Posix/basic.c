@@ -1712,7 +1712,12 @@ void usrcall(address_t i) { return; }
  *		getkeyword(), getmessage(), and getokenvalue() are 
  *		the only access to the keyword array in the code.  
  *
- *	Same for messages and errors
+ *	Same for messages and errors.
+ * 
+ * 	All keywords are stored in PROGMEM, the Arduino way to store
+ * 	constant data in flash memory. sbuffer is used to recall the 	
+ *  keywords and messages from PROGMEM on Arduino. Other systems
+ *  use the keyword array directly.
  */ 
 char* getkeyword(address_t i) {
 
@@ -1726,6 +1731,7 @@ char* getkeyword(address_t i) {
 #endif
 }
 
+/* messages are read from the message array */
 char* getmessage(char i) {
 	if (i >= sizeof(message) || i < 0) return 0;
 #ifndef ARDUINOPROGMEM
@@ -1750,6 +1756,7 @@ token_t gettokenvalue(address_t i) {
 #endif
 }
 
+/* print a message directly to the default outpur stream */
 void printmessage(char i){
 #ifndef HASERRORMSG
 	if (i > EGENERAL) return;
@@ -6197,6 +6204,7 @@ void getfilename(char *buffer, char d) {
 	char *sbuffer;
 	string_t sr;
 
+/* do we have a string argument? */
 	s=stringvalue(&sr);
 	if (!USELONGJUMP && er) return;
 	if (DEBUG) {outsc("** in getfilename2 stringvalue delivered "); outnumber(s); outcr(); }
@@ -6229,17 +6237,54 @@ void getfilename(char *buffer, char d) {
 	}
 }
 
+/* 
+ * an alternative getfilename implementation that simply gives back a buffer 
+ * with the filename in it. We avoid a string buffer in the calling commands 
+ * like SAVE and LOAD. 
+ */
+char* getfilename2(char d) {
+	mem_t s;
+	string_t sr;
+
+/* we have no argument and use the default */
+	if (termsymbol()) {
+		if (d) return getmessage(MFILE);
+		else return 0;
+	}
+
+/* we have a string argument or an expression */
+	s=stringvalue(&sr);
+	if (!USELONGJUMP && er) return 0;
+	if (s) {
+#ifdef USEMEMINTERFACE
+		if (!sr.ir) getstringtobuffer(&sr, sbuffer, SBUFFERSIZE);	
+#endif
+		for (s=0; s<sr.length && s<SBUFSIZE-1; s++) sbuffer[s]=sr.ir[s];
+		sbuffer[s]=0;
+		nexttoken(); /* undo the rewind of stringvalue */
+		return sbuffer;
+	} else {
+		expression();
+		if (!USELONGJUMP && er) return 0;
+		sbuffer[0]=pop();
+		sbuffer[1]=0;
+		return sbuffer;
+	}
+}
+
 #if defined(FILESYSTEMDRIVER)
 /*
  *	SAVE a file either to disk or to EEPROM
  */
 void xsave() {
-	char filename[SBUFSIZE];
+	// char filename[SBUFSIZE];
+	char *filename;
 	address_t here2;
 	token_t t;
 
 	nexttoken();
-	getfilename(filename, 1);
+	//getfilename(filename, 1);
+	filename=getfilename2(1);
 	if (!USELONGJUMP && er) return;
 	t=token;
 
@@ -6289,17 +6334,21 @@ void xsave() {
 }
 
 /*
- * LOAD a file 
+ * LOAD a file, LOAD can either be invoked with a filename argument
+ * or without, in the latter case the filename is read from the token stream
+ * with getfilename.
  */
 void xload(const char* f) {
-	char filename[SBUFSIZE];
+	// char filename[SBUFSIZE];
+	char* filename;
 	char ch;
 	address_t here2;
 	mem_t chain = 0;
 
 	if (f == 0) {
 		nexttoken();
-		getfilename(filename, 1);
+		// getfilename(filename, 1);
+		filename=getfilename2(1);
 		if (!USELONGJUMP && er) return;
 	} else {
 		for(ch=0; ch<SBUFSIZE && f[ch]!=0; ch++) filename[ch]=f[ch];
@@ -6674,9 +6723,9 @@ void xawrite(){
 	parsenarguments(2);
 	if (!USELONGJUMP && er) return; 
 	x=popaddress();
-  if (x > 255) error(EORANGE); 
+	if (x > 255) error(EORANGE); 
 	y=popaddress();
-  if (!USELONGJUMP && er) return;
+	if (!USELONGJUMP && er) return;
 	awrite(y, x);
 }
 
@@ -7411,7 +7460,7 @@ void xcatalog() {
 				outscf(name, 14); outspc();
 				if (rootfilesize()>0) outnumber(rootfilesize()); 
 				outcr();
-				if ( dspwaitonscroll() == 27 ) break;
+				if (dspwaitonscroll() == 27) break;
 			}
 		}
 		rootfileclose();
@@ -7443,9 +7492,10 @@ void xdelete() {
  *	OPEN a file or I/O stream - very raw mix of different functions
  */
 void xopen() {
-#if defined(FILESYSTEMDRIVER) || defined(HASRF24) || defined(HASMQTT) || defined(HASWIRE)
-	char stream = IFILE; // default is file operation
-	char filename[SBUFSIZE];
+#if defined(FILESYSTEMDRIVER) || defined(HASRF24) || defined(HASMQTT) || defined(HASWIRE) || defined(HASSERIAL1)
+	char stream = IFILE; /* default is file operation */
+	// char filename[SBUFSIZE];
+	char* filename;
 	int mode;
 
 /* which stream do we open? default is FILE */
@@ -7458,7 +7508,8 @@ void xopen() {
 	}
 	
 /* the filename and its length */
-	getfilename(filename, 0);
+	// getfilename(filename, 0);
+	filename = getfilename2(0);
 	if (!USELONGJUMP && er) return; 
 
 /* and the arguments */
@@ -7477,6 +7528,8 @@ void xopen() {
 		error(EARGS);
 		return;
 	}
+
+/* open the stream */
 	switch(stream) {
 #ifdef HASSERIAL1
 	case ISERIAL1:
@@ -7539,9 +7592,8 @@ void xopen() {
  *	OPEN as a function, currently only implemented for MQTT
  */
 void xfopen() {
-	short chan = pop();
-
-	if (chan == 9) push(mqttstate()); else push(0);
+	address_t stream = popaddress();
+	if (stream == 9) push(mqttstate()); else push(0);
 }
 
 /*
@@ -7570,6 +7622,7 @@ void xclose() {
 		return;
 	}
 
+/* currently only close of files is implemented, should be also implemented for Wire */
 	switch(stream) {
 	case IFILE:
 		if (mode == 1 || mode == 2) ofileclose(); else if (mode == 0) ifileclose();
@@ -7584,7 +7637,6 @@ void xclose() {
  */
 void xfdisk() {
 #if defined(FILESYSTEMDRIVER)
-
 	nexttoken();
 	parsearguments();
 	if (!USELONGJUMP && er) return;
