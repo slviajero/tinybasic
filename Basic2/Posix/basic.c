@@ -454,7 +454,7 @@ number_t stack[STACKSIZE];
 address_t sp=0; 
 
 /* a small buffer to process string arguments, mostly used for Arduino PROGMEM and string functions */
-/* use with care as it is used in some string functions, this will be removed later */
+/* use with care as it is used in some string functions */
 char sbuffer[SBUFSIZE];
 
 /* the input buffer, the lexer can tokenize this and run from it, bi is an index to this.
@@ -579,7 +579,8 @@ mem_t lexliteral = 0;
  * the cache for the heap search - helps the string code 
  * the last found object on the heap is remembered. This is needed
  * because the string code sometime searches the heap twice during the 
- * same operation. 
+ * same operation. Also, bfindz is used to remember the length of the
+ * last found object. This replaces z.a in the old code.
  */
 #ifdef HASAPPLE1
 mem_t bfindc, bfindd, bfindt;
@@ -588,13 +589,12 @@ address_t bfinda, bfindz;
 
 /*
  * a variable for string to numerical conversion, 
- * telling you were the number ended 
+ * telling you were the number ended. 
  */
 address_t vlength;
 
 /* the timer code - very simple needs to be converted to to a struct */
 /* timer type */
-
 #ifdef HASTIMER
 btimer_t after_timer = {0, 0, 0, 0, 0};
 btimer_t every_timer = {0, 0, 0, 0, 0};
@@ -635,7 +635,7 @@ address_t bpulseunit = 10;
 /* only needed for POSIXNONBLOCKING */
 mem_t breakcondition = 0;
 
-/* the fn context, how deep are we in a nested function call */
+/* the FN context, how deep are we in a nested function call */
 mem_t fncontext = 0; 
 
 /*
@@ -1742,7 +1742,7 @@ char* getmessage(char i) {
 #endif
 }
 
-/* tokens read here are always bytes, the construction of long tokens is done further upstream */
+/* tokens read here are token_t constructed from multi byte sequences */
 token_t gettokenvalue(address_t i) {
 	if (i >= sizeof(tokens)) return 0;
 #ifndef ARDUINOPROGMEM
@@ -1940,7 +1940,7 @@ void clrdata() {
  *	Stack handling for FOR
  */
 void pushforstack(){
-	index_t i, j;
+	address_t i, j;
 
 	if (DEBUG) { outsc("** forsp and here in pushforstack "); outnumber(forsp); outspc(); outnumber(here); outcr(); }
 	
@@ -1962,7 +1962,10 @@ void pushforstack(){
 #else 
 	if (token == TWHILE || token == TREPEAT) {
 		for(i=0; i<forsp; i++) {
-			if (forstack[i].here == here) {forsp=i; break;}
+			if (forstack[i].here == here) {
+				forsp=i; 
+				break;
+			}
 		}
 	} else {
 		for(i=0; i<forsp; i++) {
@@ -2318,7 +2321,7 @@ address_t writenumber2(char *c, number_t vi) {
  */
 int innumber(number_t *r, char* buffer, address_t k) {
 	address_t i = k;
-	int s = 1;
+	mem_t s = 1;
 
 /* result is zero*/
 	*r=0;
@@ -3225,7 +3228,6 @@ void parsesubscripts() {
 	should not avance precisely because it is used in factor */
 
 void parsefunction(void (*f)(), short ae){
-	// nexttoken();
 	parsesubscripts();
 	if (!USELONGJUMP && er) return;
 	if (args == ae) f(); else error(EARGS);
@@ -3819,7 +3821,6 @@ void factorarray() {
 	ycl=yc;
 	xcl=xc;
 
-	// nexttoken();
 	parsesubscripts();
 	if (er != 0 ) return;
 
@@ -4913,10 +4914,10 @@ void xinput() {
 	int k=0; /* the result of the number conversion */
 	string_t s;
 	char* buffer; /* the buffer we use for input */
-	address_t bufsize = SBUFSIZE; /* the size of the buffer */
+	address_t bufsize; /* the size of the buffer */
 
 /* depending on the RUN state we use either the input buffer or the string buffer */
-/* this ways we can pocess long inputs in RUN and don't need a lot of memory */
+/* this ways we can process long inputs in RUN and don't need a lot of memory */
 	if (st == SRUN || st == SERUN) {
 		buffer=ibuffer; 
 		bufsize=BUFSIZE;
@@ -5315,7 +5316,7 @@ void xfor(){
 		here=bi-ibuffer;
 
 /*  here we know everything to set up the loop */
-	/* setvar(xcl, ycl, b); to have it hear makes FOR use 1 as start */
+/* setvar(xcl, ycl, b); to have it hear makes FOR use 1 as start */
 	if (DEBUG) { 
 		outsc("** for loop with parameters var begin end step : ");
 		outch(xcl); outch(ycl); outspc(); outnumber(b); outspc(); outnumber(e); outspc(); outnumber(s); outcr(); 
