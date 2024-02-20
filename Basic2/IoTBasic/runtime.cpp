@@ -3912,7 +3912,7 @@ void yieldschedule() {
 #if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
 File ifile;
 File ofile;
-char tempname[FBUFSIZE];
+char tempname[FBUFSIZE]; /* this is needed for the catalog code as these platforms do not give static C strings back */
 #if defined(ARDUINOSD) || defined(STM32SDIO)
 File root;
 File file;
