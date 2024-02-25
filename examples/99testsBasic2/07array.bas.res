@@ -59,11 +59,11 @@ Autodimensioning C
 9 6.85589
 10 2.54556
 Testing B() and @()
-Size of memory array= 16075
-1   6   6   = 6  
-2   12  12  = 12 
-3   18  18  = 18 
-4   24  24  = 24 
+Size of memory array= 16070
+1   6   6.02096E-39 = 6  
+2   12  6.03818E-39 = 12 
+3   18  6.0554E-39 = 18 
+4   24  6.06688E-39 = 24 
 Testing EEPROM
 Size of EEPROM array= 256
 1   1   = 1  
