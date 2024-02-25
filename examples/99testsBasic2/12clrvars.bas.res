@@ -1,6 +1,6 @@
 Memory size is 65535
-Himem is 65534
-Heap size is 0
+Himem is 65527
+Heap size is 7
 1 1
 2 2
 3 3
@@ -9,10 +9,10 @@ Heap size is 0
 6 6
 7 7
 8 8
-Heap size is 80
+Heap size is 94
 A$ is Hello World
 A$ is 
-Heap size is 41
+Heap size is 48
 1 1
 2 2
 3 3
@@ -33,4 +33,4 @@ Heap size is 41
 18 18
 19 19
 20 20
-Heap size is 128
+Heap size is 142
