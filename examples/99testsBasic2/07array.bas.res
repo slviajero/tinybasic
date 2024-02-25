@@ -59,7 +59,7 @@ Autodimensioning C
 9 6.85589
 10 2.54556
 Testing B() and @()
-Size of memory array= 16070
+Size of memory array= 16073
 1   6   6.02096E-39 = 6  
 2   12  6.03818E-39 = 12 
 3   18  6.0554E-39 = 18 
