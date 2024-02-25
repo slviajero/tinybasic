@@ -1,3 +1,4 @@
+5 M=0
 10 REM "DEF FN standard"
 20 DEF FN A(X)=X*X
 30 PRINT FNA(2), FNA(FNA(2)), FNA(FNA(FNA(2)))
