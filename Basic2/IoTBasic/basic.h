@@ -200,19 +200,6 @@
  * in statement for a grammar aware lexer */
 #define UNKNOWN -1
 
-/* 
- * Extension tokens can be in the range from -128 upwards.
- * one needs to set HASLONGTOKENS. Currently ony one set of 
- * extension tokens is implemented ranging from -128 to -255.
- */
-/*
-#define TASC -128
-#define TCHR -129
-#define TRIGHT -130
-#define TLEFT -131
-#define TMID -132
-*/
-
 /* alternative implementation using positive token values */
 #define TASC 1
 #define TCHR 2
@@ -222,6 +209,13 @@
 
 /* The editor and other helpers */
 #define TEDIT 6
+
+/* 
+ * Extension tokens can be in the range from -128 upwards.
+ * one needs to set HASLONGTOKENS. Currently ony one set of 
+ * extension tokens is implemented ranging from -128 to -255.
+ */
+/* this was ASC, CHR, RIGHT, LEFT, MID - right now unused */
 
 /* BASEKEYWORD is used by the lexer. From this keyword on it tries to match. */
 #define BASEKEYWORD -121
@@ -429,20 +423,11 @@ number_t getvar(mem_t, mem_t);
 void setvar(mem_t, mem_t, number_t);
 void clrvars();
 
-/* this is the old code with a global variable */
-/*	low level memory access packing n*8bit bit into n 8 bit objects
-	e* is for Arduino EEPROM */
-void getnumber(address_t, mem_t);
-void setnumber(address_t, mem_t);
-void egetnumber(address_t, mem_t);
-void esetnumber(address_t, mem_t);
-void pgetnumber(address_t, mem_t);
-
-/* the new set of functions replacimg the ones above */
-number_t getnumber2(address_t, memreader_t);
+/* the new set of functions for memory access */
+number_t getnumber(address_t, memreader_t);
 address_t getaddress(address_t, memreader_t); 
 stringlength_t getstrlength(address_t, memreader_t);
-void setnumber2(address_t, memwriter_t, number_t);
+void setnumber(address_t, memwriter_t, number_t);
 void setaddress(address_t, memwriter_t, address_t);
 void setstrlength(address_t, memwriter_t, stringlength_t);
 
@@ -520,7 +505,7 @@ address_t parsenumber2(char*, number_t*);
 address_t writenumber(char*, wnumber_t); 
 address_t writenumber2(char*, number_t);
 address_t tinydtostrf(number_t, index_t, char*);
-char innumber(number_t*,char*);
+int innumber(number_t*, char*, address_t);
 void outnumber(number_t);
 
 /* 	
@@ -730,6 +715,9 @@ void xuntil();
 void xswitch();
 void xcase();
 void xendswitch();
+
+/* the editor */
+void xedit(); 
 
 /* the statement loop */
 void statement();
