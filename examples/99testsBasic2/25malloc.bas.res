@@ -1,5 +1,5 @@
 Allocate 16 bytes of memory with identifier 1
-Address of memory segment 65514
+Address of memory segment 65519
 Storing data
 Retrieving data
 0 0
@@ -18,9 +18,9 @@ Retrieving data
 13 26
 14 28
 15 30
-Memory address of buffer 1 is 65514
-Memory address of variable A0 is 65486
-Memory address of array A() is 65447
-Memory address of string A$ is 65406
+Memory address of buffer 1 is 65519
+Memory address of variable A0 is 65489
+Memory address of array A() is 65452
+Memory address of string A$ is 65411
 HIMEM is now  65405
 HIMEM after CLR 65534
