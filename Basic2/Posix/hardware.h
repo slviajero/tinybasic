@@ -1,6 +1,6 @@
 /*
  *
- * $Id: hardware.h,v 1.1 2023/08/26 08:23:23 stefan Exp stefan $
+ * $Id: hardware.h,v 1.1 2024/02/25 04:43:16 stefan Exp stefan $
  *
  * Stefan's basic interpreter 
  *

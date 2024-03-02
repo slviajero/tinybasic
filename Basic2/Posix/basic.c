@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: basic.c,v 1.2 2023/09/27 15:23:20 stefan Exp stefan $ 
+ *	$Id: basic.c,v 1.4 2024/02/25 04:43:16 stefan Exp $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -463,7 +463,9 @@ char ibuffer[BUFSIZE] = "\0";
 char *bi;
 
 /* a static array of variables A-Z for the small systems that have no heap */
+#ifndef HASAPPLE1
 number_t vars[VARSIZE];
+#endif
 
 /* the BASIC working memory, either malloced or allocated as a global array */
 #if MEMSIZE != 0
@@ -813,13 +815,213 @@ char autorun() {
 }
 
 #ifdef HASAPPLE1
+#define NEWHEAPCODE
+/* 
+ * The new malloc code. Heap structure is now 
+ * payload
+ * (payload size)
+ * name
+ * type
+ *
+ * In the new heap implementation himem points to the first free byte on the heap.
+ * The payload is stored first and then the header. 
+ * 
+ */
+#ifdef NEWHEAPCODE
+address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
+	address_t payloadsize;     /* the payload size */
+	address_t namesize = 2; /* for now we have static two character names, but this will change soon */
+	address_t heapheadersize = 1 + namesize + addrsize; /* the length of the heap header which is type and name plus one word */
+	address_t b=himem; /* the current position on the heap, we store it in case of errors */
+
+	if (DEBUG) { 
+		outsc("** bmalloc with token "); 
+		outnumber(t); outspc(); 
+		outch(c); outch(d); outspc(); 
+		outnumber(l); outcr();
+	}
+
+/* 
+ *	how much space does the payload of the object need 
+ */
+	switch(t) {
+  	case VARIABLE: /* a variable needs numsize bytes*/
+		payloadsize=numsize;
+		heapheadersize-=addrsize; /* no length for a variable */
+		break;
+#ifndef HASMULTIDIM
+	case ARRAYVAR: /* a one dimensional array needs numsize*l bytes */
+		payloadsize=numsize*l;
+		break;
+#else
+/* multidim implementation for n=2 */
+	case ARRAYVAR: /* a two dimensional array needs numsize*l bytes plus one word for the additional dimension*/
+		payloadsize=numsize*l+addrsize;
+		break;
+#endif
+#ifdef HASDARTMOUTH
+	case TFN: /* a function needs addrsize+namesize bytes, because the name of the function and the address are stored */
+#ifndef HASMULTILINEFUNCTIONS
+		payloadsize=addrsize+namesize;
+		break;
+#else
+		payloadsize=addrsize+namesize+1; /* in the multiline implementation, we need one more byte to remember the function type */
+		break;
+#endif
+#endif
+/* these are plain buffers allocated by the MALLOC call in BASIC */
+	default:
+		payloadsize=l;
+	}
+
+/* enough memory ?, on an EEPROM system we limit the heap to the RAM */
+#ifndef EEPROMMEMINTERFACE
+	if ((himem-top) < payloadsize+heapheadersize) { error(EOUTOFMEMORY); return 0;}	
+#else
+	if (himem-(elength()-eheadersize) < payloadsize+heapheadersize) { error(EOUTOFMEMORY); return 0;}
+#endif
+
+/* first we reserve space for the payload, bfinda points to the first byte of the payload */
+/* b points to the first free byte after the payload*/
+	b-=payloadsize; 
+	bfinda=b+1;
+
+	if (DEBUG) { 
+		outsc("bmalloc at "); outnumber(b); 
+		outsc(" payloadsize is "); outnumber(payloadsize);
+		outcr(); 
+	}
+
+/* for ARRAYS, STRINGS and BUFFERS, store the object length now - these are variable size objects*/
+	if (t != VARIABLE) {
+		b-=(addrsize-1);
+		setaddress(b, memwrite2, payloadsize);
+		if (DEBUG) { outsc("bmalloc writes "); outnumber(payloadsize); outsc(" at "); outnumber(b); outcr(); }
+		b--;
+	}
+
+/* store the name of the objects (2 chars) plus the type (1 char) as identifier */
+
+	memwrite2(b--, c);
+	memwrite2(b--, d);
+	memwrite2(b--, t);
+
+/* if anything went wrong we exit here without changing himem */
+	if (b < top || er) { error(EOUTOFMEMORY); return 0; }
+
+/* we fill the cache here as well */	
+	bfindc=c;
+	bfindd=d;
+	bfindt=t;
+	bfindz=payloadsize;
+
+/* himem is the next free byte now again */ 
+	himem=b;
+
+	if (DEBUG) { outsc("bmalloc returns "); outnumber(bfinda); outsc(" himem is "); outnumber(himem); outcr(); }
+
+/* return the address of the payload */
+	return bfinda;
+}
+
+address_t bfind(mem_t t, mem_t c, mem_t d) {
+	address_t b;
+	address_t i=0;
+
+	if (DEBUG) { 
+		outsc("*** bfind called for "); outch(c); outch(d);
+		outsc(" on heap with token "); outnumber(t); 
+	 	outsc(" himem is "); outnumber(himem);  outcr(); 
+	}
+
+/* do we have anything on the heap? */
+	if (himem == memsize) return 0; else b=himem+1;
+
+/* we have the object already in cache and return */
+	if (t == bfindt && c == bfindc && d == bfindd) {
+		return bfinda;
+	}
+
+/* walk through the heap from the last object added to the first */
+	while (b <= memsize) {
+
+		if (DEBUG) { outsc("bfind at "); outnumber(b);  outcr(); }
+
+/* get the name and the type */
+		bfindt=memread2(b++);
+		bfindd=memread2(b++);
+		bfindc=memread2(b++);
+
+/* determine the size of the object and advance */
+		if (bfindt != VARIABLE) {
+			bfindz=getaddress(b, memread2);
+			b+=addrsize;
+		} else {
+			bfindz=numsize;
+		}
+
+/* this is the location of the payload */
+		bfinda=b;
+
+/* have we found the object */	
+		if (t == bfindt && c == bfindc && d == bfindd) {
+			return bfinda;
+		}	
+
+/* advance on the heap */
+		b+=bfindz;
+	}
+
+/* nothing found return 0 and clear the cache */	
+	bfindc=0;
+	bfindd=0;
+	bfindt=0;
+	return 0;
+}
+
+address_t bfree(mem_t t, mem_t c, mem_t d) {
+	address_t b;
+	address_t i;
+
+	if (DEBUG) { outsc("*** bfree2 called for "); outch(c); outch(d); outsc(" on heap with token "); outnumber(t); outcr(); }	
+
+/* use bfind to find the place */
+	b=bfind(t, c, d);
+
+/* nothing found, return 0 */
+	if (b == 0) return 0;
+
+	if (DEBUG) { outsc("** bfree2 found "); outnumber(b); outcr(); }
+
+/* clear the entire memory area */
+	for (i=himem; i<=b+bfindz-1; i++) memwrite2(i, 0);
+
+/* set the number of variables to the new value */
+	himem=b+bfindz-1;
+
+	if (DEBUG) { outsc("** bfree2 returns "); outnumber(himem); outcr(); }
+
+/* forget the chache, because heap structure has changed !! */
+	bfindc=0;
+	bfindd=0;
+	bfindt=0;
+	bfindz=0;
+	bfinda=0;
+	return himem;
+}
+#else 
+/* 
+ * The old heap code with a heap build up from the bottom. 
+ * This code is not well suited for local variables. 
+ */
+
 /*
  *	bmalloc() allocates memory for an object on the 
  *		heap, every objects is identified by name (c,d) and type t
  *		3 bytes are used here.
  */
 address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
-	address_t vsize;     /* the length of the header on the heap */
+	address_t vsize;     /* the length heap object */
 	address_t b;
 
 	if (DEBUG) { outsc("** bmalloc with token "); outnumber(t); outcr(); }
@@ -1038,12 +1240,13 @@ address_t bfree(mem_t t, mem_t c, mem_t d) {
 	return 0;
 }
 
+#endif /* NEWHEAPCODE */
+
 /* the length of an object, we directly return from the cache */
 address_t blength (mem_t t, mem_t c, mem_t d) {
 	if (bfind(t, c, d)) return bfindz; else return 0;
 }
-#endif
-
+#endif /* HASAPPLE1 */
 
 /* get and create a variable */
 number_t getvar(mem_t c, mem_t d){
@@ -1051,8 +1254,6 @@ number_t getvar(mem_t c, mem_t d){
 
 	if (DEBUG) { outsc("* getvar "); outch(c); outch(d); outspc(); outcr(); }
 
-/* the static variable array */
-	if (c >= 65 && c <= 91 && d == 0) return vars[c-65];
 
 /* the special variables */
 	if ( c == '@' )
@@ -1088,14 +1289,28 @@ number_t getvar(mem_t c, mem_t d){
 		}
 
 #ifdef HASAPPLE1
-/* dynamically allocated vars, create them on the fly if needed */
-	if (!(a=bfind(VARIABLE, c, d))) a=bmalloc(VARIABLE, c, d, 0);
+/* search the heap first */
+	a=bfind(VARIABLE, c, d);
 	if (!USELONGJUMP && er) return 0;
-	
+
+/* if we don't find on the heap and it is not a static variable, we autocreate */
+	if (a == 0) {
+		a=bmalloc(VARIABLE, c, d, 0);
+		if (!USELONGJUMP && er) return 0;
+	}
+
+/* something went wrong  */
+	if (a == 0) {
+		error(EVARIABLE);
+		return 0;
+	}
 /* retrieve the value */
 	return getnumber(a, memread2);
 
 #else
+/* we only have the static variable array */
+	if (c >= 65 && c <= 91 && d == 0) return vars[c-65];
+
 /* systems without Apple1 extension i.e. HEAP throw an error */
 	error(EVARIABLE);
 	return 0;
@@ -1107,12 +1322,6 @@ void setvar(mem_t c, mem_t d, number_t v){
 	address_t a;
 
 	if (DEBUG) { outsc("* setvar "); outch(c); outch(d); outspc(); outnumber(v); outcr(); }
-
-/* the static variable array */
-	if (d == 0 && c >= 65 && c <= 91) {
-		vars[c-65]=v;
-		return;
-	}
 
 /* the special variables */
 	if ( c == '@' )
@@ -1156,12 +1365,28 @@ void setvar(mem_t c, mem_t d, number_t v){
 
 #ifdef HASAPPLE1
 /* dynamically allocated vars */
-	if (!(a=bfind(VARIABLE, c, d))) a=bmalloc(VARIABLE, c, d, 0);
-	if (!USELONGJUMP && er) return;
+	a=bfind(VARIABLE, c, d);
+
+/* autocreate if not found */
+	if (a == 0) {
+		a=bmalloc(VARIABLE, c, d, 0);
+		if (!USELONGJUMP && er) return;
+	}
+
+/* something went wrong */
+	if (a == 0) {
+		error(EVARIABLE);
+		return;
+	}
 
 /* set the value */
 	setnumber(a, memwrite2, v);
 #else 	
+/* the static variable array */
+	if (d == 0 && c >= 65 && c <= 91) {
+		vars[c-65]=v;
+		return;
+	}
 	error(EVARIABLE);
 #endif
 }
@@ -1172,7 +1397,10 @@ void clrvars() {
 /* delete all static variables */
 	address_t i;
 
+/* clear static variable (only on no heap systems) */
+#ifndef HASAPPLE1
 	for (i=0; i<VARSIZE; i++) vars[i]=0;
+#endif
 
 /* clear the heap */
 	nvars=0;
@@ -1275,7 +1503,6 @@ address_t createarray(mem_t c, mem_t d, address_t i, address_t j) {
 
 /* new code to set an address in memory */
 		setaddress(a+i*j*numsize, memwrite2, j);
-
 		return a;
 	}
 #endif
@@ -1340,11 +1567,14 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 		h=(bfindz-addrsize)/numsize;
 #endif
 
-		if (DEBUG) { outsc("** in array base address"); outnumber(a); outcr(); }
+		if (DEBUG) { outsc("** in array base address "); outnumber(a); outcr(); }
 
 #ifdef HASMULTIDIM
 /* this function was getarrayseconddim - now inline and no function any more */
 		dim=getaddress(a+bfindz-2, memread2);
+
+		if (DEBUG) { outsc("** in array, second dimension is "); outnumber(dim); outspc(); outnumber(a+bfindz); outcr(); }
+
 		a=a+((i-arraylimit)*dim+(j-arraylimit))*numsize;
 #else 
 		a=a+(i-arraylimit)*numsize;
@@ -1412,7 +1642,6 @@ address_t createstring(char c, char d, address_t i, address_t j) {
 	return 0;	
 #endif
 }
-
 
 /* get a string at position b, the -1+stringdexsize is needed because a string index starts with 1 
  * 	in addition to the memory pointer, return the address in memory.
@@ -3286,7 +3515,7 @@ void xpeek(){
 /* 16 bit numbers can't peek big addresses */
 	if ((long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
 
-	if (a >= 0 && a<amax) 
+	if (a >= 0 && a<=amax) 
 		push(memread2(a));
 	else if (a < 0 && -a <= elength())
 		push(eread(-a-1));
@@ -6046,7 +6275,7 @@ void xpoke(){
 	v=pop(); /* the value */
 	a=pop(); /* the address */
 
-	if (a >= 0 && a<amax) 
+	if (a >= 0 && a<=amax) 
 		memwrite2(a, v);
 	else if (a < 0 && a >= -elength())
 		eupdate(-a-1, v);
@@ -8099,10 +8328,18 @@ void xdef(){
 /* find the function, we allow redefinition */
 	if ((a=bfind(TFN, xcl1, ycl1))==0) a=bmalloc(TFN, xcl1, ycl1, 0);
 	if (DEBUG) {outsc("** found function structure at "); outnumber(a); outcr(); }
+	if (!USELONGJUMP && er) return;
+
+/* this should never happen as trapped in bmalloc */
+	if (a == 0) { error(EVARIABLE); return; }
 
 /* store the payload - the here address - and the name of the variable */
 	setaddress(a, memwrite2, here);
 
+/* at this point we would implement the multi variable code after heap clean up */
+/* tbd */
+
+/* store the name of the function */
 	memwrite2(a+addrsize, xcl2);
 	memwrite2(a+addrsize+1, ycl2);
 

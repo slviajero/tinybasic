@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: language.h,v 1.2 2023/08/29 06:00:21 stefan Exp stefan $ 
+ *	$Id: language.h,v 1.1 2024/02/25 04:43:16 stefan Exp stefan $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -17,7 +17,7 @@
  *		if MEMSIZE=0 a heuristic is used based on free heap
  *		size and architecture parameters
  */
-#define MEMSIZE 0
+#define MEMSIZE 0 
 
 /*
  *	DEBUG switches on compiled debug mode. Consider using runtime 
