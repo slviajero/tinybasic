@@ -35,9 +35,6 @@
 #define ARRAYSIZEDEF    10
 #define STRSIZEDEF      32
 
-/* maximum number of nested function calls to protect form C stack overflows */
-#define FNLIMIT 4
-
 /*
  * The tokens for the BASIC keywords
  *

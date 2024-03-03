@@ -1020,3 +1020,27 @@
  * Arduinos don't have them
  */
 #undef HASARGS
+
+/*
+ * How restrictive are we on function recursive calls to protect the stack
+ * On 8 bit Arduinos this needs to be limited strictly
+ */
+#if defined(ARDUINO_ARCH_AVR)
+#define FNLIMIT 4
+#elif defined(ARDUINO_ARCH_ESP8266)
+#define FNLIMIT 64
+#elif defined(ARDUINO_ARCH_ESP32)
+#define FNLIMIT 128
+#elif defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040)
+#define FNLIMIT 128
+#elif defined(ARDUINO_ARCH_SAM) && defined(ARDUINO_ARCH_SAMD)
+#define FNLIMIT 64
+#elif defined(ARDUINO_ARCH_XMC)
+#define FNLIMIT 64
+#elif defined(ARDUINO_ARCH_SMT32)
+#define FNLIMIT 128
+#elif defined(ARDUINO_ARCH_RENESAS)
+#define FNLIMIT 32
+#else
+#define FNLIMIT 128
+#endif
