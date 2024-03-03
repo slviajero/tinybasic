@@ -521,9 +521,6 @@ address_t here;
 /* the topmost byte of a program in memory, beginning of free BASIC RAM */
 address_t top;
 
-/* the number of variables on the heap */
-address_t nvars = 0; 
-
 /* used to format output with # */
 mem_t form = 0;
 
@@ -1169,9 +1166,6 @@ void clrvars() {
 	for (i=0; i<VARSIZE; i++) vars[i]=0;
 #endif
 
-/* clear the heap */
-	nvars=0;
-
 /* then set the entire mem area to zero */
 	for (i=himem; i<memsize; i++) memwrite2(i, 0);
 
@@ -1386,7 +1380,7 @@ address_t createstring(char c, char d, address_t i, address_t j) {
 #ifdef HASAPPLE1
 	address_t a;
 	
-	if (DEBUG) { outsc("Create string "); outch(c); outch(d); outspc(); outnumber(nvars); outcr(); }
+	if (DEBUG) { outsc("Create string "); outch(c); outch(d); outcr(); }
 
 /* the MS string compatibility */
 #ifdef MSARRAYLIMITS
@@ -7740,7 +7734,7 @@ void xusr() {
 		case 24: push(top); break;
 		case 25: push(here); break;
 		case 26: push(himem); break;
-		case 27: push(nvars); break;
+		case 27: push(0); break;
 		case 28: push(freeRam()); break;
 		case 29: push(gosubsp); break;
 		case 30: push(forsp); break;
