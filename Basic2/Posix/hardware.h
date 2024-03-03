@@ -201,3 +201,10 @@ unsigned long millis();
  * Does the platform has command line args and do we want to use them 
  */
 #define HASARGS
+
+/*
+ * How restrictive are we on function recursive calls to protect the stack
+ * On Posix systems we can be more generous.
+ */
+#define FNLIMIT 128
+
