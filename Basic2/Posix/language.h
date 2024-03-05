@@ -72,12 +72,16 @@
  * Experimental features:
  * 
  * HASMSSTRINGS is a (rudimentary) string compatibility to MS Basic.
- * HASMULTILINEFNCTIONS is a bit like the old DEC BASIC on the PDP
- * HASEDITOR is a line editor for the console
+ * HASMULTILINEFNCTIONS is a bit like the old DEC BASIC on the PDP.
+ * HASEDITOR is a line editor for the console.
+ * HASTINYBASICINPUT is a tinybasic like input routine using the expression
+ *     parser. This allows expressions in the input statement. Does not work
+ *     with comma separated input. (not recommended)
  */
 #define HASMSSTRINGS
 #define HASMULTILINEFUNCTIONS
 #define HASEDITOR
+#undef  HASTINYBASICINPUT
 
 /*
  * Odd stuff - these things change the behaviour of BASIC in some aspects.
