@@ -920,7 +920,7 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 }
 
 address_t bfind(mem_t t, mem_t c, mem_t d) {
-	address_t b;
+	address_t b, b0;
 	address_t i=0;
 
 	if (DEBUG) { 
@@ -964,7 +964,15 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 		}	
 
 /* advance on the heap */
+		b0=b;
 		b+=bfindz;
+
+/* safety net */
+		if (b0 > b) {
+			error(EVARIABLE);
+			return 0;
+		}
+
 	}
 
 /* nothing found return 0 and clear the cache */	
@@ -3455,6 +3463,7 @@ number_t bpow(number_t x, number_t y) {
  */
 
 void parsestringvar(string_t* strp) {
+#ifdef HASAPPLE1
 	mem_t xcl, ycl;
 	address_t array_index;
 	address_t lower, upper;
@@ -3609,6 +3618,9 @@ void parsestringvar(string_t* strp) {
 /* restore the name */	
 	xc=xcl;
 	yc=ycl;
+#else
+	return;
+#endif
 }
 
 char stringvalue(string_t* strp) {
@@ -3894,6 +3906,7 @@ void factorarray() {
 
 /* helpers of factor - string length */
 void factorlen() {
+#ifdef HASAPPLE1
 	address_t a;
 	string_t s;
 
@@ -3930,6 +3943,9 @@ void factorlen() {
 	if (!USELONGJUMP && er) return;
 
 	if (token != ')') { error(EARGS); return; }
+#else
+	push(0);
+#endif
 }
 
 /* helpers of factor - the VAL command */
@@ -4020,6 +4036,7 @@ void factornetstat() {
 
 /* helpers of factor - the ASC command, really not needed but for completeness */
 void factorasc() {
+#ifdef HASAPPLE1
 	string_t s;
 
 	nexttoken();
@@ -4047,6 +4064,9 @@ void factorasc() {
 	if (!USELONGJUMP && er) return;
 
 	if (token != ')') { error(EARGS); return; }
+#else 
+	push(0);
+#endif
 }
 
 void factor(){
@@ -5009,11 +5029,6 @@ nextstring:
 #endif
 		outs(sr.ir, sr.length);
 		nexttoken();
-		if (token != ',' && token != ';') {
-			error(EUNKNOWN);
-			return;
-		} else 
-			nexttoken();
 	}
 
 /* now we check for a variable and parse it */
