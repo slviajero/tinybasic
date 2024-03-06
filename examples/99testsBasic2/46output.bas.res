@@ -13,14 +13,6 @@ Hello World says Stefan.
 -120  -270 x
       -120       -270x
 -120       -270      x
-A
-PASS WITH ERROR 10
-A
-PASS WITH ERROR 10
-50
-PASS WITH ERROR 10
-50
-PASS WITH ERROR 10
 Hello
 72
 HH
