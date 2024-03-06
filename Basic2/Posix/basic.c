@@ -2371,13 +2371,19 @@ int innumber(number_t *r, char* buffer, address_t k) {
 
 /* switch to fake interactive with the buffer as input */
 	st=SINT;
-	bi=buffer;
+	bi=buffer+k;
+
+/* BREAK handling */
+	if (*bi == BREAKCHAR) {
+		return -1;
+	}
 
 /* start to interpret the buffer as an expression */
 	nexttoken();
 	expression();
 
 /* restore the interpreter state */
+	i=bi-buffer; 
 	bi=b;
 	st=s;
 	token=t;
@@ -2390,7 +2396,7 @@ int innumber(number_t *r, char* buffer, address_t k) {
 
 /* the result is on the stack */
 	*r=pop();
-	return bi-buffer;
+	return i;
 #endif
 }
 
@@ -5042,6 +5048,7 @@ again:
 				(void) ins(buffer, bufsize); 
 				k=1;
 			}
+
 /* read a number from the buffer and return it, advance the cursor k */
 			k=innumber(&xv, buffer, k);
 
@@ -5073,10 +5080,10 @@ again:
 			assignnumber(t, xcl, ycl, i, j, ps, xv);
 			
 /* look if there is a comma coming in the buffer and keep it */
-			while (k < (address_t) buffer[0]) {
+			while (k < (address_t) buffer[0] && buffer[k] != 0) {
 				if (buffer[k] == ',') {
 					k++;
-					goto nextvariable;
+					break;
 				}
 				k++;
 			}
