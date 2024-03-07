@@ -209,7 +209,7 @@ calc.bas: GOSUB with an expression, @S with READ and DATA, VAL
 
 calcs.bas: WHILE and WEND, SWITCH CASE SWEND, @S with READ and DATA, VAL
 
-tinybasic.bas: VAL and the @V construct. The MS string compatibility functions MID, RIGHT, LEFT
+tinybasic.bas: VAL and the @V construct. The MS string compatibility functions MID, RIGHT, LEFT. Needs V2.0
 
 
 
