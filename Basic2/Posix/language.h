@@ -81,7 +81,7 @@
 #define HASMSSTRINGS
 #define HASMULTILINEFUNCTIONS
 #define HASEDITOR
-#undef  HASTINYBASICINPUT
+#define  HASTINYBASICINPUT
 
 /*
  * Odd stuff - these things change the behaviour of BASIC in some aspects.
@@ -111,7 +111,7 @@
 #undef MSARRAYLIMITS
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 0
-#define BOOLEANMODE 0
+#define BOOLEANMODE 1
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL

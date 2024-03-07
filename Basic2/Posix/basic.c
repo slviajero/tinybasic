@@ -535,6 +535,13 @@ address_t arraylimit = 0;
 const address_t arraylimit = 1;
 #endif
 
+/* behaviour around boolean, needed to change the interpreters personality at runtime */
+/* -1 is microsoft true while 1 is Apple 1 and C style true. */
+mem_t booleanmode = -1;
+
+/* setting the interpreter to integer at runtime */
+mem_t forceint = 0;
+
 /* the default size of a string now as a variable */
 stringlength_t defaultstrdim = STRSIZEDEF;
 
@@ -2416,6 +2423,7 @@ void outnumber(number_t n){
 #ifndef HASFLOAT
 	nd=writenumber(sbuffer, n);
 #else
+	if (forceint) n=trunc(n);
 	nd=writenumber2(sbuffer, n);
 #endif 
 
@@ -3823,10 +3831,10 @@ void streval(){
 #endif
 
 /* which operator did we use */
-	if (t == '=') push(BTRUE); else push(0);
+	if (t == '=') push(booleanmode); else push(0);
 	return;
 neq:
-	if (t == '=') push(0); else push(BTRUE);
+	if (t == '=') push(0); else push(booleanmode);
 	return;
 }
 
@@ -4370,32 +4378,32 @@ void compexpression() {
 	case '=':
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x == y ? BTRUE : 0);
+		push(x == y ? booleanmode : 0);
 		break;
 	case NOTEQUAL:
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x != y ? BTRUE : 0);
+		push(x != y ? booleanmode : 0);
 		break;
 	case '>':
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x > y ? BTRUE : 0);
+		push(x > y ? booleanmode : 0);
 		break;
 	case '<':
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x < y ? BTRUE : 0);
+		push(x < y ? booleanmode : 0);
 		break;
 	case LESSEREQUAL:
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x <= y ? BTRUE : 0);
+		push(x <= y ? booleanmode : 0);
 		break;
 	case GREATEREQUAL:
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x >= y ? BTRUE : 0);
+		push(x >= y ? booleanmode : 0);
 		break;
 	}
 }
@@ -4408,15 +4416,8 @@ void notexpression() {
 		nexttoken();
 		expression();
 		if (!USELONGJUMP && er) return;
-#if BOOLEANMODE == 0
-		push(~(short)pop());
-#elif BOOLEANMODE == 1
-		if (pop() == 0) push(1); else push(0);
-#elif BOOLEANMODE == 2
-    	push(~(int)pop());
-#elif BOOLEANMODE == 3
-    	push(~(signed char)pop());
-#endif
+		if (booleanmode == -1) push(~(short)pop());
+		else if (pop() == 0) push(1); else push(0);
 	} else 
 		compexpression();
 }
@@ -4429,15 +4430,7 @@ void andexpression() {
 	if (token == TAND) {
 		parseoperator(expression);
 		if (!USELONGJUMP && er) return;
-#if BOOLEANMODE == 0
 		push((short)x & (short)y);
-#elif BOOLEANMODE == 1
-		push(x && y);
-#elif BOOLEANMODE == 2
-		push((int)x & (int)y);;
-#elif BOOLEANMODE == 3
-		push((signed char)x & (signed char)y);
-#endif
 	} 
 }
 
@@ -4449,15 +4442,7 @@ void expression(){
 	if (token == TOR) {
 		parseoperator(expression);
 		if (!USELONGJUMP && er) return;
-#if BOOLEANMODE == 0
-		push((short)x | (short)y);
-#elif BOOLEANMODE == 1
-		push(x || y);
-#elif BOOLEANMODE == 2
-		push((int)x | (int)y);;
-#elif BOOLEANMODE == 3
-		push((signed char)x | (signed char)y);
-#endif  
+		push((short)x | (short)y); 
 	}  
 }
 #else 
@@ -4470,15 +4455,7 @@ void expression(){
 	if (token == TOR) {
 		parseoperator(expression);
 		if (!USELONGJUMP && er) return;
-#if BOOLEANMODE == 0
-	push((short)x | (short)y);
-#elif BOOLEANMODE == 1
-	push(x || y);
-#elif BOOLEANMODE == 2
-	push((int)x | (int)y);;
-#elif BOOLEANMODE == 3
-	push((signed char)x | (signed char)y);
-#endif
+		push((short)x | (short)y);
 	}  
 }
 #endif
@@ -4740,6 +4717,12 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, char ps, number_t x) {
 	string_t sr;
 
+/* if the interpreter is floating point capable but should behave in integer style */
+#ifdef HASFLOAT
+	if (forceint) x=trunc(x);
+#endif
+
+/* depending on the variable type, assign the value */
 	switch (t) {
 	case VARIABLE:
 		setvar(xcl, ycl, x);
@@ -6706,6 +6689,14 @@ void xset(){
 /* change the default size of a string at autocreate, important when SUPPRESSSUBSTRINGS is done*/
 	case 16:
 		defaultstrdim=argument;
+		break;
+/* set the boolean mode */
+	case 17: 
+		booleanmode=argument;
+		break;
+/* set the integer mode */
+	case 18: 
+		forceint=argument;
 		break;
 	}
 }
