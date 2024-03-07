@@ -1,6 +1,6 @@
 /*
  *
- *	$Id: language.h,v 1.2 2023/08/29 06:00:21 stefan Exp stefan $ 
+ *	$Id: language.h,v 1.1 2024/02/25 04:43:16 stefan Exp stefan $ 
  *
  *	Stefan's IoT BASIC interpreter 
  *
@@ -17,7 +17,7 @@
  *		if MEMSIZE=0 a heuristic is used based on free heap
  *		size and architecture parameters
  */
-#define MEMSIZE 0
+#define MEMSIZE 0 
 
 /*
  *	DEBUG switches on compiled debug mode. Consider using runtime 
@@ -72,12 +72,16 @@
  * Experimental features:
  * 
  * HASMSSTRINGS is a (rudimentary) string compatibility to MS Basic.
- * HASMULTILINEFNCTIONS is a bit like the old DEC BASIC on the PDP
- * HASEDITOR is a line editor for the console
+ * HASMULTILINEFNCTIONS is a bit like the old DEC BASIC on the PDP.
+ * HASEDITOR is a line editor for the console.
+ * HASTINYBASICINPUT is a tinybasic like input routine using the expression
+ *     parser. This allows expressions in the input statement. Does not work
+ *     with comma separated input. (not recommended)
  */
 #define HASMSSTRINGS
 #define HASMULTILINEFUNCTIONS
 #define HASEDITOR
+#define HASTINYBASICINPUT
 
 /*
  * Odd stuff - these things change the behaviour of BASIC in some aspects.
@@ -107,7 +111,7 @@
 #undef MSARRAYLIMITS
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 0
-#define BOOLEANMODE 0
+#define BOOLEANMODE 1
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL

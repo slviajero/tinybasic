@@ -535,6 +535,13 @@ address_t arraylimit = 0;
 const address_t arraylimit = 1;
 #endif
 
+/* behaviour around boolean, needed to change the interpreters personality at runtime */
+/* -1 is microsoft true while 1 is Apple 1 and C style true. */
+mem_t booleanmode = -1;
+
+/* setting the interpreter to integer at runtime */
+mem_t forceint = 0;
+
 /* the default size of a string now as a variable */
 stringlength_t defaultstrdim = STRSIZEDEF;
 
@@ -920,7 +927,7 @@ address_t bmalloc(mem_t t, mem_t c, mem_t d, address_t l) {
 }
 
 address_t bfind(mem_t t, mem_t c, mem_t d) {
-	address_t b;
+	address_t b, b0;
 	address_t i=0;
 
 	if (DEBUG) { 
@@ -964,7 +971,15 @@ address_t bfind(mem_t t, mem_t c, mem_t d) {
 		}	
 
 /* advance on the heap */
+		b0=b;
 		b+=bfindz;
+
+/* safety net */
+		if (b0 > b) {
+			error(EVARIABLE);
+			return 0;
+		}
+
 	}
 
 /* nothing found return 0 and clear the cache */	
@@ -2317,11 +2332,19 @@ address_t writenumber2(char *c, number_t vi) {
  * 
  * Unlike the old innumber() implementation it is meant to read comma separated numbers
  * through input. Handling of the buffer is done by the calling function.  
+ * 
+ * The TINYBASICINPUT is an alternative implementation following the Palo Alto BASIC
+ * way of doing it. The expression parser is reused. This allows variables names and 
+ * expressions to be used as input as well. 
+ * Due to the reuse of sbuffer in the calling function, this will probably only work 
+ * in RUN mode. 
  */
+
 int innumber(number_t *r, char* buffer, address_t k) {
 	address_t i = k;
 	mem_t s = 1;
 
+#ifndef HASTINYBASICINPUT
 /* result is zero*/
 	*r=0;
 
@@ -2349,6 +2372,47 @@ int innumber(number_t *r, char* buffer, address_t k) {
 /* the sign */
 	*r*=s;
 	return i;
+#else
+	char *b;
+	token_t t;	
+
+/* result is zero */
+	*r=0;
+
+/* save the interpreter state */
+	b=bi;
+	s=st;
+	t=token;
+
+/* switch to fake interactive with the buffer as input */
+	st=SINT;
+	bi=buffer+k;
+
+/* BREAK handling */
+	if (*bi == BREAKCHAR) {
+		return -1;
+	}
+
+/* start to interpret the buffer as an expression */
+	nexttoken();
+	expression();
+
+/* restore the interpreter state */
+	i=bi-buffer; 
+	bi=b;
+	st=s;
+	token=t;
+
+/* error handling, we trap the error and return zero */
+	if (er) {
+		er=0;
+		return 0;
+	}
+
+/* the result is on the stack */
+	*r=pop();
+	return i;
+#endif
 }
 
 /* prints a number */
@@ -2359,6 +2423,7 @@ void outnumber(number_t n){
 #ifndef HASFLOAT
 	nd=writenumber(sbuffer, n);
 #else
+	if (forceint) n=trunc(n);
 	nd=writenumber2(sbuffer, n);
 #endif 
 
@@ -3277,15 +3342,13 @@ void xsgn(){
  * the EEPROM range -1 .. -1024 on an UNO
  */
 void xpeek(){
-	address_t amax;
-	index_t a;
+	number_t a;
 
+/* get the argument from the stack because this is a function only */
 	a=pop();
 
-/* 16 bit numbers can't peek big addresses */
-	if ((long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
-
-	if (a >= 0 && a<=amax) 
+/* the memory and EEPROM range */
+	if (a >= 0 && a<=memsize)
 		push(memread2(a));
 	else if (a < 0 && -a <= elength())
 		push(eread(-a-1));
@@ -3296,7 +3359,8 @@ void xpeek(){
 }
 
 /*
- * MAP Arduino map function
+ * MAP Arduino map function, we always cast to long, this 
+ * makes it potable for various integer sizes and the float.
  */ 
 void xmap() {
 	long v, in_min, in_max, out_min, out_max;
@@ -3407,6 +3471,7 @@ number_t bpow(number_t x, number_t y) {
  */
 
 void parsestringvar(string_t* strp) {
+#ifdef HASAPPLE1
 	mem_t xcl, ycl;
 	address_t array_index;
 	address_t lower, upper;
@@ -3561,6 +3626,9 @@ void parsestringvar(string_t* strp) {
 /* restore the name */	
 	xc=xcl;
 	yc=ycl;
+#else
+	return;
+#endif
 }
 
 char stringvalue(string_t* strp) {
@@ -3763,10 +3831,10 @@ void streval(){
 #endif
 
 /* which operator did we use */
-	if (t == '=') push(BTRUE); else push(0);
+	if (t == '=') push(booleanmode); else push(0);
 	return;
 neq:
-	if (t == '=') push(0); else push(BTRUE);
+	if (t == '=') push(0); else push(booleanmode);
 	return;
 }
 
@@ -3846,6 +3914,7 @@ void factorarray() {
 
 /* helpers of factor - string length */
 void factorlen() {
+#ifdef HASAPPLE1
 	address_t a;
 	string_t s;
 
@@ -3882,6 +3951,9 @@ void factorlen() {
 	if (!USELONGJUMP && er) return;
 
 	if (token != ')') { error(EARGS); return; }
+#else
+	push(0);
+#endif
 }
 
 /* helpers of factor - the VAL command */
@@ -3972,6 +4044,7 @@ void factornetstat() {
 
 /* helpers of factor - the ASC command, really not needed but for completeness */
 void factorasc() {
+#ifdef HASAPPLE1
 	string_t s;
 
 	nexttoken();
@@ -3999,6 +4072,9 @@ void factorasc() {
 	if (!USELONGJUMP && er) return;
 
 	if (token != ')') { error(EARGS); return; }
+#else 
+	push(0);
+#endif
 }
 
 void factor(){
@@ -4302,32 +4378,32 @@ void compexpression() {
 	case '=':
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x == y ? BTRUE : 0);
+		push(x == y ? booleanmode : 0);
 		break;
 	case NOTEQUAL:
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x != y ? BTRUE : 0);
+		push(x != y ? booleanmode : 0);
 		break;
 	case '>':
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x > y ? BTRUE : 0);
+		push(x > y ? booleanmode : 0);
 		break;
 	case '<':
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x < y ? BTRUE : 0);
+		push(x < y ? booleanmode : 0);
 		break;
 	case LESSEREQUAL:
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x <= y ? BTRUE : 0);
+		push(x <= y ? booleanmode : 0);
 		break;
 	case GREATEREQUAL:
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
-		push(x >= y ? BTRUE : 0);
+		push(x >= y ? booleanmode : 0);
 		break;
 	}
 }
@@ -4340,15 +4416,8 @@ void notexpression() {
 		nexttoken();
 		expression();
 		if (!USELONGJUMP && er) return;
-#if BOOLEANMODE == 0
-		push(~(short)pop());
-#elif BOOLEANMODE == 1
-		if (pop() == 0) push(1); else push(0);
-#elif BOOLEANMODE == 2
-    	push(~(int)pop());
-#elif BOOLEANMODE == 3
-    	push(~(signed char)pop());
-#endif
+		if (booleanmode == -1) push(~(short)pop());
+		else if (pop() == 0) push(1); else push(0);
 	} else 
 		compexpression();
 }
@@ -4361,15 +4430,7 @@ void andexpression() {
 	if (token == TAND) {
 		parseoperator(expression);
 		if (!USELONGJUMP && er) return;
-#if BOOLEANMODE == 0
 		push((short)x & (short)y);
-#elif BOOLEANMODE == 1
-		push(x && y);
-#elif BOOLEANMODE == 2
-		push((int)x & (int)y);;
-#elif BOOLEANMODE == 3
-		push((signed char)x & (signed char)y);
-#endif
 	} 
 }
 
@@ -4381,15 +4442,7 @@ void expression(){
 	if (token == TOR) {
 		parseoperator(expression);
 		if (!USELONGJUMP && er) return;
-#if BOOLEANMODE == 0
-		push((short)x | (short)y);
-#elif BOOLEANMODE == 1
-		push(x || y);
-#elif BOOLEANMODE == 2
-		push((int)x | (int)y);;
-#elif BOOLEANMODE == 3
-		push((signed char)x | (signed char)y);
-#endif  
+		push((short)x | (short)y); 
 	}  
 }
 #else 
@@ -4402,15 +4455,7 @@ void expression(){
 	if (token == TOR) {
 		parseoperator(expression);
 		if (!USELONGJUMP && er) return;
-#if BOOLEANMODE == 0
-	push((short)x | (short)y);
-#elif BOOLEANMODE == 1
-	push(x || y);
-#elif BOOLEANMODE == 2
-	push((int)x | (int)y);;
-#elif BOOLEANMODE == 3
-	push((signed char)x | (signed char)y);
-#endif
+		push((short)x | (short)y);
 	}  
 }
 #endif
@@ -4424,7 +4469,8 @@ void expression(){
  */
 
 /*
- *	PRINT command 
+ *	PRINT command, extended by many features like file, wire, mqtt and radio i/o.
+ *  TAB added as part of the PRINT statement with C64 compatibility.
  */
 void xprint(){
 	char semicolon = 0;
@@ -4493,6 +4539,7 @@ processsymbol:
 		outnumber(pop());
 	}
 
+/* commas and semicolons, all other symbols are accepted and no error is thrown */
 separators:
 	if (termsymbol()) goto processsymbol;
 
@@ -4503,9 +4550,6 @@ separators:
 		semicolon=1;
 		nexttoken();
 		break;
-	default:
-		error(EUNKNOWN);
-		return;
 	}
 	modifier=0;
 
@@ -4673,6 +4717,12 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, char ps, number_t x) {
 	string_t sr;
 
+/* if the interpreter is floating point capable but should behave in integer style */
+#ifdef HASFLOAT
+	if (forceint) x=trunc(x);
+#endif
+
+/* depending on the variable type, assign the value */
 	switch (t) {
 	case VARIABLE:
 		setvar(xcl, ycl, x);
@@ -4962,11 +5012,6 @@ nextstring:
 #endif
 		outs(sr.ir, sr.length);
 		nexttoken();
-		if (token != ',' && token != ';') {
-			error(EUNKNOWN);
-			return;
-		} else 
-			nexttoken();
 	}
 
 /* now we check for a variable and parse it */
@@ -5001,6 +5046,7 @@ again:
 				(void) ins(buffer, bufsize); 
 				k=1;
 			}
+
 /* read a number from the buffer and return it, advance the cursor k */
 			k=innumber(&xv, buffer, k);
 
@@ -5032,10 +5078,10 @@ again:
 			assignnumber(t, xcl, ycl, i, j, ps, xv);
 			
 /* look if there is a comma coming in the buffer and keep it */
-			while (k < (address_t) buffer[0]) {
+			while (k < (address_t) buffer[0] && buffer[k] != 0) {
 				if (buffer[k] == ',') {
 					k++;
-					goto nextvariable;
+					break;
 				}
 				k++;
 			}
@@ -6035,16 +6081,14 @@ nextvariable:
 
 
 /* 
- *	POKE - low level poke to the basic memory, works only up to 32767
- * variables changed to local
+ *	POKE - low level poke to the basic memory.
+ *  on 16bit systems, the address is signed, so we can only go up to 32767.
+ *  If the address is negative, we poke into the EEPROM. 
  */
 void xpoke(){
-	address_t amax;
-	index_t a, v; /* both can be signed ! */
+	number_t a, v; 
 
-/* 16 bit numbers can't poke big addresses */
-	if ( (long) memsize > (long) maxnum) amax=(address_t) maxnum; else amax=memsize;
-
+/* get the address and the value */
 	nexttoken();
 	parsenarguments(2);
 	if (!USELONGJUMP && er) return;
@@ -6052,7 +6096,8 @@ void xpoke(){
 	v=pop(); /* the value */
 	a=pop(); /* the address */
 
-	if (a >= 0 && a<=amax) 
+/* catch memsize here because memwrite doesn't do it */
+	if (a >= 0 && a<=memsize) 
 		memwrite2(a, v);
 	else if (a < 0 && a >= -elength())
 		eupdate(-a-1, v);
@@ -6066,20 +6111,24 @@ void xpoke(){
  * 		charcount mechanism for relative tab if HASMSTAB is set
  */
 void xtab(){
+	address_t a;
 
+/* get the number of spaces, we allow brackets here to use xtab also in PRINT */
 	nexttoken();
+	if (token == '(') nexttoken();
 	parsenarguments(1);
 	if (!USELONGJUMP && er) return;
+	if (token == ')') nexttoken();
 
-	ax=popaddress();
+	a=popaddress();
 	if (!USELONGJUMP && er) return; 
   
 #ifdef HASMSTAB
 	if (reltab && od <= OPRT && od > 0) {
-		if (charcount[od-1] >= ax) ax=0; else ax=ax-charcount[od-1]-1;
+		if (charcount[od-1] >= a) ax=0; else a=a-charcount[od-1]-1;
 	} 
 #endif	
-	while (ax-- > 0) outspc();	
+	while (a-- > 0) outspc();	
 }
 #endif
 
@@ -6096,7 +6145,7 @@ void xlocate() {
 
 	cy=popaddress();
 	cx=popaddress();
-  if (!USELONGJUMP && er) return;
+	if (!USELONGJUMP && er) return;
 
 /* for locate we go through the VT52 interface for cursor positioning*/
 	if (cx > 0 && cy > 0 && cx < 224 && cy < 224) {
@@ -6640,6 +6689,14 @@ void xset(){
 /* change the default size of a string at autocreate, important when SUPPRESSSUBSTRINGS is done*/
 	case 16:
 		defaultstrdim=argument;
+		break;
+/* set the boolean mode */
+	case 17: 
+		booleanmode=argument;
+		break;
+/* set the integer mode */
+	case 18: 
+		forceint=argument;
 		break;
 	}
 }
