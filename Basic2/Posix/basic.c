@@ -6319,7 +6319,7 @@ char* getfilename2(char d) {
 	if (!USELONGJUMP && er) return 0;
 	if (s) {
 #ifdef USEMEMINTERFACE
-		if (!sr.ir) getstringtobuffer(&sr, sbuffer, SBUFFERSIZE);	
+		if (!sr.ir) getstringtobuffer(&sr, sbuffer, SBUFSIZE);	
 #endif
 		for (s=0; s<sr.length && s<SBUFSIZE-1; s++) sbuffer[s]=sr.ir[s];
 		sbuffer[s]=0;
