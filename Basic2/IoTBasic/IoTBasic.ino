@@ -545,6 +545,12 @@ mem_t forceint = 0;
 /* the default size of a string now as a variable */
 stringlength_t defaultstrdim = STRSIZEDEF;
 
+/* the base of the random number generator 
+ *	0 is Apple 1 style RND from 0 to n-epsilon 
+ *	1 is Palo Alto style from 1 to n 
+ */
+mem_t randombase = 0;
+
 /* the number of arguments parsed from a command */
 mem_t args;
 
@@ -3385,16 +3391,16 @@ void rnd() {
 /* the original 16 bit congruence */
 	rd = (31421*rd + 6927) % 0x10000;
 	if (r>=0) 
-		push((long)rd*r/0x10000);
+		push((long)rd*r/0x10000+randombase);
 	else 
-		push((long)rd*r/0x10000+1);
+		push((long)rd*r/0x10000+1-randombase);
 #else
 /* glibc parameters */
 	rd= (110351245*rd + 12345) % (1 << 31);
 	if (r>=0) 
-		push(rd*r/(unsigned long)(1 << 31));
+		push(rd*r/(unsigned long)(1 << 31)+randombase);
 	else 
-		push(rd*r/(unsigned long)(1 << 31)+1);
+		push(rd*r/(unsigned long)(1 << 31)+1-randombase);
 #endif
 }
 
@@ -6697,6 +6703,10 @@ void xset(){
 /* set the integer mode */
 	case 18: 
 		forceint=argument;
+		break;
+/* set the random number behaviour */
+	case 19: 
+		randombase=argument;
 		break;
 	}
 }
