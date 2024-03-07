@@ -989,6 +989,14 @@
 #define ARDUINOPICOSERIAL
 #endif
 
+/* the code to address EEPROMs directly */
+#ifdef ARDUINOPGMEEPROM
+#define USEMEMINTERFACE
+#define EEPROMMEMINTERFACE
+#else 
+#undef EEPROMMEMINTERFACE
+#endif
+
 /* the SPI RAM interface */
 #ifdef ARDUINOSPIRAM
 #define USEMEMINTERFACE
