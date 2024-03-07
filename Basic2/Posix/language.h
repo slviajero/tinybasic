@@ -303,14 +303,3 @@
 #undef HASGRAPH
 #endif
 
-/*
- * Some of the language features may need long tokens.
- * *** removed for new, will be added later ***
- */
-
-/* what is true? */
-#if BOOLEANMODE == 1
-#define BTRUE 1 /* C style and Apple 1 style boolean */
-#else
-#define BTRUE -1 /* MS BASIC style boolean */
-#endif
