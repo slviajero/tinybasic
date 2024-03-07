@@ -5325,16 +5325,6 @@ void spiramrawwrite(uint16_t a, int8_t c) {
 }
 #endif
 
-
-/* the code to address EEPROMs directly */
-#ifdef ARDUINOPGMEEPROM
-#define USEMEMINTERFACE
-#define EEPROMMEMINTERFACE
-#else 
-#undef EEPROMMEMINTERFACE
-#endif
-
-
 #if defined(USEMEMINTERFACE)
 /* 
  * to handle strings in situations with a memory interface two more buffers are 
