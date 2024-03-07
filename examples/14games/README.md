@@ -318,9 +318,11 @@ superstartrek.bas: everything BASIC has
 
 superstartrekins.bas: strings 
 
+trek.bas: Genuines Palo Alto BASIC, the Palo Alto language set at work.
+
 ## Sources
 
-Original programs of the book "BASIC Computer Games"
+Original programs of the book "BASIC Computer Games" except trek.bas which I found on facebook.
 
 This is an unofficial mirror of the source code provided inside the book **"Basic Computer Games"**, aka **"101 BASIC Computer Games"**, by David H. Ahl, published in 1978. 
 
