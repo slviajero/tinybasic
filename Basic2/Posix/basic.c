@@ -537,7 +537,7 @@ const address_t arraylimit = 1;
 
 /* behaviour around boolean, needed to change the interpreters personality at runtime */
 /* -1 is microsoft true while 1 is Apple 1 and C style true. */
-mem_t booleanmode = -1;
+mem_t booleanmode = BOOLEANMODE;
 
 /* setting the interpreter to integer at runtime */
 mem_t forceint = 0;
@@ -555,7 +555,7 @@ mem_t randombase = 0;
 mem_t args;
 
 /* the random number seed, this is unsigned hence address_t */
-#ifndef HASFLOAT
+#ifndef HASGLIBCRND
 address_t rd;
 #else 
 unsigned long rd;
@@ -1208,7 +1208,7 @@ void clrvars() {
  * code.
  */
 
-/* a generic memory reader for numbers - will replace getnumber in future */
+/* a generic memory reader for numbers  */
 number_t getnumber(address_t m, memreader_t f) {
 	mem_t i;
 	accu_t z;
@@ -1217,7 +1217,7 @@ number_t getnumber(address_t m, memreader_t f) {
 	return z.i;
 }
 
-/* same for addresses - will replace getnumber in future */
+/* same for addresses */
 address_t getaddress(address_t m, memreader_t f) {
 	mem_t i;
 	accu_t z;
@@ -1226,7 +1226,7 @@ address_t getaddress(address_t m, memreader_t f) {
 	return z.a;
 }
 
-/* same for strings - currently identical to address but this will change */
+/* same for strings  */
 stringlength_t getstrlength(address_t m, memreader_t f) {
 	mem_t i;
 	accu_t z;
@@ -1273,25 +1273,21 @@ address_t createarray(mem_t c, mem_t d, address_t i, address_t j) {
 	j+=1;
 #endif
 
+/* this code allows redimension now for local variables */
 #ifdef HASAPPLE1
 	if (DEBUG) { outsc("* create array "); outch(c); outch(d); outspc(); outnumber(i); outspc(); outnumber(j); outcr(); }
 #ifndef HASMULTIDIM
-	// allow redimension without check right now, for local variables
-	// if (bfind(ARRAYVAR, c, d)) error(EVARIABLE); else return bmalloc(ARRAYVAR, c, d, i);
 	return bmalloc(ARRAYVAR, c, d, i);
 #else
-	// allow redimension without check right now, for local variables
-	/*
-	if (bfind(ARRAYVAR, c, d)) 
-		error(EVARIABLE); 
-	else {
-	*/
-		a=bmalloc(ARRAYVAR, c, d, i*j);
 
-/* new code to set an address in memory */
-		setaddress(a+i*j*numsize, memwrite2, j);
-		return a;
-	// }
+/* allocate the array space */
+	a=bmalloc(ARRAYVAR, c, d, i*j);
+
+/* store the dimension of the array at the beginning of the array area */
+	setaddress(a+i*j*numsize, memwrite2, j);
+
+/* return value is the address of the payload area */
+	return a;
 #endif
 #endif
 	return 0;
@@ -1340,7 +1336,8 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 		case 0: 
 		default:
 			h=(himem-top)/numsize;
-			a=himem-numsize*(i)+1;
+			/* a=himem-numsize*(i+1-arraylimit)+1; */ 
+			a=himem-numsize*(i+1)+1; /* with this @ starts at 0 */
 			break;
 		}
 	} else {
@@ -1410,21 +1407,21 @@ address_t createstring(char c, char d, address_t i, address_t j) {
 
 #ifndef HASSTRINGARRAYS
 /* if no string arrays are in the code, we reserve the number of bytes i and space for the index */
-	// allow redimension without check right now, for local variables
-	// if (bfind(STRINGVAR, c, d)) error(EVARIABLE); else a=bmalloc(STRINGVAR, c, d, i+strindexsize);
+/* allow redimension without check right now, for local variables */
 	a=bmalloc(STRINGVAR, c, d, i+strindexsize);
 	if (er != 0) return 0;
 	return a;
 #else
 /* string arrays need the number of array elements which address_ hence addresize bytes and then 
 		the space for j strings */
-	// allow redimension without check right now, for local variables
-	// if (bfind(STRINGVAR, c, d)) error(EVARIABLE); else a=bmalloc(STRINGVAR, c, d, addrsize+j*(i+strindexsize));
+/* allow redimension without check right now, for local variables */
 	a=bmalloc(STRINGVAR, c, d, addrsize+j*(i+strindexsize));
 	if (er != 0) return 0;
 
 /* set the array length */
 	setaddress(a+j*(i+strindexsize), memwrite2, j);
+
+/* return the address of the first string */
 	return a;
 #endif
 	if (er != 0) return 0;
@@ -1861,7 +1858,6 @@ void error(token_t e){
 #if USELONGJUMP == 1
 	longjmp(sthook, er);
 #endif 
-
 }
 
 void reseterror() {
@@ -2125,7 +2121,7 @@ void outsc(const char *c){ while (*c != 0) outch(*c++); }
 /* output a zero terminated string in a formated box padding spaces 
 		needed for catalog output */
 void outscf(const char *c, index_t f){
-	index_t i = 0;
+	int i = 0;
   
 	while (*c != 0) { outch(*c++); i++; }
 	if (f > i) {
@@ -2474,6 +2470,7 @@ void whitespaces(){
 void nexttoken() {
 	address_t k;
 	char* ir;
+
   
 /* RUN mode vs. INT mode, in RUN mode we read from mem via gettoken() */
 	if (st == SRUN || st == SERUN) {
@@ -2521,17 +2518,18 @@ void nexttoken() {
 
 /* strings between " " or " EOL, value returned in ir and in sr for now */
 	if (*bi == '"') {
-		x=0;
+		k=0;
 		bi++;
 		ir=bi;
 		sr.ir=bi;
 		while(*bi != '"' && *bi !='\0') {
-			x++;
+			k++;
 			bi++;
 		} 
 		bi++;
 		token=STRING;
-		sr.length=x;
+		sr.length=k;
+		// x=k;
 		sr.address=0; /* we don't find the string in BASIC memory, as we lex from bi */
 		if (DEBUG) debugtoken();
 		return;
@@ -2722,7 +2720,7 @@ char nomemory(number_t b){
 
 /* store a token - check free memory before changing anything */
 void storetoken() {
-	index_t i=x;
+	int i;
 
 	switch (token) {
 	case LINENUMBER:
@@ -2746,7 +2744,8 @@ void storetoken() {
 		memwrite2(top++, yc);
 		return;
 	case STRING:
-		if (nomemory(x+2)) break;
+		i=sr.length;
+		if (nomemory(i+2)) break;
 		memwrite2(top++, token);
 		memwrite2(top++, i);
 		while (i > 0) {
@@ -3387,7 +3386,7 @@ void rnd() {
 	number_t r;
 
 	r=pop();
-#ifndef HASFLOAT
+#ifndef HASGLIBCRND
 /* the original 16 bit congruence */
 	rd = (31421*rd + 6927) % 0x10000;
 	if (r>=0) 
@@ -3546,7 +3545,6 @@ void parsestringvar(string_t* strp) {
 	} else {
 
 		a1=args; 
-
 		pushlocation(&l); /* overwrite of the stored location is good, don't worry */
 
 /* scan the potential second pair of braces */
@@ -3677,7 +3675,7 @@ char stringvalue(string_t* strp) {
 		strp->length=writenumber(sbuffer, pop());
 #endif
 		strp->ir=sbuffer;
-		x=1;
+		// x=1;
 		if (er != 0) return 0;
 		if (token != ')') {error(EARGS); return 0; }
 		break;
@@ -3692,7 +3690,7 @@ char stringvalue(string_t* strp) {
 		*sbuffer=pop();
 		strp->ir=sbuffer;
 		strp->length=1;
-		x=1;
+		// x=1;
 		if (token != ')') {error(EARGS); return 0; }
 		break;
 	case TRIGHT:
@@ -4573,8 +4571,8 @@ separators:
  *
  *	assignnumber assigns a number to a given lefthandside
  *
- * in lefthandside the type of the object is determined and 
- * possible subscripts are parsed
+ * In lefthandside the type of the object is determined and 
+ * possible subscripts are parsed.
  * 
  * Variables have no subscripts. The arguments are unchanged.
  * Arrays may have two subscript which will go to i, j
@@ -4583,26 +4581,41 @@ separators:
  * Strings without a subscript i.e. pure strings, set the ps flag
  * 
  */
-void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 
-	switch (token) {
+/* the new lefthandsite code */
+void lefthandside2(lhsobject_t* lhs) {
+
+	if (DEBUG) {
+		outsc("assigning to variable "); 
+		outch(lhs->name.xc); outch(lhs->name.yc); 
+		outsc(" type "); outnumber(lhs->name.token); 
+		outcr();
+	}
+
+/* prep it */
+	lhs->i=1;
+	lhs->i2=0;
+	lhs->j=arraylimit;
+	lhs->ps=1;
+
+/* look at the variables and continue parsing */
+	switch (lhs->name.token) {
 	case VARIABLE:
 		nexttoken();
 		break;
 	case ARRAYVAR:
-		// nexttoken();
 		parsesubscripts();
 		if (!USELONGJUMP && er) return;
 		switch(args) {
 		case 1:
-			*i=popaddress();
+			lhs->i=popaddress();
 			if (!USELONGJUMP && er) return;
-			*j=arraylimit;
+			lhs->j=arraylimit;
 			break;
 		case 2:
-			*j=popaddress();
+			lhs->j=popaddress();
 			if (!USELONGJUMP && er) return;
-			*i=popaddress();
+			lhs->i=popaddress();
 			if (!USELONGJUMP && er) return;
 			break;
 		default:
@@ -4615,25 +4628,24 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 		case STRINGVAR:
 #ifndef HASSTRINGARRAYS
 #ifndef SUPPRESSSUBSTRINGS
-			*j=arraylimit;
-			// nexttoken();
+			lhs->j=arraylimit;
 			parsesubscripts();
 			if (!USELONGJUMP && er) return;
 			switch(args) {
 			case 0:
-				*i=1;
-				*ps=1;
+				lhs->i=1;
+				lhs->ps=1;
 				break;
 			case 1:
-				*ps=0;
-				*i=popaddress();
+				lhs->ps=0;
+				lhs->i=popaddress();
 				if (!USELONGJUMP && er) return;
 				break;
 			case 2:
-				*ps=0;
-				*i2=popaddress();
+				lhs->ps=0;
+				lhs->i2=popaddress();
 				if (!USELONGJUMP && er) return;
-				*i=popaddress();
+				lhs->i=popaddress();
 				if (!USELONGJUMP && er) return;
 				break; 
 			default:
@@ -4646,29 +4658,25 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 #endif
 #else /* can be simplified */
 #ifndef SUPPRESSSUBSTRINGS
-			*j=arraylimit;
-			// nexttoken();
+			lhs->j=arraylimit;
 			parsesubscripts();
 			if (!USELONGJUMP && er) return;
 			switch(args) {
 			case -1:
-				// nexttoken();
 			case 0:
-				*i=1;
-				*ps=1;
+				lhs->i=1;
+				lhs->ps=1;
 				break;
 			case 1:
-				*ps=0;
-				// nexttoken();
-				*i=popaddress();
+				lhs->ps=0;
+				lhs->i=popaddress();
 				if (!USELONGJUMP && er) return;
 				break;
 			case 2:
-				*ps=0;
-				// nexttoken();
-				*i2=popaddress();
+				lhs->ps=0;
+				lhs->i2=popaddress();
 				if (!USELONGJUMP && er) return;
-				*i=popaddress();
+				lhs->i=popaddress();
 				if (!USELONGJUMP && er) return;			
 				break;
 			default:
@@ -4682,7 +4690,7 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 				
 			switch(args) {
 			case 1:	
-				*j=popaddress();
+				lhs->j=popaddress();
 				if (!USELONGJUMP && er) return;
 				break;
 			case 0:
@@ -4694,14 +4702,13 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 			nexttoken();
 		
 #else
-			*j=arraylimit;
-			*i=1;
-			// nexttoken();
+			lhs->j=arraylimit;
+			lhs->i=1;
 			parsesubscripts();
 			if (!USELONGJUMP && er) return;
 			switch(args) {
 			case 1:
-				*j=popaddress();
+				lhs->j=popaddress();
 				break;
 			case 0:
 				break;
@@ -4718,9 +4725,19 @@ void lefthandside(address_t* i, address_t* i2, address_t* j, mem_t* ps) {
 			error(EUNKNOWN);
 			return;
 	}
+
+	if (DEBUG) {
+		outsc("** in assignment lefthandside with ");
+		outnumber(lhs->i); outspc();
+		outnumber(lhs->j); outspc();
+		outnumber(lhs->ps); outcr();
+		outsc("   token is "); outputtoken(); 
+		outsc("   at "); outnumber(here); outcr();
+	}
 }
 
-void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, char ps, number_t x) {
+/* assign a number to a left hand side we have parsed */
+void assignnumber2(lhsobject_t* lhs, number_t x) {
 	string_t sr;
 
 /* if the interpreter is floating point capable but should behave in integer style */
@@ -4729,28 +4746,29 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
 #endif
 
 /* depending on the variable type, assign the value */
-	switch (t) {
+	switch (lhs->name.token) {
 	case VARIABLE:
-		setvar(xcl, ycl, x);
+		setvar(lhs->name.xc, lhs->name.yc, x);
 		break;
 	case ARRAYVAR: 	
-		array('s', xcl, ycl, i, j, &x);
+		array('s', lhs->name.xc, lhs->name.yc, lhs->i, lhs->j, &x);
 		break;
 #ifdef HASAPPLE1
 	case STRINGVAR:
 
 /* find the string variable */
-		getstring(&sr, xcl, ycl, i, j);
+		getstring(&sr, lhs->name.xc, lhs->name.yc, lhs->i, lhs->j);
 		if (!USELONGJUMP && er) return;
 
 /* the first character of the string is set to the number */
 		if (sr.ir) sr.ir[0]=x; else if (sr.address) memwrite2(ax, x); else error(EUNKNOWN);
 
 /* set the length */
-		if (ps)
-			setstringlength(xcl, ycl, 1, j);
+		if (lhs->ps)
+			setstringlength(lhs->name.xc, lhs->name.yc, 1, lhs->j);
 		else 
-			if (sr.length < i && i <= sr.strdim) setstringlength(xcl, ycl, i, j);
+			if (sr.length < lhs->i && lhs->i <= sr.strdim) 
+				setstringlength(lhs->name.xc, lhs->name.yc, lhs->i, lhs->j);
 		break;
 #endif
 	}
@@ -4760,48 +4778,34 @@ void assignnumber(signed char t, char xcl, char ycl, address_t i, address_t j, c
  *	LET - the core assigment function, this is different from other BASICs
  */
 void assignment() {
-	token_t t;  /* remember the left hand side token until the end of the statement, type of the lhs */
-	mem_t ps=1;  /* also remember if the left hand side is a pure string of something with an index */
-	mem_t xcl, ycl; /* to preserve the left hand side variable names */
-	address_t i=1; /* and the beginning of the destination string, or the first array dim */
-	address_t i2=0; /* and the end of the destination string */  
-	address_t j=arraylimit; /* the second dimension of the array */
 	address_t newlength, copybytes;
 	mem_t s;
 	index_t k;
 	char tmpchar; /* for number conversion only */
 	string_t sr, sl; /* the right and left hand side strings */
 
+/* the lefthandside identifier */
+	lhsobject_t lhs;
+
 /* this code evaluates the left hand side, we remember the object information first */
-	ycl=yc;
-	xcl=xc;
-	t=token;
-
-/* then try to parse the indices and advance */
-	lefthandside(&i, &i2, &j, &ps);
+	lhs.name.yc=yc;
+	lhs.name.xc=xc;
+	lhs.name.token=token;
+	lefthandside2(&lhs);
 	if (!USELONGJUMP && er) return;
-
-	if (DEBUG) {
-		outsc("** in assignment lefthandside with ");
-		outnumber(i); outspc();
-		outnumber(j); outspc();
-		outnumber(ps); outcr();
-		outsc("   token is "); outputtoken(); 
-		outsc("   at "); outnumber(here); outcr();
-	}
 
 /* the assignment part */
 	if (token != '=') { error(EUNKNOWN); return; }
 	nexttoken();
 
 /* here comes the code for the right hand side, the evaluation depends on the left hand side type */
-	switch (t) {
+	switch (lhs.name.token) {
 /* the lefthandside is a scalar, evaluate the righthandside as a number, even if it is a string */
 	case VARIABLE:
 	case ARRAYVAR: 
 		expression();
 		if (!USELONGJUMP && er) return;
-		assignnumber(t, xcl, ycl, i, j, ps, pop());
+		assignnumber2(&lhs, pop());
 		break;
 #ifdef HASAPPLE1
 /* the lefthandside is a string variable, try evaluate the righthandside as a stringvalue */
@@ -4830,25 +4834,26 @@ nextstring:
 /* we now process the source string */		
 
 /* getstring of the destination */         
-		getstring(&sl, xcl, ycl, i, j);
+		getstring(&sl, lhs.name.xc, lhs.name.yc, lhs.i, lhs.j);
 		if (!USELONGJUMP && er) return;
 
 /* this debug messes up sbuffer hence all functions that use it in stringvalue produce wrong results */
 		if (DEBUG) {
-			outsc("* assigment stringcode "); outch(xcl); outch(ycl); outcr();
+			outsc("* assigment stringcode "); outch(lhs.name.xc); outch(lhs.name.yc); outcr();
 			outsc("** assignment source string length "); outnumber(sr.length); outcr();
 			outsc("** assignment dest string length "); outnumber(sl.length); outcr();
 			outsc("** assignment dest string dimension "); outnumber(sl.strdim); outcr();
 		}
 
 /* does the source string fit into the destination if we have no destination second index*/
-		if ((i2 == 0) && ((i+sr.length-1)>sl.strdim)) { error(EORANGE); return; };
+		if ((lhs.i2 == 0) && ((lhs.i+sr.length-1)>sl.strdim)) { error(EORANGE); return; };
 
 /* if we have a second index, is it in range */
-		if ((i2 != 0) && i2>sl.strdim) { error(EORANGE); return; };
+		if ((lhs.i2 != 0) && lhs.i2>sl.strdim) { error(EORANGE); return; };
 
 /* calculate the number of bytes we truely want to copy */
-		if (i2 > 0) copybytes=((i2-i+1) > sr.length) ? sr.length : (i2-i+1); else copybytes=sr.length;
+		if (lhs.i2 > 0) copybytes=((lhs.i2-lhs.i+1) > sr.length) ? sr.length : (lhs.i2-lhs.i+1); 
+		else copybytes=sr.length;
 
 		if (DEBUG) { outsc("** assignment copybytes "); outnumber(copybytes); outcr(); }
 
@@ -4860,13 +4865,14 @@ nextstring:
  * two index destination string we follow another route. We extend the string 
  * for the number of copied bytes
  */
-		if (i2 == 0) {
-			newlength = i+sr.length-1;	
+		if (lhs.i2 == 0) {
+			newlength = lhs.i+sr.length-1;	
 		} else {
-			if (i+copybytes > sl.length) newlength=i+copybytes-1; else newlength=sl.length;
+			if (lhs.i+copybytes > sl.length) newlength=lhs.i+copybytes-1; 
+			else newlength=sl.length;
 		} 
 		
-		setstringlength(xcl, ycl, newlength, j);
+		setstringlength(lhs.name.xc, lhs.name.yc, newlength, lhs.j);
 /* 
  * we have processed one string and copied it fully to the destination 
  * see if there is more to come. For inplace strings this is odd because 
@@ -4874,7 +4880,7 @@ nextstring:
  */
 addstring:
 		if (token == '+') {
-			i=i+copybytes;
+			lhs.i=lhs.i+copybytes;
 			nexttoken();
 			goto nextstring;
 		}
@@ -4948,7 +4954,6 @@ void showprompt() {
 	outsc("? ");
 }
 
-
 /* 
  * Reimplementation of input using the same pattern as read and print . 
  */
@@ -4958,13 +4963,9 @@ void xinput() {
 	mem_t prompt = 1; /* determine if we show the prompt */
 	number_t xv; /* for number conversion with innumber */
 
-/* this set of variables is also used by read */
-	token_t t;	/* remember the left hand side token until the end of the statement, type of the lhs */
-	mem_t ps=1;	/* also remember if the left hand side is a pure string of something with an index 	*/
-	mem_t xcl, ycl; /* to preserve the left hand side variable names	*/
-	address_t i=1;  /* and the beginning of the destination string */
-	address_t i2=0;  /* and the end of the destination string */
-	address_t j=arraylimit;	/* the second dimension of the array if needed */
+/* the identifier of the lefthandside */
+	lhsobject_t lhs;
+
 	address_t maxlen, newlength; /* the maximum length of the string to be read */
 	int k=0; /* the result of the number conversion */
 	string_t s;
@@ -5025,24 +5026,14 @@ nextvariable:
 	if (token == VARIABLE || token == ARRAYVAR || token == STRINGVAR) {  
 
 /* check for a valid lefthandside expression */ 
-		t=token;
-		xcl=xc;
-		ycl=yc;
-		lefthandside(&i, &i2, &j, &ps);
+		lhs.name.token=token;
+		lhs.name.xc=xc;
+		lhs.name.yc=yc;
+		lefthandside2(&lhs);
 		if (!USELONGJUMP && er) return;
 
-	if (DEBUG) {
-		outsc("** in input lefthandside with ");
-		outnumber(i); outspc();
-		outnumber(i2); outspc();
-		outnumber(j); outspc();
-		outnumber(ps); outcr();
-		outsc("   token is "); outnumber(t); 
-		outsc("   at "); outnumber(here); outcr();
-	}
-
 /* which data type do we input */
-		switch (t) {
+		switch (lhs.name.token) {
 		case VARIABLE:
 		case ARRAYVAR: 
 again:
@@ -5081,7 +5072,7 @@ again:
 			}
 
 /* now assign the number */
-			assignnumber(t, xcl, ycl, i, j, ps, xv);
+			assignnumber2(&lhs, xv);
 			
 /* look if there is a comma coming in the buffer and keep it */
 			while (k < (address_t) buffer[0] && buffer[k] != 0) {
@@ -5095,15 +5086,15 @@ again:
 #ifdef HASAPPLE1
 		case STRINGVAR:
 /* the destination address of the lefthandside, on the fly create included */
-			getstring(&s, xcl, ycl, i, j);
+			getstring(&s, lhs.name.xc, lhs.name.yc, lhs.i, lhs.j);
 			if (!USELONGJUMP && er) return;
 
 /* the length of the lefthandside string */
-			if (i2 == 0) {
-				maxlen=s.strdim-i+1;
+			if (lhs.i2 == 0) {
+				maxlen=s.strdim-lhs.i+1;
 			} else {
-				maxlen=i2-i+1;
-				if (maxlen > s.strdim) maxlen=s.strdim-i+1;
+				maxlen=lhs.i2-lhs.i+1;
+				if (maxlen > s.strdim) maxlen=s.strdim-lhs.i+1;
 			}
 
 /* the number of bytes we want to read the form parameter in WIRE can be used 
@@ -5113,7 +5104,7 @@ again:
 /* what is going on */
 			if (DEBUG) {
 				outsc("** input stringcode at "); outnumber(here); outcr();
-				outsc("** input stringcode "); outch(xcl); outch(ycl); outcr();
+				outsc("** input stringcode "); outch(lhs.name.xc); outch(lhs.name.yc); outcr();
 				outsc("** input stringcode maximum length "); outnumber(maxlen); outcr();
 			}
 
@@ -5123,8 +5114,8 @@ again:
 
 /* set the right string length */
 /* classical Apple 1 behaviour is string truncation in substring logic */
-			newlength = i+newlength-1;	
-			setstringlength(xcl, ycl, newlength, j);
+			newlength = lhs.i+newlength-1;	
+			setstringlength(lhs.name.xc, lhs.name.yc, newlength, lhs.j);
 			break;
 #endif		
 		}
@@ -6321,9 +6312,9 @@ char* getfilename2(char d) {
 #ifdef USEMEMINTERFACE
 		if (!sr.ir) getstringtobuffer(&sr, sbuffer, SBUFSIZE);	
 #endif
+		nexttoken(); /* undo the rewind of stringvalue, only then use the buffer */
 		for (s=0; s<sr.length && s<SBUFSIZE-1; s++) sbuffer[s]=sr.ir[s];
 		sbuffer[s]=0;
-		nexttoken(); /* undo the rewind of stringvalue */
 		return sbuffer;
 	} else {
 		expression();
@@ -6413,7 +6404,7 @@ void xload(const char* f) {
 		filename=getfilename2(1);
 		if (!USELONGJUMP && er) return;
 	} else {
-		for(ch=0; ch<SBUFSIZE && f[ch]!=0; ch++) filename[ch]=f[ch];
+		filename=(char*)f;
 	}
 
 	if (filename[0] == '!') {
@@ -6496,12 +6487,10 @@ void xload(const char* f) {
  *	GET just one character from input 
  */
 void xget(){
-	token_t t;		/* remember the left hand side token until the end of the statement, type of the lhs */
-	mem_t ps=1;	/* also remember if the left hand side is a pure string or something with an index */
-	mem_t xcl, ycl;	/* to preserve the left hand side variable names	*/
-	address_t i=1;	/* and the beginning of the destination string  	*/
- 	address_t i2=1; /* and the end of the destination string    */
-	address_t j=1;	/* the second dimension of the array if needed		*/
+
+/* identifier of the lefthandside */
+	lhsobject_t lhs;
+
 	mem_t oid=id;   /* remember the input stream */
 	char ch;
 
@@ -6520,23 +6509,21 @@ void xget(){
 	}
 
 /* this code evaluates the left hand side - remember type and name */
-	ycl=yc;
-	xcl=xc;
-	t=token;
-
-/* find the indices */
-	lefthandside(&i, &i2, &j, &ps);
+	lhs.name.token=token;
+	lhs.name.xc=xc;
+	lhs.name.yc=yc;
+	lefthandside2(&lhs);
 	if (!USELONGJUMP && er) return;
 
 /* get the data, non blocking on Arduino */
 	if (availch()) ch=inch(); else ch=0;
 
 /* store the data element as a number expect for */
-	assignnumber(t, xcl, ycl, i, j, ps, ch); 
+	assignnumber2(&lhs, ch);
 
 /* but then, strings where we deliver a string with length 0 if there is no data */
 #ifdef HASAPPLE1
-	if (t == STRINGVAR && ch == 0 && ps) setstringlength(xcl, ycl, 0, arraylimit);
+	if (lhs.name.token == STRINGVAR && ch == 0 && lhs.ps) setstringlength(lhs.name.xc, lhs.name.yc, 0, arraylimit);
 #endif
 
 /* restore the output device */
@@ -6674,7 +6661,7 @@ void xset(){
 /* change the lower array limit */
 #ifdef HASARRAYLIMIT
 	case 12:
-		arraylimit=argument;
+		if (argument>=0) arraylimit=argument; else error(EORANGE); 
 		break;
 #endif
 #ifdef HASKEYPAD
@@ -7993,12 +7980,10 @@ enddatarecord:
  *	READ - find data records and insert them to variables
  */
 void xread(){
-	token_t t, t0;	/* remember the left hand side token until the end of the statement, type of the lhs */
-	mem_t ps=1;	/* also remember if the left hand side is a pure string of something with an index 	*/
-	mem_t xcl, ycl; /* to preserve the left hand side variable names	*/
-	address_t i=1;  /* and the beginning of the destination string */
-	address_t i2=0;  /* and the end of the destination string */
-	address_t j=arraylimit;	/* the second dimension of the array if needed */
+	token_t t0;	/* remember the left hand side token until the end of the statement, type of the lhs */
+
+	lhsobject_t lhs;
+
 	mem_t datat;	/* the type of the data element */
 	address_t lendest, lensource, newlength;
 	int k;
@@ -8010,14 +7995,10 @@ nextdata:
 	nexttoken();
 
 /* this code evaluates the left hand side - remember type and name */
-	ycl=yc;
-	xcl=xc;
-	t=token;
-
-	if (DEBUG) {outsc("assigning to variable "); outch(xcl); outch(ycl); outsc(" type "); outnumber(t); outcr();}
-
-/* find the indices and draw the next token of read */
-	lefthandside(&i, &i2, &j, &ps);
+	lhs.name.yc=yc;
+	lhs.name.xc=xc;
+	lhs.name.token=token;
+	lefthandside2(&lhs);
 	if (!USELONGJUMP && er) return;
 
 /* if the token after lhs is not a termsymbol or a comma, something is wrong */
@@ -8030,43 +8011,42 @@ nextdata:
 	nextdatarecord();
 	if (!USELONGJUMP && er) return;
 
-/* assign the value to the lhs - somewhar redundant code to assignment */
-
+/* assign the value to the lhs - somewhat redundant code to assignment */
 	switch (token) {
 	case NUMBER:
 /* a number is stored on the stack */
-		assignnumber(t, xcl, ycl, i, j, ps, x);
+		assignnumber2(&lhs, x);
 		break;
 	case STRING:	
-		if (t != STRINGVAR) {
+		if (lhs.name.token != STRINGVAR) {
 /* we read a string into a numerical variable */
-			if (sr.address) assignnumber(t, xcl, ycl, i, j, ps, memread2(sr.address));
-			else assignnumber(t, xcl, ycl, i, j, ps, *sr.ir);
+			if (sr.address) assignnumber2(&lhs, memread2(sr.address));
+			else assignnumber2(&lhs, *sr.ir);
 		} else {
 /* we have all we need in sr */
 /* the destination address of the lefthandside, on the fly create included */
-			getstring(&s, xcl, ycl, i, j);
+			getstring(&s, lhs.name.xc, lhs.name.yc, lhs.i, lhs.j);
 			if (!USELONGJUMP && er) return;
 
 /* the length of the lefthandside string */
 			lendest=s.length;
 
 			if (DEBUG) {
-				outsc("* read stringcode "); outch(xcl); outch(ycl); outcr();
+				outsc("* read stringcode "); outch(lhs.name.xc); outch(lhs.name.yc); outcr();
 				outsc("** read source string length "); outnumber(sr.length); outcr();
 				outsc("** read dest string length "); outnumber(s.length); outcr();
 				outsc("** read dest string dimension "); outnumber(s.strdim); outcr();
 			}
 
 /* does the source string fit into the destination */
-			if ((i+sr.length-1) > s.strdim) { error(EORANGE); return; }
+			if ((lhs.i+sr.length-1) > s.strdim) { error(EORANGE); return; }
 
 /* now write the string */
 			assignstring(&s, &sr, sr.length);
 
 /* classical Apple 1 behaviour is string truncation in substring logic */
-			newlength = i+sr.length-1;	
-			setstringlength(xcl, ycl, newlength, j);
+			newlength = lhs.i+sr.length-1;	
+			setstringlength(lhs.name.xc, lhs.name.yc, newlength, lhs.j);
 
 		}
 		break;

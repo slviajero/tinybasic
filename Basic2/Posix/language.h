@@ -84,6 +84,7 @@
 #define  HASTINYBASICINPUT
 
 /*
+ *
  * Odd stuff - these things change the behaviour of BASIC in some aspects.
  * They can be used to make the interpreter compatible with other dialects.
  * 
@@ -101,17 +102,21 @@
  *      currently only experimental. It costs memory for the jump buffer. 
  *      Don't use it on very small systems. LONGJUMP must be set to 0 or 1 as 
  *      it is used in boolean expression in the code
- *  BOOLEANMODE: switch the behaviour of BASICs boolean operators. Default (0)
+ *  BOOLEANMODE: switch the behaviour of BASICs boolean operators. Default (-1)
  *      is to cast all numbers to signed 16bit and then do bitwise arithemtic.
  *      In this mode false is 0 and -1 is true. (1) is C style boolean arithemtic.
- *      (2) is like 0 but with the default integer size as number type. This means that
- *      32 bit platforms will cast to 32 bit integers. (3) is like (0) with signed 8 bit. 
+ *      In this mode true is 1 and false is 0. AND and OR still do bitwise operations
+ *      but NOT is C not. 
+ *  HASGLIBCRND: switches on the internal GLIBC style random number generator. glibc
+ *      is not used for this. This is the default now on all platform.
+ *      
  */
 #undef POWERRIGHTTOLEFT
 #undef MSARRAYLIMITS
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 0
-#define BOOLEANMODE 1
+#define BOOLEANMODE -1
+#define HASGLIBCRND
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
