@@ -3383,10 +3383,10 @@ void xmap() {
  * for float systems, use glibc parameters https://en.wikipedia.org/wiki/Linear_congruential_generator
  */
 void rnd() {
-	number_t r;
-
-	r=pop();
-#ifndef HASGLIBCRND
+  number_t r;
+  
+	r=(long)pop();
+#ifndef HASFLOAT
 /* the original 16 bit congruence */
 	rd = (31421*rd + 6927) % 0x10000;
 	if (r>=0) 
@@ -3395,15 +3395,14 @@ void rnd() {
 		push((long)rd*r/0x10000+1-randombase);
 #else
 /* glibc parameters */
-	rd= (110351245*rd + 12345) % (1 << 31);
+	rd = (110351245*rd + 12345) % (unsigned long)(1 << 31);
+
 	if (r>=0) 
-		push(rd*r/(unsigned long)(1 << 31)+randombase);
+		push((rd*r)/(unsigned long)(1 << 31)+randombase);
 	else 
-		push(rd*r/(unsigned long)(1 << 31)+1-randombase);
+		push((rd*r)/(unsigned long)(1 << 31)+1-randombase);
 #endif
 }
-
-
 
 #ifndef HASFLOAT
 /*
