@@ -342,6 +342,18 @@ typedef struct {
     address_t arraydim;
 } string_t;
 
+/* 
+ * Two types for identifiying objects and lefthandsides.
+ *      name_t is the type for variable names and types.
+ *      lhsobject_t identifies an assignable object like variables,
+ *      arrays and strings.
+ * 
+ * Currently name_t only implements two letter objects and lhsobject_t
+ * only implements two dimensional arrays and one dimensional strings.
+ */
+typedef struct { mem_t token; mem_t xc; mem_t yc; } name_t;
+typedef struct { name_t name; address_t i; address_t j; address_t i2; mem_t ps; } lhsobject_t;
+
 /* this type maps numbers to bytes */
 typedef struct { mem_t l; mem_t h; } twobytes_t;
 typedef union { number_t i; address_t a; stringlength_t s; twobytes_t b; mem_t c[sizeof(number_t)]; } accu_t;
