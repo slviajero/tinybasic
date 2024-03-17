@@ -554,8 +554,8 @@ mem_t randombase = 0;
 /* the number of arguments parsed from a command */
 mem_t args;
 
-/* the random number seed, this is unsigned hence address_t */
-#ifndef HASGLIBCRND
+/* the random number seed, this is unsigned */
+#ifndef HASFLOAT
 address_t rd;
 #else 
 unsigned long rd;
@@ -3383,27 +3383,30 @@ void xmap() {
  * for float systems, use glibc parameters https://en.wikipedia.org/wiki/Linear_congruential_generator
  */
 void rnd() {
-	number_t r;
 
-	r=pop();
-#ifndef HASGLIBCRND
+#ifndef HASFLOAT
+  number_t r;
+  
+  r=pop();
 /* the original 16 bit congruence */
-	rd = (31421*rd + 6927) % 0x10000;
+	rd = (31421*rd + 6927) & 0xffff;
 	if (r>=0) 
-		push((long)rd*r/0x10000+randombase);
+		push((unsigned long)rd*r/0x10000+randombase);
 	else 
-		push((long)rd*r/0x10000+1-randombase);
+		push((unsigned long)rd*r/0x10000+1-randombase);
 #else
+  number_t r;
+  
+  r=pop();
 /* glibc parameters */
-	rd= (110351245*rd + 12345) % (1 << 31);
+	rd = (110351245*rd + 12345) & 0x7fffffff; 
+  
 	if (r>=0) 
-		push(rd*r/(unsigned long)(1 << 31)+randombase);
+		push(rd*r/0x80000000+randombase);
 	else 
-		push(rd*r/(unsigned long)(1 << 31)+1-randombase);
+		push(rd*r/0x80000000+1-randombase);
 #endif
 }
-
-
 
 #ifndef HASFLOAT
 /*

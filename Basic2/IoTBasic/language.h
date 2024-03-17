@@ -17,7 +17,7 @@
  *		if MEMSIZE=0 a heuristic is used based on free heap
  *		size and architecture parameters
  */
-#define MEMSIZE 0 
+#define MEMSIZE 0
 
 /*
  *	DEBUG switches on compiled debug mode. Consider using runtime 
@@ -107,8 +107,6 @@
  *      In this mode false is 0 and -1 is true. (1) is C style boolean arithemtic.
  *      In this mode true is 1 and false is 0. AND and OR still do bitwise operations
  *      but NOT is C not. 
- *  HASGLIBCRND: switches on the internal GLIBC style random number generator. glibc
- *      is not used for this. This is the default now on all platform.
  *      
  */
 #undef POWERRIGHTTOLEFT
@@ -116,7 +114,6 @@
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 0
 #define BOOLEANMODE -1
-#define HASGLIBCRND
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
