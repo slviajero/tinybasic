@@ -1423,7 +1423,7 @@ RIGHT\$(LEFT\$(A\$))
 
 as the string code is internally not recursive at the moment. This might change in the future. Only string variables and constants are allowed as arguments. 
 
-String addition is supported in the standard way in assignments. The program 
+String addition is supported in the standard way but only in assignments. The program 
 
 10 A\$ = "abcd"
 
@@ -1451,13 +1451,13 @@ PRINT A\$
 
 hellohello
 
-as the first assignment copies the string "hello" to the variable and the second term is then just taken from the variable again. There is no string buffer right now storing intermediate results. Everything is directly done in place. That's why the MS string code is only implemented in assignments.
+as the first assignment copies the string "hello" to the variable and the second term is then just taken from the variable again. There is no string buffer right now storing intermediate results. Everything is directly done in place. That's why the MS string code is only implemented in assignments. Addition can not be used in functions like RIGHT\$(A\$+B\$) because there is no static space for the string to be copied to. 
 
 The compatibility code also includes CHR\$() and ASC(). They convert a number to a string and back. 
 
 TAB can be used in print commands as well. 
 
-PRINT TAB(20); "hello" is legal now and produces the same result as TAB(20): PRINT "hello"
+PRINT TAB(20); "hello" or PRINT TAB(20) "hello" is legal now and produces the same result as TAB(20): PRINT "hello"
 
 ### The line editor
 
@@ -1502,6 +1502,8 @@ a: append at end of line
 Q: exit the editor without saving
 
 u: undo all edits and stay in editor
+
+Key bindings to terminals are in preparation. A full editor is also in the backlog but not yet scheduled for implementations. 
 
 # Hardware drivers 
 
@@ -2190,6 +2192,16 @@ SET 13, 1 sets the keypad to repeat mode. This setting is only used in analog ke
 SET 14 changes the time scale of the PULSE command. Default is 10. The unit is microseconds. With SET 14,1 the time scale is 1 microsecond. All positive values are supported.
 
 SET 15 controls on the VT52 to ANSI emulation, by default it is on. This means that VT52 ESC sequences are translated to ANSI sequences. This way programs written for microcontrollers are compatible with POSIX system programs. SET 15,0 switches off the emulation. All ESC sequences are directly sent to the terminal.
+
+The following SET commands control language behaviour. They are not part of the runtime properties and listed here for completeness. They only exist in BASIC 2.
+
+SET 16 controls the default dimension of a string on creation. Default is 32. SET 16,20 would set the default size of undimensioned strings to 20. This parameter is only used when the string is created. Previously created string remain unaffected.
+
+SET 17 controls the boolean mode of the interpreter. With the default value -1 the interpreter behaves like a MS BASIC interpreter. True is -1 and NOT -1 is 0. The operations NOT, AND, OR are all three bitwise logical operations of 16 bit signed integers. SET 17,1 sets the boolean mode to C style logic. This was also used by some of the old BASIC interpretes like Apple1, Palo Alto, and Cromeco. True is 1 and NOT 1 is 0. AND and OR still are bitwise logical operations but NOT behaves like the C logical NOT. This setting helps when BASIC programs of older interpreters are used. Check out trek.bas in the expamples section. 
+
+SET 18,1 sets the interpreter to integer mode even if if is compiled with HASFLOAT. Variables still stay floats internally but values are truncated on store or print. The arithmetic stays integer in this mode hence A=1/2 produces A to be 0 but A=1/2*2 produces A to be 1. This setting is used for compatibility with some programs of Integer BASICs including the #undef HASFLOAT variants of this interpreter.
+
+SET 19 controls the behaviour of the random number generator. One some BASIC interpreters RND(8) would produce numbers from 0 to 7 (or 7.999999 in floating point BASICs). The value 8 is never reached. This is the default behaviour. Other BASIC would produce numbers in the range from 1 to 8. SET 19,1 switches on this mode. 
 
 More SET parameter will be implemented in the future.
 
