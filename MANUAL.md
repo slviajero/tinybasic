@@ -1125,7 +1125,11 @@ The network code is under active development.
 
 ## Timers and interrupts
 
-BASIC can handle time interrupt right now. Interrupts of external sources are in preparation. There are two timers implemented. The AFTER timer causes an action once and is then reset. The EVERY timer triggers events periodically until stopped. Both timers use millis() as time source. Timer events are only processed if a program is running. In interactive mode both timers are stopped but continue running. 
+BASIC can handle time interrupt and interrupts from external sources. 
+
+There are two timers implemented. The AFTER timer causes an action once and is then reset. The EVERY timer triggers events periodically until stopped. Both timers use millis() as time source. Timer events are only processed if a program is running. In interactive mode both timers are stopped but continue running. 
+
+EVENT processes external interrupts. 
 
 ### AFTER
 
@@ -1205,7 +1209,7 @@ BASIC can handle 1ms interrupts even on an Arduino UNO if there is not much I/O 
 
 ### Errors in general
 
-In BASIC there are to types of error. Some conditions are just exceptions and the program will coninue normally. Examples are reading past the end of a file or reading past the last DATA item. These operations set the flag @S to an appropriate value. BASIC language errors clear the stacks, print an error message and the program is terminated. Variables and the program pointer are preserved. The program can be continued with CONT. Effectively, an error leads to a STOP of the program plus loss of GOSUB and FOR stack information by default.
+In BASIC there are two types of errors. Some conditions are just exceptions and the program will continue normally. Examples are reading past the end of a file or reading past the last DATA item. These operations set the flag @S to an appropriate value. BASIC language errors clear the stacks, print an error message and the program is terminated. Variables and the program pointer are preserved. The program can be continued with CONT. Effectively, an error leads to a STOP of the program plus loss of GOSUB and FOR stack information by default.
 
 ### Error trapping
 
@@ -1219,7 +1223,7 @@ would jump to line 1000 when an error is encountered. As the FOR and GOSUB stack
 
 ERROR STOP 
 
-will switch of error handling and go to normal behaviour. It also resets the error code to 0.
+will switch off error handling and go to normal behaviour. It also resets the error code to 0.
 
 ERROR CONT 
 
