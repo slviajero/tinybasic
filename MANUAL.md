@@ -537,7 +537,7 @@ CALL expects a numerical expression as an argumen. Currently only CALL 0 is impl
 
 ### Setting system properties with SET
 
-SET is a two argument function setting system property. Please look into the hardware section of the manual for more information.
+SET is a two argument function setting system property. Please look into the hardware section of the manual for more information. Most but not all settings are properties of the runtime environment.
 
 Example: 
 
@@ -588,7 +588,6 @@ Clears the screen on display systems. See VT52 capabilities for more information
 ### LOCATE 
 
 Locates the cursor to position X, Y on the screen. Locate goes through the VT52 interface. The underlying terminal must either be ANSI compatible on POSIX systems or use the HASVT52 extension. 
-
 
 ### Debugging with DUMP
 
@@ -932,7 +931,9 @@ In BASIC 2 there is an extended language set, activated by the macro HASMULTILIN
 
 are possible. Function can be multi line. Return values are give as an argument of RETURN. In multiline functions, GOSUB statements are not allowed. The interrupts of AFTER, EVERY, and EVENT are disabled in multiline functions. ERROR handling is also disabled. 
 
-Multiline functions invoke a new instance of the core interpreter loop. This costs memory. Maximum depth of multiline function calls is 4. This is a parameter set in basic.h. For real computers this limit can be extended a lot an recursive programming is possible. The limit of 4 is set only for smaller Arduinos-
+These restrictions are needed for interpreter state consistency as the multiline function calls a separate interpreter instance. It is a bit like starting BASIC in BASIC. Currently all interrupt functions are implemented single instance and do not know about their function context. This would require a major rewrite of this code and will not happen for some time.
+
+Multiline functions invoke a new instance of the core interpreter loop. This costs memory. Maximum depth of multiline function calls is 4. This is a parameter set in basic.h. For real computers this limit can be extended a lot an recursive programming is possible. The limit of 4 is set only for smaller Arduinos.
 
 With the multiline function extension, functions can be called as statements. The functions
 
