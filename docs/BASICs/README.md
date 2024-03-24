@@ -22,6 +22,9 @@ Most of these documents were once copyrighted information. As I found all of thi
 
 **Apple 1 BASIC User Manual**. Steve Wozniaks draft manual. I used this to implement the second layer of BASIC commands. Tokenization and substring logic was taken from this. [apple1_basic_manual.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/apple1_basic_manual.pdf)
 
+**The Apple 1 BASIC assembler source**. I never used this. Eric Smith disassembled the original ROM. [a1basic.asm](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/a1basic.asm)
 
+### Cromemco BASIC
 
+This is the only commercial BASIC I know that seems to have inherited its core DNA from Apple 1 BASIC and from Palo Alto BASIC. The similarities are amazing. [An Introduction to Structured BASIC for the Cromemco C-10](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/An%20Introduction%20to%20Structured%20BASIC%20for%20the%20Cromemco%20C-10.pdf)
 
