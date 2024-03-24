@@ -1026,7 +1026,6 @@ address_t bfree(mem_t t, mem_t c, mem_t d) {
 	return himem;
 }
 
-
 /* the length of an object, we directly return from the cache */
 address_t blength (mem_t t, mem_t c, mem_t d) {
 	if (bfind(t, c, d)) return bfindz; else return 0;
@@ -1391,6 +1390,115 @@ void array(mem_t m, mem_t c, mem_t d, address_t i, address_t j, number_t* v) {
 	} else if ( m == 's') {
 		if (!e) setnumber(a, memwrite2, *v); else setnumber(a, eupdate, *v);
 	}
+}
+
+/* reimplementation of the array function to avoid the various problem with the old one 
+	we use the lefthandside object here with the convention that i is the first index
+	and j the second index. This is inconsistent with the use in strings. Will be fixed 
+	when a true indexing type is introduced. */
+
+void array2(lhsobject_t* object, mem_t getset, number_t* value) {
+	address_t a; /* the address of the array element */
+	address_t h; /* the number of elements in the array */
+	address_t l=arraylimit; /* the lower limit, defaults to the arraylimit, here for further use */
+	address_t dim=1; /* the array dimension */
+
+	if (DEBUG) {
+		outsc("* array2: accessing "); 
+		outch(object->name.xc); outch(object->name.yc); outspc(); outspc(); 
+		outnumber(object->i); outspc(); 
+		outnumber(object->j); outspc(); 
+		outsc(" getset "); outch(getset); outcr();
+	}
+
+/* handling the special array, range check and access is done here */
+	if (object->name.xc == '@') {
+		switch(object->name.yc) {
+		case 'E': 
+			h=elength()/numsize;
+			a=elength()-numsize*object->i;
+			if (a < eheadersize) { error(EORANGE); return; }
+			if (getset == 'g') *value=getnumber(a, eread);  
+			else if (getset == 's') setnumber(a, eupdate, *value);
+			return;
+#if defined(DISPLAYDRIVER) && defined(DISPLAYCANSCROLL)
+		case 'D': 
+			if (getset == 'g') *value=dspget(object->i-1); 
+			else if (getset == 's') dspset(object->i-1, *value);
+			return;	
+#endif
+#if defined(HASCLOCK)
+		case 'T':
+			if (getset == 'g') *value=rtcget(object->i); 
+			else if (getset == 's') rtcset(object->i, *value);
+			return;
+#endif
+#if defined(ARDUINO) && defined(ARDUINOSENSORS)
+		case 'S':
+			if (getset == 'g') *value=sensorread(object->i, 0); 
+			return;
+#endif
+		case 'U': 
+			if (getset == 'g') *value=getusrarray(object->i); 
+			else if (getset == 's') setusrarray(object->i, *value);
+			return;
+		case 0: 
+			h=(himem-top)/numsize;
+			a=himem-numsize*(object->i+1)+1; 
+			if (a < top) { error(EORANGE); return; }
+			if (getset == 'g') *value=getnumber(a, memread2); 
+			else if (getset == 's') setnumber(a, memwrite2, *value);	
+			return;
+		default:
+			error(EVARIABLE);
+			return;
+		}
+	} else {
+/* dynamically allocated arrays */
+#ifdef HASAPPLE1
+		if (!(a=bfind(ARRAYVAR, object->name.xc, object->name.yc))) a=createarray(object->name.xc, object->name.yc, ARRAYSIZEDEF, 1);
+		if (!USELONGJUMP && er) return;
+
+/* multidim reserves one address word for the dimension, hence we have less bytes */
+#ifndef HASMULTIDIM
+		h=bfindz/numsize;
+#else
+		h=(bfindz-addrsize)/numsize;
+#endif
+
+		if (DEBUG) { 
+			outsc("** in array dynamical base address "); outnumber(a); 
+			outsc("    and array element number"); outnumber(h); 
+			outcr(); 
+		}
+
+#ifdef HASMULTIDIM
+		dim=getaddress(a+bfindz-2, memread2);
+		if (DEBUG) { 
+			outsc("** in array, second dimension is "); outnumber(dim); 
+			outspc(); outnumber(a+bfindz); 
+			outcr(); 
+		}
+		a=a+((object->i-l)*dim+(object->j-l))*numsize;	
+#else
+		a=a+(object->i-l)*numsize;
+#endif
+#else /* no array code */
+		error(EVARIABLE);
+		return;
+#endif
+	}
+
+/* range check */
+#ifdef HASMULTIDIM
+	if ( (object->j < l) || (object->j >= dim+l) || (object->i < l) || (object->i >= h/dim+l)) { error(EORANGE); return; }
+#else
+	if ( (object->i < l) || (object->i >= h+l) ) { error(EORANGE); return; }
+#endif
+
+/* set or get the array */
+	if (getset == 'g') *value=getnumber(a, memread2); 
+	else if (getset == 's') setnumber(a, memwrite2, *value);
 }
 
 /* create a string on the heap, i is the length of the string, j the dimension of the array */
@@ -2400,7 +2508,7 @@ int innumber(number_t *r, char* buffer, address_t k) {
 	expression();
 
 /* restore the interpreter state */
-	i=bi-buffer; 
+	i=bi-buffer-1; 
 	bi=b;
 	st=s;
 	token=t;
@@ -3388,8 +3496,9 @@ void rnd() {
   number_t r;
   
   r=pop();
-/* the original 16 bit congruence */
+/* the original 16 bit congruence, the & is needed to make it work for all kinds of ints */
 	rd = (31421*rd + 6927) & 0xffff;
+
 	if (r>=0) 
 		push((unsigned long)rd*r/0x10000+randombase);
 	else 
@@ -3887,27 +3996,36 @@ void xint() {}
 
 /* helpers of factor - array access */
 void factorarray() {
-	mem_t xcl, ycl;
-	address_t ix, iy;
+	// mem_t xcl, ycl;
+	// address_t ix, iy;
+	lhsobject_t object;
 	number_t v;
 
 /* remember the variable, because parsesubscript changes this */	
-	ycl=yc;
-	xcl=xc;
+	// ycl=yc;
+	// xcl=xc;
+	object.name.xc=xc;
+	object.name.yc=yc;
+	object.name.token=ARRAYVAR;
 
+/* parse the arguments */
 	parsesubscripts();
 	if (er != 0 ) return;
 
 	switch(args) {
 	case 1:
-		ix=popaddress();
+		// ix=popaddress();
+		object.i=popaddress();
 		if (!USELONGJUMP && er) return;
-		iy=arraylimit;
+		// iy=arraylimit;
+		object.j=arraylimit;
 		break;
 #ifdef HASMULTIDIM
 	case 2:
-		iy=popaddress();
-		ix=popaddress();
+		// iy=popaddress();
+		object.j=popaddress();
+		// ix=popaddress();
+		object.i=popaddress();
 		if (!USELONGJUMP && er) return;
 		break;
 #endif
@@ -3915,7 +4033,8 @@ void factorarray() {
 		error(EARGS); 
 		return;
 	}
-	array('g', xcl, ycl, ix, iy, &v);
+	// array('g', xcl, ycl, ix, iy, &v);
+	array2(&object, 'g', &v);
 	push(v); 
 }
 
@@ -4754,7 +4873,8 @@ void assignnumber2(lhsobject_t* lhs, number_t x) {
 		setvar(lhs->name.xc, lhs->name.yc, x);
 		break;
 	case ARRAYVAR: 	
-		array('s', lhs->name.xc, lhs->name.yc, lhs->i, lhs->j, &x);
+		array2(lhs, 's', &x);
+		// array('s', lhs->name.xc, lhs->name.yc, lhs->i, lhs->j, &x);
 		break;
 #ifdef HASAPPLE1
 	case STRINGVAR:
@@ -6053,9 +6173,13 @@ nextvariable:
 			if (x>SPIRAMSBSIZE-1) {error(EORANGE); return; }
 #endif
 #ifdef SUPPRESSSUBSTRINGS
-			if (args == 2) {error(EORANGE); return; }
-			y=x;
-			x=defaultstrdim;
+/* if only one argument is given in this mode we interpret the 
+	argument as the string array dimension and not as the length 
+	two arguments are allowed and work as always */
+			if (args == 1) {
+				y=x;
+				x=defaultstrdim;
+			}
 #endif
 			(void) createstring(xcl, ycl, x, y);
 		} else {
@@ -6684,11 +6808,11 @@ void xset(){
 #endif
 /* change the default size of a string at autocreate, important when SUPPRESSSUBSTRINGS is done*/
 	case 16:
-		defaultstrdim=argument;
+		if (argument>0) defaultstrdim=argument; else error(EORANGE);
 		break;
 /* set the boolean mode */
 	case 17: 
-		booleanmode=argument;
+		if (argument==-1 || argument==1) booleanmode=argument; else error(EORANGE);
 		break;
 /* set the integer mode */
 	case 18: 

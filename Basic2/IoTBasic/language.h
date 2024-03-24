@@ -17,7 +17,7 @@
  *		if MEMSIZE=0 a heuristic is used based on free heap
  *		size and architecture parameters
  */
-#define MEMSIZE 0
+#define MEMSIZE 0 
 
 /*
  *	DEBUG switches on compiled debug mode. Consider using runtime 
@@ -75,13 +75,13 @@
  * HASMULTILINEFNCTIONS is a bit like the old DEC BASIC on the PDP.
  * HASEDITOR is a line editor for the console.
  * HASTINYBASICINPUT is a tinybasic like input routine using the expression
- *     parser. This allows expressions in the input statement. Does not work
- *     with comma separated input. (not recommended)
+ *     parser. This allows expressions in the input statement. Needed to run
+ *     the tinybasic example.
  */
 #define HASMSSTRINGS
 #define HASMULTILINEFUNCTIONS
 #define HASEDITOR
-#define  HASTINYBASICINPUT
+#define HASTINYBASICINPUT
 
 /*
  *
@@ -192,8 +192,8 @@
 #undef 	HASARRAYLIMIT
 #undef 	HASSTRUCT
 #undef  HASMSSTRINGS
-#undef HASMULTILINEFUNCTIONS
-#undef HASEDITOR
+#undef  HASMULTILINEFUNCTIONS
+#undef  HASEDITOR
 #endif
 
 /* all features activated */
