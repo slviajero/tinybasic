@@ -75,13 +75,13 @@
  * HASMULTILINEFNCTIONS is a bit like the old DEC BASIC on the PDP.
  * HASEDITOR is a line editor for the console.
  * HASTINYBASICINPUT is a tinybasic like input routine using the expression
- *     parser. This allows expressions in the input statement. Does not work
- *     with comma separated input. (not recommended)
+ *     parser. This allows expressions in the input statement. Needed to run
+ *     the tinybasic example.
  */
 #define HASMSSTRINGS
 #define HASMULTILINEFUNCTIONS
 #define HASEDITOR
-#define  HASTINYBASICINPUT
+#define HASTINYBASICINPUT
 
 /*
  *
