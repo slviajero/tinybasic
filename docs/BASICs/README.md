@@ -14,6 +14,13 @@ Most of these documents were once copyrighted information. As I found all of thi
 
 **Basic_Handbook_2nd_Edition_1981_CompuSoft_Publishing**. Compares many BASIC dialects. A great list of features and language styles, written by David Lien. [Basic_Handbook_2nd_Edition_1981_CompuSoft_Publishing-2](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/Basic_Handbook_2nd_Edition_1981_CompuSoft_Publishing-2.pdf)
 
+### Palo Alto Tinybasic
+
+**Palo Alto Tiny BASIC**. This is how I started. From this document the first interpreter was implemented from scratch. I kept compatibility to this language although the code now is far away from the Tinybasic language set. [TinyBASIC-2.0.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/TinyBASIC-2.0.pdf)
+
+### Apple 1 and related stuff
+
+**Apple 1 BASIC User Manual**. Steve Wozniaks draft manual. I used this to implement the second layer of BASIC commands. Tokenization and substring logic was taken from this. [apple1_basic_manual.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/apple1_basic_manual.pdf)
 
 
 
