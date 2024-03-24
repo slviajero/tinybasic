@@ -24,7 +24,12 @@ Most of these documents were once copyrighted information. As I found all of thi
 
 **The Apple 1 BASIC assembler source**. I never used this. Eric Smith disassembled the original ROM. [a1basic.asm](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/a1basic.asm)
 
-### Cromemco BASIC
+### Cromemco and North Star BASIC
 
-This is the only commercial BASIC I know that seems to have inherited its core DNA from Apple 1 BASIC and from Palo Alto BASIC. The similarities are amazing. [An Introduction to Structured BASIC for the Cromemco C-10](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/An%20Introduction%20to%20Structured%20BASIC%20for%20the%20Cromemco%20C-10.pdf)
+Two commercial BASICs seem seems to have inherited their core DNA from Apple 1 BASIC and from Palo Alto BASIC. The similarities are amazing. They didn't survive after Microsoft started to dominate the market.
+
+**Cromenco BASIC**: [An Introduction to Structured BASIC for the Cromemco C-10](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/An%20Introduction%20to%20Structured%20BASIC%20for%20the%20Cromemco%20C-10.pdf)
+
+**North Star BASIC**:[North_Star_BASIC_Version_6.pdf](North_Star_BASIC_Version_6.pdf)
+
 
