@@ -26,11 +26,13 @@ Most of these documents were once copyrighted information. As I found all of thi
 
 ### Cromemco and North Star BASIC
 
-Two commercial BASICs seem seems to have inherited their core DNA from Apple 1 BASIC and from Palo Alto BASIC. The similarities are amazing. They didn't survive after Microsoft started to dominate the market.
+A few commercial BASICs seem seems to have inherited their core DNA from Apple 1 BASIC and from Palo Alto BASIC. The similarities are amazing. They didn't survive after Microsoft started to dominate the market.
 
 **Cromenco BASIC**: [An Introduction to Structured BASIC for the Cromemco C-10](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/An%20Introduction%20to%20Structured%20BASIC%20for%20the%20Cromemco%20C-10.pdf)
 
 **North Star BASIC**:[North_Star_BASIC_Version_6.pdf](North_Star_BASIC_Version_6.pdf)
+
+**The early Radio Shack TRS80 BASIC**. A BASIC that resembles an extended Palo Alto BASIC with graphics and some I/O functions added. Only one array and only two strings. That looks like a quick extension of Palo Alto. [Basic_Computer_Language_Its_Easier_Than_You_Think_1978_Radio_Shack.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/Basic_Computer_Language_Its_Easier_Than_You_Think_1978_Radio_Shack.pdf)
 
 ### Microsofts early BASICs
 
@@ -38,7 +40,12 @@ Two commercial BASICs seem seems to have inherited their core DNA from Apple 1 B
 
 **Aim 65 BASIC**. Another variant of the early Microsoft BASIC. Build for the legendary AIM65. [aim65_basic.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/aim65_basic.pdf)
 
+### Newer BASIC dialects 
+
+**Laser Color Computer BASIC**. A slightly extended MS BASIC with graphics commands. [laser_basic_manual.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/laser_basic_manual.pdf)
+
+
 ### How it all started
 
-**Mark II Timesharing and Dartmouth BASIC**. [711224A_BASIC_Language_Reference_Manual_Dec1968.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/711224A_BASIC_Language_Reference_Manual_Dec1968.pdf)
+**Mark II Timesharing and Dartmouth BASIC**. GE partnered with Dartmouth on the BASIC for the Mark II timesharing computer series. No string variables but a lot of maths.[711224A_BASIC_Language_Reference_Manual_Dec1968.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/711224A_BASIC_Language_Reference_Manual_Dec1968.pdf)
 
