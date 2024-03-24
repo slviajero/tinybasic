@@ -38,3 +38,7 @@ Two commercial BASICs seem seems to have inherited their core DNA from Apple 1 B
 
 **Aim 65 BASIC**. Another variant of the early Microsoft BASIC. Build for the legendary AIM65. [aim65_basic.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/aim65_basic.pdf)
 
+### How it all started
+
+**Mark II Timesharing and Dartmouth BASIC**. [711224A_BASIC_Language_Reference_Manual_Dec1968.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/711224A_BASIC_Language_Reference_Manual_Dec1968.pdf)
+
