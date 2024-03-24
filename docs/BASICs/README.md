@@ -34,6 +34,7 @@ Two commercial BASICs seem seems to have inherited their core DNA from Apple 1 B
 
 ### Microsofts early BASICs
 
-**Altair BASIC**. This BASIC started the home computer revolution on the first Altair computers. Remarkable software engineering. [AltairBasic_1275.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/AltairBasic_1275.pdf)
+**Altair BASIC**. This BASIC started the home computer revolution on the first Altair computers. Remarkable software engineering. This indroduced RIGHT, LEFT, MID string operations. [AltairBasic_1275.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/AltairBasic_1275.pdf)
 
+**Aim 65 BASIC**. Another variant of the early Microsoft BASIC. Build for the legendary AIM65. [aim65_basic.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/aim65_basic.pdf)
 
