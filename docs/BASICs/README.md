@@ -32,4 +32,8 @@ Two commercial BASICs seem seems to have inherited their core DNA from Apple 1 B
 
 **North Star BASIC**:[North_Star_BASIC_Version_6.pdf](North_Star_BASIC_Version_6.pdf)
 
+### Microsofts early BASICs
+
+**Altair BASIC**. This BASIC started the home computer revolution on the first Altair computers. Remarkable software engineering. [AltairBasic_1275.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/AltairBasic_1275.pdf)
+
 
