@@ -8,7 +8,7 @@ Most of these documents were once copyrighted information. As I found all of thi
 
 ## The books
 
-David Ahl's 101 BASIC Computer Games, March 1975 edition. I used these programs to test my interpreter. It can run all of them. [101_BASIC_Computer_Games_Mar75.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/101_BASIC_Computer_Games_Mar75.pdf)
+**David Ahl's 101 BASIC Computer Games, March 1975 edition**. I used these programs to test my interpreter. It can run all of them. [101_BASIC_Computer_Games_Mar75.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/101_BASIC_Computer_Games_Mar75.pdf)
 
 
 
