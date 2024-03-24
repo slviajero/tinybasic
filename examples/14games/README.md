@@ -109,6 +109,7 @@ This was a printed library of games in the 70s. Many examples of ultra short BAS
 - Animal: animal.bas - guess an animal, the program learns from your guesses
 - SuperStarTrek: superstartrek.bas - a classic, the original startrack game (not fully tested!)
 - SuperStarTrek Instructions: suberstartreckins.bas - learn how to operate the controls in SuperStarTrek
+- Trek: the original Palo Alto BASIC startrek implementation.
 
 ## BASIC language features
 
@@ -318,7 +319,7 @@ superstartrek.bas: everything BASIC has
 
 superstartrekins.bas: strings 
 
-trek.bas: Genuines Palo Alto BASIC, the Palo Alto language set at work.
+trek.bas: Genuines Palo Alto BASIC, the Palo Alto language set at work. Works only if the interpreter is compiled with HASTINYBASICINPUT.
 
 ## Sources
 
