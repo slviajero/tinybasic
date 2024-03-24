@@ -2508,7 +2508,7 @@ int innumber(number_t *r, char* buffer, address_t k) {
 	expression();
 
 /* restore the interpreter state */
-	i=bi-buffer; 
+	i=bi-buffer-1; 
 	bi=b;
 	st=s;
 	token=t;
