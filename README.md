@@ -7,7 +7,11 @@ My attempt to create a basic interpreter from scratch. The project was inspired 
 The project has outgrown its beginnings by now. It became a full featured BASIC interpreter with IoT and microcontroller specific features. There is an underlying hardware abstraction layer making the interpreter
 useable on a number of architectures like Arduino AVR, ESP8266, ESP32, SAMD, RP2040 and ARM. 
 
-Arithmetic is 16 bit, 32bit or float depending on the compiler settings and the platform. The full set of Dartmouth language features like ON GOSUB and DEF FN is implemented. Strings are Apple 1 style. They are essentially integer arrays like in C. Conditions are also C style meaning part of the arithmetic.
+Arithmetic is 16 bit, 32bit or float depending on the compiler settings and the platform. The full set of Dartmouth language features like ON GOSUB and (multiline) DEF FN is implemented. Strings are Apple 1 style. They are essentially character arrays like in C and remain static in memory. Some compatibility features with other BASIC interpreters are implemented.
+
+A large number of BASIC extensions are now available. Multiline functions, structured programming, multidimensional arrays and string arrays. Compatibility modes for MS BASICs, Palo Alto dialects and the Apple and Cromecon BASICs are included. 
+
+The language is scalable and can run from 2 kB memory Arduino UNOs to large memory machines with MBs of BASIC memory. 
 
 ## What is special - peripheral and Arduino I/O support
 
@@ -40,7 +44,6 @@ Files of the 1.x versions
 - hardware-posix.h is the hardware definition file for Posix
 - TinyVT52 is a VT52 terminal emulation for Arduinos, this is unfinished
 
-
 Basic2: The 2.x version. It separates the interpreter from the runtime envirnoment. There is a Arduino IDE version runtime.cpp and a Posix version runtime.c. The interface of the runtime environment for both platforms is idential just as the BASIC interpreter file basic.c or IotBasic.ino.
 
 Files of the 2.x version
@@ -58,6 +61,8 @@ To compile Basic2 you would check and edit hardware.h and language.h for your pl
 gcc basic.c runtime.c -lm
 
 while on Arduino you would compile and upload in the IDE.
+
+For Raspberry PI, some special settings and linker flags are required depending on the GPIO libraries used. Please look into the MANUAL if you want to compile on this platform.
 
 utility/dosify converts the code to tcc 2.01 ready format to be compiled in DOSBOX, Basic2 is not tested on DOS.
 
@@ -115,8 +120,6 @@ Displays, filesystem, networking, and sensors need libraries.
 
 Please consult the wiki https://github.com/slviajero/tinybasic/wiki/Hardware-Platforms for this.
 
-
 ## What's next
 
 Code cleanup of the 2.x versions. Release 2.0.
-
