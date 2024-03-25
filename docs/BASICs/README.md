@@ -44,12 +44,23 @@ A few commercial BASICs seem seems to have inherited their core DNA from Apple 1
 
 ### More Apple Stuff
 
+**Apple 1 Operations Manual**. This is how a computer manual looked like in the 1970s. A lot of hardware and assembler stuff. Note the original Apple logo on the cover. [apple.applei.1976.102646518.pd](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/apple.applei.1976.102646518.pdf)
 
+**Apple 2 ROM Image documentation**. This is a collection of infos on the Apple II internal software. [Apple II Original ROM Info.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/Apple%20II%20Original%20ROM%20Info.pdf)
 
+**DOS 3.2 Guide for Apple DOS**. This is how the Apple did disk access. [DOS_3.2_Instruction_and_Reference_Manual.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/DOS_3.2_Instruction_and_Reference_Manual.pdf)
 
 ### Newer BASIC dialects 
 
 **Laser Color Computer BASIC**. A slightly extended MS BASIC with graphics commands. [laser_basic_manual.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/laser_basic_manual.pdf)
+
+**Talent MSX BASIC**. An example for an MSX BASIC. In Spanish. [Talent DPC-200 (Manual de uso y MSX Basic).pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/Talent%20DPC-200%20(Manual%20de%20uso%20y%20MSX%20Basic).pdf)
+
+**Mallard BASIC**. This is a very powerful BASIC that has inherited a bit from Microsoft but also went its own way. [PCWSBAS.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/PCWSBAS.pdf)
+
+**Enterprise BASIC**. Probably the most advanced BASIC interpreter for home computers. Written when home computers were at its peak. Never took off big time. [Enterprise_Programming_Guide.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/Enterprise_Programming_Guide.pdf)
+
+**A new 6502 BASIC**. People still create BASIC interpreters for 6502. This is one example. [EhBASIC-manual.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/EhBASIC-manual.pdf)
 
 ### How it all started
 
