@@ -49,3 +49,5 @@ A few commercial BASICs seem seems to have inherited their core DNA from Apple 1
 
 **Mark II Timesharing and Dartmouth BASIC**. GE partnered with Dartmouth on the BASIC for the Mark II timesharing computer series. No string variables but a lot of maths.[711224A_BASIC_Language_Reference_Manual_Dec1968.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/711224A_BASIC_Language_Reference_Manual_Dec1968.pdf)
 
+**DEC Basis Interpreters**. DEC ported BASIC interpreters to their PDP-10 and PDP-11 mini computers in the 60s. These languages were very similar to the Mark II Dartmouth BASICs. Remarkable features were matrix operations and (random) file access. These BASICs were mostly used for maths as powerful interactive calculators. They have no or very limited string functions. [DEC-10-LBLMA-A-D_BASIC_Conversational_Language_Manual_Mar74.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/DEC-10-LBLMA-A-D_BASIC_Conversational_Language_Manual_Mar74.pdf) [DEC-11-ORBPA-A-D_BASIC-PLUS_LangMan_Oct72.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/DEC-11-ORBPA-A-D_BASIC-PLUS_LangMan_Oct72.pdf)
+
