@@ -32,7 +32,8 @@ A few commercial BASICs seem seems to have inherited their core DNA from Apple 1
 
 **North Star BASIC**:[North_Star_BASIC_Version_6.pdf](North_Star_BASIC_Version_6.pdf)
 
-**The early Radio Shack TRS80 BASIC**. A BASIC that resembles an extended Palo Alto BASIC with graphics and some I/O functions added. Only one array and only two strings. That looks like a quick extension of Palo Alto. [Basic_Computer_Language_Its_Easier_Than_You_Think_1978_Radio_Shack.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/Basic_Computer_Language_Its_Easier_Than_You_Think_1978_Radio_Shack.pdf)
+**The early Radio Shack TRS80 BASIC**. A BASIC that was derived from Palo Alto BASIC and extended with graphics, a few commands and some I/O functions added. Only one array A() and two strings A\$ and B\$ which just can do input and printing. 
+[Basic_Computer_Language_Its_Easier_Than_You_Think_1978_Radio_Shack.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/Basic_Computer_Language_Its_Easier_Than_You_Think_1978_Radio_Shack.pdf)
 
 ### Microsofts early BASICs
 
