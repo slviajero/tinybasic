@@ -16,7 +16,7 @@ Most of these documents were once copyrighted information. As I found all of thi
 
 ### Palo Alto Tinybasic
 
-**Palo Alto Tiny BASIC**. This is how I started. From this document the first interpreter was implemented from scratch. I kept compatibility to this language although the code now is far away from the Tinybasic language set. [TinyBASIC-2.0.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/TinyBASIC-2.0.pdf)
+**Palo Alto Tiny BASIC**. This is how I started. Li-Chen Wang's tiny BASIC. From this document the first interpreter was implemented from scratch. I kept compatibility to this language although the code now is far away from the Tinybasic language set. [TinyBASIC-2.0.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/TinyBASIC-2.0.pdf)
 
 ### Apple 1 and related stuff
 
@@ -34,6 +34,8 @@ A few commercial BASICs seem seems to have inherited their core DNA from Apple 1
 
 **The early Radio Shack TRS80 BASIC**. A BASIC that was derived from Palo Alto BASIC and extended with graphics, a few commands and some I/O functions added. Only one array A() and two strings A\$ and B\$ which just can do input and printing. 
 [Basic_Computer_Language_Its_Easier_Than_You_Think_1978_Radio_Shack.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/Basic_Computer_Language_Its_Easier_Than_You_Think_1978_Radio_Shack.pdf)
+
+**Cromemco 3K Basic Instruction Manual.pdf**. A very small BASIC made by Cromemco for control puposes. One could say that this is the first micro controller BASIC. Inspired by Palo Alto as well. Li-Chen Wang worked for Cromemco at that time. [Cromemco 3K Basic Instruction Manual.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/TinyBASIC-2.0.pdf)
 
 ### Microsofts early BASICs
 
