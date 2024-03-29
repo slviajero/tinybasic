@@ -444,8 +444,10 @@ void setaddress(address_t, memwriter_t, address_t);
 void setstrlength(address_t, memwriter_t, stringlength_t);
 
 /* setting names */
-address_t setname(address_t, name_t*);
+address_t setname_heap(address_t, name_t*);
+address_t setname_pgm(address_t, name_t*);
 address_t getname(address_t, name_t*);
+mem_t cmpname(name_t*, name_t*);
 
 /* array and string handling */
 /* the multidim extension is experimental, here only 2 array dimensions implemented as test */
@@ -685,7 +687,6 @@ void xfind();
 void xeval();
 
 /* IoT commands */
-void xassign();
 void xavail();
 void xfsensor();
 void xsleep();
