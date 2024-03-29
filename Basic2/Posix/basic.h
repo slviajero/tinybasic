@@ -354,6 +354,9 @@ typedef struct {
 typedef struct { mem_t token; mem_t xc; mem_t yc; } name_t;
 typedef struct { name_t name; address_t i; address_t j; address_t i2; mem_t ps; } lhsobject_t;
 
+/* the heap */
+typedef struct { name_t name; address_t address; address_t size; } heap_t;
+
 /* this type maps numbers to bytes */
 typedef struct { mem_t l; mem_t h; } twobytes_t;
 typedef union { number_t i; address_t a; stringlength_t s; twobytes_t b; mem_t c[sizeof(number_t)]; } accu_t;
@@ -422,14 +425,14 @@ void esave();
 char autorun();
 
 /* the variable heap from Apple 1 BASIC */
-address_t bmalloc(mem_t, mem_t, mem_t, address_t);
-address_t bfind(mem_t, mem_t, mem_t);
-address_t bfree(mem_t, mem_t, mem_t);
-address_t blength (mem_t, mem_t, mem_t);
+address_t bmalloc(name_t*, address_t);
+address_t bfind(name_t*);
+address_t bfree(name_t*);
+address_t blength (name_t*);
 
 /* normal variables of number_t */
-number_t getvar(mem_t, mem_t);
-void setvar(mem_t, mem_t, number_t);
+number_t getvar(name_t*);
+void setvar(name_t*, number_t);
 void clrvars();
 
 /* the new set of functions for memory access */
@@ -440,17 +443,17 @@ void setnumber(address_t, memwriter_t, number_t);
 void setaddress(address_t, memwriter_t, address_t);
 void setstrlength(address_t, memwriter_t, stringlength_t);
 
+/* setting names */
+address_t setname(address_t, name_t*);
+address_t getname(address_t, name_t*);
+
 /* array and string handling */
 /* the multidim extension is experimental, here only 2 array dimensions implemented as test */
-address_t createarray(mem_t, mem_t, address_t, address_t);
-void array(mem_t, mem_t, mem_t, address_t, address_t, number_t*);
-address_t createstring(char, char, address_t, address_t);
-void getstring(string_t*, char, char, address_t, address_t);
-number_t arraydim(char, char);
-address_t stringdim(char, char);
-address_t lenstring(char, char, address_t);
-void setstringlength(char, char, address_t, address_t);
-void setstring(char, char, address_t, char *, address_t, address_t);
+address_t createarray(name_t*, address_t, address_t);
+void array(lhsobject_t*, mem_t, number_t*);
+address_t createstring(name_t*, address_t, address_t);
+void getstring(string_t*, name_t*, address_t, address_t);
+void setstringlength(name_t*, address_t, address_t);
 
 /* the user defined extension functions */
 number_t getusrvar();
@@ -507,6 +510,9 @@ void outcr();
 void outspc();
 void outsc(const char*);
 void outscf(const char *, index_t);
+
+/* output a name */
+void outname(name_t*);
 
 /* I/O of number_t - floats and integers */
 address_t parsenumber(char*, number_t*);
