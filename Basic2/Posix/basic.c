@@ -834,15 +834,16 @@ char autorun() {
  * In the new heap implementation himem points to the first free byte on the heap.
  * The payload is stored first and then the header. 
  * 
+ * The new heap code uses name_t for the name of the object.
+ * 
  */
 
-/* reimplementation of bmalloc using the name_t and heap_t */
 address_t bmalloc(name_t* name, address_t l) {
 	address_t payloadsize;     /* the payload size */
-	address_t namesize = 2; /* for now we have static two character names, but this will change soon */
-	address_t heapheadersize = 1 + namesize + addrsize; /* the length of the heap header which is type and name plus one word */
+	address_t heapheadersize = sizeof(name_t) + addrsize; /* this is only used to estimate the free space, it is the maximum */
 	address_t b=himem; /* the current position on the heap, we store it in case of errors */
 
+/* Initial DEBUG message. */
 	if (DEBUG) { 
 		outsc("** bmalloc with token "); 
 		outnumber(name->token); outspc(); 
@@ -851,32 +852,27 @@ address_t bmalloc(name_t* name, address_t l) {
 	}
 
 /* 
- *	how much space does the payload of the object need 
+ *	How much space does the payload of the object need? 
  */
 	switch(name->token) {
   	case VARIABLE: /* a variable needs numsize bytes*/
 		payloadsize=numsize;
-		heapheadersize-=addrsize; /* no length for a variable */
+
 		break;
 #ifndef HASMULTIDIM
 	case ARRAYVAR: /* a one dimensional array needs numsize*l bytes */
 		payloadsize=numsize*l;
 		break;
 #else
-/* multidim implementation for n=2 */
 	case ARRAYVAR: /* a two dimensional array needs numsize*l bytes plus one word for the additional dimension*/
 		payloadsize=numsize*l+addrsize;
 		break;
 #endif
 #ifdef HASDARTMOUTH
-	case TFN: /* a function needs addrsize+namesize bytes, because the name of the function and the address are stored */
-#ifndef HASMULTILINEFUNCTIONS
-		payloadsize=addrsize+namesize;
+	case TFN: /* the jump address, the type of function/type of return value, the number of vars 
+			and all variables are stored*/
+		payloadsize=addrsize+2+sizeof(name_t)*l; 
 		break;
-#else
-		payloadsize=addrsize+namesize+1; /* in the multiline implementation, we need one more byte to remember the function type */
-		break;
-#endif
 #endif
 /* these are plain buffers allocated by the MALLOC call in BASIC */
 	default:
@@ -895,17 +891,14 @@ address_t bmalloc(name_t* name, address_t l) {
 	b-=payloadsize; 
 	bfind_object.address=b+1;
 
-	if (DEBUG) { 
-		outsc("bmalloc at "); outnumber(b); 
-		outsc(" payloadsize is "); outnumber(payloadsize);
-		outcr(); 
-	}
-
 /* for ARRAYS, STRINGS and BUFFERS, store the object length now - these are variable size objects*/
 	if (name->token != VARIABLE) {
 		b-=(addrsize-1);
 		setaddress(b, memwrite2, payloadsize);
-		if (DEBUG) { outsc("bmalloc writes "); outnumber(payloadsize); outsc(" at "); outnumber(b); outcr(); }
+		if (DEBUG) { 
+			outsc("** bmalloc writes payloadsize "); outnumber(payloadsize); 
+			outsc(" at "); outnumber(b); outcr(); 
+		}
 		b--;
 	}
 
@@ -919,24 +912,14 @@ address_t bmalloc(name_t* name, address_t l) {
 	if (b < top || er) { error(EOUTOFMEMORY); return 0; }
 
 /* we fill the cache here as well, both right now for compatibility */
-/*
-	bfindc=name->xc;
-	bfindd=name->yc;
-	bfindt=name->token;
-	bfindz=payloadsize;
-*/
-
-/* new cache currently unused */
-	bfind_object.name.token=name->token;
-	bfind_object.name.xc=name->xc;
-	bfind_object.name.yc=name->yc;
+	bfind_object.name=*name;
 	bfind_object.size=payloadsize;
 
 /* himem is the next free byte now again */
 	himem=b;
 
 	if (DEBUG) { 
-		outsc("bmalloc returns "); outnumber(bfind_object.address); 
+		outsc("** bmalloc returns "); outnumber(bfind_object.address); 
 		outsc(" himem is "); outnumber(himem); outcr(); 
 	}
 
@@ -948,6 +931,7 @@ address_t bfind(name_t* name) {
 	address_t b, b0;
 	address_t i=0;
 
+/* Initial DEBUG message. */
 	if (DEBUG) { 
 		outsc("*** bfind called for "); outname(name);
 		outsc(" on heap with token "); outnumber(name->token); 
@@ -959,20 +943,16 @@ address_t bfind(name_t* name) {
 
 /* we have the object already in cache and return */
 	if (name->token == bfind_object.name.token && cmpname(name, &bfind_object.name)) {
-		if (DEBUG) { outsc("bfind found in cache "); outname(name); outsc(" at "); outnumber(bfind_object.address); outcr(); }
+		if (DEBUG) { outsc("*** bfind found in cache "); outname(name); outsc(" at "); outnumber(bfind_object.address); outcr(); }
 		return bfind_object.address;
 	}
 
 /* walk through the heap from the last object added to the first */
 	while (b <= memsize) {
 
-		if (DEBUG) { outsc("bfind at "); outnumber(b);  outcr(); }
-
 /* get the name and the type */
 		bfind_object.name.token=memread2(b++);
 		b=getname(b, &bfind_object.name);
-
-		if (DEBUG) { outsc("bfind found "); outname(&bfind_object.name); outsc(" at "); outnumber(b); outcr(); }
 
 /* determine the size of the object and advance */
 		if (bfind_object.name.token != VARIABLE) {
@@ -987,9 +967,7 @@ address_t bfind(name_t* name) {
 
 /* have we found the object */	
 		if (name->token == bfind_object.name.token && cmpname(name, &bfind_object.name)) {
-
-			if (DEBUG) { outsc("bfind found "); outname(name); outsc(" at "); outnumber(bfind_object.address); outcr(); }
-
+			if (DEBUG) { outsc("*** bfind found "); outname(name); outsc(" at "); outnumber(bfind_object.address); outcr(); }
 			return bfind_object.address;
 		}	
 
@@ -1009,11 +987,7 @@ address_t bfind(name_t* name) {
 
 	if (DEBUG) { outsc("bfind returns 0"); outcr(); }
 
-	bfind_object.name.xc=0;
-	bfind_object.name.yc=0;
-	bfind_object.name.token=0;
-	bfind_object.size=0;
-	bfind_object.address=0;
+	zeroheap(&bfind_object);
 	return 0;
 }
 
@@ -1041,11 +1015,7 @@ address_t bfree(name_t* name) {
 	if (DEBUG) { outsc("** bfree returns "); outnumber(himem); outcr(); }
 
 /* forget the chache, because heap structure has changed !! */
-	bfind_object.name.xc=0;
-	bfind_object.name.yc=0;
-	bfind_object.name.token=0;
-	bfind_object.size=0;
-	bfind_object.address=0;
+	zeroheap(&bfind_object);
 	return himem;
 }
 
@@ -1062,7 +1032,7 @@ number_t getvar(name_t *name){
 	if (DEBUG) { outsc("* getvar "); outname(name); outspc(); outcr(); }
 
 /* the special variables */
-	if ( name->xc == '@' )
+	if (name->xc == '@')
 		switch (name->yc) {
 		case 'A':
 			return availch();
@@ -1130,7 +1100,7 @@ void setvar(name_t *name, number_t v){
 	if (DEBUG) { outsc("* setvar "); outname(name); outspc(); outnumber(v); outcr(); }
 
 /* the special variables */
-	if ( name->xc == '@' )
+	if (name->xc == '@')
 		switch (name->yc) {
 		case 'S': 
 			ert=v;
@@ -1216,8 +1186,7 @@ void clrvars() {
 
 /* and clear the cache */
 #ifdef HASAPPLE1
-	bfind_object.name.token=bfind_object.name.yc=bfind_object.name.xc=0;
-	bfind_object.address=bfind_object.size=0;
+	zeroheap(&bfind_object);
 #endif
 }
 
@@ -1285,19 +1254,22 @@ void setstrlength(address_t m, memwriter_t f, stringlength_t s){
 }
 
 /* 
- * Code to handle names. These function only deal with the true 
+ * Code to handle names. These function mostly deal with the true 
  * name part of name_t and not the token. The token has to be 
  * processed by the caller. Name byte order conventon is
  * to have the first character in the lower byte and the second
- * character in the higher byte.
- */
-
-/* 
- * set a name and advance the number of bytes the name uses.
+ * character in the higher byte. Optionally, for HASLONGNAMES 
+ * the length of the name is stored before the name.
+ *
+ * setname_* sets a name and advance the number of bytes the name uses.
  * Two versions are needed because the heap is counted down
  * while the pgm is counted up. The length of the name 
  * is always 2 bytes now but will be variable in the future.
  */
+
+#undef HASLONGNAMES
+
+#ifndef HASLONGNAMES
 
 /* this one is for the heap were we count down writing*/
 address_t setname_heap(address_t m, name_t* name) {
@@ -1325,6 +1297,84 @@ mem_t cmpname(name_t* a, name_t* b) {
 	if (a->xc == b->xc && a->yc == b->yc) return 1; else return 0;
 }
 
+/* zero a name and a heap object */
+void zeroname(name_t* name) {
+	name->xc=0;
+	name->yc=0;
+	name->token=0;
+}
+
+void zeroheap(heap_t* heap) {
+	heap->address=0;
+	heap->size=0;
+	zeroname(&heap->name);
+}
+
+/* output a name */
+void outname(name_t* name) {
+	outch(name->xc);
+	if (name->yc) outch(name->yc);
+}
+
+#else
+/* this one is for the heap were we count down writing*/	
+address_t setname_heap(address_t m, name_t* name) {
+	memwrite2(m--, name->c[1]);
+	memwrite2(m--, name->c[0]);
+	memwrite2(m--, name->l);
+	return m;
+}
+
+/* this one is for the pgm were we count up writing */
+address_t setname_pgm(address_t m, name_t* name) {
+	memwrite2(m++, name->l);
+	memwrite2(m++, name->c[0]);
+	memwrite2(m++, name->c[1]);
+	return m;
+}
+
+/* get a name from a memory location */
+address_t getname(address_t m, name_t* name) {
+	name->l=memread2(m++);
+	name->c[0]=memread2(m++);
+	name->c[1]=memread2(m++);
+
+	if (DEBUG) { 
+		outsc("*** getname reads "); 
+		outname(name); outsc(" at "); outnumber(m); outspc();
+		outsc(" l "); outnumber(name->l); outcr();
+	}
+
+	return m;
+}
+
+/* compare two names */
+mem_t cmpname(name_t* a, name_t* b) {
+	if (a->l == b->l && a->c[0] == b->c[0] && a->c[1] == b->c[1]) return 1; else return 0;
+}	
+
+/* zero a name and a heap object */
+void zeroname(name_t* name) {
+	name->l=0;
+	name->c[0]=0;
+	name->c[1]=0;
+	name->token=0;
+}
+
+void zeroheap(heap_t* heap) {
+	heap->address=0;
+	heap->size=0;
+	zeroname(&heap->name);
+}
+
+/* output a name */
+void outname(name_t* name) {
+	outch(name->c[0]);
+	if (name->c[1]) outch(name->c[1]);
+}
+#endif
+
+
 /* create an array */
 /* reimplementation with name_t */
 address_t createarray(name_t* variable, address_t i, address_t j) {
@@ -1338,7 +1388,12 @@ address_t createarray(name_t* variable, address_t i, address_t j) {
 
 /* this code allows redimension now for local variables */
 #ifdef HASAPPLE1
-	if (DEBUG) { outsc("* create array "); outname(variable); outspc(); outnumber(i); outspc(); outnumber(j); outcr(); }	
+	if (DEBUG) { 
+		outsc("* create array "); outname(variable); outspc();
+		outsc("* with name length "); outnumber(variable->l); outspc();
+		 outnumber(i); outspc(); outnumber(j); outcr(); 
+	}	
+
 #ifndef HASMULTIDIM
 	return bmalloc(variable, i);
 #else
@@ -1372,7 +1427,7 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
 
 	if (DEBUG) {
 		outsc("* array2: accessing "); 
-		outch(object->name.xc); outch(object->name.yc); outspc(); outspc(); 
+		outname(&name); outspc(); outspc(); 
 		outnumber(object->i); outspc(); 
 		outnumber(object->j); outspc(); 
 		outsc(" getset "); outch(getset); outcr();
@@ -1669,6 +1724,7 @@ void getstring(string_t* strp, name_t* name, address_t b, address_t j) {
 	strp->ir=(char *)&mem[ax];
 #endif
 }
+
 
 /* reimplementation with name_t */
 /* set the length of a string */
@@ -2217,12 +2273,6 @@ void outscf(const char *c, index_t f){
 	}
 }
 
-/* output a name */
-void outname(name_t* name) {
-	outch(name->xc);
-	if (name->yc) outch(name->yc);
-}
-
 /* 
  *	reading a positive number from a char buffer 
  *	maximum number of digits is adjusted to 16
@@ -2561,9 +2611,9 @@ void whitespaces(){
 
 /* the token stream */
 void nexttoken() {
-	address_t k, l;
+	address_t k, l, i;
 	char* ir;
-	mem_t xc, yc;
+	char quotechar;
 
 /* RUN mode vs. INT mode, in RUN mode we read from mem via gettoken() */
 	if (st == SRUN || st == SERUN) {
@@ -2610,12 +2660,13 @@ void nexttoken() {
 	}
 
 /* strings between " " or " EOL, value returned in ir and in sr for now */
-	if (*bi == '"') {
+	if (*bi == '"' || *bi == '\'') {
+		quotechar=*bi;
 		k=0;
 		bi++;
 		ir=bi;
 		sr.ir=bi;
-		while(*bi != '"' && *bi !='\0') {
+		while(*bi != quotechar && *bi !='\0') {
 			k++;
 			bi++;
 		} 
@@ -2719,17 +2770,17 @@ void nexttoken() {
 	k=0;
 	while (gettokenvalue(k) != 0) {
 		ir=getkeyword(k);
-		xc=0;
-		while (*(ir+xc) != 0) {
-			if (*(ir+xc) != *(bi+xc)) {
+		i=0;
+		while (*(ir+i) != 0) {
+			if (*(ir+i) != *(bi+i)) {
 				k++;
-				xc=0;
+				i=0;
 				break;
 			} else 
-				xc++;
+				i++;
 		}
-		if (xc == 0) continue;
-		bi+=xc;
+		if (i == 0) continue;
+		bi+=i;
 		token=gettokenvalue(k);
 		if (token == TREM) lexliteral=1;
 		if (DEBUG) debugtoken();
@@ -2744,11 +2795,14 @@ void nexttoken() {
  */
 	if (l == 1 || l == 2) {
 		token=VARIABLE;
-		xc=*bi;
-		yc=0;
+#ifdef HASLONGNAMES
+		name.l=l;
+#endif
+		name.xc=*bi;
+		name.yc=0;
 		bi++;
 		if ((*bi >= '0' && *bi <= '9') || (*bi >= 'A' && *bi <= 'Z') || *bi == '_' ) { 
-			yc=*bi;
+			name.yc=*bi;
 			bi++;
 		} 
 		if (*bi == '$') {
@@ -2760,9 +2814,7 @@ void nexttoken() {
 			token=ARRAYVAR;
 		}	
 /* the new code filling the name variable directly, will be used in the entire code soon */
-		name.token=token;	
-		name.xc=xc;
-		name.yc=yc;		
+		name.token=token;			
 		if (DEBUG) debugtoken();
 		return;
 	}
@@ -3595,9 +3647,13 @@ void parsestringvar(string_t* strp) {
 /* remember the variable name */
 	// xcl=xc;
 	// ycl=yc;
-	variable.token=name.token;
-	variable.xc=name.xc;
-	variable.yc=name.yc;
+	// variable.token=name.token;
+	// variable.xc=name.xc;
+	// variable.yc=name.yc;
+
+	variable=name;
+
+
 
 
 /* the array index default can vary */
@@ -3751,7 +3807,7 @@ void parsestringvar(string_t* strp) {
 }
 
 char stringvalue(string_t* strp) {
-	mem_t xcl, ycl;
+	//mem_t xcl, ycl;
 	address_t k, l;
 	address_t i;
 	token_t t;
@@ -4003,9 +4059,12 @@ void factorarray() {
 	number_t v;
 
 /* remember the variable, because parsesubscript changes this */	
+	object.name=name;
+	/*
 	object.name.xc=name.xc;
 	object.name.yc=name.yc;
 	object.name.token=ARRAYVAR;
+	*/
 
 /* parse the arguments */
 	parsesubscripts();
@@ -4707,7 +4766,7 @@ void lefthandside2(lhsobject_t* lhs) {
 
 	if (DEBUG) {
 		outsc("assigning to variable "); 
-		outch(lhs->name.xc); outch(lhs->name.yc); 
+		outname(&lhs->name); outspc(); 
 		outsc(" type "); outnumber(lhs->name.token); 
 		outcr();
 	}
@@ -4910,9 +4969,13 @@ void assignment() {
 	lhsobject_t lhs;
 
 /* this code evaluates the left hand side, we remember the object information first */
+/*
 	lhs.name.yc=name.yc;
 	lhs.name.xc=name.xc;
 	lhs.name.token=token;
+*/
+	lhs.name=name;
+
 	lefthandside2(&lhs);
 	if (!USELONGJUMP && er) return;
 
@@ -5148,9 +5211,13 @@ nextvariable:
 	if (token == VARIABLE || token == ARRAYVAR || token == STRINGVAR) {  
 
 /* check for a valid lefthandside expression */ 
+/*
 		lhs.name.token=token;
 		lhs.name.xc=name.xc;
 		lhs.name.yc=name.yc;
+*/
+		lhs.name=name;
+
 		lefthandside2(&lhs);
 		if (!USELONGJUMP && er) return;
 
@@ -5494,8 +5561,10 @@ void xfor(){
 		outname(&variable); outspc(); outnumber(b); outspc(); outnumber(e); outspc(); outnumber(s); outcr();
 	}
 
+/*
 	name.xc=variable.xc;
 	name.yc=variable.yc;
+*/
 	x=e;
 	y=s;
 
@@ -8148,9 +8217,13 @@ nextdata:
 	nexttoken();
 
 /* this code evaluates the left hand side - remember type and name */
+/*
 	lhs.name.yc=name.yc;
 	lhs.name.xc=name.xc;
 	lhs.name.token=token;
+*/
+	lhs.name=name;
+
 	lefthandside2(&lhs);
 	if (!USELONGJUMP && er) return;
 
@@ -8272,21 +8345,17 @@ void xdef(){
 
 /* the name of the function, it is tokenized as an array */
 	if (!expect(ARRAYVAR, EUNKNOWN)) return;
-	function.xc=name.xc;
-	function.yc=name.yc;
-	function.token=TFN;
+
+	function=name;
+	function.token=TFN; /* set the right type here */
 
 /* the argument variable */ 
 	if (!expect('(', EUNKNOWN)) return;
 	nexttoken(); 
 	if (token == ')') { 
-		variable.xc=0;
-		variable.yc=0;
-		variable.token=0;
+		zeroname(&variable);
 	} else if (token == VARIABLE) {
-		variable.xc=name.xc;
-		variable.yc=name.yc;
-		variable.token=VARIABLE;
+		variable=name;
 		nexttoken();
 	} else {
 		error(EUNKNOWN);
@@ -8305,44 +8374,54 @@ void xdef(){
 		outname(&variable);
 		outsc(" at here "); 
 		outnumber(here);
+		outsc(" and token is ");
+		outnumber(token);
 		outcr();
 	}
 
-/* find the function, we allow redefinition */
-	if ((a=bfind(&function))==0) a=bmalloc(&function, 0);
+/* find the function, we allow redefinition, currently only functions with 1 argument */
+	if ((a=bfind(&function))==0) a=bmalloc(&function, 1);
 	if (DEBUG) {outsc("** found function structure at "); outnumber(a); outcr(); }
 	if (!USELONGJUMP && er) return;
 
-/* this should never happen as trapped in bmalloc */
+/* no more memory */
 	if (a == 0) { error(EVARIABLE); return; }
 
-/* store the payload - the here address - and the name of the variable */
+/* store the payload */
+
+/* first the jump address */
 	setaddress(a, memwrite2, here);
+	a=a+addrsize;
 
-/* at this point we would implement the multi variable code after heap clean up */
-/* tbd */
+/* the type of the return value - at the moment only numbers */
+	if (token == '=') 
+		memwrite2(a++, VARIABLE);
+	else
+		memwrite2(a++, 0);
 
-/* store the name of the variable */
-	memwrite2(a+addrsize, variable.xc);
-	memwrite2(a+addrsize+1, variable.yc);
+/* store the number of variables */
+	memwrite2(a++, 1);
 
-#ifndef HASMULTILINEFUNCTIONS
-/* skip whatever comes after = */
-	if (token != '=') { error(EFUN); return; }
-	while (!termsymbol()) nexttoken();
-#else 
+/* store the type and the name of the variables */
+	memwrite2(a++, variable.token);
+	setname_pgm(a, &variable);
+	a=a+sizeof(name_t)-1; /* useless now but needed later */
+
+/* skip the function body during defintion */
 	if (token == '=') {
-		memwrite2(a+addrsize+2, '=');
 		while (!termsymbol()) nexttoken();
 	} else {
-		memwrite2(a+addrsize+2, 0);
+#if defined(HASMULTILINEFUNCTIONS)
 		while (token != TFEND) {
 			nexttoken();
 			if (token == TDEF || token == EOL) { error(EFUN); return; }
 		}
 		nexttoken();
-	}
+#else
+		error(EFUN);
+		return;	
 #endif
+	}
 }
 
 /*
@@ -8357,12 +8436,15 @@ void xfn(mem_t m) {
 	address_t a;
 	address_t h1, h2;
 	name_t variable;
+	token_t type;
 
 /* the name of the function and its address */
 	if (!expect(ARRAYVAR, EUNKNOWN)) return;	
 	name.token=TFN;
 	a=bfind(&name);
 	if (a == 0) {error(EUNKNOWN); return; }
+
+	if (DEBUG) { outsc("** in xfn found function "); outname(&name); outsc(" at "); outnumber(a); outcr(); }
 
 /* and the argument */
 	if (!expect('(', EUNKNOWN)) return;
@@ -8379,10 +8461,25 @@ void xfn(mem_t m) {
 
 /* where is the function code */
 	h1=getaddress(a, memread2);
+	a=a+addrsize;
+
+	if (DEBUG) { outsc("** found function address "); outnumber(h1); outcr(); }
+
+/* which type of function do we have*/
+	type=memread2(a++);
+
+	if (DEBUG) { outsc("** found function type "); outnumber(type); outcr(); }
+
+/* the number of variables is always one here */
+	a++;
 
 /* what is the name of the variable, direct read as getname also gets a token */
-	(void) getname(a+addrsize, &variable);
-	variable.token=VARIABLE;
+/* skip the type here as not needed*/
+	variable.token=memread2(a++);
+	(void) getname(a, &variable);
+	a=a+sizeof(name_t)-1;
+
+	if (DEBUG) { outsc("** found function variable "); outname(&variable); outcr(); }
 
 /* create a local variable and store the value in it if there is a variable */
 	if (variable.xc) {
@@ -8395,13 +8492,11 @@ void xfn(mem_t m) {
 	here=h1;
 
 /* for simple singleline function, we directly do experession evaluation */
-#ifndef HASMULTILINEFUNCTIONS
-	if (!expectexpr()) return;
-#else
-	if (memread2(a+addrsize+2) == '=') {
-		if (DEBUG) {outsc("** evaluating expressing at "); outnumber(here); outcr(); }
+	if (type == VARIABLE) {
+		if (DEBUG) {outsc("** evaluating expression at "); outnumber(here); outcr(); }
 		if (!expectexpr()) return;
 	} else {
+#ifdef HASMULTILINEFUNCTIONS
 /* here comes the tricky part, we start a new interpreter instance */ 
 		if (DEBUG) {outsc("** starting a new interpreter instance "); outcr();}
 		nexttoken();
@@ -8410,6 +8505,10 @@ void xfn(mem_t m) {
 		statement();
 		if (!USELONGJUMP && er) return;
 		if (fncontext > 0) fncontext--; else error(EFUN);
+#else
+		error(EFUN);
+		return;
+#endif
 	}
 
 /* now that all the function stuff is done, return to here and set the variable right */
@@ -8422,7 +8521,6 @@ void xfn(mem_t m) {
 		pop();
 		nexttoken();
 	}
-#endif
 }
 
 /*

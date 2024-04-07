@@ -35,6 +35,9 @@
 #define ARRAYSIZEDEF    10
 #define STRSIZEDEF      32
 
+/* the maximum name length */
+#define MAXNAME         2
+
 /*
  * The tokens for the BASIC keywords
  *
@@ -351,7 +354,14 @@ typedef struct {
  * Currently name_t only implements two letter objects and lhsobject_t
  * only implements two dimensional arrays and one dimensional strings.
  */
-typedef struct { mem_t token; mem_t xc; mem_t yc; } name_t;
+typedef struct { 
+    mem_t token; 
+    union { 
+        struct { mem_t xc; mem_t yc; }; 
+        struct { mem_t c[MAXNAME]; mem_t l; };
+    };  
+} name_t;
+
 typedef struct { name_t name; address_t i; address_t j; address_t i2; mem_t ps; } lhsobject_t;
 
 /* the heap */
@@ -448,6 +458,8 @@ address_t setname_heap(address_t, name_t*);
 address_t setname_pgm(address_t, name_t*);
 address_t getname(address_t, name_t*);
 mem_t cmpname(name_t*, name_t*);
+void zeroname(name_t*);
+void zeroheap(heap_t*);
 
 /* array and string handling */
 /* the multidim extension is experimental, here only 2 array dimensions implemented as test */
