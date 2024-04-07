@@ -1032,7 +1032,7 @@ number_t getvar(name_t *name){
 	if (DEBUG) { outsc("* getvar "); outname(name); outspc(); outcr(); }
 
 /* the special variables */
-	if (name->xc == '@')
+	if (name->xc == '@') {
 		switch (name->yc) {
 		case 'A':
 			return availch();
@@ -1063,6 +1063,7 @@ number_t getvar(name_t *name){
 			return dspgetcursory();
 #endif
 		}
+	}
 
 #ifdef HASAPPLE1
 /* search the heap first */
@@ -1267,7 +1268,7 @@ void setstrlength(address_t m, memwriter_t f, stringlength_t s){
  * is always 2 bytes now but will be variable in the future.
  */
 
-#undef HASLONGNAMES
+#define HASLONGNAMES
 
 #ifndef HASLONGNAMES
 
@@ -1319,25 +1320,37 @@ void outname(name_t* name) {
 #else
 /* this one is for the heap were we count down writing*/	
 address_t setname_heap(address_t m, name_t* name) {
-	memwrite2(m--, name->c[1]);
-	memwrite2(m--, name->c[0]);
+	mem_t l;
+	for(l=name->l; l>0; l--) memwrite2(m--, name->c[l-1]);
+//	memwrite2(m--, name->c[1]);
+//	memwrite2(m--, name->c[0]);
 	memwrite2(m--, name->l);
 	return m;
 }
 
 /* this one is for the pgm were we count up writing */
 address_t setname_pgm(address_t m, name_t* name) {
+	mem_t l;
+
+	if (DEBUG) { 
+		outsc("*** setname writes "); 
+		outname(name); outsc(" at "); outnumber(m); outspc();
+		outsc(" l "); outnumber(name->l); outcr();
+	}
+
 	memwrite2(m++, name->l);
-	memwrite2(m++, name->c[0]);
-	memwrite2(m++, name->c[1]);
+	for(l=0; l<name->l; l++) memwrite2(m++, name->c[l]);
 	return m;
 }
 
 /* get a name from a memory location */
 address_t getname(address_t m, name_t* name) {
+	mem_t l;
 	name->l=memread2(m++);
-	name->c[0]=memread2(m++);
-	name->c[1]=memread2(m++);
+
+	for(l=0; l<name->l; l++) name->c[l]=memread2(m++);
+	for(; l<MAXNAME; l++) name->c[l]=0; /* should not be there, is needed for 
+		now because the lexer is not implemented correctly*/
 
 	if (DEBUG) { 
 		outsc("*** getname reads "); 
@@ -1350,14 +1363,20 @@ address_t getname(address_t m, name_t* name) {
 
 /* compare two names */
 mem_t cmpname(name_t* a, name_t* b) {
-	if (a->l == b->l && a->c[0] == b->c[0] && a->c[1] == b->c[1]) return 1; else return 0;
+	mem_t l;
+	if (a->l != b->l) return 0;
+	for(l=0; l<a->l; l++) if (a->c[l] != b->c[l]) return 0;
+// if (a->l == b->l && a->c[0] == b->c[0] && a->c[1] == b->c[1]) return 1; else return 0;
+	return 1;
 }	
 
 /* zero a name and a heap object */
 void zeroname(name_t* name) {
+	mem_t l;
 	name->l=0;
-	name->c[0]=0;
-	name->c[1]=0;
+	for(l=0; l<MAXNAME; l++) name->c[l]=0;
+//	name->c[0]=0;
+//	name->c[1]=0;
 	name->token=0;
 }
 
@@ -2792,18 +2811,24 @@ void nexttoken() {
  * and a number. @ can be the first letter of a variable. 
  * Here, no tokens can appear any more as they have been processed 
  * further up. 
+ * 
+ * This code still does not support long names. Rewrite is needed.
  */
 	if (l == 1 || l == 2) {
 		token=VARIABLE;
-#ifdef HASLONGNAMES
-		name.l=l;
-#endif
+		zeroname(&name);
 		name.xc=*bi;
 		name.yc=0;
+#ifdef HASLONGNAMES
+		name.l++;
+#endif
 		bi++;
 		if ((*bi >= '0' && *bi <= '9') || (*bi >= 'A' && *bi <= 'Z') || *bi == '_' ) { 
 			name.yc=*bi;
 			bi++;
+#ifdef HASLONGNAMES
+			name.l++;
+#endif
 		} 
 		if (*bi == '$') {
 			token=STRINGVAR;
@@ -2886,7 +2911,7 @@ void storetoken() {
 	case ARRAYVAR:
 	case VARIABLE:
 	case STRINGVAR:
-		if (nomemory(3)) break;
+		if (nomemory(sizeof(name_t))) break;
 		memwrite2(top++, token);
 		top=setname_pgm(top, &name);
 		return;
@@ -3236,6 +3261,8 @@ void storeline() {
 /* line cache is invalid on line storage */
 	clrlinecache();
 
+	if (DEBUG) { outsc("storeline "); outnumber(ax); outsc(" : "); outsc(ibuffer); outcr(); }
+
 /*
  *	stage 1: append the line at the end of the memory,
  *	remember the line number on the stack and the old top in here
@@ -3252,6 +3279,7 @@ void storeline() {
 			return;
 		}
 		nexttoken();
+		// debugtoken();
 	} while (token != EOL);
 
 	ax=t1;									/* recall the line number */
@@ -6149,9 +6177,13 @@ void xclr() {
 		ert=0;
     	ioer=0;
 	} else {
+/*
 		variable.token=token;
 		variable.xc=name.xc;
 		variable.yc=name.yc;
+*/
+
+		variable=name;
 
 		switch (variable.token) {
 		case VARIABLE:
@@ -6611,7 +6643,6 @@ void xload(const char* f) {
 
 	if (f == 0) {
 		nexttoken();
-		// getfilename(filename, 1);
 		filename=getfilename2(1);
 		if (!USELONGJUMP && er) return;
 	} else {
@@ -6720,9 +6751,14 @@ void xget(){
 	}
 
 /* this code evaluates the left hand side - remember type and name */
+/*
 	lhs.name.token=token;
 	lhs.name.xc=name.xc;
 	lhs.name.yc=name.yc;
+*/
+
+	lhs.name=name; 
+
 	lefthandside2(&lhs);
 	if (!USELONGJUMP && er) return;
 
@@ -7219,6 +7255,7 @@ void xmalloc() {
 
 /* create a name */
 	name.token=TBUFFER;
+	name.l=2;
 	name.xc=a%256;
 	name.yc=a/256;
 
@@ -7262,6 +7299,7 @@ void xfind() {
 		n=popaddress();
       	if (!USELONGJUMP && er) return;
 		name.token=TBUFFER;
+		name.l=2;
 		name.xc=n%256;
 		name.yc=n/256;
 		a=bfind(&name);
@@ -8226,6 +8264,18 @@ nextdata:
 
 	lefthandside2(&lhs);
 	if (!USELONGJUMP && er) return;
+
+
+	if (DEBUG) {
+		outsc("** read lefthandside "); 
+		outname(&lhs.name); 
+		outsc(" at here "); 
+		outnumber(here); 
+		outsc(" and data pointer "); 
+		outnumber(data); 
+		outcr();
+	}
+	
 
 /* if the token after lhs is not a termsymbol or a comma, something is wrong */
 	if (!termsymbol() && token != ',') { error(EUNKNOWN); return; }
