@@ -6,6 +6,7 @@
 60 REM "@() is the end of memory array"
 100 DIM B(28)
 110 DIM A(18)
+120 I=0: J=0
 200 PRINT "Testing indexing A(I), B() is zero"
 210 FOR I=1 TO 18
 220 A(I)=I*I
@@ -30,7 +31,7 @@
 510 FOR I=1 TO 10 
 520 B(I)=I*6: @(I)=I*6
 530 NEXT 
-540 PRINT "Size of memory array=", @
+540 PRINT "Is the size of the memory array larger than zero? ", @>0
 550 FOR J=1 TO 4 
 560 PRINT #3,J,B(J),@(J);" = ";6*J
 570 NEXT 
