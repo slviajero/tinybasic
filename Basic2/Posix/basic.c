@@ -2675,7 +2675,9 @@ void nexttoken() {
 		return;
 	}
 
-/* single character operators are their own tokens */
+
+/* single character operators are their own tokens redundant in this version - deleted */
+/*
 	if (*bi == '+' || *bi == '-' || *bi == '*' || *bi == '/' || *bi == '%'  ||
 		*bi == '\\' || *bi == ':' || *bi == ',' || *bi == '(' || *bi == ')' ) { 
 			token=*bi; 
@@ -2683,6 +2685,8 @@ void nexttoken() {
 			if (DEBUG) debugtoken();
 			return; 
 	}  
+*/
+
 
 /*
  *	relations
@@ -2796,7 +2800,7 @@ void nexttoken() {
 	if (l>0 && l<=MAXNAME) {
 		token=VARIABLE;
 		zeroname(&name);
-		while (((*bi >= '0' && *bi <= '9') || (*bi >= 'A' && *bi <= 'Z') || (*bi == '_') ) && name.l < MAXNAME && *bi != 0) { 
+		while (((*bi >= '0' && *bi <= '9') || (*bi >= '@' && *bi <= 'Z') || (*bi == '_') ) && name.l < MAXNAME && *bi != 0) { 
 			name.c[name.l]=*bi;
 			bi++;
 			name.l++;
@@ -2811,9 +2815,6 @@ void nexttoken() {
 		}	
 /* the new code filling the name variable directly, will be used in the entire code soon */
 		name.token=token;	
-
-		// outsc("** in nexttoken, name of length "); outnumber(name.l); outcr();
-
 		if (DEBUG) debugtoken();
 		return;
 	}
