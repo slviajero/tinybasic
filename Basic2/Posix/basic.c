@@ -1267,9 +1267,6 @@ void setstrlength(address_t m, memwriter_t f, stringlength_t s){
  * while the pgm is counted up. The length of the name 
  * is always 2 bytes now but will be variable in the future.
  */
-
-#define HASLONGNAMES
-
 #ifndef HASLONGNAMES
 
 /* this one is for the heap were we count down writing*/
@@ -1322,8 +1319,6 @@ void outname(name_t* name) {
 address_t setname_heap(address_t m, name_t* name) {
 	mem_t l;
 	for(l=name->l; l>0; l--) memwrite2(m--, name->c[l-1]);
-//	memwrite2(m--, name->c[1]);
-//	memwrite2(m--, name->c[0]);
 	memwrite2(m--, name->l);
 	return m;
 }
@@ -1331,13 +1326,6 @@ address_t setname_heap(address_t m, name_t* name) {
 /* this one is for the pgm were we count up writing */
 address_t setname_pgm(address_t m, name_t* name) {
 	mem_t l;
-
-	if (DEBUG) { 
-		outsc("*** setname writes "); 
-		outname(name); outsc(" at "); outnumber(m); outspc();
-		outsc(" l "); outnumber(name->l); outcr();
-	}
-
 	memwrite2(m++, name->l);
 	for(l=0; l<name->l; l++) memwrite2(m++, name->c[l]);
 	return m;
@@ -1351,13 +1339,6 @@ address_t getname(address_t m, name_t* name) {
 	for(l=0; l<name->l; l++) name->c[l]=memread2(m++);
 	for(; l<MAXNAME; l++) name->c[l]=0; /* should not be there, is needed for 
 		now because the lexer is not implemented correctly*/
-
-	if (DEBUG) { 
-		outsc("*** getname reads "); 
-		outname(name); outsc(" at "); outnumber(m); outspc();
-		outsc(" l "); outnumber(name->l); outcr();
-	}
-
 	return m;
 }
 
@@ -1366,7 +1347,6 @@ mem_t cmpname(name_t* a, name_t* b) {
 	mem_t l;
 	if (a->l != b->l) return 0;
 	for(l=0; l<a->l; l++) if (a->c[l] != b->c[l]) return 0;
-// if (a->l == b->l && a->c[0] == b->c[0] && a->c[1] == b->c[1]) return 1; else return 0;
 	return 1;
 }	
 
@@ -1375,8 +1355,6 @@ void zeroname(name_t* name) {
 	mem_t l;
 	name->l=0;
 	for(l=0; l<MAXNAME; l++) name->c[l]=0;
-//	name->c[0]=0;
-//	name->c[1]=0;
 	name->token=0;
 }
 
@@ -1388,8 +1366,8 @@ void zeroheap(heap_t* heap) {
 
 /* output a name */
 void outname(name_t* name) {
-	outch(name->c[0]);
-	if (name->c[1]) outch(name->c[1]);
+	mem_t l;
+	for(l=0; l<name->l; l++) outch(name->c[l]);
 }
 #endif
 
@@ -2814,21 +2792,41 @@ void nexttoken() {
  * 
  * This code still does not support long names. Rewrite is needed.
  */
-	if (l == 1 || l == 2) {
+#ifdef HASLONGNAMES
+	if (l>0 && l<=MAXNAME) {
 		token=VARIABLE;
 		zeroname(&name);
+		while (((*bi >= '0' && *bi <= '9') || (*bi >= 'A' && *bi <= 'Z') || (*bi == '_') ) && name.l < MAXNAME && *bi != 0) { 
+			name.c[name.l]=*bi;
+			bi++;
+			name.l++;
+		} 
+		if (*bi == '$') {
+			token=STRINGVAR;
+			bi++;
+		}
+		whitespaces();
+		if (token == VARIABLE && *bi == '(' ) { 
+			token=ARRAYVAR;
+		}	
+/* the new code filling the name variable directly, will be used in the entire code soon */
+		name.token=token;	
+
+		// outsc("** in nexttoken, name of length "); outnumber(name.l); outcr();
+
+		if (DEBUG) debugtoken();
+		return;
+	}
+#else
+	if (l == 1 || l == 2) {
+		token=VARIABLE;
+		name.l=0;
 		name.xc=*bi;
 		name.yc=0;
-#ifdef HASLONGNAMES
-		name.l++;
-#endif
 		bi++;
 		if ((*bi >= '0' && *bi <= '9') || (*bi >= 'A' && *bi <= 'Z') || *bi == '_' ) { 
 			name.yc=*bi;
 			bi++;
-#ifdef HASLONGNAMES
-			name.l++;
-#endif
 		} 
 		if (*bi == '$') {
 			token=STRINGVAR;
@@ -2843,6 +2841,7 @@ void nexttoken() {
 		if (DEBUG) debugtoken();
 		return;
 	}
+#endif
 
 /* other single characters are parsed and stored */
 	token=*bi;
@@ -2938,7 +2937,6 @@ void storetoken() {
 		}
 		return;
 	}
-	error(EOUTOFMEMORY);
 } 
 
 
@@ -3279,7 +3277,6 @@ void storeline() {
 			return;
 		}
 		nexttoken();
-		// debugtoken();
 	} while (token != EOL);
 
 	ax=t1;									/* recall the line number */
@@ -5052,7 +5049,7 @@ nextstring:
 
 /* this debug messes up sbuffer hence all functions that use it in stringvalue produce wrong results */
 		if (DEBUG) {
-			outsc("* assigment stringcode "); outch(lhs.name.xc); outch(lhs.name.yc); outcr();
+			outsc("* assigment stringcode "); outname(&lhs.name); outcr();
 			outsc("** assignment source string length "); outnumber(sr.length); outcr();
 			outsc("** assignment dest string length "); outnumber(sl.length); outcr();
 			outsc("** assignment dest string dimension "); outnumber(sl.strdim); outcr();

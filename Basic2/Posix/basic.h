@@ -36,7 +36,7 @@
 #define STRSIZEDEF      32
 
 /* the maximum name length */
-#define MAXNAME         2
+#define MAXNAME         16
 
 /*
  * The tokens for the BASIC keywords
