@@ -114,7 +114,7 @@
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 0
 #define BOOLEANMODE -1
-#define HASLONGNAMES 
+#undef HASLONGNAMES 
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
