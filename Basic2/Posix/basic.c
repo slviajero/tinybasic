@@ -2053,6 +2053,11 @@ void push(number_t t){
 		outsc("** push value= "); outnumber(t); outcr(); 
 	}
 
+/* in forced integer mode every operation is truncated */
+#ifdef HASFLOAT
+	if (forceint) t=trunc(t);
+#endif
+
 	if (sp == STACKSIZE)
 		error(ESTACK);
 	else
@@ -2444,6 +2449,12 @@ address_t tinydtostrf(number_t v, index_t p, char* c) {
 	address_t nd = 0;
 	number_t f;
 
+/* if we are in forced integer mode */
+	if (forceint) {
+		v=trunc(v);
+		return writenumber(c, (int)v);
+	}
+
 /* we do the sign here and don't rely on writenumbers sign handling, guess why */
 	if (v<0) {
 		v=fabs(v);
@@ -2626,7 +2637,6 @@ void outnumber(number_t n){
 #ifndef HASFLOAT
 	nd=writenumber(sbuffer, n);
 #else
-	if (forceint) n=trunc(n);
 	nd=writenumber2(sbuffer, n);
 #endif 
 
@@ -4557,7 +4567,11 @@ nextfactor:
 		parseoperator(power);
 		if (!USELONGJUMP && er) return;
 		if (y != 0)
+#ifndef HASFLOAT
 			push(x/y);
+#else
+			if (forceint) push((int)x/(int)y); else push(x/y);
+#endif
 		else {
 			error(EDIVIDE);
 			return;	
@@ -4973,11 +4987,6 @@ void lefthandside2(lhsobject_t* lhs) {
 /* assign a number to a left hand side we have parsed */
 void assignnumber2(lhsobject_t* lhs, number_t x) {
 	string_t sr;
-
-/* if the interpreter is floating point capable but should behave in integer style */
-#ifdef HASFLOAT
-	if (forceint) x=trunc(x);
-#endif
 
 /* depending on the variable type, assign the value */
 	switch (lhs->name.token) {
@@ -6302,7 +6311,7 @@ nextvariable:
 		if (!USELONGJUMP && er) return;
 
 	} else if (token == VARIABLE) {
-		(void) bmalloc(&variable, 0); /* this is a local variable, currently no safety net */
+		(void) bmalloc(&name, 0); /* this is a local variable, currently no safety net */
 	} else {
 		error(EUNKNOWN);
 		return;
