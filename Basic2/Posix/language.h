@@ -36,8 +36,8 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#define BASICFULL
-#undef	BASICINTEGER
+#undef  BASICFULL
+#define	BASICINTEGER
 #undef	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICSIMPLEWITHFLOAT
@@ -114,7 +114,7 @@
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 0
 #define BOOLEANMODE -1
-#define HASLONGNAMES 
+#undef HASLONGNAMES 
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
