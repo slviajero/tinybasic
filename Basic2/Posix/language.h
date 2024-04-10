@@ -35,8 +35,9 @@
  * BASICSIMPLEWITHFLOAT: a small floating point BASIC, 32kB capable, for UNOs - good for UNOs with the need of float
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
+ * 
  */
-#define  BASICFULL
+#define BASICFULL
 #undef	BASICINTEGER
 #undef	BASICSIMPLE
 #undef	BASICMINIMAL
@@ -107,14 +108,15 @@
  *      In this mode false is 0 and -1 is true. (1) is C style boolean arithemtic.
  *      In this mode true is 1 and false is 0. AND and OR still do bitwise operations
  *      but NOT is C not. 
- *      
+ *  HASLONGNAMES: use long names for variables and functions. This is an untested
+ *      feature and may not work as expected. It is not recommended to use it right now.
  */
 #undef POWERRIGHTTOLEFT
 #undef MSARRAYLIMITS
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 0
 #define BOOLEANMODE -1
-#undef HASLONGNAMES 
+#define HASLONGNAMES 
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
