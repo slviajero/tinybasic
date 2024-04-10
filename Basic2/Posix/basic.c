@@ -450,7 +450,8 @@ const address_t maxaddr=(address_t)(~0);
  */
 
 /* the stack, all BASIC arithmetic is done here */
-number_t stack[STACKSIZE];
+//number_t stack[STACKSIZE];
+accu_t stack[STACKSIZE];
 address_t sp=0; 
 
 /* a small buffer to process string arguments, mostly used for Arduino PROGMEM and string functions */
@@ -1205,7 +1206,7 @@ number_t getnumber(address_t m, memreader_t f) {
 	accu_t z;
 
 	for (i=0; i<numsize; i++) z.c[i]=f(m++);
-	return z.i;
+	return z.n;
 }
 
 /* same for addresses */
@@ -1232,7 +1233,7 @@ void setnumber(address_t m, memwriter_t f, number_t v){
 	mem_t i;
 	accu_t z;
 
-	z.i=v;
+	z.n=v;
 	for (i=0; i<numsize; i++) f(m++, z.c[i]);
 }
 
@@ -1388,7 +1389,7 @@ address_t createarray(name_t* variable, address_t i, address_t j) {
 	if (DEBUG) { 
 		outsc("* create array "); outname(variable); outspc();
 		outsc("* with name length "); outnumber(variable->l); outspc();
-		 outnumber(i); outspc(); outnumber(j); outcr(); 
+			outnumber(i); outspc(); outnumber(j); outcr(); 
 	}	
 
 #ifndef HASMULTIDIM
@@ -1408,13 +1409,12 @@ address_t createarray(name_t* variable, address_t i, address_t j) {
 	return 0;
 }
 
-
 /* 
  * Reimplementation of the array function to avoid the various problem with the old one. 
  * we use the lefthandside object here with the convention that i is the first index
  * and j the second index. This is inconsistent with the use in strings. Will be fixed 
  * when a true indexing type is introduced. 
- * */
+ */
 
 void array(lhsobject_t* object, mem_t getset, number_t* value) {
 	address_t a; /* the address of the array element */
@@ -2047,20 +2047,81 @@ void bdebug(const char *c){
  *	push(), pop(), clearst() handle the stack
  */
 void push(number_t t){
-	if (DEBUG) {outsc("** push sp= "); outnumber(sp); outcr(); }
-	if (DEBUG) {outsc("** push value= "); outnumber(t); outcr(); }
+
+	if (DEBUG) {
+		outsc("** push sp= "); outnumber(sp); outcr(); 
+		outsc("** push value= "); outnumber(t); outcr(); 
+	}
+
 	if (sp == STACKSIZE)
 		error(ESTACK);
 	else
-		stack[sp++]=t;
+		stack[sp++].n=t;
 }
 
 number_t pop(){
-	if (DEBUG) {outsc("** pop sp= "); outnumber(sp); outcr(); }
+
+	if (DEBUG) {
+		outsc("** pop sp= "); outnumber(sp); outcr(); 
+		outsc("** pop value= "); outnumber(stack[sp-1].n); outcr();
+	}
+
 	if (sp == 0) { error(ESTACK); return 0; }
-	if (DEBUG) {outsc("** pop value= "); outnumber(stack[sp-1]); outcr(); }
-	return stack[--sp];	
+
+	return stack[--sp].n;	
 }
+
+void pushaddress2(address_t a) {
+
+	if (DEBUG) {
+		outsc("** push sp= "); outnumber(sp); outcr(); 
+		outsc("** push value= "); outnumber(a); outcr(); 
+	}
+
+	if (sp == STACKSIZE)
+		error(ESTACK);
+	else
+		stack[sp++].a=a;
+}
+
+address_t popaddress2() {
+
+	if (DEBUG) {
+		outsc("** pop sp= "); outnumber(sp); outcr(); 
+		outsc("** pop value= "); outnumber(stack[sp-1].a); outcr();
+	}
+
+	if (sp == 0) { error(ESTACK); return 0; }
+
+	return stack[--sp].a;
+}
+
+void pushinteger(index_t i) {
+
+	if (DEBUG) {
+		outsc("** push sp= "); outnumber(sp); outcr(); 
+		outsc("** push value= "); outnumber(i); outcr(); 
+	}
+
+	if (sp == STACKSIZE)
+		error(ESTACK);
+	else
+		stack[sp++].i=i;
+}
+
+index_t popinteger() {
+
+	if (DEBUG) {
+		outsc("** pop sp= "); outnumber(sp); outcr(); 
+		outsc("** pop value= "); outnumber(stack[sp-1].i); outcr();
+	}
+
+	if (sp == 0) { error(ESTACK); return 0; }
+
+	return stack[--sp].i;
+}
+
+
 
 /* this one gets a positive integer from the stack and traps the error*/
 address_t popaddress(){
@@ -2920,10 +2981,7 @@ void storetoken() {
 		if (nomemory(i+2)) break;
 		memwrite2(top++, token);
 		memwrite2(top++, i);
-		while (i > 0) {
-			memwrite2(top++, *sr.ir++);
-			i--;
-		}	
+		while (i > 0) { memwrite2(top++, *sr.ir++); i--; }	
 		return;
 	default:
 		if (token >= -127) { /* the good old code with just one byte token */
@@ -3047,12 +3105,6 @@ void gettoken() {
 	case STRINGVAR:
 		here=getname(here, &name);
 		name.token=token;
-/*
-		xc=memread(here++);
-		yc=memread(here++);
-		name.xc=xc;
-		name.yc=yc;
-*/
 		break;
 	case STRING:
 		sr.length=(unsigned char)memread(here++);	
@@ -3239,9 +3291,7 @@ void zeroblock(address_t b, address_t l){
 void diag(){
 	outsc("top, here, y and x\n");
 	outnumber(top); outspc();
-	outnumber(here); outspc();
-	outnumber(y); outspc();	
-	outnumber(x); outspc();		
+	outnumber(here); outspc();		
 	outcr();
 }
 #endif
@@ -3661,8 +3711,6 @@ number_t bpow(number_t x, number_t y) {
 
 void parsestringvar(string_t* strp) {
 #ifdef HASAPPLE1
-	mem_t xcl, ycl;
-
 	name_t variable; 
 
 	address_t array_index;
@@ -3671,16 +3719,7 @@ void parsestringvar(string_t* strp) {
 	blocation_t l;
 
 /* remember the variable name */
-	// xcl=xc;
-	// ycl=yc;
-	// variable.token=name.token;
-	// variable.xc=name.xc;
-	// variable.yc=name.yc;
-
 	variable=name;
-
-
-
 
 /* the array index default can vary */
 	array_index=arraylimit;
@@ -3823,17 +3862,13 @@ void parsestringvar(string_t* strp) {
 	}
 
 /* restore the name */	
-	// xc=xcl;
-	// yc=ycl;
-	name.xc=variable.xc;
-	name.yc=variable.yc;
+	name=variable;
 #else
 	return;
 #endif
 }
 
 char stringvalue(string_t* strp) {
-	//mem_t xcl, ycl;
 	address_t k, l;
 	address_t i;
 	token_t t;
@@ -3872,7 +3907,6 @@ char stringvalue(string_t* strp) {
 		strp->length=writenumber(sbuffer, pop());
 #endif
 		strp->ir=sbuffer;
-		// x=1;
 		if (er != 0) return 0;
 		if (token != ')') {error(EARGS); return 0; }
 		break;
@@ -3887,7 +3921,6 @@ char stringvalue(string_t* strp) {
 		*sbuffer=pop();
 		strp->ir=sbuffer;
 		strp->length=1;
-		// x=1;
 		if (token != ')') {error(EARGS); return 0; }
 		break;
 	case TRIGHT:
@@ -4086,11 +4119,6 @@ void factorarray() {
 
 /* remember the variable, because parsesubscript changes this */	
 	object.name=name;
-	/*
-	object.name.xc=name.xc;
-	object.name.yc=name.yc;
-	object.name.token=ARRAYVAR;
-	*/
 
 /* parse the arguments */
 	parsesubscripts();
@@ -4519,7 +4547,6 @@ void term(){
 	if (!USELONGJUMP && er) return;
 
 nextfactor:
-	// nexttoken();
 	if (DEBUG) bdebug("in term\n");
 	if (token == '*'){
 		parseoperator(power);
@@ -4995,11 +5022,6 @@ void assignment() {
 	lhsobject_t lhs;
 
 /* this code evaluates the left hand side, we remember the object information first */
-/*
-	lhs.name.yc=name.yc;
-	lhs.name.xc=name.xc;
-	lhs.name.token=token;
-*/
 	lhs.name=name;
 
 	lefthandside2(&lhs);
@@ -5237,11 +5259,6 @@ nextvariable:
 	if (token == VARIABLE || token == ARRAYVAR || token == STRINGVAR) {  
 
 /* check for a valid lefthandside expression */ 
-/*
-		lhs.name.token=token;
-		lhs.name.xc=name.xc;
-		lhs.name.yc=name.yc;
-*/
 		lhs.name=name;
 
 		lefthandside2(&lhs);
@@ -5320,7 +5337,7 @@ again:
 /* what is going on */
 			if (DEBUG) {
 				outsc("** input stringcode at "); outnumber(here); outcr();
-				outsc("** input stringcode "); outch(lhs.name.xc); outch(lhs.name.yc); outcr();
+				outsc("** input stringcode "); outname(&lhs.name); outcr();
 				outsc("** input stringcode maximum length "); outnumber(maxlen); outcr();
 			}
 
@@ -5376,9 +5393,6 @@ void xgoto() {
 /* goto in interactive mode switched to RUN mode
 		no clearing of variables and stacks */
 	if (st == SINT) st=SRUN;
-
-	/* this was always there but is not needed, we let statement() do this now */
-	/* nexttoken(); */
 }
 
 /*
@@ -5586,11 +5600,6 @@ void xfor(){
 		outsc("** for loop with parameters var begin end step : ");
 		outname(&variable); outspc(); outnumber(b); outspc(); outnumber(e); outspc(); outnumber(s); outcr();
 	}
-
-/*
-	name.xc=variable.xc;
-	name.yc=variable.yc;
-*/
 	x=e;
 	y=s;
 
@@ -5653,11 +5662,8 @@ void xbreak(){
  */
 #ifdef HASSTRUCT
 void xcont() {
-	token_t t;
-
-	t=peekforstack(); 
 	if (!USELONGJUMP && er) return;
-	switch (t) {
+	switch (peekforstack()) {
 	case TWHILE: 
 		findbraket(TWHILE, TWEND);
 		break;
@@ -5709,19 +5715,23 @@ void xnext(){
 
 /* check if this is really a FOR loop */
 #ifdef HASSTRUCT
-	if (token == TWHILE || token == TREPEAT) {
-		error(ELOOP);
-		return;
-	}
+	if (token == TWHILE || token == TREPEAT) { error(ELOOP); return; }
 #endif
 
 /* a variable argument in next clears the for stack 
 		down as BASIC programs can and do jump out to an outer next */
 	if (variable.xc != 0) {
+/*
 		while (variable.xc != name.xc || variable.yc != name.yc ) {
 			popforstack2(&name, &x, &y);
 			if (!USELONGJUMP && er) return;
 		} 
+*/
+		while (!cmpname(&variable,  &name)) {
+			popforstack2(&name, &x, &y);
+			if (!USELONGJUMP && er) return;
+		} 
+
 	}
 
 /* y=0 an infinite loop with step 0 */
@@ -6175,14 +6185,7 @@ void xclr() {
 		ert=0;
     	ioer=0;
 	} else {
-/*
-		variable.token=token;
-		variable.xc=name.xc;
-		variable.yc=name.yc;
-*/
-
 		variable=name;
-
 		switch (variable.token) {
 		case VARIABLE:
 			if (variable.xc == '@') { return; }
@@ -6243,9 +6246,6 @@ next:
  *	DIM - the dimensioning of arrays and strings from Apple 1 BASIC
  */
 void xdim(){
-	//mem_t xcl, ycl; 
-	//token_t t;
-
 	name_t variable;
 	address_t x;
 	address_t y=1; 
@@ -6749,12 +6749,6 @@ void xget(){
 	}
 
 /* this code evaluates the left hand side - remember type and name */
-/*
-	lhs.name.token=token;
-	lhs.name.xc=name.xc;
-	lhs.name.yc=name.yc;
-*/
-
 	lhs.name=name; 
 
 	lefthandside2(&lhs);
@@ -7813,7 +7807,6 @@ void xdelete() {
 void xopen() {
 #if defined(FILESYSTEMDRIVER) || defined(HASRF24) || defined(HASMQTT) || defined(HASWIRE) || defined(HASSERIAL1)
 	char stream = IFILE; /* default is file operation */
-	// char filename[SBUFSIZE];
 	char* filename;
 	int mode;
 
@@ -8253,11 +8246,6 @@ nextdata:
 	nexttoken();
 
 /* this code evaluates the left hand side - remember type and name */
-/*
-	lhs.name.yc=name.yc;
-	lhs.name.xc=name.xc;
-	lhs.name.token=token;
-*/
 	lhs.name=name;
 
 	lefthandside2(&lhs);
@@ -8306,7 +8294,7 @@ nextdata:
 			lendest=s.length;
 
 			if (DEBUG) {
-				outsc("* read stringcode "); outch(lhs.name.xc); outch(lhs.name.yc); outcr();
+				outsc("* read stringcode "); outname(&lhs.name); outcr();
 				outsc("** read source string length "); outnumber(sr.length); outcr();
 				outsc("** read dest string length "); outnumber(s.length); outcr();
 				outsc("** read dest string dimension "); outnumber(s.strdim); outcr();
@@ -8382,7 +8370,6 @@ void xrestore(){
  *	DEF a function, functions are tokenized as FN Arrayvar
  */
 void xdef(){
-	mem_t xcl1, ycl1, xcl2, ycl2;
 	address_t a;
 
 	name_t function; /* the name of the function */
@@ -8813,17 +8800,17 @@ void xswitch() {
 
 /* a nacked case statement always seeks the end of the switch */
 void xcase() {
-		while (token != EOL) {
-			nexttoken();
-			if (token == TSWEND) break;
+	while (token != EOL) {
+		nexttoken();
+		if (token == TSWEND) break;
 /* broken if switch is nested deeper then once, need the braket mechanism here */
 /*
-			if (token == TSWITCH) {
-				nexttoken();
-				findbraket(TSWITCH, TSWEND);
-			}
-*/
+		if (token == TSWITCH) {
+			nexttoken();
+			findbraket(TSWITCH, TSWEND);
 		}
+*/
+	}
 }
 #endif
 

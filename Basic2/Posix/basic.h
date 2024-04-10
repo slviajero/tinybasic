@@ -314,7 +314,10 @@ typedef void (*memwriter_t)(address_t, mem_t);
 typedef void (*bworkfunction_t)();
 
 /* the location type, this is the cursor on the actual interpreter location */
-typedef struct { address_t location; token_t token; } blocation_t;
+typedef struct { 
+    address_t location; 
+    token_t token; 
+} blocation_t;
 
 /* the new string type used in the reimplementation of the string functions */
 /* 
@@ -362,16 +365,26 @@ typedef struct {
     };  
 } name_t;
 
-typedef struct { name_t name; address_t i; address_t j; address_t i2; mem_t ps; } lhsobject_t;
+typedef struct { 
+    name_t name; 
+    address_t i; address_t j; address_t i2; 
+    mem_t ps; 
+} lhsobject_t;
 
-/* the heap */
-typedef struct { name_t name; address_t address; address_t size; } heap_t;
+typedef struct { 
+    name_t name; 
+    address_t address; 
+    address_t size; 
+} heap_t;
 
-/* this type maps numbers to bytes */
-typedef struct { mem_t l; mem_t h; } twobytes_t;
-typedef union { number_t i; address_t a; stringlength_t s; twobytes_t b; mem_t c[sizeof(number_t)]; } accu_t;
+typedef union { 
+    number_t n; 
+    address_t a; 
+    index_t i;
+    stringlength_t s; 
+    mem_t c[sizeof(number_t)]; 
+} accu_t;
 
-/* the timing event type */
 typedef struct {
     mem_t enabled;
     unsigned long last;
@@ -381,8 +394,8 @@ typedef struct {
 } btimer_t;
 
 /* 
- * the events API for Arduino with interrupt service routines
- * analogous to the timer API
+ * The events API for Arduino with interrupt service routines
+ * analogous to the timer API.
  * 
  * we use raw modes here 
  *
@@ -392,7 +405,7 @@ typedef struct {
  *
  */
 
-/* event type for external events*/
+/* event type for external events */
 typedef struct {
     mem_t enabled;
     mem_t pin;
