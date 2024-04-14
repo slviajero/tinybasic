@@ -45,9 +45,39 @@
 #undef	BASICTINYWITHFLOAT
 
 /*
- * custom settings undef all the the language sets 
- * when you def here
- */ 
+ * Custom settings undef all the the language sets above when you are using this.
+ * 
+ * HASAPPLE1: Apple 1 BASIC compatibility. This is the base for all other features.
+ *  In this version the interpreter has a heap, a string pool and one dimensional arrays.
+ * HASARDUINOIO: Arduino I/O functions, including millis() timer.
+ * HASFILEIO: file I/O functions, including open, close, read, write, remove, rename.
+ * HASTONE: tone() and noTone() functions for sound output mapped to the PLAY command.
+ * HASPULSE: pulseIn() function for measuring pulse lengths. Pulse output. Both mapped to the PULSE command.
+ * HASSTEFANSEXT: Stefan's BASIC extensions, including ELSE, PUT, GET, advanced FOR loops, SQR and POW.
+ * HASERRORMSG: error messages for syntax and runtime errors.
+ * HASVT52: VT52 terminal emulation for text output.
+ * HASFLOAT: floating point support.
+ * HASGRAPH: graphics support, including line, circle, rectangle, fill, color.
+ * HASDARTMOUTH: Dartmouth BASIC compatibility: DEF FN, ON, READ, DATA.
+ * HASDARKARTS: Dark Arts BASIC is MALLOC, FIND, CLR for individual variables and EVAL for self modifying code.
+ * HASIOT: IoT functions, Wire access, Sensor functions, MQTT. Needs strings and heap. STR, VAL, INSTR are 
+ *  part of this.
+ * HASMULTIDIM: multi dimensional arrays, currently only 2D.
+ * HASSTRINGARRAYS: string arrays, needs strings and heap. Currently only 1D string arrays.
+ * HASTIMER: timer functions, AFTER and EVERY.
+ * HASEVENTS: event handling, EVENT command. 
+ * HASERRORHANDLING: error handling with ERROR GOTO.
+ * HASARRAYLIMIT: array limit changeable from 1 to any number.
+ * HASSTRUCT: structured language elements, WHILE WEND, REPEAT UNTIL, SWITCH CASE. Multi line IF THEN ELSE.
+ * HASMSSTRINGS: MS Basic compatible strings, RIGHT$, LEFT$, MID$, ASC, CHR$, and string addition with +.
+ * HASMULTILINEFUNCTIONS: multi line functions, DEF FN, FEND.
+ * HASEDITOR: line editor for the console.
+ * HASTINYBASICINPUT: Tiny BASIC compatible input using the expression parser. This is very odd. 
+ *  Expressions and variables are valid number input with it.
+ * HASLONGNAMES: long variable names, up to 16 characters. Name length is set by MAXNAME in basic.h. 
+ * 
+ */
+
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
@@ -68,21 +98,11 @@
 #define HASERRORHANDLING
 #define HASARRAYLIMIT
 #define HASSTRUCT
-
-/* 
- * Experimental features:
- * 
- * HASMSSTRINGS is a (rudimentary) string compatibility to MS Basic.
- * HASMULTILINEFNCTIONS is a bit like the old DEC BASIC on the PDP.
- * HASEDITOR is a line editor for the console.
- * HASTINYBASICINPUT is a tinybasic like input routine using the expression
- *     parser. This allows expressions in the input statement. Needed to run
- *     the tinybasic example.
- */
 #define HASMSSTRINGS
 #define HASMULTILINEFUNCTIONS
 #define HASEDITOR
 #define HASTINYBASICINPUT
+#define HASLONGNAMES 
 
 /*
  *
@@ -108,14 +128,14 @@
  *      In this mode false is 0 and -1 is true. (1) is C style boolean arithemtic.
  *      In this mode true is 1 and false is 0. AND and OR still do bitwise operations
  *      but NOT is C not. 
- *  HASLONGNAMES: use long names for variables and functions. .
+ *
  */
 #undef POWERRIGHTTOLEFT
 #undef MSARRAYLIMITS
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 0
 #define BOOLEANMODE -1
-#undef  HASLONGNAMES 
+
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -142,6 +162,8 @@
 #undef HASMSSTRINGS
 #undef HASMULTILINEFUNCTIONS
 #undef HASEDITOR
+#define HASTINYBASICINPUT
+#undef HASLONGNAMES 
 #endif
 
 /* all features minus float and tone */
@@ -169,6 +191,8 @@
 #define HASMSSTRINGS
 #define HASMULTILINEFUNCTIONS
 #define HASEDITOR
+#define HASTINYBASICINPUT
+#define HASLONGNAMES 
 #endif
 
 /* a simple integer basic for small systems (UNO etc) */
@@ -196,6 +220,8 @@
 #undef  HASMSSTRINGS
 #undef HASMULTILINEFUNCTIONS
 #undef HASEDITOR
+#define HASTINYBASICINPUT
+#undef HASLONGNAMES 
 #endif
 
 /* all features activated */
@@ -223,6 +249,8 @@
 #define HASMSSTRINGS
 #define HASMULTILINEFUNCTIONS
 #define HASEDITOR
+#define HASTINYBASICINPUT
+#define HASLONGNAMES 
 #endif
 
 /* a simple BASIC with float support */
@@ -250,6 +278,8 @@
 #undef HASMSSTRINGS
 #undef HASMULTILINEFUNCTIONS
 #undef HASEDITOR
+#define HASTINYBASICINPUT
+#undef HASLONGNAMES 
 #endif
 
 /* a Tinybasic with float support */
@@ -277,6 +307,8 @@
 #undef HASMSSTRINGS
 #undef HASMULTILINEFUNCTIONS
 #undef HASEDITOR
+#define HASTINYBASICINPUT
+#undef HASLONGNAMES 
 #endif
 
 /* 
@@ -306,3 +338,4 @@
 #if !defined(DISPLAYHASGRAPH) 
 #undef HASGRAPH
 #endif
+
