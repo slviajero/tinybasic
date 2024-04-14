@@ -552,6 +552,9 @@ stringlength_t defaultstrdim = STRSIZEDEF;
  */
 mem_t randombase = 0;
 
+/* is substring logic used or not */
+mem_t substringmode = 1;
+
 /* the number of arguments parsed from a command */
 mem_t args;
 
@@ -5814,7 +5817,7 @@ void outputtoken() {
 				token == TGOTO || 
 				token == TGOSUB ||
 				token == TOR ||
-				token == TAND ) && lastouttoken != LINENUMBER) outspc();
+				token == TAND) && lastouttoken != LINENUMBER) outspc();
 			else 
 				if (lastouttoken == NUMBER || lastouttoken == VARIABLE) outspc(); 	
 
@@ -6943,6 +6946,10 @@ void xset(){
 	case 19: 
 		randombase=argument;
 		break;
+/* the substring mode */
+	case 20:
+		substringmode=argument;
+		break;
 	}
 }
 
@@ -7448,7 +7455,7 @@ void xfwire() {
 #endif
 
 /*
- * Error handling function, should not be in IOT but currently is 
+ * Error handling function.
  */
 #ifdef HASERRORHANDLING
 void xerror() {
@@ -7474,7 +7481,7 @@ void xerror() {
 #endif
 
 /*
- * After and every trigger timing GOSUBS and GOTOS 
+ * After and every trigger timing GOSUBS and GOTOS.
  */
 #ifdef HASTIMER 
 void resettimer(btimer_t* t) {
@@ -8577,7 +8584,25 @@ void xon(){
 	token_t t;
 	int line = 0;
 	
-	if(!expectexpr()) return;
+/*  ON can do the ON ERROR and ON EVENT commands as well, in this BASIC 
+		ERROR and EVENT can also be used without the ON */
+	nexttoken();
+
+	switch(token) {
+#ifdef HASERRORHANDLING
+	case TERROR:
+		xerror();
+		return;
+#endif
+#ifdef HASEVENTS
+	case TEVENT:
+		xevent();
+		return;
+#endif
+	default:
+		expression();
+		if (!USELONGJUMP && er) return;
+	}
 
 /* the result of the condition, can be any number
 		even large */
@@ -9166,7 +9191,7 @@ void statement(){
 		default:
 /*  strict syntax checking */
 			error(EUNKNOWN);
-			return;
+			goto errorhandler;
 		}
 
 
