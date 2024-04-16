@@ -26,8 +26,8 @@
 #define DEBUG 0
 
 /*
- * Interpreter feature sets, choose one of the predefines 
- * or undefine all predefines and set the features in custom settings
+ * Interpreter feature sets, choose one of the predefines or undefine all predefines and set the 
+ * features in custom settings
  *
  * BASICFULL: full language set, use this with flash >32kB - ESPs, MKRs, Mega2560, RP2040, UNO R4
  * BASICINTEGER: integer BASIC with full language, use this with flash >32kB
@@ -45,7 +45,8 @@
 #undef	BASICTINYWITHFLOAT
 
 /*
- * Custom settings undef all the the language sets above when you are using this.
+ * Custom settings undef all the the language sets above when you are using this. Not all language
+ * features work in all combinations.
  * 
  * HASAPPLE1: Apple 1 BASIC compatibility. This is the base for all other features.
  *  In this version the interpreter has a heap, a string pool and one dimensional arrays.
@@ -58,23 +59,25 @@
  * HASVT52: VT52 terminal emulation for text output.
  * HASFLOAT: floating point support.
  * HASGRAPH: graphics support, including line, circle, rectangle, fill, color.
- * HASDARTMOUTH: Dartmouth BASIC compatibility: DEF FN, ON, READ, DATA.
+ * HASDARTMOUTH: Dartmouth BASIC compatibility: single line DEF FN, ON, READ, DATA.
  * HASDARKARTS: Dark Arts BASIC is MALLOC, FIND, CLR for individual variables and EVAL for self modifying code.
  * HASIOT: IoT functions, Wire access, Sensor functions, MQTT. Needs strings and heap. STR, VAL, INSTR are 
- *  part of this.
- * HASMULTIDIM: multi dimensional arrays, currently only 2D.
- * HASSTRINGARRAYS: string arrays, needs strings and heap. Currently only 1D string arrays.
- * HASTIMER: timer functions, AFTER and EVERY.
+ *  part of this. MQTT support only on Arduino-
+ * HASMULTIDIM: two dimensional arrays and one dimensional string arrays.
+ * HASTIMER: timer functions, AFTER and EVERY for periodic execution of programs.
  * HASEVENTS: event handling, EVENT command. 
  * HASERRORHANDLING: error handling with ERROR GOTO.
  * HASARRAYLIMIT: array limit changeable from 1 to any number.
- * HASSTRUCT: structured language elements, WHILE WEND, REPEAT UNTIL, SWITCH CASE. Multi line IF THEN ELSE.
+ * HASSTRUCT: structured language elements, WHILE WEND, REPEAT UNTIL, SWITCH CASE. Multi line IF THEN ELSE 
+ * 	with the DO DEND construct.
  * HASMSSTRINGS: MS Basic compatible strings, RIGHT$, LEFT$, MID$, ASC, CHR$, and string addition with +.
+ * 	Compatibility to MS BASICs is limited as this BASIC has only inplace string operations-
  * HASMULTILINEFUNCTIONS: multi line functions, DEF FN, FEND.
  * HASEDITOR: line editor for the console.
- * HASTINYBASICINPUT: Tiny BASIC compatible input using the expression parser. This is very odd. 
- *  Expressions and variables are valid number input with it.
- * HASLONGNAMES: long variable names, up to 16 characters. Name length is set by MAXNAME in basic.h. 
+ * HASTINYBASICINPUT: Tiny BASIC compatible input using the expression parser. Expressions and variables 
+ * 	are valid number input with it. Default now but can have odd side effects.
+ * HASLONGNAMES: long variable names, up to 16 characters. Name length is set by MAXNAME in basic.h and
+ * 	can be any value <128 bytes. Names are still only uppercase and all names will be uppercased by lexer.
  * 
  */
 
@@ -92,7 +95,6 @@
 #define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
-#define HASSTRINGARRAYS
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
@@ -115,9 +117,10 @@
  *  MSARRAYLIMITS: in BASIC arrays start at 1 and DIM A(10) creates 10 
  *      elements. With MSARRAYLIMITS defined, arrays start at 0 and have 
  *      n+1 elements.
- *  SUPPRESSSUBSTRINGS: switch off substring logic, makes only sense with 
+ *  SUPPRESSSUBSTRINGS: switch off substring logic by default, makes only sense with 
  *      HASMSSTRINGS activated. With this, the syntax of strings and string 
- *      arrays is comaptible to MS strings. 
+ *      arrays is comaptible to MS strings (only used to preset the variable now).
+ * 		SET 20 can change this at runtime. 
  *  USELONGJUMP: use the longjmp feature of C. This greatly simplifies 
  *      error handling at the cost of portability to some MCU platforms
  *      currently only experimental. It costs memory for the jump buffer. 
@@ -153,7 +156,6 @@
 #undef HASDARKARTS
 #undef HASIOT
 #undef HASMULTIDIM
-#undef HASSTRINGARRAYS
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
@@ -182,7 +184,6 @@
 #define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
-#define HASSTRINGARRAYS
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
@@ -211,7 +212,6 @@
 #undef  HASDARKARTS
 #define HASIOT
 #undef  HASMULTIDIM
-#undef  HASSTRINGARRAYS
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
@@ -240,7 +240,6 @@
 #define HASDARKARTS
 #define HASIOT
 #define HASMULTIDIM
-#define HASSTRINGARRAYS
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
@@ -269,7 +268,6 @@
 #undef HASDARKARTS
 #undef HASIOT
 #undef HASMULTIDIM
-#undef HASSTRINGARRAYS
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
@@ -298,7 +296,6 @@
 #undef HASDARKARTS
 #undef HASIOT
 #undef HASMULTIDIM
-#undef HASSTRINGARRAYS
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
@@ -322,12 +319,13 @@
  * The structured language set needs ELSE from STEFANSEXT
  *
  */
-#if defined(HASDARTMOUTH) || defined(HASDARKARTS) || defined(HASIOT)
-#define HASAPPLE1
+#if defined(HASMULTILINEFUNCTIONS)
+#define HASDARTMOUTH
 #endif
 
-#if defined(HASSTRINGARRAYS)
-#define HASMULTIDIM
+
+#if defined(HASDARTMOUTH) || defined(HASDARKARTS) || defined(HASIOT) || defined(HASMSSTRINGS)
+#define HASAPPLE1
 #endif
 
 #if defined(HASSTRUCT)
