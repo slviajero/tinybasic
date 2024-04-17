@@ -558,10 +558,10 @@ stringlength_t defaultstrdim = STRSIZEDEF;
 mem_t randombase = 0;
 
 /* is substring logic used or not */
-#ifndef SUPPRESSSUBSTRINGS
-mem_t substringmode = 1;
-#else 
+#ifdef SUPPRESSSUBSTRINGS
 mem_t substringmode = 0;
+#else 
+mem_t substringmode = 1;
 #endif
 
 /* the number of arguments parsed from a command */
@@ -6677,6 +6677,42 @@ void xput(){
 	od=ood;
 }
 
+/* setpersonality is a helper of xset */
+void setpersonality(index_t p) {
+#ifdef HASAPPLE1
+	switch(p) {
+/* a Microsoft like BASIC have arrays starting at 0 with n+1 elements and no substrings */
+	case 'm':
+	case 'M':
+		msarraylimits=1;
+		arraylimit=0;
+		substringmode=0;
+		booleanmode=-1;
+		randombase=0;
+		break;
+/* an Apple 1 like BASIC have arrays starting at 1 with n elements and substrings */
+	case 'a':
+	case 'A':
+		msarraylimits=0;
+		arraylimit=1;
+		substringmode=1;
+		booleanmode=1;
+		randombase=0;
+		break;
+/* PaloAlto BASIC is an integer basic with slightly different behaviour */
+	case 'p':
+	case 'P':
+		msarraylimits=0;
+		arraylimit=0;
+		substringmode=1;
+		booleanmode=1;
+		forceint=1;
+		randombase=1;
+		break;
+	}
+#endif
+}
+
 /* 
  *	SET - the command itself is also apocryphal it is a low level
  *	control command setting certain properties
@@ -6734,7 +6770,7 @@ void xset(){
 			break;
 		}		
 		break;
- /* change the default input device */					
+/* change the default input device */					
 	case 5:
 		switch (argument) {
 		case 0:
@@ -6781,16 +6817,19 @@ void xset(){
 		if (argument>=0) arraylimit=argument; else error(EORANGE); 
 		break;
 #endif
+/* the keyboard repeat frequency */
 #ifdef HASKEYPAD
 	case 13:
 		kbdrepeat=argument;
 		break;
 #endif
+/* the units the pulse command is using */
 #ifdef HASPULSE
 	case 14:
 		bpulseunit=argument;
 		break;
 #endif
+/* switch on the vt52 emulation an a POSIX system with an ANSI terminal */
 #ifdef POSIXVT52TOANSI 
 	case 15:
 		vt52active=argument;
@@ -6826,6 +6865,10 @@ void xset(){
 		msarraylimits=(argument != 0);
 		break;	
 #endif
+/* set many settings at once to change the entire personality of the interpreter */
+	case 22:
+		setpersonality(argument);
+		break;
 	}
 }
 
