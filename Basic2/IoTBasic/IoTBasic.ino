@@ -1,17 +1,21 @@
-/*
+/*----------------------------------------------------------------
+ * Please read this before compiling: 
+ *  - Review hardware.h for settings specific hardware settings.
+ *      Super important on Arduino and Raspberry PI.
+ *  - language.h controls the language features.
+ *      For Arduino Integer BASIC is default and a limited language 
+ *      set. For the larger boards this can be extended a lot.
+ *-----------------------------------------------------------------
  *
  *	$Id: basic.c,v 1.5 2024/03/02 15:38:20 stefan Exp stefan $ 
  *
- *	Stefan's IoT BASIC interpreter 
+ *	Stefan's IoT BASIC interpreter - BASIC for everywhere.
  *
  * 	See the licence file on 
  *	https://github.com/slviajero/tinybasic for copyright/left.
  *    (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
  *
  *	Author: Stefan Lenz, sl001@serverfabrik.de
- *
- *	- Review hardware.h for settings specific Arduino hardware settings
- *  - language.h controls the language features.
  *
  *	Currently there are two versions of the runtime environment.
  *		One contains all platforms compiled in the Arduino IDE
@@ -488,7 +492,7 @@ index_t forsp = 0;
 address_t gosubstack[GOSUBDEPTH];
 index_t gosubsp = 0;
 
-/* arithmetic accumulators - y may be obsolete in future*/
+/* arithmetic accumulators */
 number_t x, y;
 
 /* the name of on object, replaced xc and xy in BASIC 1 */
@@ -525,16 +529,17 @@ address_t top;
 /* used to format output with # */
 mem_t form = 0;
 
-/* the lower limit of the array is one by default, can be a variable */
-#if defined(HASARRAYLIMIT) && !defined(MSARRAYLIMITS)
-address_t arraylimit = 1;
-#elif !defined(HASARRAYLIMIT) && defined(MSARRAYLIMIT)
-const address_t arraylimit = 0;
-#elif defined(MSARRAYLIMITS)
+/* do we use the Microsoft convention of an array starting at 0 or 1 like Apple 1 
+	two seperate variables because arraylimit can be changed at runtime for existing arrays 
+	msarraylimit says if an array should be created with n or n+1 elements */
+#ifdef MSARRAYLIMITS
+mem_t msarraylimits = 1;
 address_t arraylimit = 0;
-#else 
-const address_t arraylimit = 1;
+#else
+mem_t msarraylimits = 0;
+address_t arraylimit = 1;
 #endif
+
 
 /* behaviour around boolean, needed to change the interpreters personality at runtime */
 /* -1 is microsoft true while 1 is Apple 1 and C style true. */
@@ -553,7 +558,11 @@ stringlength_t defaultstrdim = STRSIZEDEF;
 mem_t randombase = 0;
 
 /* is substring logic used or not */
+#ifndef SUPPRESSSUBSTRINGS
 mem_t substringmode = 1;
+#else 
+mem_t substringmode = 0;
+#endif
 
 /* the number of arguments parsed from a command */
 mem_t args;
@@ -1165,7 +1174,7 @@ void setvar(name_t *name, number_t v){
 #else 	
 /* the static variable array */
 	if (name->yc == 0 && name->xc >= 65 && name->xc <= 91) {
-		vars[name.xc-65]=v;
+		vars[name->xc-65]=v;
 		return;
 	}
 	error(EVARIABLE);
@@ -1382,10 +1391,11 @@ address_t createarray(name_t* variable, address_t i, address_t j) {
 	address_t a;
 
 /* if we want to me MS compatible, the array ranges from 0-n */
-#ifdef MSARRAYLIMITS
-	i+=1;
-	j+=1;
-#endif
+	if (msarraylimits) {
+		i+=1;
+		j+=1;
+	}
+
 
 /* this code allows redimension now for local variables */
 #ifdef HASAPPLE1
@@ -1539,11 +1549,9 @@ address_t createstring(name_t* variable, address_t i, address_t j) {
 	if (DEBUG) { outsc("Create string "); outname(variable); outcr(); }
 
 /* the MS string compatibility, DIM 10 creates 11 elements */
-#ifdef MSARRAYLIMITS
-	j+=1;
-#endif
+	if (msarraylimits) j+=1;
 
-#ifndef HASSTRINGARRAYS
+#ifndef HASMULTIDIM
 /* if no string arrays are in the code, we reserve the number of bytes i and space for the index */
 /* allow redimension without check right now, for local variables */
 	a=bmalloc(variable, i+strindexsize);
@@ -1664,7 +1672,7 @@ void getstring(string_t* strp, name_t* name, address_t b, address_t j) {
 /* string creating has caused an error, typically no memoryy */
 	if (!USELONGJUMP && er) return;
 
-#ifndef HASSTRINGARRAYS
+#ifndef HASMULTIDIM
 /* the maximum length of the string */
 	strp->strdim=bfind_object.size-strindexsize;
 
@@ -1756,7 +1764,7 @@ void setstringlength(name_t* name, address_t l, address_t j) {
 	if (a == 0) { error(EVARIABLE); return; }
 
 /* stringdim calculation moved here */
-#ifndef HASSTRINGARRAYS
+#ifndef HASMULTIDIM
 	stringdim=bfind_object.size-strindexsize;
 #else 
 /* getaddress seeks the dimension of the string array directly after the payload */
@@ -2158,7 +2166,7 @@ void clrdata() {
  * Reimplementation of the for stack with names. Still raw as handling of
  * WHILE and REPEAT is inconsistent with FOR.
  */
-void pushforstack2(name_t* name, number_t to, number_t step) {
+void pushforstack(name_t* name, number_t to, number_t step) {
 	address_t i;
 
 	if (DEBUG) { outsc("** forsp and here in pushforstack "); outnumber(forsp); outspc(); outnumber(here); outcr(); }
@@ -2215,7 +2223,7 @@ void pushforstack2(name_t* name, number_t to, number_t step) {
 		error(ELOOP);
 }
 
-void popforstack2(name_t* name, number_t* to, number_t* step) {
+void popforstack(name_t* name, number_t* to, number_t* step) {
 	if (forsp>0) {
 		forsp--;
 	} else {
@@ -3711,181 +3719,126 @@ number_t bpow(number_t x, number_t y) {
 #endif
 }
 
-
 /* 
- * stringvalue() evaluates a string value, 0 if there is no string
- * ir2 has the string location, the stack has the length
- * ax the memory byte address, x is set to the lower index which is a nasty
- * side effect
+ * the reimplementation of parsestringvar, this code uses a lhsobject 
+ * to store the data in, which is somehow more natural with the new code.
  * 
- * parsestringvar() is a helper of stringvalue(). It finds everything we need 
- * 	to known about a string variable.
+ * The need to handle substring and no substring situations makes thing 
+ * complex. 
+ * 
+ * A plain string has the format A$.
+ * A substringed string has the format A$(i) or A$(i,j).
+ * A string array has the format A$()(i2), A$(i)(i2), A$(i,j)(i2).
+ * In the Microsoft world with substringmode==0 we only have
+ * 	A$, A$(i2). 
+ * 
+ * All this is distiguished here. 
+ * 
  */
 
-void parsestringvar(string_t* strp) {
+void parsestringvar(string_t* strp, lhsobject_t* lhs) {
 #ifdef HASAPPLE1
-	name_t variable; 
-
-	address_t array_index;
-	address_t lower, upper;
-	mem_t a1;
 	blocation_t l;
+	address_t temp;
 
-/* remember the variable name */
-	variable=name;
+/* remember the variable name and prep the indices */
+	lhs->name=name;
+	lhs->i=1; /* we start at 1 */
+	lhs->j=arraylimit; /* we assume a string array of length 1, all simple strings are like this */ 
+	lhs->i2=0; /* we want the full string length */
+	lhs->ps=1; /* we deal with a pure string */
 
-/* the array index default can vary */
-	array_index=arraylimit;
+/* the array index default, can vary */
+	/* array_index=arraylimit; this is i2 */
 
 /* remember the location */
 	pushlocation(&l);
 
-/* and inspect the brackets */
+/* and inspect the (first) brackets */
 	parsesubscripts();
 	if (!USELONGJUMP && er) return; 
 
-#ifndef HASSTRINGARRAYS
-#ifndef SUPPRESSSUBSTRINGS
-/* the stack has - the first index, the second index */
-	switch(args) {
-	case 2: 
-		upper=popaddress();
-		if (!USELONGJUMP && er) return; 
-		lower=popaddress();
-		break;
-	case 1:
-		lower=popaddress();
-		upper=0; /* flag for no length given */
-		break;
-	case 0: 
-/* rewind the token if there were no braces to be in sync	*/
-		poplocation(&l);
-/* no rewind in the () construct */			
-	case -1:	
-		lower=1;
-		upper=0; /* flag for no length given */
-		break;
-	}
-	if (!USELONGJUMP && er) return;
-#else 
-	if (args != 0) { error(EUNKNOWN); return; }
-	lower=1;
-	upper=0;
-#endif
-#else 
-#ifndef SUPPRESSSUBSTRINGS
-/* for a string array the situation is more complicated as we 
- 		need to parse the argument completely including the possible subscript */
+	if (DEBUG) { outsc("** in parsestringvar "); outnumber(args); outsc(" arguments \n"); }
 
-/* how many args has the first parsesubsscript scanned, if none, we are done
-	rewind and set the parametes*/
-
-/* the stack has - the first string index, the second string index, the array index */	
-
-/* no args given, use the default */
+/* do we deal with a pure unindexed string or something more complicated */
 	if (args == 0) {
-		poplocation(&l);
-		lower=1;
-		upper=0;	
-
-/* if more then zero or an empty (), we need a second parsesubscript */
+/* pure string, we rewind and are done here */
+		poplocation(&l); 
+	} else if (!substringmode) {
+/* we have no substring interpretation hence the brackets can only be one array index */
+		if (args == 1) lhs->j=pop(); else { error(EORANGE); return; }
 	} else {
-
-		a1=args; 
-		pushlocation(&l); /* overwrite of the stored location is good, don't worry */
-
-/* scan the potential second pair of braces */
-		parsesubscripts();
-		if (!USELONGJUMP && er) return;
-
-		switch (args) {
-		case 1:
-			array_index=popaddress();
-			break;
-		case 0:
-			poplocation(&l);
-			break;
-		default:
-			error(EARGS);
-			return;
-		}	
-
-/* which part of the string */
-		switch(a1) {
-		case 2: 
-			upper=popaddress();
+/* not a pure string */
+		lhs->ps=0;
+/* we are in the substring world here */
+		if (args == 2) { lhs->i2=popaddress(); args--; } /* A$(i,j) */
+		if (!USELONGJUMP && er) return; 
+		if (args == 1) { lhs->i=popaddress(); } /* A$(i) */
+		if (!USELONGJUMP && er) return; 
+		if (args == -1) {}	/* A$(), ignore */
+/* here we have parsed a full substring and remember where we are and look forward*/
+		pushlocation(&l); 
+		nexttoken(); 
+		if (token == '(') {
+/* a second pair of braces is coming, we parse an array index */
+			nexttoken();
+			expression(); 
 			if (!USELONGJUMP && er) return;
-			lower=popaddress();
-			break;
-		case 1:
-			upper=0;
-			lower=popaddress();
-			break;
-		case 0: 	
-		case -1:	
-			upper=0;
-			lower=1;
-			break;
-		}
-		if (!USELONGJUMP && er) return;
+			if (token != ')') { error(EUNKNOWN); return; }
+			lhs->j=popaddress();
+			if (!USELONGJUMP && er) return;	
+		} else 
+			poplocation(&l);			
 	}
-#else
-	switch (args) {
-	case 0:
-		poplocation(&l);
-		array_index=arraylimit; 
-		break;
-	case 1: 
-		array_index=popaddress();
-		break;
-	default:
-		error(EUNKNOWN);
-		return;
-	}
-	lower=1;
-	upper=0;
-#endif
-#endif
 
-/* in the second index popaddress threw an error */
-	if (!USELONGJUMP && er) return;
+/* in pure parse mode we end here. This is used for the lefthandside code */
+	if (!strp) return; 
 
 /* try to get the string */
-	getstring(strp, &variable, lower, array_index);
+	getstring(strp, &lhs->name, lhs->i, lhs->j);
 	if (!USELONGJUMP && er) return;
 
 /* look what we do with the upper index */
-	if (!upper) upper=strp->length;
+	if (!lhs->i2) lhs->i2=strp->length;
 
 	if (DEBUG) {
-		outsc("** in parsestringvar lower is "); outnumber(lower); outcr();
-		outsc("** in parsestringvar upper is "); outnumber(upper); outcr();
-		outsc("** in parsestringvar array_index is "); outnumber(array_index); outcr();
+		outsc("** in parsestringvar lower is "); outnumber(lhs->i); outcr();
+		outsc("** in parsestringvar upper is "); outnumber(lhs->i2); outcr();
+		outsc("** in parsestringvar array_index is "); outnumber(lhs->j); outcr();
 	}
 
 /* find the length */
-	if (upper-lower+1 > 0) strp->length=upper-lower+1; else strp->length=0;
+	if (lhs->i2-lhs->i+1 > 0) strp->length=lhs->i2-lhs->i+1; else strp->length=0;
 
 /* done */
 	if (DEBUG) { 
 		outsc("** in parsestringvar, length "); 
 		outnumber(strp->length); 
-		outsc(" from "); outnumber(lower); outspc(); outnumber(upper); 
+		outsc(" from "); outnumber(lhs->i); outspc(); outnumber(lhs->i2); 
 		outcr();
 	}
 
 /* restore the name */	
-	name=variable;
+	name=lhs->name;
 #else
 	return;
 #endif
 }
+
+
+/*
+ * stringvalue(string_t*) evaluates a string value, return 0 if there is no string,
+ * 	1 if there is a string. The pointer contains all the data needed to process the string.
+ * 
+ */
 
 char stringvalue(string_t* strp) {
 	address_t k, l;
 	address_t i;
 	token_t t;
 	mem_t args=1;
+
+	lhsobject_t lhs;
 
 	if (DEBUG) outsc("** entering stringvalue \n");
 
@@ -3905,7 +3858,7 @@ char stringvalue(string_t* strp) {
 		break;
 #ifdef HASAPPLE1
 	case STRINGVAR:
-		parsestringvar(strp);
+		parsestringvar(strp, &lhs);
 		break;
 	case TSTR:
 		nexttoken();
@@ -3945,7 +3898,7 @@ char stringvalue(string_t* strp) {
 		if (token != '(') { error(EARGS); return 0; }
 		nexttoken();
 		if (token != STRINGVAR) { error(EARGS); return 0; }
-		parsestringvar(strp);
+		parsestringvar(strp, &lhs);
 		if (er != 0) return 0;
 		k=strp->length; /* the length of the original string variable */
 		nexttoken();
@@ -4164,6 +4117,7 @@ void factorlen() {
 	address_t a;
 	string_t s;
 	name_t n;
+	lhsobject_t lhs;
 
 	nexttoken();
 	if ( token != '(') { error(EARGS); return; }
@@ -4175,7 +4129,7 @@ void factorlen() {
 		nexttoken();
 		break;
 	case STRINGVAR:
-		parsestringvar(&s);
+		parsestringvar(&s, &lhs);
 		push(s.length);
 		nexttoken();
 		break;
@@ -4296,6 +4250,7 @@ void factornetstat() {
 void factorasc() {
 #ifdef HASAPPLE1
 	string_t s;
+	lhsobject_t lhs;
 
 	nexttoken();
 	if ( token != '(') { error(EARGS); return; }
@@ -4307,7 +4262,7 @@ void factorasc() {
 		nexttoken();
 		break;
 	case STRINGVAR:
-		parsestringvar(&s);
+		parsestringvar(&s, &lhs);
 		if (s.length > 0) {
 			if (s.ir) push(s.ir[0]); else push(memread2(s.address));
 		} else 
@@ -4827,12 +4782,18 @@ separators:
  * Arrays may have two subscript which will go to i, j
  * Strings may have a string subscript, going to i and an array subscript 
  * going to j
+ * String arrays use i2 as the array index. 
+ * Note that the role of the variables differs for string array and normal
+ * arrays. 
  * Strings without a subscript i.e. pure strings, set the ps flag
  * 
  */
 
 /* the new lefthandsite code */
-void lefthandside2(lhsobject_t* lhs) {
+void lefthandside(lhsobject_t* lhs) {
+
+/* just to provide it for parsestringvar to reuse the righthandside code */
+	address_t temp;
 
 	if (DEBUG) {
 		outsc("assigning to variable "); 
@@ -4874,101 +4835,10 @@ void lefthandside2(lhsobject_t* lhs) {
 		nexttoken();
 		break;
 #ifdef HASAPPLE1
-		case STRINGVAR:
-#ifndef HASSTRINGARRAYS
-#ifndef SUPPRESSSUBSTRINGS
-			lhs->j=arraylimit;
-			parsesubscripts();
-			if (!USELONGJUMP && er) return;
-			switch(args) {
-			case 0:
-				lhs->i=1;
-				lhs->ps=1;
-				break;
-			case 1:
-				lhs->ps=0;
-				lhs->i=popaddress();
-				if (!USELONGJUMP && er) return;
-				break;
-			case 2:
-				lhs->ps=0;
-				lhs->i2=popaddress();
-				if (!USELONGJUMP && er) return;
-				lhs->i=popaddress();
-				if (!USELONGJUMP && er) return;
-				break; 
-			default:
-				error(EARGS);
-				return;
-			}
-			nexttoken();
-#else
-			nexttoken();
-#endif
-#else /* can be simplified */
-#ifndef SUPPRESSSUBSTRINGS
-			lhs->j=arraylimit;
-			parsesubscripts();
-			if (!USELONGJUMP && er) return;
-			switch(args) {
-			case -1:
-			case 0:
-				lhs->i=1;
-				lhs->ps=1;
-				break;
-			case 1:
-				lhs->ps=0;
-				lhs->i=popaddress();
-				if (!USELONGJUMP && er) return;
-				break;
-			case 2:
-				lhs->ps=0;
-				lhs->i2=popaddress();
-				if (!USELONGJUMP && er) return;
-				lhs->i=popaddress();
-				if (!USELONGJUMP && er) return;			
-				break;
-			default:
-				error(EARGS);
-				return;
-			}
-
-/* we deal with a string array we look for a second pair of braces */ 
-			parsesubscripts();
-			if (!USELONGJUMP && er) return;
-				
-			switch(args) {
-			case 1:	
-				lhs->j=popaddress();
-				if (!USELONGJUMP && er) return;
-				break;
-			case 0:
-				break;
-			default:
-				error(EARGS);
-				return;
-			}
-			nexttoken();
-		
-#else
-			lhs->j=arraylimit;
-			lhs->i=1;
-			parsesubscripts();
-			if (!USELONGJUMP && er) return;
-			switch(args) {
-			case 1:
-				lhs->j=popaddress();
-				break;
-			case 0:
-				break;
-			default:
-				error(EARGS);
-				return;
-			}
-			nexttoken();
-#endif
-#endif
-			break;
+	case STRINGVAR:
+		parsestringvar(0, lhs);
+		nexttoken();
+		break;
 #else /* HASAPPLE1 */
 /* here we could implement a string thing for a true Tinybasic */
 #endif
@@ -4978,10 +4848,11 @@ void lefthandside2(lhsobject_t* lhs) {
 	}
 
 	if (DEBUG) {
-		outsc("** in assignment lefthandside with ");
+		outsc("** in assignment lefthandside with (i,j,ps,i2) ");
 		outnumber(lhs->i); outspc();
 		outnumber(lhs->j); outspc();
-		outnumber(lhs->ps); outcr();
+		outnumber(lhs->ps); outspc();
+		outnumber(lhs->i2); outcr();
 		outsc("   token is "); outputtoken(); 
 		outsc("   at "); outnumber(here); outcr();
 	}
@@ -5036,7 +4907,7 @@ void assignment() {
 /* this code evaluates the left hand side, we remember the object information first */
 	lhs.name=name;
 
-	lefthandside2(&lhs);
+	lefthandside(&lhs);
 	if (!USELONGJUMP && er) return;
 
 /* the assignment part */
@@ -5273,7 +5144,7 @@ nextvariable:
 /* check for a valid lefthandside expression */ 
 		lhs.name=name;
 
-		lefthandside2(&lhs);
+		lefthandside(&lhs);
 		if (!USELONGJUMP && er) return;
 
 /* which data type do we input */
@@ -5617,7 +5488,7 @@ void xfor(){
 
 	if (DEBUG) { outsc("** for loop target location"); outnumber(here); outcr(); }
 
-	pushforstack2(&variable, e, s);
+	pushforstack(&variable, e, s);
 	if (!USELONGJUMP && er) return;
 
 /*
@@ -5722,7 +5593,7 @@ void xnext(){
 
 /* remember the current position */
 	h=here;
-	popforstack2(&name, &x, &y);
+	popforstack(&name, &x, &y);
 	if (!USELONGJUMP && er) return;
 
 /* check if this is really a FOR loop */
@@ -5733,14 +5604,8 @@ void xnext(){
 /* a variable argument in next clears the for stack 
 		down as BASIC programs can and do jump out to an outer next */
 	if (variable.xc != 0) {
-/*
-		while (variable.xc != name.xc || variable.yc != name.yc ) {
-			popforstack2(&name, &x, &y);
-			if (!USELONGJUMP && er) return;
-		} 
-*/
 		while (!cmpname(&variable,  &name)) {
-			popforstack2(&name, &x, &y);
+			popforstack(&name, &x, &y);
 			if (!USELONGJUMP && er) return;
 		} 
 
@@ -5753,7 +5618,7 @@ void xnext(){
 /* do we need another iteration, STEP 0 always triggers an infinite loop */
 	if ((y == 0) || (y > 0 && t <= x) || (y < 0 && t >= x)) {
 /* push the loop with the new values back to the for stack */
-		pushforstack2(&name, x, y);
+		pushforstack(&name, x, y);
 		if (st == SINT) bi=ibuffer+here;
 	} else {
 /* last iteration completed we stay here after the next */
@@ -6298,15 +6163,16 @@ nextvariable:
 #ifdef SPIRAMSBSIZE
 			if (x>SPIRAMSBSIZE-1) {error(EORANGE); return; }
 #endif
-#ifdef SUPPRESSSUBSTRINGS
-/* if only one argument is given in this mode we interpret the 
-	argument as the string array dimension and not as the length 
-	two arguments are allowed and work as always */
+/* With the substringmode switched off, if only one argument is given 
+	we interpret the argument as the string array dimension and not as 
+	the length two arguments are allowed and work as always. This makes
+	things more compatible to the Microsoft BASIC world. */
+		if (!substringmode)
 			if (args == 1) {
 				y=x;
 				x=defaultstrdim;
 			}
-#endif
+
 			(void) createstring(&variable, x, y);
 		} else {
 			(void) createarray(&variable, x, y);
@@ -6763,7 +6629,7 @@ void xget(){
 /* this code evaluates the left hand side - remember type and name */
 	lhs.name=name; 
 
-	lefthandside2(&lhs);
+	lefthandside(&lhs);
 	if (!USELONGJUMP && er) return;
 
 /* get the data, non blocking on Arduino */
@@ -6910,7 +6776,7 @@ void xset(){
 		break;
 #endif
 /* change the lower array limit */
-#ifdef HASARRAYLIMIT
+#ifdef HASAPPLE1
 	case 12:
 		if (argument>=0) arraylimit=argument; else error(EORANGE); 
 		break;
@@ -6930,26 +6796,36 @@ void xset(){
 		vt52active=argument;
 		break;
 #endif
-/* change the default size of a string at autocreate, important when SUPPRESSSUBSTRINGS is done*/
+/* change the default size of a string at autocreate */
+#ifdef HASAPPLE1
 	case 16:
 		if (argument>0) defaultstrdim=argument; else error(EORANGE);
 		break;
+#endif
 /* set the boolean mode */
 	case 17: 
 		if (argument==-1 || argument==1) booleanmode=argument; else error(EORANGE);
 		break;
 /* set the integer mode */
 	case 18: 
-		forceint=argument;
+		forceint=(argument != 0);
 		break;
 /* set the random number behaviour */
 	case 19: 
 		randombase=argument;
 		break;
-/* the substring mode */
+/* the substring mode on and off */
+#ifdef HASAPPLE1
 	case 20:
-		substringmode=argument;
+		substringmode=(argument != 0);
 		break;
+#endif
+/* the MS array behaviour, creates n+1 elements when on */
+#ifdef HASAPPLE1
+	case 21:
+		msarraylimits=(argument != 0);
+		break;	
+#endif
 	}
 }
 
@@ -8264,7 +8140,7 @@ nextdata:
 /* this code evaluates the left hand side - remember type and name */
 	lhs.name=name;
 
-	lefthandside2(&lhs);
+	lefthandside(&lhs);
 	if (!USELONGJUMP && er) return;
 
 
@@ -8383,7 +8259,8 @@ void xrestore(){
 }
 
 /*
- *	DEF a function, functions are tokenized as FN Arrayvar
+ * DEF a function, functions are tokenized as FN ARRAYVAR to make
+ * name processing easy.
  */
 void xdef(){
 	address_t a;
@@ -8478,10 +8355,14 @@ void xdef(){
 /*
  * FN function evaluation, this is a call from factor or directly from
  * statement, the variable m tells xfn which one it is. 0 is from 
- * factore and 1 is from statement. This mechanism is only needed in 
- * multiline functions.
+ * factor and 1 is from statement. 
  * 
- * The new function code has local variable capability of the new heap 
+ * This mechanism is only needed in multiline functions. In this case, 
+ * a new interpreter instance is started with statement(). The variable 
+ * m decides whether the stack should contain a return value (call from factor)
+ * or should be empty. 
+ * 
+ * The new function code has local variable capability of the new heap.
  */
 void xfn(mem_t m) {
 	address_t a;
@@ -8548,8 +8429,11 @@ void xfn(mem_t m) {
 		if (!expectexpr()) return;
 	} else {
 #ifdef HASMULTILINEFUNCTIONS
+
 /* here comes the tricky part, we start a new interpreter instance */ 
+
 		if (DEBUG) {outsc("** starting a new interpreter instance "); outcr();}
+
 		nexttoken();
 		fncontext++;
 		if (fncontext > FNLIMIT) { error(EFUN); return; }
@@ -8586,8 +8470,8 @@ void xon(){
 	
 /*  ON can do the ON ERROR and ON EVENT commands as well, in this BASIC 
 		ERROR and EVENT can also be used without the ON */
+	
 	nexttoken();
-
 	switch(token) {
 #ifdef HASERRORHANDLING
 	case TERROR:
@@ -8604,16 +8488,12 @@ void xon(){
 		if (!USELONGJUMP && er) return;
 	}
 
-/* the result of the condition, can be any number
-		even large */
+/* the result of the condition, can be any number even large */
 	cr=pop();
 	if (DEBUG) { outsc("** in on condition found "); outnumber(cr); outcr(); } 
 
 /* is there a goto or gosub */
-	if (token != TGOSUB && token != TGOTO)  {
-		error(EUNKNOWN);
-		return;
-	}
+	if (token != TGOSUB && token != TGOTO)  { error(EUNKNOWN); return; }
 
 /* remember if we do gosub or goto */
 	t=token;
@@ -8644,6 +8524,7 @@ void xon(){
 	if (!USELONGJUMP && er) return;
 	
 	if (DEBUG) { outsc("** in on found line as target "); outnumber(line); outcr(); }
+
 /* no line found to jump to */
 	if (line == 0) {
 		nexttoken();
@@ -8661,8 +8542,6 @@ void xon(){
 		no clearing of variables and stacks */
 	if (st == SINT) st=SRUN;
 
-	/* removed to avoid blocking in AFTER, EVERY and EVENT infinite loops */
-	/* nexttoken(); */
 }
 #endif
 
@@ -8670,6 +8549,7 @@ void xon(){
 
 #ifdef HASSTRUCT
 void xwhile() {
+
 /* what? */
 	if (DEBUG) { outsc("** in while "); outnumber(here); outspc(); outnumber(token); outcr(); }
 
@@ -8677,14 +8557,14 @@ void xwhile() {
 	if (st == SINT) here=bi-ibuffer;
 
 /* save the current location and token type, here points to the condition, name is irrelevant */ 
-	pushforstack2(0, 0, 0);
+	pushforstack(0, 0, 0);
 
 /* is there a valid condition */
 	if (!expectexpr()) return;
 
 /* if false, seek WEND and clear the stack*/
 	if (!pop()) {
-		popforstack2(0, 0, 0);
+		popforstack(0, 0, 0);
 		if (st == SINT) bi=ibuffer+here;
 		nexttoken();
 		findbraket(TWHILE, TWEND);
@@ -8699,7 +8579,7 @@ void xwend() {
 	pushlocation(&l);
 
 /* back to the condition */
-	popforstack2(0, 0, 0);
+	popforstack(0, 0, 0);
 	if (!USELONGJUMP && er) return;
 
 /* interactive run */
@@ -8710,14 +8590,14 @@ void xwend() {
 
 /* run the loop again - same code as xwhile */
 	if (st == SINT) here=bi-ibuffer;
-	pushforstack2(0, 0, 0);
+	pushforstack(0, 0, 0);
 
 /* is there a valid condition */
 	if (!expectexpr()) return;
 
 /* if false, seek WEND */
 	if (!pop()) {
-		popforstack2(0, 0, 0);
+		popforstack(0, 0, 0);
 		poplocation(&l);
 		nexttoken();
 	} 
@@ -8731,7 +8611,7 @@ void xrepeat() {
 	if (st == SINT) here=bi-ibuffer;
 
 /* save the current location and token type, here points statement after repeat */ 
-	pushforstack2(0, 0, 0);
+	pushforstack(0, 0, 0);
 
 /* we are done here */
 	nexttoken();
@@ -8747,7 +8627,7 @@ void xuntil() {
 	pushlocation(&l);
 
 /* look on the stack */
-	popforstack2(0, 0, 0);
+	popforstack(0, 0, 0);
 	if (!USELONGJUMP && er) return;
 
 /* if false, go back to the repeat */
@@ -8763,7 +8643,7 @@ void xuntil() {
 		if (st == SINT) bi=ibuffer+here;
 
 /* write the stack back if we continue looping */
-		pushforstack2(0, 0, 0);
+		pushforstack(0, 0, 0);
 
 	} else {
 

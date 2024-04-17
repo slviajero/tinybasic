@@ -1,17 +1,21 @@
-/*
+/*----------------------------------------------------------------
+ * Please read this before compiling: 
+ *  - Review hardware.h for settings specific hardware settings.
+ *      Super important on Arduino and Raspberry PI.
+ *  - language.h controls the language features.
+ *      For Arduino Integer BASIC is default and a limited language 
+ *      set. For the larger boards this can be extended a lot.
+ *-----------------------------------------------------------------
  *
  *	$Id: basic.c,v 1.5 2024/03/02 15:38:20 stefan Exp stefan $ 
  *
- *	Stefan's IoT BASIC interpreter 
+ *	Stefan's IoT BASIC interpreter - BASIC for everywhere.
  *
  * 	See the licence file on 
  *	https://github.com/slviajero/tinybasic for copyright/left.
  *    (GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007)
  *
  *	Author: Stefan Lenz, sl001@serverfabrik.de
- *
- *	- Review hardware.h for settings specific Arduino hardware settings
- *  - language.h controls the language features.
  *
  *	Currently there are two versions of the runtime environment.
  *		One contains all platforms compiled in the Arduino IDE
@@ -1170,7 +1174,7 @@ void setvar(name_t *name, number_t v){
 #else 	
 /* the static variable array */
 	if (name->yc == 0 && name->xc >= 65 && name->xc <= 91) {
-		vars[name.xc-65]=v;
+		vars[name->xc-65]=v;
 		return;
 	}
 	error(EVARIABLE);
@@ -6792,10 +6796,12 @@ void xset(){
 		vt52active=argument;
 		break;
 #endif
-/* change the default size of a string at autocreate, important when SUPPRESSSUBSTRINGS is done*/
+/* change the default size of a string at autocreate */
+#ifdef HASAPPLE1
 	case 16:
 		if (argument>0) defaultstrdim=argument; else error(EORANGE);
 		break;
+#endif
 /* set the boolean mode */
 	case 17: 
 		if (argument==-1 || argument==1) booleanmode=argument; else error(EORANGE);
@@ -6809,13 +6815,17 @@ void xset(){
 		randombase=argument;
 		break;
 /* the substring mode on and off */
+#ifdef HASAPPLE1
 	case 20:
 		substringmode=(argument != 0);
 		break;
+#endif
 /* the MS array behaviour, creates n+1 elements when on */
+#ifdef HASAPPLE1
 	case 21:
 		msarraylimits=(argument != 0);
 		break;	
+#endif
 	}
 }
 

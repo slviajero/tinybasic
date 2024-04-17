@@ -27,7 +27,7 @@
  *
  */
 
-/* Additional buffers and vars */
+/* Additional buffers and vars, VARSIZE only needed for Tinybasics */
 #define SBUFSIZE        32
 #define VARSIZE         26
 
@@ -214,8 +214,8 @@
  * Extension tokens can be in the range from -128 upwards.
  * one needs to set HASLONGTOKENS. Currently ony one set of 
  * extension tokens is implemented ranging from -128 to -255.
- */
-/* this was ASC, CHR, RIGHT, LEFT, MID - right now unused */
+ *
+ * ****  right now unused and untested **** */
 
 /* BASEKEYWORD is used by the lexer. From this keyword on it tries to match. */
 #define BASEKEYWORD -121
@@ -248,10 +248,10 @@
 #define MARRAY		6
 #define MSTRING		7
 #define MSTRINGVAR	8
-#define EGENERAL 	 9
-#define EUNKNOWN	 10
-#define ENUMBER      11
-#define EDIVIDE		 12
+#define EGENERAL    9
+#define EUNKNOWN    10
+#define ENUMBER     11
+#define EDIVIDE     12
 #define ELINE        13
 #define EOUTOFMEMORY 14
 #define ESTACK 		 15
@@ -358,17 +358,20 @@ typedef struct {
  * only implements two dimensional arrays and one dimensional strings.
  */
 typedef struct { 
-    mem_t token; 
+    token_t token; 
     union { 
         struct { mem_t xc; mem_t yc; }; 
         struct { mem_t c[MAXNAME]; mem_t l; };
     };  
 } name_t;
 
+/* used to identify mostly lefthandsides and some righthandsides with these conventions */
 typedef struct { 
-    name_t name; 
-    address_t i; address_t j; address_t i2; 
-    mem_t ps; 
+    name_t name;    /* the name of a variable */
+    address_t i;    /* the start value of a substring or the first index of a number array */
+    address_t j;    /*  the second index of an array */
+    address_t i2;   /* the second value of a substring string */
+    mem_t ps;       /* flag to indicate a pure string */
 } lhsobject_t;
 
 typedef struct { 
@@ -514,8 +517,8 @@ void clearst();
 void clrdata();
 
 /* FOR NEXT GOSUB stacks */
-void pushforstack();
-void popforstack();
+void pushforstack(name_t*, number_t, number_t);
+void popforstack(name_t*, number_t*, number_t*);
 void dropforstack();
 void clrforstack();
 void pushgosubstack(mem_t);
@@ -602,7 +605,7 @@ void xpow();
 number_t bpow(number_t, number_t);
 
 /* string values and string evaluation */
-void parsestringvar(string_t*);
+void parsestringvar(string_t*, lhsobject_t*);
 char stringvalue(string_t*);
 void streval();
 
@@ -636,7 +639,7 @@ void rtcmkstr();
 /* basic commands of the core language set */
 void xprint();
 void getstringtobuffer(string_t*, char*, stringlength_t);
-void lefthandside(lhsobject_t);
+void lefthandside(lhsobject_t*);
 void assignnumber(lhsobject_t, number_t);
 void assignstring(string_t*, string_t*, stringlength_t);
 void assignment();
