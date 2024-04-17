@@ -488,7 +488,7 @@ index_t forsp = 0;
 address_t gosubstack[GOSUBDEPTH];
 index_t gosubsp = 0;
 
-/* arithmetic accumulators - y may be obsolete in future*/
+/* arithmetic accumulators */
 number_t x, y;
 
 /* the name of on object, replaced xc and xy in BASIC 1 */
@@ -525,16 +525,17 @@ address_t top;
 /* used to format output with # */
 mem_t form = 0;
 
-/* the lower limit of the array is one by default, can be a variable */
-#if defined(HASARRAYLIMIT) && !defined(MSARRAYLIMITS)
-address_t arraylimit = 1;
-#elif !defined(HASARRAYLIMIT) && defined(MSARRAYLIMIT)
-const address_t arraylimit = 0;
-#elif defined(MSARRAYLIMITS)
+/* do we use the Microsoft convention of an array starting at 0 or 1 like Apple 1 
+	two seperate variables because arraylimit can be changed at runtime for existing arrays 
+	msarraylimit says if an array should be created with n or n+1 elements */
+#ifdef MSARRAYLIMITS
+mem_t msarraylimits = 1;
 address_t arraylimit = 0;
-#else 
-const address_t arraylimit = 1;
+#else
+mem_t msarraylimits = 0;
+address_t arraylimit = 1;
 #endif
+
 
 /* behaviour around boolean, needed to change the interpreters personality at runtime */
 /* -1 is microsoft true while 1 is Apple 1 and C style true. */
@@ -1386,10 +1387,11 @@ address_t createarray(name_t* variable, address_t i, address_t j) {
 	address_t a;
 
 /* if we want to me MS compatible, the array ranges from 0-n */
-#ifdef MSARRAYLIMITS
-	i+=1;
-	j+=1;
-#endif
+	if (msarraylimits) {
+		i+=1;
+		j+=1;
+	}
+
 
 /* this code allows redimension now for local variables */
 #ifdef HASAPPLE1
@@ -1543,9 +1545,7 @@ address_t createstring(name_t* variable, address_t i, address_t j) {
 	if (DEBUG) { outsc("Create string "); outname(variable); outcr(); }
 
 /* the MS string compatibility, DIM 10 creates 11 elements */
-#ifdef MSARRAYLIMITS
-	j+=1;
-#endif
+	if (msarraylimits) j+=1;
 
 #ifndef HASMULTIDIM
 /* if no string arrays are in the code, we reserve the number of bytes i and space for the index */
@@ -6772,7 +6772,7 @@ void xset(){
 		break;
 #endif
 /* change the lower array limit */
-#ifdef HASARRAYLIMIT
+#ifdef HASAPPLE1
 	case 12:
 		if (argument>=0) arraylimit=argument; else error(EORANGE); 
 		break;
@@ -6802,16 +6802,20 @@ void xset(){
 		break;
 /* set the integer mode */
 	case 18: 
-		forceint=argument;
+		forceint=(argument != 0);
 		break;
 /* set the random number behaviour */
 	case 19: 
 		randombase=argument;
 		break;
-/* the substring mode */
+/* the substring mode on and off */
 	case 20:
-		substringmode=argument;
+		substringmode=(argument != 0);
 		break;
+/* the MS array behaviour, creates n+1 elements when on */
+	case 21:
+		msarraylimits=(argument != 0);
+		break;	
 	}
 }
 

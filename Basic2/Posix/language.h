@@ -67,7 +67,6 @@
  * HASTIMER: timer functions, AFTER and EVERY for periodic execution of programs.
  * HASEVENTS: event handling, EVENT command. 
  * HASERRORHANDLING: error handling with ERROR GOTO.
- * HASARRAYLIMIT: array limit changeable from 1 to any number.
  * HASSTRUCT: structured language elements, WHILE WEND, REPEAT UNTIL, SWITCH CASE. Multi line IF THEN ELSE 
  * 	with the DO DEND construct.
  * HASMSSTRINGS: MS Basic compatible strings, RIGHT$, LEFT$, MID$, ASC, CHR$, and string addition with +.
@@ -98,7 +97,6 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
-#define HASARRAYLIMIT
 #define HASSTRUCT
 #define HASMSSTRINGS
 #define HASMULTILINEFUNCTIONS
@@ -116,7 +114,7 @@
  *		change the behaviour to 2^3^2 = 2^(3^2) = 512
  *  MSARRAYLIMITS: in BASIC arrays start at 1 and DIM A(10) creates 10 
  *      elements. With MSARRAYLIMITS defined, arrays start at 0 and have 
- *      n+1 elements.
+ *      n+1 elements. This can be changed at any time with SET 21,0 or 1.
  *  SUPPRESSSUBSTRINGS: switch off substring logic by default, makes only sense with 
  *      HASMSSTRINGS activated. With this, the syntax of strings and string 
  *      arrays is comaptible to MS strings (only used to preset the variable now).
@@ -130,7 +128,7 @@
  *      is to cast all numbers to signed 16bit and then do bitwise arithemtic.
  *      In this mode false is 0 and -1 is true. (1) is C style boolean arithemtic.
  *      In this mode true is 1 and false is 0. AND and OR still do bitwise operations
- *      but NOT is C not. 
+ *      but NOT is C not. SET 19,1 or -1 can change this at runtime.
  *
  */
 #undef POWERRIGHTTOLEFT
@@ -159,7 +157,6 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
-#undef HASARRAYLIMIT
 #undef HASSTRUCT
 #undef HASMSSTRINGS
 #undef HASMULTILINEFUNCTIONS
@@ -187,7 +184,6 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
-#define HASARRAYLIMIT
 #define HASSTRUCT
 #define HASMSSTRINGS
 #define HASMULTILINEFUNCTIONS
@@ -215,7 +211,6 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
-#undef 	HASARRAYLIMIT
 #undef 	HASSTRUCT
 #undef  HASMSSTRINGS
 #undef HASMULTILINEFUNCTIONS
@@ -243,7 +238,6 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
-#define HASARRAYLIMIT
 #define HASSTRUCT
 #define HASMSSTRINGS
 #define HASMULTILINEFUNCTIONS
@@ -271,7 +265,6 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
-#undef HASARRAYLIMIT
 #undef HASSTRUCT
 #undef HASMSSTRINGS
 #undef HASMULTILINEFUNCTIONS
@@ -299,7 +292,6 @@
 #undef HASTIMER
 #undef HASEVENTS
 #undef HASERRORHANDLING
-#undef HASARRAYLIMIT
 #undef HASSTRUCT
 #undef HASMSSTRINGS
 #undef HASMULTILINEFUNCTIONS
