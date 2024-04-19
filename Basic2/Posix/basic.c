@@ -3633,32 +3633,53 @@ void xmap() {
  * RND very basic random number generator with constant seed in 16 bit
  * for float systems, use glibc parameters https://en.wikipedia.org/wiki/Linear_congruential_generator
  */
-void rnd() {
 
+void xrnd() {
+	number_t r;
+	mem_t base = randombase; 
+
+/* the argument of the RND() function */
+	r=pop();
+
+/* this is the microsoft mode, argument <0 resets the sequence, 0 always the same number, > 1 a number between 0 and 1 */
+	if (randombase < 0) {
+		base=0;
+		if (r < 0) {
+			rd=-r;
+			r=1; 
+		} else if (r == 0) {
+			r=1;
+			goto pushresult;
+		} else {
+			r=1;
+		}
+	}
+
+/* this is the congruence */
 #ifndef HASFLOAT
-  number_t r;
-  
-  r=pop();
 /* the original 16 bit congruence, the & is needed to make it work for all kinds of ints */
 	rd = (31421*rd + 6927) & 0xffff;
-
-	if (r>=0) 
-		push((unsigned long)rd*r/0x10000+randombase);
-	else 
-		push((unsigned long)rd*r/0x10000+1-randombase);
-#else
-  number_t r;
-  
-  r=pop();
+#else 
 /* glibc parameters */
 	rd = (110351245*rd + 12345) & 0x7fffffff; 
-  
+#endif
+
+pushresult: 
+
+/* the result is calculated with the right modulus */
+#ifndef HASFLOAT
 	if (r>=0) 
-		push(rd*r/0x80000000+randombase);
+		push((unsigned long)rd*r/0x10000+base);
 	else 
-		push(rd*r/0x80000000+1-randombase);
+		push((unsigned long)rd*r/0x10000+1-base);
+#else
+	if (r>=0) 
+		push(rd*r/0x80000000+base);
+	else 
+		push(rd*r/0x80000000+1-base);
 #endif
 }
+
 
 #ifndef HASFLOAT
 /*
@@ -4305,7 +4326,7 @@ void factor(){
 		parsefunction(xabs, 1);
 		break;
 	case TRND: 
-		parsefunction(rnd, 1);
+		parsefunction(xrnd, 1);
 		break;
 	case TSIZE:
 		push(himem-top);
@@ -6681,14 +6702,14 @@ void xput(){
 void setpersonality(index_t p) {
 #ifdef HASAPPLE1
 	switch(p) {
-/* a Microsoft like BASIC have arrays starting at 0 with n+1 elements and no substrings */
+/* a Microsoft like BASIC have arrays starting at 0 with n+1 elements and no substrings, MS type RND */
 	case 'm':
 	case 'M':
 		msarraylimits=1;
 		arraylimit=0;
 		substringmode=0;
 		booleanmode=-1;
-		randombase=0;
+		randombase=-1;
 		break;
 /* an Apple 1 like BASIC have arrays starting at 1 with n elements and substrings */
 	case 'a':
