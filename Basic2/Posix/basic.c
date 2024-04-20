@@ -4237,15 +4237,16 @@ void factorinstr() {
 			
 	nexttoken();
 	if (token != '(') { error(EARGS); return; }
-			
+	
+	nexttoken();		
+	if (!stringvalue(&s)) { error(EUNKNOWN); return; }
+	if (!USELONGJUMP && er) return;
+	nexttoken();
+		
+	if (token != ',') { error(EARGS); return; }
+	
 	nexttoken();
 	expression();
-	if (!USELONGJUMP && er) return;
-
-	if (token != ',') { error(EARGS); return; }
-	nexttoken();
-			
-	if (!stringvalue(&s)) { error(EUNKNOWN); return; }
 	if (!USELONGJUMP && er) return;
 
 	ch=pop();
@@ -4256,7 +4257,7 @@ void factorinstr() {
 	}
 	if (a > s.length) a=0; 
 	push(a);
-	nexttoken();
+	//nexttoken();
 	if (token != ')') { error(EARGS); return;	}
 }
 #else
@@ -4273,18 +4274,17 @@ void factorinstr() {
 	nexttoken();
 
 /* the search string */			
-	if(!stringvalue(&search)) { error(EUNKNOWN); return; }
+	if(!stringvalue(&s)) { error(EUNKNOWN); return; }
 	if (!USELONGJUMP && er) return;
-	
 	nexttoken();
+
 	if (token != ',') { error(EARGS); return; }
 	nexttoken();
 
 /* the string to be searched */			
-	if (!stringvalue(&s)) { error(EUNKNOWN); return; }
+	if (!stringvalue(&search)) { error(EUNKNOWN); return; }
 	if (!USELONGJUMP && er) return;
 	nexttoken();
-
 
 /* potentially the start value */
 	if (token == ',') {
@@ -6371,9 +6371,9 @@ void xtab(){
 	a=popaddress();
 	if (!USELONGJUMP && er) return; 
 
-/* the runtime environment can do a true tab then ... t != TSPC && */  
+/* the runtime environment can do a true tab then ...  */  
 #ifdef HASMSTAB
-	if (reltab && od <= OPRT && od > 0) {
+	if (t != TSPC && reltab && od <= OPRT && od > 0) {
 		if (charcount[od-1] >= a) ax=0; else a=a-charcount[od-1]-1;
 	} 
 #endif	
