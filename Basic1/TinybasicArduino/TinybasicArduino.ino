@@ -46,9 +46,9 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  */
-#undef	BASICFULL
+#define	BASICFULL
 #undef	BASICINTEGER
-#define	BASICSIMPLE
+#undef	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
@@ -3565,7 +3565,7 @@ number_t bpow(number_t x, number_t y) {
 	return pow(x, y);
 #else
 	number_t r;
-  unsigned int i;
+	address_t i;
 
 	r=1;
 	if (y>=0) for(i=0; i<y; i++) r*=x; 
@@ -3856,27 +3856,29 @@ void factorinstr() {
 	address_t y;
 	char ch;
 	address_t a;
+	char* ir;
 			
 	nexttoken();
-	if (token != '(') { error(EARGS); return; }
-			
+	if (token != '(') { error(EARGS); return; }	
 	nexttoken();
-	expression();
+
+	if (!stringvalue()) { error(EUNKNOWN); return; }
+	y=popaddress();
+	ir=ir2;
 	if (er != 0) return;
+	nexttoken();
 
 	if (token != ',') { error(EARGS); return; }
 	nexttoken();
 			
-	if (!stringvalue()) { error(EUNKNOWN); return; }
-	y=popaddress();
+	expression();
 	if (er != 0) return;
 
 	ch=pop();
-	for (a=1; a<=y; a++) {if ( ir2[a-1] == ch ) break; }
+	for (a=1; a<=y; a++) {if (ir[a-1] == ch) break; }
 	if (a > y ) a=0; 
 	push(a);
 	
-	nexttoken();
 	if (token != ')') { error(EARGS); return;	}
 }
 
