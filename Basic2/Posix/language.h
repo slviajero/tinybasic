@@ -129,6 +129,9 @@
  *      In this mode false is 0 and -1 is true. (1) is C style boolean arithemtic.
  *      In this mode true is 1 and false is 0. AND and OR still do bitwise operations
  *      but NOT is C not. SET 19,1 or -1 can change this at runtime.
+ *  HASFULLINSTR: the full C64 style INSTR command. Without this flag INSTR only accepts
+ *		a single character as argument. This is much faster and leaner on an Arduino. 
+ * 		This macro is activated when HASMSSTRINGS is set. 
  *
  */
 #undef POWERRIGHTTOLEFT
@@ -136,7 +139,7 @@
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 0
 #define BOOLEANMODE -1
-
+#undef  HASFULLINSTR
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -315,7 +318,6 @@
 #define HASDARTMOUTH
 #endif
 
-
 #if defined(HASDARTMOUTH) || defined(HASDARKARTS) || defined(HASIOT) || defined(HASMSSTRINGS)
 #define HASAPPLE1
 #endif
@@ -324,8 +326,15 @@
 #define HASSTEFANSEXT
 #endif
 
+/* MS strings also bring the full INSTR */
+#if defined(HASMSSTRINGS)
+#define HASFULLINSTR
+#endif
+
 /* dependencies on the hardware */
 #if !defined(DISPLAYHASGRAPH) 
 #undef HASGRAPH
 #endif
+
+
 

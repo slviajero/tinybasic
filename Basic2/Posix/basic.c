@@ -220,6 +220,7 @@ const char schr[]		PROGMEM = "CHR";
 const char sright[]		PROGMEM = "RIGHT";
 const char sleft[]		PROGMEM = "LEFT";
 const char smid[]		PROGMEM = "MID";
+const char sspc[]		PROGMEM = "SPC";
 #endif
 #ifdef HASEDITOR
 const char sedit[]		PROGMEM = "EDIT";
@@ -298,7 +299,7 @@ const char* const keyword[] PROGMEM = {
 #endif
 #endif
 #ifdef HASMSSTRINGS
-    sasc, schr, sright, sleft, smid,
+    sasc, schr, sright, sleft, smid, sspc,
 #endif
 #ifdef HASEDITOR
 	sedit,
@@ -375,7 +376,7 @@ const token_t tokens[] PROGMEM = {
 #endif
 #endif
 #ifdef HASMSSTRINGS
-	TASC, TCHR, TRIGHT, TLEFT, TMID,
+	TASC, TCHR, TRIGHT, TLEFT, TMID, TSPC,
 #endif
 #ifdef HASEDITOR
 	TEDIT,
@@ -4227,10 +4228,8 @@ void factorval() {
 }
 
 /* helpers of factor - the INSTR command */
-/* this is instring in a single character version */
-#define HASFULLINSTR
-
 #ifndef HASFULLINSTR
+/* this is instring in a single character version, usefull to split strings */
 void factorinstr() {
 	char ch;
 	address_t a;
@@ -4261,7 +4260,7 @@ void factorinstr() {
 	if (token != ')') { error(EARGS); return;	}
 }
 #else
-/* the full instr command */
+/* the full instr command which can compare two strings  */
 void factorinstr() {
 	char ch;
 	address_t a=1; 
@@ -4828,7 +4827,7 @@ processsymbol:
 
 /* the tab command as part of print */
 #ifdef HASMSSTRINGS
-	if (token == TTAB) {
+	if (token == TTAB || token == TSPC) {
 		xtab();
 		goto separators;
 	}
@@ -6360,6 +6359,7 @@ void xpoke(){
  */
 void xtab(){
 	address_t a;
+	token_t t = token;
 
 /* get the number of spaces, we allow brackets here to use xtab also in PRINT */
 	nexttoken();
@@ -6370,7 +6370,8 @@ void xtab(){
 
 	a=popaddress();
 	if (!USELONGJUMP && er) return; 
-  
+
+/* the runtime environment can do a true tab then ... t != TSPC && */  
 #ifdef HASMSTAB
 	if (reltab && od <= OPRT && od > 0) {
 		if (charcount[od-1] >= a) ax=0; else a=a-charcount[od-1]-1;
@@ -9038,6 +9039,7 @@ void statement(){
 			xclr();
 			break;
 		case TTAB:
+		case TSPC:
 			xtab();
 			break;	
 		case TPOKE:
