@@ -14,7 +14,7 @@ Arrays and string variables are part of the Apple 1 language sets. Strings are s
 
 Array can be maximum two dimensional and string arrays can be one dimensional.
 
-Variable names are maximum two letters or one letter and one digit. 
+Variable names are maximum two letters or one letter and one digit in the smaller language sets. Compiled with HASLONGNAMES, the interpreter can have names up to MAXNAME length. This is 16 by default.
 
 Keywords ad variable names are not case sensitive. They are printed as uppercase with the LIST command. Strings and string constants are case sensitive. 
 
@@ -24,6 +24,28 @@ As a proof of concept many of the 101 BASIC computer games in David Ahl's origin
 
 Most Arduino built-in examples from https://docs.arduino.cc/built-in-examples/ have been ported to BASIC. They are in examples in the folders 01-10.
 
+## Language Personalities in Version 2.0
+
+BASIC has a lot of Apple 1 and Palo Alto DNA. Some of the language constructs and conventions are taken from these languages and not from the more common Microsoft type BASICs. The subtle differences of BASIC dialects made programs hard to port even in the old days of the 1970s and 1980s. From version 2.0 on this BASIC interpreter has the feature of setting personalities at runtime. 
+
+One command controls how boolean arithemtic, string syntax, random number generator behaviour and array dimensions are handled. 
+
+SET 22, "Microsoft"
+
+activates the Microsoft mode. In this mode, random numbers are always between 0 and 1 and the argument of RND controls the random number generators seed. Arrays start at 0 and have n+1 elements. Substring notation for strings is switched of and string commands can be used normally. Booleans false is -1.
+
+SET 22, "Apple1"
+
+activates Apple 1 mode. Random numbers are generated in the range from 0 to n-1 if RND(n) is called. Arrays start at 1 and have n elements. Strings can be manipulated with the substring syntax. Boolean false is 1.
+
+SET 22, "PaloAlto"
+
+activates Palo Alto BASIC mode. Random numbers are from 1 to n if RND(n) is called. Arrays start at 0 and have n elements. Substrings can be used. In addition to this, the interpreter is in forced integer mode. All variables and operations are done in integer. Boolean false is 1. 
+
+All of these settings can be controlled individually at runtime of a BASIC program with the SET command.
+
+Default of the interpreter is "Apple1" with the exception of the boolean mode which is -1 at interpreter startup.
+
 ## Core language set
 
 ### Introduction
@@ -31,6 +53,8 @@ Most Arduino built-in examples from https://docs.arduino.cc/built-in-examples/ h
 The core language set is based on the Palo Alto BASIC language. This is the grandfather of all the Tinybasics currently on the market. Commands are PRINT, LET, INPUT, GOTO, GOSUB, RETURN, IF, FOR, TO, STEP, NEXT, STOP, REM, LIST, NEW, RUN, ABS, INT, RND, SIZE.
 
 In the core language set there are 26 static variables A-Z and a special array @() which addresses the free memory. If an EEPROM is present or the EEPROM dummy is compiled to the code, the array @E() addresses the EEPROM. 
+
+SAVE and LOAD is also part of the core language set to allow saving and loading of programs.
 
 ### PRINT
 
@@ -60,7 +84,7 @@ PRINT &16, "Hello World"
 
 prints to a file.
 
-PRINT ends a line with LF. No CR is sent at the end of a line.
+PRINT ends a line with LF. No CR is sent at the end of a line. 
 
 ### LET
 
@@ -126,6 +150,20 @@ This works only for numbers. Strings have to be given in one line. INPUT still a
 
 For INPUT the # modifier limits the number of bytes in string input. This can be used to control I2C code and other low level functions. 
 
+If the interpreter is compiled with HASTINYBASICINPUT as compile flag, number input can be expressions including variables. This means that 
+
+INPUT A
+
+can process input in the form
+
+2\*4
+
+X
+
+3+4\*(4+5)
+
+This was used in some Palo Alto BASIC programs like trek.bas.
+
 ### GOTO
 
 GOTO branches to the line number specified. Expressions are accepted. Examples:
@@ -154,6 +192,8 @@ IF B=A PRINT "Equal"
 
 There is not THEN in the core language set. THEN is part of the Apple 1 language set.
 
+Boolean expression evaluation depends on the language modes. Default is that a true condition is -1. This can be changed with a SET command.
+
 ### FOR loops
 
 FOR have the form
@@ -181,11 +221,19 @@ The statement NEXT I, J to terminate two loops is not supported. Each loop needs
 
 STOP stops a program. There is no END in the core language set.
 
+STOP STOP ends the interpreter. 
+
 ### REM
 
-Comment line start with the REM statement. As BASIC tokenizes the entire input, comments should be enclosed in comments. Example:
+Comment line start with the REM statement. As BASIC tokenizes the entire input, comments should be enclosed in quotes. Example:
 
 10 REM "This is a comment"
+
+Alternatively 
+
+10 REM This is a comment
+
+can also be used in BASIC > 1.3. 
 
 ### LIST
 
@@ -234,6 +282,10 @@ PRINT RND(-8)
 would produce numbers between -8 and -1. 
 
 The random number seed can be changes by using the special variable @R. See the "special variable" section for more information.
+
+With SET 19, 1 the base of the random number can be changed to follow Palo Alto BASIC conventions. In this case numbers are created from 1 to 8. 
+
+SET 19, -1 sets the random number generator to Microsoft mode. In this mode RND() always produces numbers between 0 and 1 (exclusively). Called with a negative argument, the random number generator is initlialized with the absolute value of the argument to start a new sequence. This is equivalent to setting the sequence with @R. Called with 0 as an argument the same number is created. Called with any positive argument new random numbers are produced. This setting can be used to make the interpreter more compatible to Microsoft BASIC interpreters. 
 
 ### SIZE
 
@@ -287,9 +339,9 @@ The program area is protected by BASIC. The maximum index prevents a program to 
 
 The variables @O, @I, @C, and @A can be used for byte I/O on any stream. 
 
-The array @T() is the real time clock array. @T$ is a string containing date and time. See the hardware drivers section for more information.
+The array @T() is the real time clock array. @T\$ is a string containing date and time. See the hardware drivers section for more information.
 
-The string @A$ is the command line argument on POSIX systems. See the hardware section for more details.
+The string @A\$ is the command line argument on POSIX systems. See the hardware section for more details.
 
 ## Apple 1 language set
 
@@ -307,9 +359,9 @@ Variables are placed on a heap that is searched every time a variable is used. V
 
 ### Strings
 
-String variables can also have two characters followed by the $ symbol. Example: 
+String variables can also have two characters followed by the \$ symbol. Example: 
 
-ME$="Hello World"
+ME\$="Hello World"
 
 Unlike in the original Apple 1 BASIC, strings can be used without explicitely dimensioning them. They are auto dimensioned to length 32. Strings are static. The entire space is allocated on the heap and stays reserved. This is very different from MS BASIC with a dynamic heap. The saves memory but requires a garbage collector. Static strings like in this BASIC need more memory but make the execution of time critical code more deterministic. 
 
@@ -353,6 +405,8 @@ PRINT LEN(A\$)
 
 String arrays are possible if the BASIC interpreter is compiled with the respective option. This is an extension of the Apple 1 language set.
 
+In BASIC 2.0 strings can be enclosed in two ways "This a string" or 'This is a string'. With this both, "'" and '"' are valid strings.
+
 ### Arrays
 
 Arrays are autodimensioned to length 10. They start with index 1. If a different array length is needed the DIM command can be used. Example: 
@@ -367,11 +421,13 @@ Arrays range from 1 to the maximum index by default. The statement above reserve
 
 With 
 
-SET 12,0
+SET 12, 0
 
 the array lower bound can be changed to 0. The array ranges from A(0) to A(99) now. It still has 100 elements. SET 12 can be used to set any postive lower bound. This holds for all arrays except the special arrays starting with @. It can be changed at any time as SET 12 only modifies the offset but not the memory location.
 
 Any setting with SET 12 will remain active even after NEW or CLR clears the interpreter state. See the section of the SET command for more information.
+
+SET 21, 1 changes the number of array elements that are allocated. In combination with SET 12, 0 the interpreter allocates array elements A(0) to A(100) if DIM A(100) is called.
 
 ### Logical expressions NOT, AND, OR
 
@@ -573,7 +629,7 @@ See math.bas in the tutorial for more information.
 
 ### MAP
 
-MAP is taken from the Arduino library. It maps an integer in a certain range to another ranges using (at least) 32 bit arithmetic. This is useful on 16 bit integer systems. Example: 
+MAP is taken from the Arduino library. It maps an integer in a certain range to another ranges using (at least) 32bit arithmetic. This is useful on 16 bit integer systems. Example: 
 
 M=MAP(V, 1000, 0, 200, 100)
 
@@ -829,9 +885,9 @@ Floating point arithemtic is taken from the standard C float library of the plat
 
 The trigonometric function are standard BASIC. They are using radians as angle format. Examples: 
 
-PI=4* ATAN(1)
+PI=4\*ATAN(1)
 
-PRINT SIN(PI)* SIN(PI)+COS(PI)* COS(PI)
+PRINT SIN(PI)\*SIN(PI)+COS(PI)\*COS(PI)
 
 PI is not a predefined constant but can be calculated using ATAN. The second line should output 1.
 
@@ -957,6 +1013,8 @@ ON is used in combination with GOTO or GOSUB arguments. Examples:
 
 Tutorial: ongo.bas 
 
+ON can also be used in combination with the ERROR and EVENT command. This is for compatibility with other BASIC dialects.
+
 ## Darkarts language set
 
 ### Introduction 
@@ -1065,7 +1123,6 @@ All variables defined after A() are also deleted. Example:
 
 In this examples B$ is also deleted. All variables defined after the object to be clear are deleted as well. The heap is simply reset to the previous state. This mechanism can be used to define local variables in subroutines. Simply clear the first variable defined in the subroutine before calling RETURN.
 
-
 ## IOT language set
 
 ### Introduction
@@ -1086,15 +1143,17 @@ INSTR finds a character in a string and returns the index. Example:
 
 A\$="1, 2, 3"
 
-A=INSTR(",", A\$)
+A=INSTR(A\$, ",")
 
 finds the first comma in the string. INSTR can be used to split strings. See splitstr.bas in the tutorial for more information.
+
+In BASIC 2 INSTR is not fully implemented. The second argument can be a string and not just a single character.
 
 VAL scans a string for a number and returns the value. If no number is found the return value is 0. Example: 
 
 A\$="125"
 
-A=VAL(A$)
+A=VAL(A\$)
 
 VAL uses the special variable @V to report back the number of characters in the number. The status of the conversion is stored in @S. If @S is 0 after a conversion a number was found. Otherwise @S is 1. @V is set to the number of characters only if the conversion was succesful. 
 
@@ -1200,6 +1259,12 @@ Events can be reenabled with the command
 
 EVENT CONT
 
+Like the ERROR command, EVENT can be used with ON. 
+
+ON EVENT 2,0 GOSUB 1000
+
+is equivalent to the command above. 
+
 ### Credits and a word on timing
 
 Both AFTER and EVERY have been taken from the legendary Locomotive BASIC. In this BASIC dialect, only GOSUB was available and the time scale was 20 ms. There were 4 individual timers. Full featured Locomotive BASIC timers are on the feature list for future releases.
@@ -1229,6 +1294,12 @@ will switch off error handling and go to normal behaviour. It also resets the er
 ERROR CONT 
 
 causes the program to continue even in case of an error. 
+
+ERROR can be used with ON. So
+
+10 ON ERROR GOTO 1000 
+
+is the same as the line above.
 
 ### Error codes
 
@@ -1349,6 +1420,8 @@ Example:
 Unlike C the default code has to come immediately after the SWITCH statement before the first CASE. CASES can have comma separated lists as arguments. All statement until the next CASE are executed if the variable A matches the argument. Unlike C no BREAK statement is needed. 
 
 In CASE statements can be multiline.
+
+In the current version the SWITCH statement cannot be nested. There can be no SWITCH in a SWITCH. This will be changed in future. 
 
 Example: 
 
@@ -1538,7 +1611,7 @@ INPUT &2, A$
 
 PRINT &4, "Hello world"
 
-GET $2, A
+GET \$2, A
 
 PUT &16, "A", "B"
 
@@ -1584,7 +1657,7 @@ GET A
 
 will wait for a character. AVAIL(1) or @A will always return 1 to make sure that a program like this
 
-10 IF AVAIL(1) THEN GET A
+10 IF AVAIL(1)<>0 THEN GET A
 
 runs correctly on both archtitectures.
 
@@ -1606,7 +1679,7 @@ GET &2, A
 
 return 0 if no character is present and the ASCII value if a character is there. 
 
-GET &2, A$ 
+GET &2, A\$ 
 
 transfers the result directly in the string A$ as a first character. The string is empty if no key was pressed.
 
@@ -1618,7 +1691,7 @@ INPUT &2, A
 
 can be used on an lcd shield for number input. The command returns after select and A has a valid number. Alternatively 
 
-INPUT &2, A$ 
+INPUT &2, A\$ 
 
 will enter a string consisting of the digits 1 to 4. 
 
@@ -1882,7 +1955,7 @@ Wire can be reopen in master mode if one want to communicate with another device
 
 See examples/13wire/master* for more info on master mode. This is a port of the example programs of the Arduino library from C++ to BASIC. It shows how easy it is to use Wire from BASIC.
 
-Slave mode is open with OPEN in write mode, i.e. with 1 as a thrid parameter. Example: 
+Slave mode is open with OPEN in write mode, i.e. with 1 as a third parameter. Example: 
 
 OPEN &7, 8, 1
 
@@ -2200,9 +2273,15 @@ SET 16 controls the default dimension of a string on creation. Default is 32. SE
 
 SET 17 controls the boolean mode of the interpreter. With the default value -1 the interpreter behaves like a MS BASIC interpreter. True is -1 and NOT -1 is 0. The operations NOT, AND, OR are all three bitwise logical operations of 16 bit signed integers. SET 17,1 sets the boolean mode to C style logic. This was also used by some of the old BASIC interpretes like Apple1, Palo Alto, and Cromeco. True is 1 and NOT 1 is 0. AND and OR still are bitwise logical operations but NOT behaves like the C logical NOT. This setting helps when BASIC programs of older interpreters are used. Check out trek.bas in the expamples section. 
 
-SET 18,1 sets the interpreter to integer mode even if if is compiled with HASFLOAT. Variables still stay floats internally but values are truncated on store or print. The arithmetic stays integer in this mode hence A=1/2 produces A to be 0 but A=1/2*2 produces A to be 1. This setting is used for compatibility with some programs of Integer BASICs including the #undef HASFLOAT variants of this interpreter.
+SET 18,1 sets the interpreter to integer mode even if if is compiled with HASFLOAT. Variables still stay floats internally but values are truncated on store or print. The arithmetic stays integer in this mode hence A=1/2 produces A to be 0 but A=1/2\*2 produces A to be 1. This setting is used for compatibility with some programs of Integer BASICs including the #undef HASFLOAT variants of this interpreter.
 
 SET 19 controls the behaviour of the random number generator. One some BASIC interpreters RND(8) would produce numbers from 0 to 7 (or 7.999999 in floating point BASICs). The value 8 is never reached. This is the default behaviour. Other BASIC would produce numbers in the range from 1 to 8. SET 19,1 switches on this mode. 
+
+SET 20 controls the substring logic. With SET 20, 0 the substring syntax is surpressed and the language feels more Microsofty. Default is 1: substrings on.
+
+SET 21 controls the array creation behaviour. With SET 21, 1 the language creates arrays in the range of 0 to 10 with DIM A(10) i.e. in Microsoft conventions. With SET 21, 0 the array limits are 1 to 10. 
+
+SET 22 sets a group of parameters and can be used to set the interpreter personality. SET 22, "Microsoft" makes the language as MS BASIC compatible as possible. SET 22, "Apple1" makes it Apple 1 BASIC compatible. This is the default. SET 22, "PaloAlto" makes the language Palo Alto BASIC compatible and forces integer mode. 
 
 More SET parameter will be implemented in the future.
 
@@ -2250,4 +2329,5 @@ CALL N with N greater than 32 will call the function usrcall(). It gets N as an 
 
 @U() is a special array. Reading it will call getusrarray(), writing it will call setusrarray(). In both cases the index is the array is passed on as argument.
 
-@U$ is the user string. It is read only. Reading it will trigger the function makeusrarray(). It can pass an set of characters to BASIC.
+@U\$ is the user string. It is read only. Reading it will trigger the function makeusrarray(). It can pass an set of characters to BASIC.
+
