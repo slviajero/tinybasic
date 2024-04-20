@@ -1,5 +1,5 @@
 #!/bin/sh
-BASIC=../../basic
+BASIC=../../Basic1/basic
 
 for file in *.bas
 do
