@@ -3856,27 +3856,29 @@ void factorinstr() {
 	address_t y;
 	char ch;
 	address_t a;
+	char* ir;
 			
 	nexttoken();
-	if (token != '(') { error(EARGS); return; }
-			
+	if (token != '(') { error(EARGS); return; }	
 	nexttoken();
-	expression();
+
+	if (!stringvalue()) { error(EUNKNOWN); return; }
+	y=popaddress();
+	ir=ir2;
 	if (er != 0) return;
+	nexttoken();
 
 	if (token != ',') { error(EARGS); return; }
 	nexttoken();
 			
-	if (!stringvalue()) { error(EUNKNOWN); return; }
-	y=popaddress();
+	expression();
 	if (er != 0) return;
 
 	ch=pop();
-	for (a=1; a<=y; a++) {if ( ir2[a-1] == ch ) break; }
+	for (a=1; a<=y; a++) {if (ir[a-1] == ch) break; }
 	if (a > y ) a=0; 
 	push(a);
 	
-	nexttoken();
 	if (token != ')') { error(EARGS); return;	}
 }
 
