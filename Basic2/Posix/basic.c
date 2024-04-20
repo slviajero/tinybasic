@@ -2204,7 +2204,7 @@ void pushforstack(name_t* name, number_t to, number_t step) {
 	}
 #endif
 
-/* add the leep to the stack */
+/* add the loop to the stack */
 	if (forsp < FORDEPTH) {
 #ifdef HASSTRUCT
 		forstack[forsp].type=token; /* this is the actual token and not the name component!! */
@@ -4227,8 +4227,11 @@ void factorval() {
 }
 
 /* helpers of factor - the INSTR command */
+/* this is instring in a single character version */
+#define HASFULLINSTR
+
+#ifndef HASFULLINSTR
 void factorinstr() {
-	address_t y;
 	char ch;
 	address_t a;
 	string_t s;
@@ -4248,15 +4251,102 @@ void factorinstr() {
 
 	ch=pop();
 	if (s.address) {
-		for (a=1; a<=s.length; a++) {if ( memread2(s.address+a-1) == ch ) break; }
+		for (a=1; a<=s.length; a++) {if (memread2(s.address+a-1) == ch) break; }
 	} else {
-		for (a=1; a<=s.length; a++) {if ( s.ir[a-1] == ch ) break; }
+		for (a=1; a<=s.length; a++) {if (s.ir[a-1] == ch) break; }
 	}
 	if (a > s.length) a=0; 
 	push(a);
 	nexttoken();
 	if (token != ')') { error(EARGS); return;	}
 }
+#else
+/* the full instr command */
+void factorinstr() {
+	char ch;
+	address_t a=1; 
+	address_t i=1;
+	string_t search;
+	string_t s;
+			
+	nexttoken();
+	if (token != '(') { error(EARGS); return; }
+	nexttoken();
+
+/* the search string */			
+	if(!stringvalue(&search)) { error(EUNKNOWN); return; }
+	if (!USELONGJUMP && er) return;
+	
+	nexttoken();
+	if (token != ',') { error(EARGS); return; }
+	nexttoken();
+
+/* the string to be searched */			
+	if (!stringvalue(&s)) { error(EUNKNOWN); return; }
+	if (!USELONGJUMP && er) return;
+	nexttoken();
+
+
+/* potentially the start value */
+	if (token == ',') {
+		nexttoken();
+		expression();
+		if (!USELONGJUMP && er) return;
+		
+		a=popaddress();
+		if (!USELONGJUMP && er) return;
+	}	
+
+	if (token != ')') { 
+		error(EUNKNOWN); 
+		return; 
+	}
+
+/* health check */
+	if (search.length == 0 || search.length+a > s.length || a == 0) {
+		push(0);
+		return;
+	}
+
+/* go through the search string */
+	while(i<=search.length) {
+
+/* get one character from the string */
+		if (search.address) {
+			ch=memread2(search.address+i-1);
+		} else {
+			ch=search.ir[i-1];
+		}
+
+/* search the character */
+		if (s.address) {
+			for (; a<=s.length; a++) {if (memread2(s.address+a-1) == ch) break; }
+		} else {
+			for (; a<=s.length; a++) {if ( s.ir[a-1] == ch ) break; }
+		}
+
+/* we haven't found the character until the end of the string */
+		if (a > s.length) {
+			a=0;
+			break;
+		}
+
+/* next character */
+		i+=1;		 
+
+	}
+
+/* how did the search go? a rewind because we were at the end of the search part already */
+	if (i <= search.length) {
+		a=0;
+	} else {
+		a=a-search.length+1;
+	}
+	
+
+	push(a);
+}
+#endif
 
 /* helpers of factor - the NETSTAT command */
 void factornetstat() {
@@ -5321,12 +5411,13 @@ void xif() {
 	
 	if (!expectexpr()) return;
 	x=pop();
-	if (DEBUG) { outnumber(x); outcr(); } 
+	if (DEBUG) { outsc("** in if, condition "); outnumber(x); outcr(); } 
 
 /* if can have a new line after the expression in this BASIC */
 	if (token == LINENUMBER) nexttoken();	
 
-	if (!x)  {
+/* we only check false which is 0 */
+	if (x == 0)  {
 #ifndef HASSTRUCT
 /* on condition false skip the entire line and all : until a potential ELSE */
 		while(token != LINENUMBER && token != EOL && token != TELSE) nexttoken();
@@ -5391,19 +5482,19 @@ void xelse() {
 	while(token != LINENUMBER && token != EOL) nexttoken();
 #else 
 	nexttoken();
-	/* else in a single line */
+/* else in a single line */
 	if (token == LINENUMBER) { 
 		nexttoken(); 
 		nl=1; 
 	}
 
-	/* the block after the else on a new line or the current line */
+/* the block after the else on a new line or the current line */
 	if (token == TDO) {
 		nexttoken();
 		findbraket(TDO, TDEND);
 	}
 
-	/* single line else, skip the line */
+/* single line else, skip the line */
 	if (!nl) while(token != LINENUMBER && token != EOL) nexttoken();
 
 #endif
@@ -5416,7 +5507,17 @@ void xelse() {
  * find the NEXT token or the end of the program
  */ 
 
-/* the generic block scanner - a better version of findnextcmd, used for structured code*/
+/* 
+ * The generic block scanner, used for structured code and in FOR NEXT.
+ * The closing symbol of a symbol is found. Symbol pairs are: 
+ * 
+ * 	FOR NEXT
+ * 	WHILE WEND
+ *  REPEAT UNTIL
+ * 	DO DEND
+ *  SWITCH SWEND
+ *  
+ */
 void findbraket(token_t bra, token_t ket){
 	address_t fnc = 0;
 
@@ -5435,7 +5536,7 @@ void findbraket(token_t bra, token_t ket){
 
 		if (token == bra) fnc++;
 
-/* no NEXT found - different for interactive and program mode, should never happen */
+/* no closing symbol found */
 		if (token == EOL) {
 			error(bra);
 	    	return;
@@ -5455,9 +5556,9 @@ void findbraket(token_t bra, token_t ket){
  */
 void xfor(){
 	name_t variable;
-	number_t b=1;
-	number_t e=maxnum;
-	number_t s=1;
+	number_t begin=1;
+	number_t end=maxnum;
+	number_t step=1;
 	
 /* there has to be a variable, remember it  */
 	if (!expect(VARIABLE, EUNKNOWN)) return;
@@ -5476,18 +5577,18 @@ void xfor(){
 	nexttoken();
 	if (token == '=') { 
 		if (!expectexpr()) return;
-		b=pop();
-		setvar(&variable, b);
+		begin=pop();
+		setvar(&variable, begin);
 	}  
 
 	if (token == TTO) {
 		if (!expectexpr()) return;
-		e=pop();
+		end=pop();
 	}
 
 	if (token == TSTEP) {
 		if (!expectexpr()) return;
-		s=pop();
+		step=pop();
 	} 
 
 	if (!termsymbol()) {
@@ -5502,21 +5603,22 @@ void xfor(){
 
 	if (DEBUG) { 
 		outsc("** for loop with parameters var begin end step : ");
-		outname(&variable); outspc(); outnumber(b); outspc(); outnumber(e); outspc(); outnumber(s); outcr();
+		outname(&variable); 
+		outspc(); outnumber(begin); 
+		outspc(); outnumber(end); 
+		outspc(); outnumber(step); 
+		outcr();
+		outsc("** for loop target location"); outnumber(here); outcr();
 	}
-	x=e;
-	y=s;
 
-	if (DEBUG) { outsc("** for loop target location"); outnumber(here); outcr(); }
-
-	pushforstack(&variable, e, s);
+	pushforstack(&variable, end, step);
 	if (!USELONGJUMP && er) return;
 
 /*
  *	This tests the condition and stops if it is fulfilled already from start.
  *	There is another apocryphal feature here: STEP 0 is legal triggers an infinite loop.
  */
-	if ((y > 0 && getvar(&variable) > x) || (y < 0 && getvar(&variable) < x )) { 
+	if ((step > 0 && getvar(&variable) > end) || (step < 0 && getvar(&variable) < end)) { 
 		dropforstack();
 		findbraket(TFOR, TNEXT);
 		nexttoken();
@@ -5546,7 +5648,7 @@ void xbreak(){
 	default: /* a FOR loop is the default */
 		findbraket(TFOR, TNEXT);
 		nexttoken();	
-		if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
+		if (token == VARIABLE) nexttoken(); /* we are at next and skip the variable check */
 		break;	
 	}
 }
@@ -5556,7 +5658,7 @@ void xbreak(){
 	if (!USELONGJUMP && er) return;
 	findbraket(TFOR, TNEXT);
 	nexttoken();	
-	if (token == VARIABLE) nexttoken(); /* more evil - this should really check */
+	if (token == VARIABLE) nexttoken(); /* we are at next and skip the variable check */
 }
 #endif
 
@@ -5566,8 +5668,11 @@ void xbreak(){
  */
 #ifdef HASSTRUCT
 void xcont() {
+	token_t t;
+
+	t=peekforstack();
 	if (!USELONGJUMP && er) return;
-	switch (peekforstack()) {
+	switch (t) {
 	case TWHILE: 
 		findbraket(TWHILE, TWEND);
 		break;
@@ -5587,6 +5692,7 @@ void xcont() {
 
 /* 
  * NEXT variable statement.
+ * 
  * This code uses the global name variable right now for processing of 
  * the variable in FOR. The variable name in next is stored in a local variable.
  */
@@ -5595,6 +5701,10 @@ void xnext(){
 	address_t h;
 	number_t t;
 	number_t x, y;
+
+
+	number_t value; 
+	number_t end, step; 
 
 /* check is we have the variable argument */
 	nexttoken();
@@ -5614,7 +5724,7 @@ void xnext(){
 
 /* remember the current position */
 	h=here;
-	popforstack(&name, &x, &y);
+	popforstack(&name, &end, &step);
 	if (!USELONGJUMP && er) return;
 
 /* check if this is really a FOR loop */
@@ -5626,23 +5736,24 @@ void xnext(){
 		down as BASIC programs can and do jump out to an outer next */
 	if (variable.xc != 0) {
 		while (!cmpname(&variable,  &name)) {
-			popforstack(&name, &x, &y);
+			popforstack(&name, &end, &step);
 			if (!USELONGJUMP && er) return;
 		} 
-
 	}
 
 /* y=0 an infinite loop with step 0 */
-	t=getvar(&name)+y;
-	setvar(&name, t);
+	value=getvar(&name)+step;
+	setvar(&name, value);
 
 /* do we need another iteration, STEP 0 always triggers an infinite loop */
-	if ((y == 0) || (y > 0 && t <= x) || (y < 0 && t >= x)) {
-/* push the loop with the new values back to the for stack */
-		pushforstack(&name, x, y);
+	if ((step == 0) || (step > 0 && value <= end) || (step < 0 && value >= end)) {
+/* push the loop back to the for stack */
+		pushforstack(&name, end, step);
+/* in interactive mode, jump to the right buffer location */
 		if (st == SINT) bi=ibuffer+here;
 	} else {
-/* last iteration completed we stay here after the next */
+/* last iteration completed we stay here after the next, 
+	no precaution for SINT needed as bi unchanged */
 		here=h;
 	}
 	nexttoken();
@@ -6823,9 +6934,11 @@ void xset(){
 		break;
 #endif		
 /* display update control for paged displays */
+#ifdef DISPLAYDRIVER
 	case 10:
 		dspsetupdatemode(argument);
 		break;
+#endif
 /* change the output device to a true TAB */
 #ifdef HASMSTAB
 	case 11:
