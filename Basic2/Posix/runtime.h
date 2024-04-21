@@ -104,7 +104,6 @@ extern uint8_t sendcr;
 
 /* counts the outputed characters on streams 0-3, used to emulate a real tab */
 extern uint8_t charcount[3]; /* devices 1-4 support tabing */
-extern uint8_t reltab; /* flag for tabing */
 
 /* the memory buffer comes from BASIC in this version */
 extern char ibuffer[BUFSIZE]; /* the input buffer */

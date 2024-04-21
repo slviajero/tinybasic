@@ -565,6 +565,13 @@ mem_t substringmode = 0;
 mem_t substringmode = 1;
 #endif
 
+/* the flag for true MS tabs */
+#ifdef HASMSTAB
+mem_t reltab = 1; 
+#else 
+mem_t reltab = 0;
+#endif
+
 /* the number of arguments parsed from a command */
 mem_t args;
 
@@ -2139,7 +2146,6 @@ index_t popinteger() {
 }
 
 
-
 /* this one gets a positive integer from the stack and traps the error*/
 address_t popaddress(){
 	number_t tmp = 0;
@@ -2152,6 +2158,13 @@ address_t popaddress(){
 void clearst(){
 	sp=0;
 }
+
+/* these are not really stack operations but a way to handle temp char data */
+address_t charsp; 
+
+void pushchar(char ch) {}
+
+char popchar() { return 0; }
 
 /*
  * clear the cursor for the READ/DATA mechanism
@@ -6374,7 +6387,7 @@ void xtab(){
 /* the runtime environment can do a true tab then ...  */  
 #ifdef HASMSTAB
 	if (t != TSPC && reltab && od <= OPRT && od > 0) {
-		if (charcount[od-1] >= a) ax=0; else a=a-charcount[od-1]-1;
+		if (charcount[od-1] >= a) a=0; else a=a-charcount[od-1]-1;
 	} 
 #endif	
 	while (a-- > 0) outspc();	

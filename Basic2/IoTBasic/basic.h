@@ -137,7 +137,7 @@
 #define TLOG    -50
 #define TEXP    -49
 #define TINT    -48
-/* graphics - experimental - rudimentary (7) */
+/* graphics - rudimentary (7) */
 #define TCOLOR 	-47
 #define TPLOT   -46
 #define TLINE 	-45
@@ -162,7 +162,7 @@
 #define TSTR	-29
 #define TINSTR	-28
 #define TVAL	-27
-#define TNETSTAT    -26
+#define TNETSTAT -26
 #define TSENSOR	-25
 #define TWIRE	-24
 #define TSLEEP	-23
@@ -170,7 +170,7 @@
 #define TAFTER -22
 #define TEVERY -21
 #define TEVENT -20
-/* experimental structured commands, currently partially implemented */
+/* structured commands */
 #define TWHILE -19
 #define TWEND   -18
 #define TREPEAT -17
@@ -192,7 +192,7 @@
 #define TEXT2 -4 
 #define TEXT1 -3
 /* end of tokens */
-/* Constants used for some purposes other than token */
+/* constants used for some purposes other than token */
 /* Indentifying a buffer on the heap */
 #define TBUFFER -2
 /* UNKNOWN is not used in the current code, the 
@@ -206,9 +206,10 @@
 #define TRIGHT 3
 #define TLEFT 4
 #define TMID 5
+#define TSPC 6
 
 /* The editor and other helpers */
-#define TEDIT 6
+#define TEDIT 7
 
 /* 
  * Extension tokens can be in the range from -128 upwards.
@@ -599,7 +600,8 @@ void xabs();
 void xsgn();
 void xpeek();
 void xmap();
-void rnd();
+number_t rnd(); 
+void xrnd();
 void sqr();
 void xpow();
 number_t bpow(number_t, number_t);
