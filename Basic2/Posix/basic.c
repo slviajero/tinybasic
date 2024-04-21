@@ -6831,6 +6831,7 @@ void setpersonality(index_t p) {
 		substringmode=0;
 		booleanmode=-1;
 		randombase=-1;
+		reltab=1;
 		break;
 /* an Apple 1 like BASIC have arrays starting at 1 with n elements and substrings */
 	case 'a':
@@ -6840,6 +6841,7 @@ void setpersonality(index_t p) {
 		substringmode=1;
 		booleanmode=1;
 		randombase=0;
+		reltab=0;
 		break;
 /* PaloAlto BASIC is an integer basic with slightly different behaviour */
 	case 'p':
@@ -6850,6 +6852,7 @@ void setpersonality(index_t p) {
 		booleanmode=1;
 		forceint=1;
 		randombase=1;
+		reltab=0;
 		break;
 	}
 #endif
