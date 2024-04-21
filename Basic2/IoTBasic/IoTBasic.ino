@@ -566,11 +566,7 @@ mem_t substringmode = 1;
 #endif
 
 /* the flag for true MS tabs */
-#ifdef HASMSTAB
-mem_t reltab = 1; 
-#else 
 mem_t reltab = 0;
-#endif
 
 /* the number of arguments parsed from a command */
 mem_t args;
