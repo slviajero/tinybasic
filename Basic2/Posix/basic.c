@@ -568,6 +568,9 @@ mem_t substringmode = 1;
 /* the flag for true MS tabs */
 mem_t reltab = 0;
 
+/* the flag for lower case names */
+mem_t lowercasenames = 0;
+
 /* the number of arguments parsed from a command */
 mem_t args;
 
@@ -2698,6 +2701,11 @@ void whitespaces(){
 	while (*bi == ' ' || *bi == '\t') bi++;
 }
 
+/* upper case, don't trust the buildins on microcontrollers */
+char btoupper(char c) {
+	if (c >= 'a' && c <= 'z') return c-32; else return c;
+}
+
 /* the token stream */
 void nexttoken() {
 	address_t k, l, i;
@@ -2767,19 +2775,6 @@ void nexttoken() {
 		return;
 	}
 
-
-/* single character operators are their own tokens redundant in this version - deleted */
-/*
-	if (*bi == '+' || *bi == '-' || *bi == '*' || *bi == '/' || *bi == '%'  ||
-		*bi == '\\' || *bi == ':' || *bi == ',' || *bi == '(' || *bi == ')' ) { 
-			token=*bi; 
-			bi++; 
-			if (DEBUG) debugtoken();
-			return; 
-	}  
-*/
-
-
 /*
  *	relations
  *	single character relations are their own token
@@ -2837,11 +2832,12 @@ void nexttoken() {
  *	ir points to the end of the word after isolating.
  *	@ is a letter here to make the special @ arrays possible.
  */
+
 	l=0;
 	ir=bi;
 	while (-1) {
 		if (*ir >= 'a' && *ir <= 'z') {
-			*ir-=32; /* toupper code, changing the input buffer directly */
+			if (!lowercasenames) *ir-=32; /* toupper code, changing the input buffer directly */
 			ir++;
 			l++;
 		} else if ((*ir >= '@' && *ir <= 'Z') || *ir == '_') { 
@@ -2852,20 +2848,22 @@ void nexttoken() {
 		}
 	}
 
+
 /* 
  *	Ir is reused here to implement string compares
  *	scanning the keyword array. 
  *	Once a keyword is detected the input buffer is advanced 
  *	by its length, and the token value is returned. 
  *
- *	keywords are an array of null terminated strings.
+ *	Keywords are an array of null terminated strings.
+ *  They are always matched uppercase. 
  */
 	k=0;
 	while (gettokenvalue(k) != 0) {
 		ir=getkeyword(k);
 		i=0;
 		while (*(ir+i) != 0) {
-			if (*(ir+i) != *(bi+i)) {
+			if (*(ir+i) != btoupper(*(bi+i))) {
 				k++;
 				i=0;
 				break;
@@ -2886,13 +2884,16 @@ void nexttoken() {
  * Here, no tokens can appear any more as they have been processed 
  * further up. 
  * 
- * This code still does not support long names. Rewrite is needed.
+ * The longname code supports MAXNAME characters and _ as additional character.
  */
 #ifdef HASLONGNAMES
 	if (l>0 && l<=MAXNAME) {
 		token=VARIABLE;
 		zeroname(&name);
-		while (((*bi >= '0' && *bi <= '9') || (*bi >= '@' && *bi <= 'Z') || (*bi == '_') ) && name.l < MAXNAME && *bi != 0) { 
+		while (((*bi >= '0' && *bi <= '9') || 
+			    (*bi >= '@' && *bi <= 'Z') || 
+				(*bi >= 'a' && *bi <= 'z') || 
+			    (*bi == '_') ) && name.l < MAXNAME && *bi != 0) { 
 			name.c[name.l]=*bi;
 			bi++;
 			name.l++;
@@ -7016,6 +7017,11 @@ void xset(){
 	case 22:
 		setpersonality(argument);
 		break;
+#ifdef HASAPPLE1
+	case 23:
+		lowercasenames=(argument != 0);
+		break;	
+#endif		
 	}
 }
 
