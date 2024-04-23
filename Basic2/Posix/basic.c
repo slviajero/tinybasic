@@ -7648,30 +7648,30 @@ mem_t eventindex(mem_t pin) {
 	return -1;
 }
 
-mem_t enableevent(mem_t pin) {
-	mem_t interrupt;
+mem_t enableevent(mem_t pin){
+	mem_t inter;
 	mem_t i;
 
 /* do we have the data */
 	if ((i=eventindex(pin))<0) return 0;
 
 /* can we use this pin? */  
-	interrupt=pintointerrupt(eventlist[i].pin);
-	if (interrupt < 0) return 0;
+	inter=pintointerrupt(eventlist[i].pin);
+	if (inter < 0) return 0;
 
 /* attach the interrupt function to this pin */
 	switch(i) {
 	case 0: 
-		attachinterrupt(interrupt, bintroutine0, eventlist[i].mode); 
+		attachinterrupt(inter, bintroutine0, eventlist[i].mode); 
 		break;
 	case 1:
-		attachinterrupt(interrupt, bintroutine1, eventlist[i].mode); 
+		attachinterrupt(inter, bintroutine1, eventlist[i].mode); 
 		break;
 	case 2:
-		attachinterrupt(interrupt, bintroutine2, eventlist[i].mode); 
+		attachinterrupt(inter, bintroutine2, eventlist[i].mode); 
 		break;
 	case 3:
-		attachinterrupt(interrupt, bintroutine3, eventlist[i].mode); 
+		attachinterrupt(inter, bintroutine3, eventlist[i].mode); 
 		break;
 	default:
 		return 0;
@@ -7681,6 +7681,7 @@ mem_t enableevent(mem_t pin) {
 	eventlist[i].enabled=1; 
 	return 1;
 }
+
 
 void disableevent(mem_t pin) {
 	detachinterrupt(pin); 

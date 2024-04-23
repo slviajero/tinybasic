@@ -22,7 +22,12 @@
 char* cbuffer[CBUFSIZE];
 
 /* if the BASIC interpreter provides a loop function it will superseed this one */
-void __attribute__((weak)) bloop() {};
+#ifndef MSDOS
+void __attribute__((weak)) bloop() {}
+#else
+void bloop() {}
+#endif
+
 
 /* 
  *  Global variables of the runtime env.
@@ -45,11 +50,11 @@ uint16_t nullbufsize = BUFSIZE;
 
 /* the system type */
 #if defined(MSDOS)
-uint8_t bsystype = SYSTYPE_MSDOS
+uint8_t bsystype = SYSTYPE_MSDOS;
 #elif defined(RASPPI)
-uint8_t bsystype = SYSTYPE_PASPPI
+uint8_t bsystype = SYSTYPE_PASPPI;
 #elif defined(MINGW)
-uint8_t bsystype = SYSTYPE_MINGW
+uint8_t bsystype = SYSTYPE_MINGW;
 #elif defined(POSIX)
 uint8_t bsystype = SYSTYPE_POSIX;
 #else
@@ -462,7 +467,7 @@ void outch(char c) {
     filewrite(c);
     break;
 #endif
-#ifdef ARDUINOVGA
+#if defined(ARDUINOVGA)
   case ODSP: 
     vgawrite(c);
     break;
@@ -1957,8 +1962,8 @@ float sensorread(uint8_t s, uint8_t v) {return 0;};
  */
 
 uint8_t pintointerrupt(uint8_t pin) { return 0; }
-void attachinterrupt(uint8_t interrupt, void (*f)(), uint8_t mode) {  };
-void detachinterrupt(uint8_t pin) {  };
+void attachinterrupt(uint8_t inter, void (*f)(), uint8_t mode) {}
+void detachinterrupt(uint8_t pin) {}
 
 /*
  * Experimental code to simulate 64kb SPI SRAM modules
@@ -2011,11 +2016,12 @@ char spistrbuf2[SPIRAMSBSIZE];
 uint32_t lastfasttick = 0;
 uint32_t fasttickcalls = 0;
 uint16_t avgfasttick = 0;
-int32_t devfasttick = 0;
+long devfasttick = 0;
 
 void fasttickerprofile() {
+  int delta;
   if (lastfasttick == 0) { lastfasttick=micros(); return; }
-  int delta=micros()-lastfasttick;
+  delta=micros()-lastfasttick;
   lastfasttick=micros();
   avgfasttick=(avgfasttick*fasttickcalls+delta)/(fasttickcalls+1);
   fasttickcalls++; 
