@@ -16,5 +16,9 @@ To compile the Arduino version, open IoTBasic/IoTBasic.ino and compile in the Ar
 
 Edit hardware.h and language.h to set devices and language features just like in Basic 1.x.
 
+MSDOS files are identical to the POSIX file with CR added at the end of the line and comments in C standard. The fileset build with Turbo C 2.0 from Borland with the command 
 
+tcc basic.c runtime.c 
+
+just like on POSIX. The files are too big for the Turbo C visual editor.
 
