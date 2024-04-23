@@ -1,0 +1,12 @@
+#!/bin/sh
+
+SOURCE=../Posix/
+# Put your DOSEMU folder here 
+DOSDIR=/Users/stefan/Documents/DOS/B20
+files="basic.c basic.h language.h runtime.c runtime.h hardware.h"
+
+for file in $files
+do
+	./dosify $SOURCE/$file > $file
+	cp $file $DOSDIR 
+done
