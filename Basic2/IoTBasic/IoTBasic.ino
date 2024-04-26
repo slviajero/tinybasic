@@ -568,6 +568,9 @@ mem_t substringmode = 1;
 /* the flag for true MS tabs */
 mem_t reltab = 0;
 
+/* the flag for lower case names */
+mem_t lowercasenames = 0;
+
 /* the number of arguments parsed from a command */
 mem_t args;
 
@@ -1049,8 +1052,8 @@ number_t getvar(name_t *name){
 	if (DEBUG) { outsc("* getvar "); outname(name); outspc(); outcr(); }
 
 /* the special variables */
-	if (name->xc == '@') {
-		switch (name->yc) {
+	if (name->c[0] == '@') {
+		switch (name->c[1]) {
 		case 'A':
 			return availch();
 		case 'S': 
@@ -1103,7 +1106,7 @@ number_t getvar(name_t *name){
 
 #else
 /* we only have the static variable array */
-	if (name->xc >= 65 && name->xc <= 91 && name->yc == 0) return vars[name->xc-65];
+	if (name->c[0] >= 65 && name->c[0] <= 91 && name->c[1] == 0) return vars[name->c[0]-65];
 
 /* systems without Apple1 extension i.e. HEAP throw an error */
 	error(EVARIABLE);
@@ -1118,8 +1121,8 @@ void setvar(name_t *name, number_t v){
 	if (DEBUG) { outsc("* setvar "); outname(name); outspc(); outnumber(v); outcr(); }
 
 /* the special variables */
-	if (name->xc == '@')
-		switch (name->yc) {
+	if (name->c[0] == '@')
+		switch (name->c[1]) {
 		case 'S': 
 			ert=v;
         	ioer=v;
@@ -1177,8 +1180,8 @@ void setvar(name_t *name, number_t v){
 	setnumber(a, memwrite2, v);
 #else 	
 /* the static variable array */
-	if (name->yc == 0 && name->xc >= 65 && name->xc <= 91) {
-		vars[name->xc-65]=v;
+	if (name->c[1] == 0 && name->c[0] >= 65 && name->c[0] <= 91) {
+		vars[name->c[0]-65]=v;
 		return;
 	}
 	error(EVARIABLE);
@@ -1288,34 +1291,34 @@ void setstrlength(address_t m, memwriter_t f, stringlength_t s){
 
 /* this one is for the heap were we count down writing*/
 address_t setname_heap(address_t m, name_t* name) {
- 	memwrite2(m--, name->yc);
-	memwrite2(m--, name->xc);
+ 	memwrite2(m--, name->c[1]);
+	memwrite2(m--, name->c[0]);
 	return m;
 }
 
 /* this one is for the pgm were we count up writing */
 address_t setname_pgm(address_t m, name_t* name) {
-	memwrite2(m++, name->xc);
-	memwrite2(m++, name->yc);
+	memwrite2(m++, name->c[0]);
+	memwrite2(m++, name->c[1]);
 	return m;
 }
 
 /* get a name from a memory location */
 address_t getname(address_t m, name_t* name) {
-	name->xc=memread2(m++);
-	name->yc=memread2(m++);
+	name->c[0]=memread2(m++);
+	name->c[1]=memread2(m++);
 	return m;
 }
 
 /* compare two names */
 mem_t cmpname(name_t* a, name_t* b) {
-	if (a->xc == b->xc && a->yc == b->yc) return 1; else return 0;
+	if (a->c[0] == b->c[0] && a->c[1] == b->c[1]) return 1; else return 0;
 }
 
 /* zero a name and a heap object */
 void zeroname(name_t* name) {
-	name->xc=0;
-	name->yc=0;
+	name->c[0]=0;
+	name->c[1]=0;
 	name->token=0;
 }
 
@@ -1327,8 +1330,8 @@ void zeroheap(heap_t* heap) {
 
 /* output a name */
 void outname(name_t* name) {
-	outch(name->xc);
-	if (name->yc) outch(name->yc);
+	outch(name->c[0]);
+	if (name->c[1]) outch(name->c[1]);
 }
 
 #else
@@ -1448,8 +1451,8 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
 	}
 
 /* handling the special array, range check and access is done here */
-	if (object->name.xc == '@') {
-		switch(object->name.yc) {
+	if (object->name.c[0] == '@') {
+		switch(object->name.c[1]) {
 		case 'E': 
 			h=elength()/numsize;
 			a=elength()-numsize*object->i;
@@ -1631,8 +1634,8 @@ void getstring(string_t* strp, name_t* name, address_t b, address_t j) {
 	}
 
 /* special string variables */
-	if (name->xc == '@')
-		switch(name->yc) {
+	if (name->c[0] == '@')
+		switch(name->c[1]) {
 		case 0: 
 			strp->ir=ibuffer+b;
 			strp->length=ibuffer[0];
@@ -1752,8 +1755,8 @@ void setstringlength(name_t* name, address_t l, address_t j) {
 	} 
 
 /* the special strings */
-	if (name->xc == '@')
-		switch(name->yc) {
+	if (name->c[0] == '@')
+		switch(name->c[1]) {
 		case 0: 
 			*ibuffer=l;
 			return;
@@ -2222,7 +2225,7 @@ void pushforstack(name_t* name, number_t to, number_t step) {
 		if (name != 0) {
 			forstack[forsp].var=*name;
 		} else {
-			forstack[forsp].var.xc=0;
+			forstack[forsp].var.c[0]=0;
 		}
 		forstack[forsp].here=here;
 		forstack[forsp].to=to;
@@ -2273,6 +2276,23 @@ token_t peekforstack() {
 		error(ELOOP);
 		return 0;
 	} 
+}
+
+name_t* peekforstack2(token_t *t, address_t* h, number_t* to, number_t* step) {
+	if (forsp>0) {
+#ifdef HASSTRUCT
+		*t=forstack[forsp-1].type;
+#endif
+		if (to != 0) {
+			*to=forstack[forsp-1].to;
+			*step=forstack[forsp-1].step;
+		}
+		*h=forstack[forsp-1].here;
+		return &forstack[forsp-1].var;
+	} else {
+		error(ELOOP);
+		return 0;
+	}
 }
 
 void clrforstack() {
@@ -2680,10 +2700,10 @@ void outnumber(number_t n){
  *	Lexical analyser - tokenizes the input line.
  *
  *	nexttoken() increments the input buffer index bi and delivers values in the global 
- *		variable token, with arguments in the accumulator x and the index register ir
- *		xc is used in the routine. 
+ *		variable token, with arguments in the accumulators ax, x and the index register ir
+ *		name is used in the routine. 
  *
- *	xc, sr, ax and x change values in nexttoken and deliver the result to the calling
+ *	name, sr, ax and x change values in nexttoken and deliver the result to the calling
  *	function.
  *
  *	bi and ibuffer should not be changed or used for any other function in 
@@ -2696,6 +2716,11 @@ void outnumber(number_t n){
 /* skip whitespaces */
 void whitespaces(){
 	while (*bi == ' ' || *bi == '\t') bi++;
+}
+
+/* upper case, don't trust the buildins on microcontrollers */
+char btoupper(char c) {
+	if (c >= 'a' && c <= 'z') return c-32; else return c;
 }
 
 /* the token stream */
@@ -2767,19 +2792,6 @@ void nexttoken() {
 		return;
 	}
 
-
-/* single character operators are their own tokens redundant in this version - deleted */
-/*
-	if (*bi == '+' || *bi == '-' || *bi == '*' || *bi == '/' || *bi == '%'  ||
-		*bi == '\\' || *bi == ':' || *bi == ',' || *bi == '(' || *bi == ')' ) { 
-			token=*bi; 
-			bi++; 
-			if (DEBUG) debugtoken();
-			return; 
-	}  
-*/
-
-
 /*
  *	relations
  *	single character relations are their own token
@@ -2837,11 +2849,12 @@ void nexttoken() {
  *	ir points to the end of the word after isolating.
  *	@ is a letter here to make the special @ arrays possible.
  */
+
 	l=0;
 	ir=bi;
 	while (-1) {
 		if (*ir >= 'a' && *ir <= 'z') {
-			*ir-=32; /* toupper code, changing the input buffer directly */
+			if (!lowercasenames) *ir-=32; /* toupper code, changing the input buffer directly */
 			ir++;
 			l++;
 		} else if ((*ir >= '@' && *ir <= 'Z') || *ir == '_') { 
@@ -2852,20 +2865,22 @@ void nexttoken() {
 		}
 	}
 
+
 /* 
  *	Ir is reused here to implement string compares
  *	scanning the keyword array. 
  *	Once a keyword is detected the input buffer is advanced 
  *	by its length, and the token value is returned. 
  *
- *	keywords are an array of null terminated strings.
+ *	Keywords are an array of null terminated strings.
+ *  They are always matched uppercase. 
  */
 	k=0;
 	while (gettokenvalue(k) != 0) {
 		ir=getkeyword(k);
 		i=0;
 		while (*(ir+i) != 0) {
-			if (*(ir+i) != *(bi+i)) {
+			if (*(ir+i) != btoupper(*(bi+i))) {
 				k++;
 				i=0;
 				break;
@@ -2886,13 +2901,16 @@ void nexttoken() {
  * Here, no tokens can appear any more as they have been processed 
  * further up. 
  * 
- * This code still does not support long names. Rewrite is needed.
+ * The longname code supports MAXNAME characters and _ as additional character.
  */
 #ifdef HASLONGNAMES
 	if (l>0 && l<=MAXNAME) {
 		token=VARIABLE;
 		zeroname(&name);
-		while (((*bi >= '0' && *bi <= '9') || (*bi >= '@' && *bi <= 'Z') || (*bi == '_') ) && name.l < MAXNAME && *bi != 0) { 
+		while (((*bi >= '0' && *bi <= '9') || 
+			    (*bi >= '@' && *bi <= 'Z') || 
+				(*bi >= 'a' && *bi <= 'z') || 
+			    (*bi == '_') ) && name.l < MAXNAME && *bi != 0) { 
 			name.c[name.l]=*bi;
 			bi++;
 			name.l++;
@@ -2914,11 +2932,11 @@ void nexttoken() {
 	if (l == 1 || l == 2) {
 		token=VARIABLE;
 		name.l=0;
-		name.xc=*bi;
-		name.yc=0;
+		name.c[0]=*bi;
+		name.c[1]=0;
 		bi++;
 		if ((*bi >= '0' && *bi <= '9') || (*bi >= 'A' && *bi <= 'Z') || *bi == '_' ) { 
-			name.yc=*bi;
+			name.c[1]=*bi;
 			bi++;
 		} 
 		if (*bi == '$') {
@@ -4178,8 +4196,8 @@ void factorlen() {
 		if (!USELONGJUMP && er) return;
 		n.token=TBUFFER;
 		a=pop();
-		n.xc=a%256;
-		n.yc=a/256;
+		n.c[0]=a%256;
+		n.c[1]=a/256;
 		push(blength(&n));
 	}
 
@@ -5320,7 +5338,6 @@ again:
 #ifdef HASAPPLE1
 		case STRINGVAR:
 /* the destination address of the lefthandside, on the fly create included */
-			// getstring(&s, lhs.name.xc, lhs.name.yc, lhs.i, lhs.j);
 			getstring(&s, &lhs.name, lhs.i, lhs.j);
 			if (!USELONGJUMP && er) return;
 
@@ -5704,6 +5721,80 @@ void xcont() {
  * This code uses the global name variable right now for processing of 
  * the variable in FOR. The variable name in next is stored in a local variable.
  */
+
+/* reimplementation of xnext */
+void xnext2(){
+	name_t variable; /* this is a potential variable argument of next */	
+	name_t* forname;  /* the name of the variable in the FOR loop */
+	token_t t;
+
+	address_t h;
+	address_t h2;
+
+	number_t value; 
+	number_t end, step; 
+
+/* check is we have the variable argument */
+	nexttoken();
+
+/* one variable is accepted as an argument, no list */
+	if (token == VARIABLE) {
+		if (DEBUG) { outsc("** variable argument "); outname(&name); outcr(); }
+		variable=name;
+		nexttoken();
+		if (!termsymbol()) {
+			error(EUNKNOWN);
+			return;
+		}
+	} else {
+		variable.c[0]=0;
+	}
+
+/* remember the current position */
+	h=here;
+
+/* see whats going on */
+	forname=peekforstack2(&t, &h2, &end, &step);
+	if (!USELONGJUMP && er) return;
+
+/* check if this is really a FOR loop */
+#ifdef HASSTRUCT
+	if (t == TWHILE || t == TREPEAT) { error(ELOOP); return; }
+#endif
+
+/* a variable argument in next clears the for stack 
+		down as BASIC programs can and do jump out to an outer next */
+	if (variable.c[0] != 0) {
+		while (!cmpname(&variable, forname)) {
+			dropforstack();
+			if (!USELONGJUMP && er) return;
+			forname=peekforstack2(&t, &h2, &end, &step);
+			if (!USELONGJUMP && er) return;
+		} 
+	}
+
+/* y=0 an infinite loop with step 0 */
+	value=getvar(forname)+step;
+	setvar(forname, value);
+
+/* do we need another iteration, STEP 0 always triggers an infinite loop */
+	if ((step == 0) || (step > 0 && value <= end) || (step < 0 && value >= end)) {
+/* iterate in the loop */
+		here=h2;
+/* in interactive mode, jump to the right buffer location */
+		if (st == SINT) bi=ibuffer+here;
+	} else {
+/* last iteration completed we stay here after the next, 
+	no precaution for SINT needed as bi unchanged */
+		dropforstack();
+		here=h;
+	}
+	nexttoken();
+	if (DEBUG) { outsc("** after next found token "); debugtoken(); }
+}
+
+
+/* original code */
 void xnext(){
 	name_t variable; /* this is a potential variable argument of next */	
 	address_t h;
@@ -5727,7 +5818,7 @@ void xnext(){
 			return;
 		}
 	} else {
-		variable.xc=0;
+		variable.c[0]=0;
 	}
 
 /* remember the current position */
@@ -5742,7 +5833,7 @@ void xnext(){
 
 /* a variable argument in next clears the for stack 
 		down as BASIC programs can and do jump out to an outer next */
-	if (variable.xc != 0) {
+	if (variable.c[0] != 0) {
 		while (!cmpname(&variable,  &name)) {
 			popforstack(&name, &end, &step);
 			if (!USELONGJUMP && er) return;
@@ -6205,7 +6296,7 @@ void xclr() {
 		variable=name;
 		switch (variable.token) {
 		case VARIABLE:
-			if (variable.xc == '@') { return; }
+			if (variable.c[0] == '@') { return; }
 			break;
 		case ARRAYVAR: 
 			nexttoken();
@@ -6214,7 +6305,7 @@ void xclr() {
 			if (token != ')') { error(EVARIABLE); return; }
 			break;
 		case STRINGVAR:
-			if (variable.xc == '@') { error(EVARIABLE); return; }
+			if (variable.c[0] == '@') { error(EVARIABLE); return; }
 			break;
 		case TGOSUB:
 			clrgosubstack();
@@ -6232,8 +6323,8 @@ void xclr() {
 			expression();
 			if (!USELONGJUMP && er) return;
 			ax=pop();
-			variable.xc=ax%256;
-			variable.yc=ax/256;
+			variable.c[0]=ax%256;
+			variable.c[1]=ax/256;
 			variable.token=TBUFFER;
 		}
 
@@ -6831,6 +6922,7 @@ void setpersonality(index_t p) {
 		substringmode=0;
 		booleanmode=-1;
 		randombase=-1;
+		reltab=1;
 		break;
 /* an Apple 1 like BASIC have arrays starting at 1 with n elements and substrings */
 	case 'a':
@@ -6840,6 +6932,7 @@ void setpersonality(index_t p) {
 		substringmode=1;
 		booleanmode=1;
 		randombase=0;
+		reltab=0;
 		break;
 /* PaloAlto BASIC is an integer basic with slightly different behaviour */
 	case 'p':
@@ -6850,6 +6943,7 @@ void setpersonality(index_t p) {
 		booleanmode=1;
 		forceint=1;
 		randombase=1;
+		reltab=0;
 		break;
 	}
 #endif
@@ -7013,6 +7107,11 @@ void xset(){
 	case 22:
 		setpersonality(argument);
 		break;
+#ifdef HASAPPLE1
+	case 23:
+		lowercasenames=(argument != 0);
+		break;	
+#endif		
 	}
 }
 
@@ -7327,8 +7426,8 @@ void xmalloc() {
 /* create a name */
 	name.token=TBUFFER;
 	name.l=2;
-	name.xc=a%256;
-	name.yc=a/256;
+	name.c[0]=a%256;
+	name.c[1]=a/256;
 
 /* allocate the memory */
 	push(bmalloc(&name, s));
@@ -7371,8 +7470,8 @@ void xfind() {
       	if (!USELONGJUMP && er) return;
 		name.token=TBUFFER;
 		name.l=2;
-		name.xc=n%256;
-		name.yc=n/256;
+		name.c[0]=n%256;
+		name.c[1]=n/256;
 		a=bfind(&name);
 	}
 
@@ -7640,30 +7739,30 @@ mem_t eventindex(mem_t pin) {
 	return -1;
 }
 
-mem_t enableevent(mem_t pin) {
-	mem_t interrupt;
+mem_t enableevent(mem_t pin){
+	mem_t inter;
 	mem_t i;
 
 /* do we have the data */
 	if ((i=eventindex(pin))<0) return 0;
 
 /* can we use this pin? */  
-	interrupt=pintointerrupt(eventlist[i].pin);
-	if (interrupt < 0) return 0;
+	inter=pintointerrupt(eventlist[i].pin);
+	if (inter < 0) return 0;
 
 /* attach the interrupt function to this pin */
 	switch(i) {
 	case 0: 
-		attachinterrupt(interrupt, bintroutine0, eventlist[i].mode); 
+		attachinterrupt(inter, bintroutine0, eventlist[i].mode); 
 		break;
 	case 1:
-		attachinterrupt(interrupt, bintroutine1, eventlist[i].mode); 
+		attachinterrupt(inter, bintroutine1, eventlist[i].mode); 
 		break;
 	case 2:
-		attachinterrupt(interrupt, bintroutine2, eventlist[i].mode); 
+		attachinterrupt(inter, bintroutine2, eventlist[i].mode); 
 		break;
 	case 3:
-		attachinterrupt(interrupt, bintroutine3, eventlist[i].mode); 
+		attachinterrupt(inter, bintroutine3, eventlist[i].mode); 
 		break;
 	default:
 		return 0;
@@ -7673,6 +7772,7 @@ mem_t enableevent(mem_t pin) {
 	eventlist[i].enabled=1; 
 	return 1;
 }
+
 
 void disableevent(mem_t pin) {
 	detachinterrupt(pin); 
@@ -8601,7 +8701,7 @@ void xfn(mem_t m) {
 	if (DEBUG) { outsc("** found function variable "); outname(&variable); outcr(); }
 
 /* create a local variable and store the value in it if there is a variable */
-	if (variable.xc) {
+	if (variable.c[0]) {
 		if (!bmalloc(&variable, 0)) { error(EVARIABLE); return; }
 		setvar(&variable, pop());
 	}

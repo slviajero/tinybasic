@@ -360,10 +360,14 @@ typedef struct {
  */
 typedef struct { 
     token_t token; 
+ /*   
     union { 
         struct { mem_t xc; mem_t yc; }; 
         struct { mem_t c[MAXNAME]; mem_t l; };
-    };  
+    }; 
+*/
+    mem_t c[MAXNAME]; 
+    mem_t l;
 } name_t;
 
 /* used to identify mostly lefthandsides and some righthandsides with these conventions */
