@@ -3138,26 +3138,10 @@ void gettoken() {
  /* otherwise we check for the argument */
 	switch (token) {
 	case LINENUMBER:
-/* somehow not really any more ? */
-/*
-#ifdef USEMEMINTERFACE
-		if (st != SERUN) ax=getaddress(here, memread); else ax=getaddress(here+eheadersize, eread); 
-#else
-		if (st != SERUN) ax=getaddress(here, memread2); else ax=getaddress(here+eheadersize, eread);
-#endif	
-*/
-/* memread reads from the program stream and branches to EEPROM automatically */
 		ax=getaddress(here, memread);
 		here+=addrsize;
 		break;
 	case NUMBER:	
-/*
-#ifdef USEMEMINTERFACE
-		if (st !=SERUN) x=getnumber(here, memread); else x=getnumber(here+eheadersize, eread);
-#else
-		if (st !=SERUN) x=getnumber(here, memread2); else x=getnumber(here+eheadersize, eread);
-#endif
-*/
 		x=getnumber(here, memread);
 		here+=numsize;	
 		break;
@@ -5374,7 +5358,23 @@ again:
 
 /* now read the string inplace */
 			if (prompt) showprompt();
+#ifndef USEMEMINTERFACE	
 			newlength=ins(s.ir-1, maxlen);
+#else
+			newlength=ins(spistrbuf1, maxlen);
+
+/* if we have a string variable, we need to copy the buffer to the string */
+			if (newlength > 0) {
+				if (s.ir) {
+					for (k=0; k<newlength; k++) s.ir[k]=spistrbuf1[k+1];
+				} else {
+					for (k=0; k<newlength; k++) memwrite2(s.address+k, spistrbuf1[k+1]);
+				}
+			}
+#endif
+
+/* if we have a string variable, we need to copy the buffer to the string */
+
 
 /* set the right string length */
 /* classical Apple 1 behaviour is string truncation in substring logic */
