@@ -59,6 +59,10 @@
 /* simulates SPI RAM, only test code, keep undefed if you don't want to do something special */
 #undef SPIRAMSIMULATOR
 
+#ifdef SPIRAMSIMULATOR
+#define USEMEMINTERFACE
+#endif
+
 /* use a serial port as printer interface - unfinished - similar to Arduino */
 #define POSIXPRT
 

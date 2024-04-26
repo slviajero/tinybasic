@@ -5339,8 +5339,8 @@ void spiramrawwrite(uint16_t a, int8_t c) {
 #endif
 
 /* the string buffers of the memory interface */
-int8_t spistrbuf1[SPIRAMSBSIZE];
-int8_t spistrbuf2[SPIRAMSBSIZE];
+char spistrbuf1[SPIRAMSBSIZE];
+char spistrbuf2[SPIRAMSBSIZE];
 #endif
 
 /* 

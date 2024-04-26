@@ -3138,19 +3138,27 @@ void gettoken() {
  /* otherwise we check for the argument */
 	switch (token) {
 	case LINENUMBER:
+/* somehow not really any more ? */
+/*
 #ifdef USEMEMINTERFACE
 		if (st != SERUN) ax=getaddress(here, memread); else ax=getaddress(here+eheadersize, eread); 
 #else
 		if (st != SERUN) ax=getaddress(here, memread2); else ax=getaddress(here+eheadersize, eread);
 #endif	
+*/
+/* memread reads from the program stream and branches to EEPROM automatically */
+		ax=getaddress(here, memread);
 		here+=addrsize;
 		break;
 	case NUMBER:	
+/*
 #ifdef USEMEMINTERFACE
 		if (st !=SERUN) x=getnumber(here, memread); else x=getnumber(here+eheadersize, eread);
 #else
 		if (st !=SERUN) x=getnumber(here, memread2); else x=getnumber(here+eheadersize, eread);
 #endif
+*/
+		x=getnumber(here, memread);
 		here+=numsize;	
 		break;
 	case ARRAYVAR:
@@ -6245,7 +6253,12 @@ void xnew(){
 	resetbasicstate();
 
 
-	if (DEBUG) outsc("** clearing memory \n ");
+	if (DEBUG) {
+		 outsc("** clearing memory ");
+		 outnumber(memsize); 
+		 outsc(" bytes \n");
+	}
+
 /* program memory back to zero and variable heap cleared */
 	himem=memsize;
 	zeroblock(0, memsize);

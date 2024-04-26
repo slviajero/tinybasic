@@ -113,7 +113,7 @@ extern uint8_t breaksignal;
 extern uint8_t vt52active;
 
 /* the string buffer the interpreter needs, here to be known by BASIC */
-extern int8_t spistrbuf1[SPIRAMSBSIZE], spistrbuf2[SPIRAMSBSIZE];
+extern char spistrbuf1[SPIRAMSBSIZE], spistrbuf2[SPIRAMSBSIZE];
 
 /* the mqtt variable the interpreter needs */
 #define MQTTLENGTH 32
