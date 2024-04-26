@@ -972,7 +972,7 @@ address_t bfind(name_t* name) {
 
 /* get the name and the type */
 		bfind_object.name.token=memread2(b++);
-		b=getname(b, &bfind_object.name);
+		b=getname(b, &bfind_object.name, memread2);
 
 /* determine the size of the object and advance */
 		if (bfind_object.name.token != VARIABLE) {
@@ -1286,6 +1286,10 @@ void setstrlength(address_t m, memwriter_t f, stringlength_t s){
  * Two versions are needed because the heap is counted down
  * while the pgm is counted up. The length of the name 
  * is always 2 bytes now but will be variable in the future.
+ * 
+ * getname needs to go through a memreader because names are 
+ * read from eeproms as well!
+ * 
  */
 #ifndef HASLONGNAMES
 
@@ -1304,9 +1308,9 @@ address_t setname_pgm(address_t m, name_t* name) {
 }
 
 /* get a name from a memory location */
-address_t getname(address_t m, name_t* name) {
-	name->c[0]=memread2(m++);
-	name->c[1]=memread2(m++);
+address_t getname(address_t m, name_t* name, memreader_t f) {
+	name->c[0]=f(m++);
+	name->c[1]=f(m++);
 	return m;
 }
 
@@ -1352,11 +1356,11 @@ address_t setname_pgm(address_t m, name_t* name) {
 }
 
 /* get a name from a memory location */
-address_t getname(address_t m, name_t* name) {
+address_t getname(address_t m, name_t* name, memreader_t f) {
 	mem_t l;
-	name->l=memread2(m++);
+	name->l=f(m++);
 
-	for(l=0; l<name->l; l++) name->c[l]=memread2(m++);
+	for(l=0; l<name->l; l++) name->c[l]=f(m++);
 	for(; l<MAXNAME; l++) name->c[l]=0; /* should not be there, is needed for 
 		now because the lexer is not implemented correctly*/
 	return m;
@@ -2278,6 +2282,23 @@ token_t peekforstack() {
 	} 
 }
 
+name_t* peekforstack2(token_t *t, address_t* h, number_t* to, number_t* step) {
+	if (forsp>0) {
+#ifdef HASSTRUCT
+		*t=forstack[forsp-1].type;
+#endif
+		if (to != 0) {
+			*to=forstack[forsp-1].to;
+			*step=forstack[forsp-1].step;
+		}
+		*h=forstack[forsp-1].here;
+		return &forstack[forsp-1].var;
+	} else {
+		error(ELOOP);
+		return 0;
+	}
+}
+
 void clrforstack() {
 	forsp=0;
 }
@@ -3135,7 +3156,7 @@ void gettoken() {
 	case ARRAYVAR:
 	case VARIABLE:
 	case STRINGVAR:
-		here=getname(here, &name);
+		here=getname(here, &name, memread);
 		name.token=token;
 		break;
 	case STRING:
@@ -5704,6 +5725,80 @@ void xcont() {
  * This code uses the global name variable right now for processing of 
  * the variable in FOR. The variable name in next is stored in a local variable.
  */
+
+/* reimplementation of xnext */
+void xnext2(){
+	name_t variable; /* this is a potential variable argument of next */	
+	name_t* forname;  /* the name of the variable in the FOR loop */
+	token_t t;
+
+	address_t h;
+	address_t h2;
+
+	number_t value; 
+	number_t end, step; 
+
+/* check is we have the variable argument */
+	nexttoken();
+
+/* one variable is accepted as an argument, no list */
+	if (token == VARIABLE) {
+		if (DEBUG) { outsc("** variable argument "); outname(&name); outcr(); }
+		variable=name;
+		nexttoken();
+		if (!termsymbol()) {
+			error(EUNKNOWN);
+			return;
+		}
+	} else {
+		variable.c[0]=0;
+	}
+
+/* remember the current position */
+	h=here;
+
+/* see whats going on */
+	forname=peekforstack2(&t, &h2, &end, &step);
+	if (!USELONGJUMP && er) return;
+
+/* check if this is really a FOR loop */
+#ifdef HASSTRUCT
+	if (t == TWHILE || t == TREPEAT) { error(ELOOP); return; }
+#endif
+
+/* a variable argument in next clears the for stack 
+		down as BASIC programs can and do jump out to an outer next */
+	if (variable.c[0] != 0) {
+		while (!cmpname(&variable, forname)) {
+			dropforstack();
+			if (!USELONGJUMP && er) return;
+			forname=peekforstack2(&t, &h2, &end, &step);
+			if (!USELONGJUMP && er) return;
+		} 
+	}
+
+/* y=0 an infinite loop with step 0 */
+	value=getvar(forname)+step;
+	setvar(forname, value);
+
+/* do we need another iteration, STEP 0 always triggers an infinite loop */
+	if ((step == 0) || (step > 0 && value <= end) || (step < 0 && value >= end)) {
+/* iterate in the loop */
+		here=h2;
+/* in interactive mode, jump to the right buffer location */
+		if (st == SINT) bi=ibuffer+here;
+	} else {
+/* last iteration completed we stay here after the next, 
+	no precaution for SINT needed as bi unchanged */
+		dropforstack();
+		here=h;
+	}
+	nexttoken();
+	if (DEBUG) { outsc("** after next found token "); debugtoken(); }
+}
+
+
+/* original code */
 void xnext(){
 	name_t variable; /* this is a potential variable argument of next */	
 	address_t h;
@@ -8604,7 +8699,7 @@ void xfn(mem_t m) {
 /* what is the name of the variable, direct read as getname also gets a token */
 /* skip the type here as not needed*/
 	variable.token=memread2(a++);
-	(void) getname(a, &variable);
+	(void) getname(a, &variable, memread2);
 	a=a+sizeof(name_t)-1;
 
 	if (DEBUG) { outsc("** found function variable "); outname(&variable); outcr(); }

@@ -972,7 +972,7 @@ address_t bfind(name_t* name) {
 
 /* get the name and the type */
 		bfind_object.name.token=memread2(b++);
-		b=getname(b, &bfind_object.name);
+		b=getname(b, &bfind_object.name, memread2);
 
 /* determine the size of the object and advance */
 		if (bfind_object.name.token != VARIABLE) {
@@ -1286,6 +1286,10 @@ void setstrlength(address_t m, memwriter_t f, stringlength_t s){
  * Two versions are needed because the heap is counted down
  * while the pgm is counted up. The length of the name 
  * is always 2 bytes now but will be variable in the future.
+ * 
+ * getname needs to go through a memreader because names are 
+ * read from eeproms as well!
+ * 
  */
 #ifndef HASLONGNAMES
 
@@ -1304,9 +1308,9 @@ address_t setname_pgm(address_t m, name_t* name) {
 }
 
 /* get a name from a memory location */
-address_t getname(address_t m, name_t* name) {
-	name->c[0]=memread2(m++);
-	name->c[1]=memread2(m++);
+address_t getname(address_t m, name_t* name, memreader_t f) {
+	name->c[0]=f(m++);
+	name->c[1]=f(m++);
 	return m;
 }
 
@@ -1352,11 +1356,11 @@ address_t setname_pgm(address_t m, name_t* name) {
 }
 
 /* get a name from a memory location */
-address_t getname(address_t m, name_t* name) {
+address_t getname(address_t m, name_t* name, memreader_t f) {
 	mem_t l;
-	name->l=memread2(m++);
+	name->l=f(m++);
 
-	for(l=0; l<name->l; l++) name->c[l]=memread2(m++);
+	for(l=0; l<name->l; l++) name->c[l]=f(m++);
 	for(; l<MAXNAME; l++) name->c[l]=0; /* should not be there, is needed for 
 		now because the lexer is not implemented correctly*/
 	return m;
@@ -3152,7 +3156,7 @@ void gettoken() {
 	case ARRAYVAR:
 	case VARIABLE:
 	case STRINGVAR:
-		here=getname(here, &name);
+		here=getname(here, &name, memread);
 		name.token=token;
 		break;
 	case STRING:
@@ -8695,7 +8699,7 @@ void xfn(mem_t m) {
 /* what is the name of the variable, direct read as getname also gets a token */
 /* skip the type here as not needed*/
 	variable.token=memread2(a++);
-	(void) getname(a, &variable);
+	(void) getname(a, &variable, memread2);
 	a=a+sizeof(name_t)-1;
 
 	if (DEBUG) { outsc("** found function variable "); outname(&variable); outcr(); }

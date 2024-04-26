@@ -477,7 +477,7 @@ void setstrlength(address_t, memwriter_t, stringlength_t);
 /* setting names */
 address_t setname_heap(address_t, name_t*);
 address_t setname_pgm(address_t, name_t*);
-address_t getname(address_t, name_t*);
+address_t getname(address_t, name_t*, memreader_t);
 mem_t cmpname(name_t*, name_t*);
 void zeroname(name_t*);
 void zeroheap(heap_t*);
