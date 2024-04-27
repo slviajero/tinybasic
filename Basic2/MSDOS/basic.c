@@ -481,13 +481,9 @@ mem_t* mem;
 #endif
 address_t himem, memsize;
 
-/* the for stack - remembers the variable, indices, and optionally a type for stuctured BASIC */
-struct forstackitem {name_t var; address_t here; number_t to; number_t step; 
-#ifdef HASSTRUCT
-mem_t type;
-#endif
-} forstack[FORDEPTH];
-index_t forsp = 0;
+/* reimplementation of the loops, will replace the forstack */
+bloop_t loopstack[FORDEPTH];
+index_t loopsp = 0;
  
 /* the GOSUB stack remembers an address to jump to */
 address_t gosubstack[GOSUBDEPTH];
@@ -972,7 +968,7 @@ address_t bfind(name_t* name) {
 
 /* get the name and the type */
 		bfind_object.name.token=memread2(b++);
-		b=getname(b, &bfind_object.name);
+		b=getname(b, &bfind_object.name, memread2);
 
 /* determine the size of the object and advance */
 		if (bfind_object.name.token != VARIABLE) {
@@ -1286,6 +1282,10 @@ void setstrlength(address_t m, memwriter_t f, stringlength_t s){
  * Two versions are needed because the heap is counted down
  * while the pgm is counted up. The length of the name 
  * is always 2 bytes now but will be variable in the future.
+ * 
+ * getname needs to go through a memreader because names are 
+ * read from eeproms as well!
+ * 
  */
 #ifndef HASLONGNAMES
 
@@ -1304,9 +1304,9 @@ address_t setname_pgm(address_t m, name_t* name) {
 }
 
 /* get a name from a memory location */
-address_t getname(address_t m, name_t* name) {
-	name->c[0]=memread2(m++);
-	name->c[1]=memread2(m++);
+address_t getname(address_t m, name_t* name, memreader_t f) {
+	name->c[0]=f(m++);
+	name->c[1]=f(m++);
 	return m;
 }
 
@@ -1352,11 +1352,11 @@ address_t setname_pgm(address_t m, name_t* name) {
 }
 
 /* get a name from a memory location */
-address_t getname(address_t m, name_t* name) {
+address_t getname(address_t m, name_t* name, memreader_t f) {
 	mem_t l;
-	name->l=memread2(m++);
+	name->l=f(m++);
 
-	for(l=0; l<name->l; l++) name->c[l]=memread2(m++);
+	for(l=0; l<name->l; l++) name->c[l]=f(m++);
 	for(; l<MAXNAME; l++) name->c[l]=0; /* should not be there, is needed for 
 		now because the lexer is not implemented correctly*/
 	return m;
@@ -2176,110 +2176,97 @@ void clrdata() {
 
 /* 
  * Stack handling for FOR
- * Reimplementation of the for stack with names. Still raw as handling of
- * WHILE and REPEAT is inconsistent with FOR.
+ * Reimplementation of the for stack with names and with all loops 
+ * cleaned up.
  */
-void pushforstack(name_t* name, number_t to, number_t step) {
+
+/* the new stack type for loops */
+void pushloop(name_t* name, token_t t, address_t here, number_t to, number_t step) {
 	address_t i;
 
-	if (DEBUG) { outsc("** forsp and here in pushforstack "); outnumber(forsp); outspc(); outnumber(here); outcr(); }
+	if (DEBUG) {
+		outsc("** loopsp and here in pushloopstack "); 
+		outnumber(loopsp); outspc(); outnumber(here); outcr(); 
+		if (name != 0) { outsc("** loop name "); outname(name); outcr(); }
+		else { outsc("** loop name is 0"); outcr(); }
+		outsc("** loop token "); outnumber(t); outcr();
+		outsc("** loop to "); outnumber(to); outcr();
+		outsc("** loop step "); outnumber(step); outcr();
+	}
 
-/* before pushing into the for stack we check is an
-	 old for exists - this is on reentering a for loop 
-	 this code removes all loop inside the for loop as well 
-	 for loops are identified by the variable name, anywhere
-	 the variable is found again, it cleans the for stack 
-	 this makes the code stable against GOTO mess, 
-	 WHILE and REPEAT are identified with the here location
-	 reentry cleans the stack */
-#ifndef HASSTRUCT
-	for(i=0; i<forsp; i++) {
-		if (cmpname(&forstack[i].var, name)) {
-			forsp=i;
+/* 
+ * Before pushing into the loop stack we check is an
+ * old loop exists. 
+ * 
+ * There are two situations to handle:
+ * 1. A loop is reentered because a GOTO went back to or even before 
+ * 	the loop start. This is identified by the here location.
+ * 2. A new FOR loop is created after the existing loop with the same
+ * 	variable name. This happens if a jump or break went outside the 
+ *  loop. This is identified by the variable name.
+*/
+
+/* Situation 1, scan for here */
+	for(i=0; i<loopsp; i++) {
+		if (loopstack[i].here == here) {
+			loopsp=i; 
 			break;
 		}
 	}
-#else 
-	if (token == TWHILE || token == TREPEAT) {
-		for(i=0; i<forsp; i++) {
-			if (forstack[i].here == here) {
-				forsp=i; 
-				break;
-			}
-		}
-	} else {
-		for(i=0; i<forsp; i++) {
-			if (cmpname(&forstack[i].var, name)) {
-				forsp=i;
+
+/* Situation 2, scan for the name */
+	if (name != 0) {
+		for(i=0; i<loopsp; i++) {
+			if (cmpname(&loopstack[i].var, name)) {
+				loopsp=i;
 				break;
 			}
 		}
 	}
-#endif
 
-/* add the loop to the stack */
-	if (forsp < FORDEPTH) {
-#ifdef HASSTRUCT
-		forstack[forsp].type=token; /* this is the actual token and not the name component!! */
-#endif
-		if (name != 0) {
-			forstack[forsp].var=*name;
+/* Add the loop to the stack */
+	if (loopsp < FORDEPTH) {
+		if (t == TWHILE || t == TREPEAT) {
+			loopstack[loopsp].var.token=t;
 		} else {
-			forstack[forsp].var.c[0]=0;
+			if (name != 0) {
+				loopstack[loopsp].var=*name;
+			} else {
+				loopstack[loopsp].var.c[0]=0;
+				loopstack[loopsp].var.l=0;
+				loopstack[loopsp].var.token=0;
+			}
 		}
-		forstack[forsp].here=here;
-		forstack[forsp].to=to;
-		forstack[forsp].step=step;
-		forsp++;	
+		loopstack[loopsp].here=here;
+		loopstack[loopsp].to=to;	
+		loopstack[loopsp].step=step;
+		loopsp++;	
 		return;	
 	} else 
 		error(ELOOP);
 }
 
-void popforstack(name_t* name, number_t* to, number_t* step) {
-	if (forsp>0) {
-		forsp--;
+/* what is the active loop */
+bloop_t* activeloop() {
+	if (loopsp>0) {
+		return &loopstack[loopsp-1];
 	} else {
 		error(ELOOP);
-		return;
-	} 
-#ifdef HASSTRUCT
-	token=forstack[forsp].type;
-#endif
-	if (name != 0) {
-		*name=forstack[forsp].var;
-	} 	
-	here=forstack[forsp].here;
-	if (to != 0) {
-		*to=forstack[forsp].to;
-		*step=forstack[forsp].step;
+		return 0;
 	}
 }
 
-void dropforstack(){
-	if (forsp>0) {
-		forsp--;
+void droploop() {
+	if (loopsp>0) {
+		loopsp--;
 	} else {
 		error(ELOOP);
 		return;
-	} 
-}
-
-token_t peekforstack() {
-	if (forsp>0) {
-#ifdef HASSTRUCT
-		return forstack[forsp-1].type;
-#else
-		return 0;
-#endif
-	} else {
-		error(ELOOP);
-		return 0;
 	} 
 }
 
 void clrforstack() {
-	forsp=0;
+	loopsp=0;
 }
 
 /* GOSUB stack handling */
@@ -3117,25 +3104,17 @@ void gettoken() {
  /* otherwise we check for the argument */
 	switch (token) {
 	case LINENUMBER:
-#ifdef USEMEMINTERFACE
-		if (st != SERUN) ax=getaddress(here, memread); else ax=getaddress(here+eheadersize, eread); 
-#else
-		if (st != SERUN) ax=getaddress(here, memread2); else ax=getaddress(here+eheadersize, eread);
-#endif	
+		ax=getaddress(here, memread);
 		here+=addrsize;
 		break;
 	case NUMBER:	
-#ifdef USEMEMINTERFACE
-		if (st !=SERUN) x=getnumber(here, memread); else x=getnumber(here+eheadersize, eread);
-#else
-		if (st !=SERUN) x=getnumber(here, memread2); else x=getnumber(here+eheadersize, eread);
-#endif
+		x=getnumber(here, memread);
 		here+=numsize;	
 		break;
 	case ARRAYVAR:
 	case VARIABLE:
 	case STRINGVAR:
-		here=getname(here, &name);
+		here=getname(here, &name, memread);
 		name.token=token;
 		break;
 	case STRING:
@@ -5345,7 +5324,23 @@ again:
 
 /* now read the string inplace */
 			if (prompt) showprompt();
+#ifndef USEMEMINTERFACE	
 			newlength=ins(s.ir-1, maxlen);
+#else
+			newlength=ins(spistrbuf1, maxlen);
+
+/* if we have a string variable, we need to copy the buffer to the string */
+			if (newlength > 0) {
+				if (s.ir) {
+					for (k=0; k<newlength; k++) s.ir[k]=spistrbuf1[k+1];
+				} else {
+					for (k=0; k<newlength; k++) memwrite2(s.address+k, spistrbuf1[k+1]);
+				}
+			}
+#endif
+
+/* if we have a string variable, we need to copy the buffer to the string */
+
 
 /* set the right string length */
 /* classical Apple 1 behaviour is string truncation in substring logic */
@@ -5565,10 +5560,10 @@ void findbraket(token_t bra, token_t ket){
 void xfor(){
 	name_t variable;
 	number_t begin=1;
-	number_t end=maxnum;
+	number_t to=maxnum;
 	number_t step=1;
 	
-/* there has to be a variable, remember it  */
+/* we need at least a name */
 	if (!expect(VARIABLE, EUNKNOWN)) return;
 	variable=name;
 
@@ -5591,7 +5586,7 @@ void xfor(){
 
 	if (token == TTO) {
 		if (!expectexpr()) return;
-		end=pop();
+		to=pop();
 	}
 
 	if (token == TSTEP) {
@@ -5610,24 +5605,24 @@ void xfor(){
 /*  here we know everything to set up the loop */
 
 	if (DEBUG) { 
-		outsc("** for loop with parameters var begin end step : ");
+		outsc("** for loop with parameters var begin end step: ");
 		outname(&variable); 
 		outspc(); outnumber(begin); 
-		outspc(); outnumber(end); 
+		outspc(); outnumber(to); 
 		outspc(); outnumber(step); 
 		outcr();
-		outsc("** for loop target location"); outnumber(here); outcr();
+		outsc("** for loop target location "); outnumber(here); outcr();
 	}
 
-	pushforstack(&variable, end, step);
+	pushloop(&variable, TFOR, here, to, step);
 	if (!USELONGJUMP && er) return;
 
 /*
  *	This tests the condition and stops if it is fulfilled already from start.
  *	There is another apocryphal feature here: STEP 0 is legal triggers an infinite loop.
  */
-	if ((step > 0 && getvar(&variable) > end) || (step < 0 && getvar(&variable) < end)) { 
-		dropforstack();
+	if ((step > 0 && getvar(&variable) > to) || (step < 0 && getvar(&variable) < to)) { 
+		droploop();
 		findbraket(TFOR, TNEXT);
 		nexttoken();
 		if (token == VARIABLE) nexttoken(); /* This BASIC does not check. */
@@ -5639,12 +5634,13 @@ void xfor(){
  */
 #ifdef HASSTRUCT
 void xbreak(){
-	token_t t;
+	
+	bloop_t* loop;
 
-	t=peekforstack(); 
+	
+	loop=activeloop();
 	if (!USELONGJUMP && er) return;
-	dropforstack();
-	switch (t) {
+	switch (loop->var.token) {
 	case TWHILE: 
 		findbraket(TWHILE, TWEND);
 		nexttoken();
@@ -5659,10 +5655,12 @@ void xbreak(){
 		if (token == VARIABLE) nexttoken(); /* we are at next and skip the variable check */
 		break;	
 	}
+	droploop();
 }
 #else
 void xbreak(){
-	dropforstack();
+	
+	droploop();
 	if (!USELONGJUMP && er) return;
 	findbraket(TFOR, TNEXT);
 	nexttoken();	
@@ -5676,11 +5674,13 @@ void xbreak(){
  */
 #ifdef HASSTRUCT
 void xcont() {
-	token_t t;
+	
+	bloop_t* loop;
 
-	t=peekforstack();
+	
+	loop=activeloop();
 	if (!USELONGJUMP && er) return;
-	switch (t) {
+	switch (loop->var.token) {
 	case TWHILE: 
 		findbraket(TWHILE, TWEND);
 		break;
@@ -5704,15 +5704,18 @@ void xcont() {
  * This code uses the global name variable right now for processing of 
  * the variable in FOR. The variable name in next is stored in a local variable.
  */
+
+/* reimplementation of xnext without change of the stack in a running loop */
+
 void xnext(){
 	name_t variable; /* this is a potential variable argument of next */	
+	name_t* forname;  /* the name of the variable in the FOR loop */
+	token_t t;
 	address_t h;
-	number_t t;
-	number_t x, y;
-
-
 	number_t value; 
-	number_t end, step; 
+	
+
+	bloop_t* loop;
 
 /* check is we have the variable argument */
 	nexttoken();
@@ -5730,39 +5733,55 @@ void xnext(){
 		variable.c[0]=0;
 	}
 
-/* remember the current position */
-	h=here;
-	popforstack(&name, &end, &step);
+/* see whats going on */
+	
+	loop=activeloop();
 	if (!USELONGJUMP && er) return;
 
 /* check if this is really a FOR loop */
 #ifdef HASSTRUCT
-	if (token == TWHILE || token == TREPEAT) { error(ELOOP); return; }
+	if (loop->var.token == TWHILE || loop->var.token == TREPEAT) { error(ELOOP); return; }
+	
 #endif
 
 /* a variable argument in next clears the for stack 
 		down as BASIC programs can and do jump out to an outer next */
 	if (variable.c[0] != 0) {
-		while (!cmpname(&variable,  &name)) {
-			popforstack(&name, &end, &step);
+/*
+		while (!cmpname(&variable, forname)) {
+			dropforstack();
+			if (!USELONGJUMP && er) return;
+			forname=peekforstack2(&t, &h, &end, &step);
 			if (!USELONGJUMP && er) return;
 		} 
+*/
+		while(!cmpname(&variable, &loop->var)) {
+			droploop();
+			if (!USELONGJUMP && er) return;
+			loop=activeloop();
+			if (!USELONGJUMP && er) return;
+		}
 	}
 
 /* y=0 an infinite loop with step 0 */
-	value=getvar(&name)+step;
-	setvar(&name, value);
+	value=getvar(&loop->var)+loop->step;
+	setvar(&loop->var, value);
+
+	if (DEBUG) { 
+		outsc("** next loop variable "); outname(&loop->var); outspc(); 
+		outsc(" value "); outnumber(value); outcr(); 
+	}
 
 /* do we need another iteration, STEP 0 always triggers an infinite loop */
-	if ((step == 0) || (step > 0 && value <= end) || (step < 0 && value >= end)) {
-/* push the loop back to the for stack */
-		pushforstack(&name, end, step);
+	if ((loop->step == 0) || (loop->step > 0 && value <= loop->to) || (loop->step < 0 && value >= loop->to)) {
+/* iterate in the loop */
+		here=loop->here;
 /* in interactive mode, jump to the right buffer location */
 		if (st == SINT) bi=ibuffer+here;
 	} else {
 /* last iteration completed we stay here after the next, 
 	no precaution for SINT needed as bi unchanged */
-		here=h;
+		droploop();
 	}
 	nexttoken();
 	if (DEBUG) { outsc("** after next found token "); debugtoken(); }
@@ -6150,7 +6169,12 @@ void xnew(){
 	resetbasicstate();
 
 
-	if (DEBUG) outsc("** clearing memory \n ");
+	if (DEBUG) {
+		 outsc("** clearing memory ");
+		 outnumber(memsize); 
+		 outsc(" bytes \n");
+	}
+
 /* program memory back to zero and variable heap cleared */
 	himem=memsize;
 	zeroblock(0, memsize);
@@ -8130,7 +8154,7 @@ void xusr() {
 		case 27: push(0); break;
 		case 28: push(freeRam()); break;
 		case 29: push(gosubsp); break;
-		case 30: push(forsp); break;
+		case 30: push(loopsp); break;
 		case 31: push(0); break; /* fnc removed as interpreter variable */
 		case 32: push(sp); break;
 #ifdef HASDARTMOUTH
@@ -8604,7 +8628,7 @@ void xfn(mem_t m) {
 /* what is the name of the variable, direct read as getname also gets a token */
 /* skip the type here as not needed*/
 	variable.token=memread2(a++);
-	(void) getname(a, &variable);
+	(void) getname(a, &variable, memread2);
 	a=a+sizeof(name_t)-1;
 
 	if (DEBUG) { outsc("** found function variable "); outname(&variable); outcr(); }
@@ -8753,14 +8777,14 @@ void xwhile() {
 	if (st == SINT) here=bi-ibuffer;
 
 /* save the current location and token type, here points to the condition, name is irrelevant */ 
-	pushforstack(0, 0, 0);
+	pushloop(0, TWHILE, here, 0, 0);
 
 /* is there a valid condition */
 	if (!expectexpr()) return;
 
 /* if false, seek WEND and clear the stack*/
 	if (!pop()) {
-		popforstack(0, 0, 0);
+		droploop();
 		if (st == SINT) bi=ibuffer+here;
 		nexttoken();
 		findbraket(TWHILE, TWEND);
@@ -8770,30 +8794,27 @@ void xwhile() {
 
 void xwend() {
 	blocation_t l;
+	bloop_t* loop;
 
 /* remember where we are */
 	pushlocation(&l);
 
 /* back to the condition */
-	popforstack(0, 0, 0);
+	loop = activeloop();
 	if (!USELONGJUMP && er) return;
 
-/* interactive run */
-	if (st == SINT) bi=ibuffer+here;
-
 /* is this a while loop */
-	if (token != TWHILE ) { error(TWEND); return; }
+	if (loop->var.token != TWHILE ) { error(TWEND); return; }
 
-/* run the loop again - same code as xwhile */
-	if (st == SINT) here=bi-ibuffer;
-	pushforstack(0, 0, 0);
+/* interactive run or program run */
+	if (st == SINT) bi=ibuffer+loop->here; else here=loop->here;
 
 /* is there a valid condition */
 	if (!expectexpr()) return;
 
 /* if false, seek WEND */
 	if (!pop()) {
-		popforstack(0, 0, 0);
+		droploop();
 		poplocation(&l);
 		nexttoken();
 	} 
@@ -8807,7 +8828,8 @@ void xrepeat() {
 	if (st == SINT) here=bi-ibuffer;
 
 /* save the current location and token type, here points statement after repeat */ 
-	pushforstack(0, 0, 0);
+	
+	pushloop(0, TREPEAT, here, 0, 0);
 
 /* we are done here */
 	nexttoken();
@@ -8815,6 +8837,7 @@ void xrepeat() {
 
 void xuntil() {
 	blocation_t l;
+	bloop_t* loop;
 
 /* is there a valid condition */
 	if (!expectexpr()) return;
@@ -8823,27 +8846,26 @@ void xuntil() {
 	pushlocation(&l);
 
 /* look on the stack */
-	popforstack(0, 0, 0);
+	
+	loop = activeloop();
 	if (!USELONGJUMP && er) return;
 
 /* if false, go back to the repeat */
 	if (!pop()) {
 
 /* the right loop type ? */
-		if (token != TREPEAT) {
+		if (loop->var.token != TREPEAT) {
 			error(TUNTIL);
 			return;
 		}
 
 /* correct for interactive */
-		if (st == SINT) bi=ibuffer+here;
-
-/* write the stack back if we continue looping */
-		pushforstack(0, 0, 0);
+		if (st == SINT) bi=ibuffer+loop->here; else here=loop->here;
 
 	} else {
 
 /* back to where we were */
+		droploop();
 		poplocation(&l);
 	}
 

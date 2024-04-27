@@ -320,6 +320,7 @@ typedef struct {
     token_t token; 
 } blocation_t;
 
+
 /* the new string type used in the reimplementation of the string functions */
 /* 
  * stringlength_t is the maximum length of a string, currently only 2 bytes is really tested.
@@ -360,12 +361,6 @@ typedef struct {
  */
 typedef struct { 
     token_t token; 
- /*   
-    union { 
-        struct { mem_t xc; mem_t yc; }; 
-        struct { mem_t c[MAXNAME]; mem_t l; };
-    }; 
-*/
     mem_t c[MAXNAME]; 
     mem_t l;
 } name_t;
@@ -379,12 +374,32 @@ typedef struct {
     mem_t ps;       /* flag to indicate a pure string */
 } lhsobject_t;
 
+/* heap objects have a name a size and a payload address */
 typedef struct { 
     name_t name; 
     address_t address; 
     address_t size; 
 } heap_t;
 
+/* 
+ * a general loop time, needed for the reimplementation of all loops 
+ * the loop time knows the variable of a for loop or alternatively 
+ * the type of the for loop. For this the token field of the name is 
+ * reused. At also knows the here address of the loops beginning and optinally 
+ * the end and the step
+ */
+typedef struct {
+    name_t var;
+    address_t here;
+    number_t to;
+    number_t step;
+} bloop_t;
+
+
+/* 
+ * The accumulator type, used for the stack and the 
+ * arithmetic operations. 
+ */
 typedef union { 
     number_t n; 
     address_t a; 
@@ -393,6 +408,7 @@ typedef union {
     mem_t c[sizeof(number_t)]; 
 } accu_t;
 
+/* the timer type, knows the linenumber and all the data of the timer */
 typedef struct {
     mem_t enabled;
     unsigned long last;
@@ -477,7 +493,7 @@ void setstrlength(address_t, memwriter_t, stringlength_t);
 /* setting names */
 address_t setname_heap(address_t, name_t*);
 address_t setname_pgm(address_t, name_t*);
-address_t getname(address_t, name_t*);
+address_t getname(address_t, name_t*, memreader_t);
 mem_t cmpname(name_t*, name_t*);
 void zeroname(name_t*);
 void zeroheap(heap_t*);
