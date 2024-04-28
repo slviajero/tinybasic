@@ -8617,6 +8617,13 @@ void xfn(mem_t m) {
 	if (variable.c[0]) {
 		if (!bmalloc(&variable, 0)) { error(EVARIABLE); return; }
 		setvar(&variable, pop());
+	} else {
+/* create a dummy variable to make sure local variables are cleaned up */
+		variable.token=VARIABLE;
+		variable.c[0]='_';
+		variable.c[1]=0;
+		variable.l=1;
+		if (!bmalloc(&variable, 0)) { error(EVARIABLE); return; }
 	}
 
 /* store here and then evaluate the function */
@@ -8649,6 +8656,7 @@ void xfn(mem_t m) {
 /* now that all the function stuff is done, return to here and set the variable right */
 	here=h2;
 	(void) bfree(&variable);
+
 
 /* now, depending on how this was called, make things right, we remove
 	the return value from the stack and call nexttoken */
