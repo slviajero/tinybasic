@@ -169,7 +169,7 @@ const char sdef[]       PROGMEM  = "DEF";
 const char sfn[]        PROGMEM  = "FN";
 const char son[]        PROGMEM  = "ON";
 #endif
-/* The Darkarts commands unthinkable in Dartmouth */
+/* The Darkarts commands */
 #ifdef HASDARKARTS
 const char smalloc[]	PROGMEM  = "MALLOC";
 const char sfind[]		PROGMEM  = "FIND";
@@ -1002,7 +1002,6 @@ address_t bfind(name_t* name) {
 /* nothing found return 0 and clear the cache */	
 
 	if (DEBUG) { outsc("bfind returns 0"); outcr(); }
-
 	zeroheap(&bfind_object);
 	return 0;
 }
@@ -1280,11 +1279,13 @@ void setstrlength(address_t m, memwriter_t f, stringlength_t s){
  *
  * setname_* sets a name and advance the number of bytes the name uses.
  * Two versions are needed because the heap is counted down
- * while the pgm is counted up. The length of the name 
- * is always 2 bytes now but will be variable in the future.
+ * while the pgm is counted up. 
  * 
  * getname needs to go through a memreader because names are 
  * read from eeproms as well!
+ * 
+ * Currently the old code with twobyte names is still in place
+ * if HASLONGNAMES is not defined. Default is now to have long names.
  * 
  */
 #ifndef HASLONGNAMES
@@ -1392,8 +1393,18 @@ void outname(name_t* name) {
 #endif
 
 
-/* create an array */
-/* reimplementation with name_t */
+/* 
+ * Create an array. 
+ *
+ * Arrays are created on the heap. This code allows redimensioning of arrays
+ * which leads to a new array with the same name on the heap. This new 
+ * array is found first in a heap search. This ways we can have arrays
+ * as local variables.
+ * 
+ * msarraylimits is a flag to indicate that arrays should be created with
+ * 0-n elements like in Microsoft BASIC.
+ * 
+ */
 address_t createarray(name_t* variable, address_t i, address_t j) {
 	address_t a;
 
@@ -1402,7 +1413,6 @@ address_t createarray(name_t* variable, address_t i, address_t j) {
 		i+=1;
 		j+=1;
 	}
-
 
 /* this code allows redimension now for local variables */
 #ifdef HASAPPLE1
@@ -1430,8 +1440,9 @@ address_t createarray(name_t* variable, address_t i, address_t j) {
 }
 
 /* 
- * Reimplementation of the array function to avoid the various problem with the old one. 
- * we use the lefthandside object here with the convention that i is the first index
+ * The array function.
+
+ * We use the lefthandside object here with the convention that i is the first index
  * and j the second index. This is inconsistent with the use in strings. Will be fixed 
  * when a true indexing type is introduced. 
  */
@@ -1548,7 +1559,14 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
 	else if (getset == 's') setnumber(a, memwrite2, *value);
 }
 
-/* Create a string on the heap, i is the length of the string, j the dimension of the array */
+/* 
+ * Create a string on the heap. 
+ *
+ * i is the length of the string, j the dimension of the array. 
+ * 
+ * String objects are either plain strings or arrays. In case of arrays
+ * the number of strings is stored at the end of the array.
+ */
 address_t createstring(name_t* variable, address_t i, address_t j) {
 #ifdef HASAPPLE1
 	address_t a;
@@ -1586,23 +1604,22 @@ address_t createstring(name_t* variable, address_t i, address_t j) {
 
 
 /* 
- *  Get a string at position b. The -1+stringdexsize is needed because a string index starts with 1 
- * 	in addition to the memory pointer, return the address in memory.
- *	We use a pointer to memory here instead of going through the mem interface with an integer variable.
- *	This makes string code lean to compile but is awkward for systems with serial memory.
+ * Get a string at position b. 
  * 
- * Getstring returns a pointer to the first string element in question. 
+ * getstring returns a pointer to the first string element in question. 
  * 
- * All side effects are removed now. (Hopefully).
+ * There is a lo tof complexity in the code to support systems with serial
+ * memory. 
+ * 
  */
 #ifdef HASAPPLE1
 
 /* helpers to handle strings */
-/* stores a C string to a BASIC string variable */
+/* Stores a C string to a BASIC string variable */
 void storecstring(address_t ax, address_t s, char* b) {
 	address_t k; 
 
-	for (k=0; k<s-strindexsize && b[k] != 0; k++) memwrite2(ax+k+strindexsize, b[k]); 
+	for (k=0; k < s-strindexsize && b[k] != 0; k++) memwrite2(ax+k+strindexsize, b[k]); 
 	setstrlength(ax, memwrite2, k);
 }
 
@@ -1617,7 +1634,7 @@ address_t cstringlength(char* c, address_t l) {
 /* get a memory pointer to a string, new version */
 void getstring(string_t* strp, name_t* name, address_t b, address_t j) {	
 	address_t k, zt;
-	address_t ax; /* ax is local now - no side effects any more - can be done in strp->address */
+	address_t ax;
 
 /* we know nothing about the string */
 	ax=0;
@@ -8916,18 +8933,12 @@ void xswitch() {
 	poplocation(&l); 	
 }
 
-/* a nacked case statement always seeks the end of the switch */
+/* a nacked case statement always seeks the end of the switch, 
+	currently SWITCH statements cannot be nested.  */
 void xcase() {
 	while (token != EOL) {
 		nexttoken();
 		if (token == TSWEND) break;
-/* broken if switch is nested deeper then once, need the braket mechanism here */
-/*
-		if (token == TSWITCH) {
-			nexttoken();
-			findbraket(TSWITCH, TSWEND);
-		}
-*/
 	}
 }
 #endif
