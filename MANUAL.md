@@ -4,19 +4,23 @@
 
 This manual is for the released version 1.4 and 2.0 of Stefan's IoT BASIC interpreter. 
 
+## Supported hardware 
+
+BASIC runs on Mac, Windows, Raspberry PI, MSDOS and many Arduino plattforms. I test regularly on 8 and 32 bit AVR, ESP8266. ESP2, RP2040 but also on some less common platforms like MKR, XMC and SMT. Have a look in the hardware section for more information. Many peripherals are supported. You find details in the hardware section of the manual.
+
 ## BASIC language sets
 
 This BASIC interpreter is structured in language sets. They can be compiled into the code separately. With every language set there are more features and command. This makes it adaptable to the purpose. The manual is structured according to the language sets. 
 
-The intepreter has two data types - numbers and strings. The number type can be set at compile time. It is either an integer or foating point. Depending on the definition of number_t in the code the interpreter can use everything from 16 bit integers to 64 bit floats as basic number type. 
+The intepreter has two data types - numbers and strings. The number type can be set at compile time. It is either an integer or foating point. Depending on the definition of number_t in the code the interpreter can use everything from 16 bit integers to 64 bit floats as basic number type. Default is single precision floats for all real OSes and integer on all Arduinos. In practice all but the UNO boards can run single precision floats.
 
-Arrays and string variables are part of the Apple 1 language sets. Strings are static, i.e. they reserve the entire length of the string on the heap. Depending on the definition of the string index type in the code, strings can be either 255 characters or 65535 characters maximum length. 
+Arrays and string variables are part of the Apple 1 language sets. Strings are static. They reserve the entire length of the string on the heap. Depending on the definition of the string index type in the code, strings can be either 255 characters or 65535 characters maximum length. 
 
 Array can be maximum two dimensional and string arrays can be one dimensional.
 
-Variable names are maximum two letters or one letter and one digit in the smaller language sets. Compiled with HASLONGNAMES, the interpreter can have names up to MAXNAME length. This is 16 by default.
+Variable names are two letters or one letter and one digit in the smaller language sets. Compiled with HASLONGNAMES, the interpreter can have names up to MAXNAME length. This is 16 by default. The HASLONGNAMES setting is default now.
 
-Keywords ad variable names are not case sensitive. They are printed as uppercase with the LIST command. Strings and string constants are case sensitive. 
+Keywords and variable names are not case sensitive. They are printed as uppercase with the LIST command. Strings and string constants are case sensitive. 
 
 There is a set of examples program in examples/00tutorial. They are referred to here as "the tutorial".
 
@@ -50,7 +54,7 @@ Default of the interpreter is "Apple1" with the exception of the boolean mode wh
 
 ### Introduction
 
-The core language set is based on the Palo Alto BASIC language. This is the grandfather of all the Tinybasics currently on the market. Commands are PRINT, LET, INPUT, GOTO, GOSUB, RETURN, IF, FOR, TO, STEP, NEXT, STOP, REM, LIST, NEW, RUN, ABS, INT, RND, SIZE.
+The core language set is based on the Palo Alto BASIC language. This is the great grandfather of many BASIC currently on the market. Commands are PRINT, LET, INPUT, GOTO, GOSUB, RETURN, IF, FOR, TO, STEP, NEXT, STOP, REM, LIST, NEW, RUN, ABS, INT, RND, SIZE.
 
 In the core language set there are 26 static variables A-Z and a special array @() which addresses the free memory. If an EEPROM is present or the EEPROM dummy is compiled to the code, the array @E() addresses the EEPROM. 
 
@@ -116,13 +120,7 @@ INPUT "Input a number", A
 
 INPUT "First number: ", A, "Second number: ", B
 
-Unlike MS BASIC comma separated lists cannot be used as input values.
-
-INPUT A, B
-
-would prompt for two separate number inputs even if two number like e.g. 17,19 are enters after the first prompt. This saves memory. Please look at IOT extension for a way to split lists.
-
-Until version 1.4. INPUT cannot read elements of string arrays. Only not indexed string variables are implemented.
+Until version 1.4. INPUT cannot read elements of string arrays. Only not indexed string variables are implemented. This is possible in 2.0 now. 
 
 Like PRINT, the & modifier can be used to specify an input stream.
 
@@ -174,17 +172,17 @@ GOTO 100+I
 
 The later statement can be used to program ON GOTO constructs of Dartmouth BASIC.
 
-BASIC has a line cache and remembers jump targets to speed up the code. 
+BASIC has a line cache and remembers jump targets to speed up the code. The size of this line cache depends on the hardware. 64 is default on real computers.
 
 ### GOSUB and RETURN
 
 GOSUB is identical to GOTO and saves the location after the GOSUB statement to a return stack. RETURN ends the execution of the subroutine. 
 
-The GOSUB stack is shallow with a depth of 4 elements on small Arduinos. This can be increased at compile time.
+The GOSUB stack is shallow with a depth of 4 elements on small Arduinos. This can be increased at compile time. On real computers default size is 64. 
 
 ### IF 
 
-IF expects an expression and executes the command after it if the condition is true. 0 is interpreted as false and all non zero values as true. Examples:
+IF expects an expression and executes the command after it if the condition is true. 0 is interpreted as false and all non zero values as true in . Examples:
 
 IF A=0 GOTO 100
 
@@ -202,7 +200,7 @@ FOR I=1 TO 10 STEP 2: PRINT I: NEXT I
 
 Specifying the parameter I in NEXT is optional. STEP can be ommited and defaults to STEP 1. 
 
-Unline in other BASIC dialects the loops. 
+Unlike in other BASIC dialects the loops. 
 
 FOR I=10: PRINT I: NEXT
 
@@ -211,7 +209,7 @@ and
 FOR I: PRINT I: NEXT
 
 are legal. They generate infinite loops that can be interrupted with the BREAK command which 
-is part of the extension language set. 
+is part of the extension language set. CONT advances the loop. This is borrowed from C. 
 
 All parameters in FOR loops are evaluated once when the FOR statement is read. FOR loops use the memory location as jump target in NEXT. They are faster than GOTO loops. 
 
@@ -249,7 +247,7 @@ The first statement lists the entire program, the second only line 10. The last 
 
 ### NEW
 
-Deletes all variables and the program. 
+Deletes all variables and the program code. Language settings made with SET are not reset. 
 
 ### RUN
 
@@ -285,7 +283,7 @@ The random number seed can be changes by using the special variable @R. See the 
 
 With SET 19, 1 the base of the random number can be changed to follow Palo Alto BASIC conventions. In this case numbers are created from 1 to 8. 
 
-SET 19, -1 sets the random number generator to Microsoft mode. In this mode RND() always produces numbers between 0 and 1 (exclusively). Called with a negative argument, the random number generator is initlialized with the absolute value of the argument to start a new sequence. This is equivalent to setting the sequence with @R. Called with 0 as an argument the same number is created. Called with any positive argument new random numbers are produced. This setting can be used to make the interpreter more compatible to Microsoft BASIC interpreters. 
+SET 19, -1 sets the random number generator to Microsoft mode. In this mode RND(x) always produces numbers between 0 and 1 (exclusively). Called with a negative argument, the random number generator is initlialized with the absolute value of the argument to start a new sequence. This is equivalent to setting the sequence with @R. Called with 0 as an argument the same number is created. Called with any positive argument new random numbers are produced. This setting can be used to make the interpreter more compatible to Microsoft BASIC interpreters. 
 
 ### SIZE
 
@@ -311,7 +309,7 @@ Started from the command line, LOAD will merge a program loaded with the program
 
 The character @ is a valid first character in variable names and addresses special variables. These variables give access to system properties. 
 
-@() is an array of numbers starting from the top of memory down to the program area. It can be used like any other array in BASIC. Indexing starts at 1. 
+@() is an array of numbers starting from the top of memory down to the program area. It can be used like any other array in BASIC. Indexing starts at 0. 
 
 @ is the upper array boundary of the array @() i.e. the number of elements in the array. 
 
@@ -347,7 +345,7 @@ The string @A\$ is the command line argument on POSIX systems. See the hardware 
 
 ### Introduction
 
-The Apple 1 language set is based on an early version of the Apple Integer BASIC. I never worked with the language and just took the information from the the manual. The language set adds many useful features like arrays, strings, two letter variables, boolean expressions and a few functions. 
+The Apple 1 language set is based on an early version of the Apple Integer BASIC. I never worked with the language and just took the information from the the manual. The language set adds many useful features like arrays, strings, two letter variables, boolean expressions and a few functions. Some BASICs for professional computers like CROMEMCO used BASICs like this.
 
 ### Variables 
 
@@ -355,7 +353,7 @@ In addition to the static variable A-Z all two letter combinations which are not
 
 A0, BX, TT 
 
-Variables are placed on a heap that is searched every time a variable is used. Variables which are used often should be initialised early in the code. This makes BASIC programs faster. Static variables A-Z are accessed approximately 30% faster than heap variables. They should be used for loops.
+Variables are placed on a heap that is searched every time a variable is used. With HASLONGNAMES enables, names can be up to 16 characters long. This is supported in BASIC 2.0.
 
 ### Strings
 
@@ -395,7 +393,7 @@ outputs
 
 Hello world today
 
-Please look into the tutorial files string1.bas - string3.bas for more information. The commands LEFT\$, RIGHT\$, and MID\$ do not exist in the core language set but are supplied as an extension in BASIC 2.
+Please look into the tutorial files string1.bas - string3.bas for more information. The commands LEFT\$, RIGHT\$, and MID\$ do not exist in the core language set but are supplied as an extension in BASIC 2.0.
 
 The length of a string can be found with the LEN command. Example:
 
@@ -485,7 +483,7 @@ Statements like
 
 PRINT TAB(20); "hello"
 
-are not supported in the core language set. It is an extension available in BASIC 2.
+are supported in BASIC 2. Until BASIC 1.4 is was not supported in the core language.
 
 ### SGN
 
@@ -499,7 +497,7 @@ DIM A(8,9)
 
 A(5,6)=10
 
-The compile option HASSTRINGARRAYS activates one dimensional string arrays.
+It also activates one dimensional string arrays.
 
 DIM A\$(32,10)
 
@@ -566,6 +564,8 @@ In programs ELSE can also be on the subsequent line
 10 IF A=0 THEN PRINT "Zero"
 
 20 ELSE PRINT "Not zero"
+
+With the structured programming language set activated, multiline IF THEN ELSE is possible. 
 
 ### Character output with PUT and GET
 
@@ -686,6 +686,8 @@ Please look into the hardware section for the display driver commands.
 ### Introduction
 
 Most of the standard Arduino I/O functions are available on BASIC. The Arduino standard examples have been ported to BASIC to showcase how they are used. Please look into the repo under examples/01basics to examples/10starter for these programs. 
+
+Many Arduino I/O commands are also working an an Raspberry PI with Wiring or PIGPIO.
 
 ### PINM 
 
@@ -833,7 +835,7 @@ CATALOG
 
 CATALOG "da"
 
-The first command lists all file, the second one all file beginning with the pattern "da".
+The first command lists all file, the second one all file beginning with the pattern "da". This is equivalent to the da* notation on the UNIX or MSDOS command line.
 
 DELETE deletes one file. The name has to match exactly. No pattern matching is supported.
 
@@ -849,11 +851,7 @@ writes "Hello World" to the open write file.
 
 INPUT &16, A\$
 
-reads the string A\$ from the file. INPUT can have comma seperated arguments. Each variable expects the input in a new line of the file. Like for in console input, INPUT does not split the I/O. Example:
-
-INPUT &16, A, B
-
-would read the first line of the file as a number into variable A and the second line into variable B.
+reads the string A\$ from the file. INPUT can have comma seperated arguments and reads comma separated data from BASIC 2.0 on. 
 
 I/O operations ususally report no errors on the console and keep the the program running if an error occurs. The variable @S contains the error status of the operation. @S has to be reset explicitly before using it because it remembers and error status of previous operations and is never reset by the interpreter. Example:
 
@@ -933,13 +931,13 @@ Hello
 
 Strings have to be in quotes. Reading data with the READ command converts the data in the same way than the assignment commands. Strings reading numbers with contain the respective ASCII character. Numbers reading strings will contain the numerical ASCII code. 
 
-Unlike other BASIC versions, reading past the end of DATA will not lead to an error. The status variable @S will contain the value 1 once one reads past the last DATA item. @S is to reset explicitely after this. 
+Unlike other BASIC versions, reading past the end of DATA will not lead to an error. The status variable @S will contain the value 1 once one reads past the last DATA item. @S has to be resetted explicitely after this. 
 
 RESTORE resets the data pointer. 
 
 From BASIC v1.4 on argument lists are also supported in READ. 
 
-In READ, the two index substring notation like A\$(3,3) is not yet supported. READ will interpret this as A\$(3) and append the read string. 
+In READ, the two index substring notation like A\$(3,3) is supported from BASIC 2 on. In earlier versions READ will interpret this as A\$(3) and append the read string. 
 
 RESTORE can also be used with an argument. In the code segment
 
@@ -1005,6 +1003,8 @@ can be called as
 
 The multiline function construct was rarely implemented in microprocessor BASICs. They appeared in many early dialects from Dartmouth to DEC BASIC.
 
+All variables in multiline functions are local. New variables will be deleted after RETURN. Global variables have to be defined in the gobal name space.
+
 ### ON 
 
 ON is used in combination with GOTO or GOSUB arguments. Examples: 
@@ -1019,7 +1019,7 @@ ON can also be used in combination with the ERROR and EVENT command. This is for
 
 ### Introduction 
 
-The dark arts language set contain a set of command which can cause evil. BASIC is a beginner language and protects the user from dangerous things. This makes it somehow rigid. The three dark arts commands give access to the inner working of the heap and the program storage. They have side effects and can destroy a running program. CLR is extended in dark arts. It can delete variables from the heap.
+The dark arts language set contain a set of command which can cause problems. BASIC is a beginner language and protects the user from dangerous things. This makes it somehow rigid. The three dark arts commands give access to the inner working of the heap and the program storage. They have side effects and can destroy a running program. CLR is extended in dark arts. It can delete variables from the heap.
 
 ### MALLOC
 

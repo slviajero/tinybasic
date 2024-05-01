@@ -1,4 +1,4 @@
-# Stefan's IoT BASIC
+# Stefan's BASIC
 
 ## The idea
 
@@ -15,7 +15,7 @@ The language is scalable and can run from 2 kB memory Arduino UNOs to large memo
 
 ## What is special - peripheral and Arduino I/O support
 
-Just like the home computer BASICs of the old times, IoTBasic is a small standalone operating system. It supports a number of peripherals and can be extended to new peripherals fast as there are generic device driver stubbs in the code.
+Just like the home computer BASICs of the old times, BASIC is a small standalone operating system. It supports a number of peripherals and can be extended to new peripherals fast as there are generic device driver stubbs in the code.
 
 Supported platforms right now are all 8bit Arduino AVR systems, LGT8 systems, the various Arduino 32bit systems like the MKR and of cource the RP2040, plain Rasberry PI Pico, ESP8266 and ESP32, Infineon XMC, Seeeduino Xiao and STM32. A full list of supported platforms can be found here https://github.com/slviajero/tinybasic/wiki/Hardware-Platforms.
 
@@ -55,6 +55,7 @@ Files of the 2.x version
 - IoTBasic/runtime.cpp is the runtime environment for Arduino
 - IoTBasic/hardware.h is the hardware configuration for Arduino
 - runtime.h is identical for all platforms, it is the interface definition of the runtime code
+- MSDOS and RaspPi contain the code with the right settings for there platforms and additional information.
 
 To compile Basic2 you would check and edit hardware.h and language.h for your platform to set the hardware and language features. On Posix you would then do 
 
@@ -82,7 +83,7 @@ Look at the WIKI https://github.com/slviajero/tinybasic/wiki for more informatio
 
 ## Language features in a nutshell 
 
-The interpreter includes most of the Dartmouth language set. Differences are mainly the string handling which was taken from Apple Integer BASIC. Autodimensioning of arrays and strings was taken from ECMA BASIC.
+The core interpreter includes most of the Dartmouth language set. Differences are mainly the string handling which was taken from Apple Integer BASIC. Autodimensioning of arrays and strings was taken from ECMA BASIC.
 
 The intepreter is compatible with two of the 1976 early basic dialects. It implements the full language set of Dr. Wang's Palo Alto Tinybasic from the December 1976 edition of Dr. Dobbs (https://github.com/slviajero/tinybasic/wiki/Unforgotten:-Palo-Alto-BASIC). This is a remarkably complete little language with many useful features. 
 
