@@ -1,6 +1,6 @@
 /*
  *
- * $Id: runtime.h,v 1.2 2023/08/29 06:01:23 stefan Exp stefan $
+ * $Id: runtime.h,v 1.1 2024/02/25 04:43:16 stefan Exp stefan $
  *
  * Stefan's basic interpreter 
  *
@@ -420,6 +420,7 @@ void vgabegin(); /* this starts the vga controller and the terminal right now */
 int vgastat(uint8_t); /* currently unused */
 void vgascale(int*, int*); /* scale the screen size */
 void vgawrite(char); 
+void vgaend();
 
 /* 
  * Keyboard code for either the Fablib Terminal class or 
