@@ -15,7 +15,7 @@
  */
 
 /* 
- * A few of the buffers and vars come from hardware.h. 
+ * A few of the buffers and vars come from hardware.h. These are
  * 
  * #define BUFSIZE         
  * #define STACKSIZE      
