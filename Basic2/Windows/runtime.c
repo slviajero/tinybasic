@@ -534,9 +534,14 @@ void wiringbegin() {
 #endif
 #ifdef POSIXPIGPIO
   pigpio_pi=pigpio_start("localhost","8888");
-  printf("** GPIO started with result %d\n", pigpio_pi);
-  printf("** pigpio version %d.\n", get_pigpio_version(pigpio_pi));
-  printf("** Hardware revision %d.\n", get_hardware_revision(pigpio_pi));
+  if (pigpio_pi == 0) {
+    printf("GPIO started with result %d\n", pigpio_pi);
+    printf("pigpio version %d.\n", get_pigpio_version(pigpio_pi));
+    printf("Hardware revision %d.\n", get_hardware_revision(pigpio_pi));
+  } else {
+    printf("GPIO failed to start with result %d\n", pigpio_pi);
+    printf("** Does pigpiod run? ");
+  }
 #endif
 }
 
@@ -682,7 +687,7 @@ void vgabegin() {
     printf("** error reading screen information \n");
     return;
   }
-  printf("** detected screen %dx%d, %dbpp \n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
+  printf("Detected screen %dx%d, %dbpp \n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
 
 /* BASIC currently does 24 bit color only */
   memcpy(&orig_vinfo, &vinfo, sizeof(struct fb_var_screeninfo)); 

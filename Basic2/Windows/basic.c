@@ -392,7 +392,7 @@ const bworkfunction_t workfunctions[] PROGMEM = {
 /* errors and messages */
 const char mfile[]    	PROGMEM = "file.bas";
 const char mprompt[]	PROGMEM = "> ";
-const char mgreet[]		PROGMEM = "Stefan's Basic 2.0alpha";
+const char mgreet[]		PROGMEM = "Stefan's Basic 2.0";
 const char mline[]		PROGMEM = "LINE";
 const char mnumber[]	PROGMEM = "NUMBER";
 const char mvariable[]	PROGMEM = "VARIABLE";
