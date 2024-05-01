@@ -50,6 +50,34 @@ All of these settings can be controlled individually at runtime of a BASIC progr
 
 Default of the interpreter is "Apple1" with the exception of the boolean mode which is -1 at interpreter startup.
 
+## Compiling BASIC
+
+Basic 2.0 consists now of 6 files. basic.c is the interpreter and basic.h the prototypes. runtime.c or runtime.cpp are the runtime environments. They differ for real computers (runtime.c) and Arduinos (runtime.cpp). The prototypes i.e. the interface the the runtime code are identical and are called runtime.h. There are almost no configuarable parameters in these files. 
+
+Configuration of the hardware is done in hardware.h. Please look into the hardware section of this manual for more details. 
+
+Configuration of the language features is done in language.h. 
+
+To compile BASIC on an Arduino, copy the folder IotBasic into your Arduino sketch folder and compile. I still use 1.18.5 to compile but test the 2.x versions of the Arduino IDE occasionally. 
+
+To compile on Posix system, type 
+
+gcc basic.c runtime.c -lm 
+
+this works everywhere. On an Raspberry, if you use the Wiring or PIGPIO library, type
+
+gcc basic.c runtime.c -lm -lwiringPi
+
+or
+
+gcc basic.c runtime.c -lm -lpigpiod_lf2
+
+On MSDOS, Turbo C 2.x compiles BASIC like this 
+
+tcc BASIC.C RUNTIME.C
+
+The tc editor does not work as BASIC is too big for it.
+
 ## Core language set
 
 ### Introduction
