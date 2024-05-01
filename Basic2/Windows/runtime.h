@@ -420,6 +420,7 @@ void vgabegin(); /* this starts the vga controller and the terminal right now */
 int vgastat(uint8_t); /* currently unused */
 void vgascale(int*, int*); /* scale the screen size */
 void vgawrite(char); 
+void vgaend();
 
 /* 
  * Keyboard code for either the Fablib Terminal class or 

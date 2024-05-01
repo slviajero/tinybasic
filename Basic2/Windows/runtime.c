@@ -726,7 +726,7 @@ void vgaend() {
 }
 
 /* set the color variable depending on the color depth*/
-void rgbcolor(int r, int g, int b) {
+void rgbcolor(uint8_t r, uint8_t g, uint8_t b) {
   switch (framecolordepth/8) {
   case 4:
     framecolor = (((long)r << 16) & 0x00ff0000) | (((long)g << 8) & 0x0000ff00) | ((long)b & 0x000000ff); /* untested */
@@ -744,7 +744,7 @@ void rgbcolor(int r, int g, int b) {
 }
 
 /* this is taken from the Arduino TFT code */
-void vgacolor(short c) {
+void vgacolor(uint8_t c) {
   short base=128;
   framevgacolor=c;
   if (c==8) { rgbcolor(64, 64, 64); return; }
