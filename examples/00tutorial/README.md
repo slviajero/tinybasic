@@ -85,6 +85,7 @@ This language set is work in progress. There are a few string helper functions a
 
 - Convert: convert.bas - convert strings to numbers and vice versa
 - Splitstring: splitstr.bas - split a string into substrings
+- Nullbuffer: nullbuffer.bas - use the input buffer as a target for PRINT and INPUT
 
 ### Timers and Interrupts
 
@@ -110,6 +111,7 @@ BASIC graphics commands are plotting and setting colours.
 ## The structured language set
 
 - CalculatorS: calcs.bas - RPN pocket calculator in BASIC with WHILE and SWITCH
+- Euler: euler.bas - Calculate the GCD using a multiline function
 
 ### More BASIC features
 
@@ -209,14 +211,8 @@ calc.bas: GOSUB with an expression, @S with READ and DATA, VAL
 
 calcs.bas: WHILE and WEND, SWITCH CASE SWEND, @S with READ and DATA, VAL
 
-tinybasic.bas: VAL and the @V construct. The MS string compatibility functions MID, RIGHT, LEFT. Needs V2.0
+tinybasic.bas: VAL and the @V construct. The MS string compatibility functions MID, RIGHT, LEFT. Needs V2.0.
 
+nullbuffer.bas: PRINT to stream &0, INPUT from it.
 
-
-
-
-
-
-
-
-
+euler.bas: Multiline functions with DEF FN and FEND, WHILE WEND, READ DATA handling with @S
