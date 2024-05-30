@@ -1,5 +1,7 @@
 10 REM "Sort a set of numbers"
 100 INPUT "How many numbers? ", N
+110 REM "Preallocate all local vars before using @()"
+120 I=0: J=0: T=0
 200 PRINT "Original order"
 210 FOR I=1 TO N
 220 @(I)=INT(RND(10))
