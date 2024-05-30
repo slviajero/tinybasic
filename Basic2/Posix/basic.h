@@ -299,7 +299,7 @@ typedef int number_t;
 typedef int wnumber_t;
 #endif
 /* default is 16bit addresses and max 64k memory, setting MEMSIZE in hardware.h overrides this */
-#if MEMSIZE != 0 && MEMSIZE < 65536
+#if MEMSIZE == 0 && MEMSIZE < 65536
 typedef uint16_t address_t; /* this type addresses memory */
 #else
 /* use this for large memory systems, tested occassionally */
