@@ -6429,6 +6429,7 @@ void xpoke(){
  */
 void xtab(){
 	address_t a;
+	number_t tmp;
 	token_t t = token;
 
 /* get the number of spaces, we allow brackets here to use xtab also in PRINT */
@@ -6438,8 +6439,13 @@ void xtab(){
 	if (!USELONGJUMP && er) return;
 	if (token == ')') nexttoken();
 
-	a=popaddress();
+/* we handle negative values here */
+	tmp=pop();
 	if (!USELONGJUMP && er) return; 
+
+/* negative tabs mapped to 0 */
+	if (tmp < 0) t=0;
+	a=tmp;
 
 /* the runtime environment can do a true tab then ...  */  
 #ifdef HASMSTAB
