@@ -298,9 +298,13 @@ typedef long wnumber_t;
 typedef int number_t;
 typedef int wnumber_t;
 #endif
+/* default is 16bit addresses and max 64k memory, setting MEMSIZE in hardware.h overrides this */
+#if MEMSIZE != 0 && MEMSIZE < 65536
 typedef uint16_t address_t; /* this type addresses memory */
+#else
 /* use this for large memory systems, tested occassionally */
-// typedef uint32_t address_t;
+typedef uint32_t address_t;
+#endif
 typedef int8_t mem_t; /* a signed 8 bit type for the memory */
 typedef int index_t; /* this type counts at least 16 bit */
 #ifndef HASLONGTOKENS

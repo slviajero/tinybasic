@@ -17,9 +17,11 @@
 #include "hardware.h"
 #include "runtime.h"
 
-/* a small character buffer to receive strings */
+/* a small character buffer to receive strings - not needed any more */
+/* 
 #define CBUFSIZE 4 
 char* cbuffer[CBUFSIZE];
+*/
 
 /* if the BASIC interpreter provides a loop function it will superseed this one */
 #ifndef MSDOS
@@ -1630,8 +1632,9 @@ void dspvt52(char* c){
 }
 #endif
 
-
-uint16_t serialins(char* b, uint16_t nb) { return consins(b, nb); }
+uint16_t serialins(char* b, uint16_t nb) { 
+  return consins(b, nb); 
+}
 
 void serialwrite(char c) { 
 

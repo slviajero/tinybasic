@@ -30,6 +30,13 @@
 #undef RASPPI
 #define POSIX
 
+/*
+ *	MEMSIZE sets the BASIC main memory to a fixed value,
+ *		if MEMSIZE=0 a heuristic is used based on free heap
+ *		size and architecture parameters
+ */
+#define MEMSIZE 0
+
 /* 
  * Hardware flags of the POSIX systems 
  * POSIXTERMINAL, POSIXVT52TOANSI: ensure compatibility of BASIC programs  
@@ -186,11 +193,19 @@ unsigned long millis();
 #undef ARDUINO
 
 /* and we use the buffer sizes for real computers */
+#if MEMSIZE == 0 || MEMSIZE < 2560000
 #define BUFSIZE         256
 #define STACKSIZE       256
 #define GOSUBDEPTH      64
 #define FORDEPTH        64
 #define LINECACHESIZE   64
+#else
+#define BUFSIZE         256
+#define STACKSIZE       256
+#define GOSUBDEPTH      196
+#define FORDEPTH        196
+#define LINECACHESIZE   196
+#endif
 
 /* the buffer size for simulated serial RAM */
 #define SPIRAMSBSIZE 512

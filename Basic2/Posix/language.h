@@ -12,12 +12,10 @@
  *
  *	This is the language definition file. Edit this to set the language 
  * 	capabilities.
- *
- *	MEMSIZE sets the BASIC main memory to a fixed value,
- *		if MEMSIZE=0 a heuristic is used based on free heap
- *		size and architecture parameters
+ * 
+ * MEMSIZE was moved to hardware.h now as it is a hardware setting.
+ * 
  */
-#define MEMSIZE 0 
 
 /*
  *	DEBUG switches on compiled debug mode. Consider using runtime 
@@ -335,6 +333,3 @@
 #if !defined(DISPLAYHASGRAPH) 
 #undef HASGRAPH
 #endif
-
-
-
