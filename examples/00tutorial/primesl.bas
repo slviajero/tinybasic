@@ -1,6 +1,8 @@
 10 REM "Calculate the first N prime numbers"
 20 REM "and output them!"
 30 REM "This version uses @ and BREAK"
+100 REM "Preallocate all vars before using @()"
+110 N=0: K=0: L=0: J=0: I=0
 200 INPUT "How many primes (0=stop)? ", N 
 210 IF N=0 THEN END
 220 IF N>@ THEN PRINT "Maximum is ", @ : GOTO 200
