@@ -665,6 +665,13 @@ mem_t breakcondition = 0;
 /* the FN context, how deep are we in a nested function call, negative values reserved */
 int fncontext = 0; 
 
+/* the accuracy of a equal or not equal statement on numbers */
+#ifdef HASFLOAT
+number_t epsilon = 0;
+#else 
+const number_t epsilon = 0;
+#endif
+
 /*
  * BASIC timer stuff, this is a core interpreter function now
  */
@@ -759,7 +766,7 @@ void esave() {
 		eupdate(a++, 0); 
 
 		/* store the size of the program in byte 1,2,... of the EEPROM*/
-		setaddress(a, eupdate, top);
+		setaddress(a, beupdate, top);
 		a+=addrsize;
 
 		/* store the program */
@@ -789,12 +796,12 @@ void eload() {
 
 		/* how long is it? */
 		a++;
-		top=getaddress(a, eread);
+		top=getaddress(a, beread);
 		a+=addrsize;
 
 		/* load it to memory, memwrite2 is direct mem access */
 		while (a < top+eheadersize){
-			memwrite2(a-eheadersize, eread(a));
+			memwrite2(a-eheadersize, beread(a));
 			a++;
 		}
 	} else { 
@@ -809,7 +816,7 @@ char autorun() {
 
 /* autorun from EEPROM if there is an EEPROM flagged for autorun */	
 	if (elength()>0 && eread(0) == 1) { /* autorun from the EEPROM */
-		top=getaddress(1, eread);
+		top=getaddress(1, beread);
   		st=SERUN;
   		return 1; /* EEPROM autorun overrules filesystem autorun */
 	} 
@@ -1067,6 +1074,10 @@ number_t getvar(name_t *name){
 			return rd;
 		case 'U':
 			return getusrvar();
+#ifdef HASFLOAT
+		case 'P':
+			return epsilon;
+#endif
 #ifdef HASIOT
 		case 'V':
 			return vlength;
@@ -1137,6 +1148,11 @@ void setvar(name_t *name, number_t v){
 		case 'U':
 			setusrvar(v);
 			return;
+#ifdef HASFLOAT
+		case 'P':
+			epsilon=v;
+			return;
+#endif
 #ifdef HASIOT
 		case 'V':
 			return;
@@ -1213,6 +1229,23 @@ void clrvars() {
  * can be used with any memory reader function unlike the old BASIC 1 
  * code.
  */
+
+/* 
+ * To avoid nasty warnings we encapsulate the EEPROM access functions 
+ *	from runtime.c* 
+ * This is only needed for the get* and set* functions as we use the
+ * memreader_t and memwriter_t function pointers here. 
+ * This way, types in runtime.c can be changed without changing the
+ * BASIC interpreter code.
+ */
+mem_t beread(address_t a) {
+	return eread(a);
+}
+
+void beupdate(address_t a, mem_t v) {
+	eupdate(a, v);
+}
+
 
 /* a generic memory reader for numbers  */
 number_t getnumber(address_t m, memreader_t f) {
@@ -1446,7 +1479,6 @@ address_t createarray(name_t* variable, address_t i, address_t j) {
  * and j the second index. This is inconsistent with the use in strings. Will be fixed 
  * when a true indexing type is introduced. 
  */
-
 void array(lhsobject_t* object, mem_t getset, number_t* value) {
 	address_t a; /* the address of the array element */
 	address_t h; /* the number of elements in the array */
@@ -1468,8 +1500,8 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
 			h=elength()/numsize;
 			a=elength()-numsize*object->i;
 			if (a < eheadersize) { error(EORANGE); return; }
-			if (getset == 'g') *value=getnumber(a, eread);  
-			else if (getset == 's') setnumber(a, eupdate, *value);
+			if (getset == 'g') *value=getnumber(a, beread);  
+			else if (getset == 's') setnumber(a, beupdate, *value);
 			return;
 #if defined(DISPLAYDRIVER) && defined(DISPLAYCANSCROLL)
 		case 'D': 
@@ -1526,12 +1558,12 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
 
 		if (DEBUG) { 
 			outsc("** in array dynamical base address "); outnumber(a); 
-			outsc("    and array element number"); outnumber(h); 
+			outsc("    and array element number "); outnumber(h); 
 			outcr(); 
 		}
 
 #ifdef HASMULTIDIM
-		dim=getaddress(a+bfind_object.size-2, memread2);
+		dim=getaddress(a+bfind_object.size-addrsize, memread2);
 		if (DEBUG) { 
 			outsc("** in array, second dimension is "); outnumber(dim); 
 			outspc(); outnumber(a+bfind_object.size); 
@@ -4702,12 +4734,20 @@ void compexpression() {
 	case '=':
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
+#ifndef HASFLOAT
 		push(x == y ? booleanmode : 0);
+#else 
+		if (fabs(x-y) <= epsilon) push(booleanmode); else push(0);
+#endif
 		break;
 	case NOTEQUAL:
 		parseoperator(compexpression);
 		if (!USELONGJUMP && er) return;
+#ifndef HASFLOAT
 		push(x != y ? booleanmode : 0);
+#else 
+	if (fabs(x-y) > epsilon) push(booleanmode); else push(0);
+#endif
 		break;
 	case '>':
 		parseoperator(compexpression);
@@ -5899,7 +5939,7 @@ void listlines(address_t b, address_t e) {
 }
 
 void xlist(){
-	number_t b, e;
+	address_t b, e;
 
 /* get the argument */
 	nexttoken();
@@ -6181,7 +6221,7 @@ void xnew(){
 /* on EEPROM systems also clear the stored state and top */
 #ifdef EEPROMMEMINTERFACE
 	eupdate(0, 0);
-	setaddress(1, eupdate, top);
+	setaddress(1, beupdate, top);
 #endif
 }
 
@@ -6736,7 +6776,7 @@ void xload(const char* f) {
 		ifileclose();
 /* after a successful load we save top to the EEPROM header */
 #ifdef EEPROMMEMINTERFACE
-		setaddress(1, eupdate, top);
+		setaddress(1, beupdate, top);
 #endif
 
 /* go back to run mode and start from the first line */
@@ -9487,12 +9527,12 @@ void setup() {
 #else
 /* if we run on an EEPROM system, more work is needed */
 	if (eread(0) == 0 || eread(0) == 1) { /* have we stored a program and don't do new */
-		top=getaddress(1, eread);
+		top=getaddress(1, beread);
 		resetbasicstate(); /* the little brother of new, reset the state but let the program memory be */
 		for (address_t a=elength(); a<memsize; a++) memwrite2(a, 0); /* clear the heap i.e. the basic RAM*/
   	} else {
 		eupdate(0, 0); /* now we have stored a program of length 0 */
-		setaddress(1, eupdate, 0);
+		setaddress(1, beupdate, 0);
 		xnew();
 	}
 #endif
@@ -9553,7 +9593,7 @@ void loop() {
 
 /* on an EEPROM system we store top after each succesful line insert */
 #ifdef EEPROMMEMINTERFACE
-		setaddress(1, eupdate, top);
+		setaddress(1, beupdate, top);
 #endif
 	} else {
 		/* st=SINT; */

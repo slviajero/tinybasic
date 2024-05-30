@@ -300,7 +300,7 @@ typedef int wnumber_t;
 #endif
 typedef uint16_t address_t; /* this type addresses memory */
 /* use this for large memory systems, tested occassionally */
-/* typedef uint32_t address_t; */
+// typedef uint32_t address_t;
 typedef int8_t mem_t; /* a signed 8 bit type for the memory */
 typedef int index_t; /* this type counts at least 16 bit */
 #ifndef HASLONGTOKENS

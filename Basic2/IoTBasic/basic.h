@@ -15,7 +15,7 @@
  */
 
 /* 
- * A few of the buffers and vars come from hardware.h. 
+ * A few of the buffers and vars come from hardware.h. These are
  * 
  * #define BUFSIZE         
  * #define STACKSIZE      
@@ -299,6 +299,8 @@ typedef int number_t;
 typedef int wnumber_t;
 #endif
 typedef uint16_t address_t; /* this type addresses memory */
+/* use this for large memory systems, tested occassionally */
+// typedef uint32_t address_t;
 typedef int8_t mem_t; /* a signed 8 bit type for the memory */
 typedef int index_t; /* this type counts at least 16 bit */
 #ifndef HASLONGTOKENS
@@ -590,6 +592,8 @@ void storetoken();
 mem_t memread(address_t);
 mem_t memread2(address_t);
 void memwrite2(address_t, mem_t);
+mem_t beread(address_t);
+void beupdate(address_t, mem_t);
 void gettoken();
 void firstline();
 void nextline();
