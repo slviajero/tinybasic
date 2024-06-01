@@ -973,7 +973,7 @@ address_t bfind(name_t* name) {
 /* walk through the heap from the last object added to the first */
 	while (b <= memsize) {
 
-/* get the name and the type */
+/* get the name and the type and advance */
 		bfind_object.name.token=memread2(b++);
 		b=getname(b, &bfind_object.name, memread2);
 
@@ -998,7 +998,7 @@ address_t bfind(name_t* name) {
 		b0=b;
 		b+=bfind_object.size;
 
-/* safety net */
+/* safety net for wraparound situations - should never happen - means corrupt heap */
 		if (b0 > b) {
 			error(EVARIABLE);
 			return 0;
@@ -1391,8 +1391,9 @@ address_t getname(address_t m, name_t* name, memreader_t f) {
 	name->l=f(m++);
 
 	for(l=0; l<name->l; l++) name->c[l]=f(m++);
-	for(; l<MAXNAME; l++) name->c[l]=0; /* should not be there, is needed for 
-		now because the lexer is not implemented correctly*/
+	// for(; l<MAXNAME; l++) name->c[l]=0; /* should not be there, is needed for */
+	/*	not having this here causes the obscure function namehandling bug if xfn does not do a zeroname
+		have not yet found the root cause for this */
 	return m;
 }
 
@@ -2280,11 +2281,17 @@ void pushloop(name_t* name, token_t t, address_t here, number_t to, number_t ste
 		} else {
 			if (name != 0) {
 				loopstack[loopsp].var=*name;
+#if defined(HASAPPLE1) && defined(HASLOOPOPT)
+				loopstack[loopsp].varaddress=bfind(name);
+#else 
+				loopstack[loopsp].varaddress=0;
+#endif
 			} else {
 				loopstack[loopsp].var.c[0]=0;
 				loopstack[loopsp].var.l=0;
 				loopstack[loopsp].var.token=0;
-			}
+				loopstack[loopsp].varaddress=0;
+			}		
 		}
 		loopstack[loopsp].here=here;
 		loopstack[loopsp].to=to;	
@@ -5801,8 +5808,20 @@ void xnext(){
 	}
 
 /* step=0 an infinite loop */
+/* this goes through the variable name */
+#ifndef HASLOOPOPT
 	value=getvar(&loop->var)+loop->step;
 	setvar(&loop->var, value);
+#else
+/* this goes through the stored address and then tries the name (for looping special variables) */
+	if (loop->varaddress) {
+		value=getnumber(loop->varaddress, memread2)+loop->step;
+		setnumber(loop->varaddress, memwrite2, value);
+	} else {
+		value=getvar(&loop->var)+loop->step;
+		setvar(&loop->var, value);
+	}
+#endif
 
 	if (DEBUG) { 
 		outsc("** next loop variable "); outname(&loop->var); outspc(); 
@@ -8546,7 +8565,7 @@ void xdef(){
 	if (token == ')') { 
 		zeroname(&variable);
 	} else if (token == VARIABLE) {
-		variable=name;
+		variable=name; /* this is unclean */
 		nexttoken();
 	} else {
 		error(EUNKNOWN);
@@ -8593,10 +8612,10 @@ void xdef(){
 /* store the number of variables */
 	memwrite2(a++, 1);
 
-/* store the type and the name of the variables */
+/* store the type and the entire name of the variables */
 	memwrite2(a++, variable.token);
 	setname_pgm(a, &variable);
-	a=a+sizeof(name_t)-1; /* useless now but needed later */
+	a=a+sizeof(name_t)-1; /* reserves space for redefinition of functions with different variable */
 
 /* skip the function body during defintion */
 	if (token == '=') {
@@ -8670,6 +8689,7 @@ void xfn(mem_t m) {
 
 /* what is the name of the variable, direct read as getname also gets a token */
 /* skip the type here as not needed*/
+	zeroname(&variable); /* fixes the obscure function namehandling bug */
 	variable.token=memread2(a++);
 	(void) getname(a, &variable, memread2);
 	a=a+sizeof(name_t)-1;

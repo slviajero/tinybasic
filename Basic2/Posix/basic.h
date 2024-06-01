@@ -396,6 +396,7 @@ typedef struct {
  */
 typedef struct {
     name_t var;
+    address_t varaddress; /* experimental to speed up loops */
     address_t here;
     number_t to;
     number_t step;
