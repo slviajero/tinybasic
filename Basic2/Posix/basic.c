@@ -1349,6 +1349,13 @@ mem_t cmpname(name_t* a, name_t* b) {
 	if (a->c[0] == b->c[0] && a->c[1] == b->c[1]) return 1; else return 0;
 }
 
+/* copy the entire name stucture */
+void copyname(name_t* a, name_t* b) {
+	a->c[0]=b->c[0];
+	a->c[1]=b->c[1];
+	a->token=b->token;
+}
+
 /* zero a name and a heap object */
 void zeroname(name_t* name) {
 	name->c[0]=0;
@@ -1404,6 +1411,15 @@ mem_t cmpname(name_t* a, name_t* b) {
 	for(l=0; l<a->l; l++) if (a->c[l] != b->c[l]) return 0;
 	return 1;
 }	
+
+/* copy the entire name stucture */
+void copyname(name_t* a, name_t* b) {
+	mem_t l;
+	a->l=b->l;
+	for(l=0; l<b->l; l++) a->c[l]=b->c[l];
+	a->token=b->token;
+	if (a->l == 1) a->c[1]=0; /* this is needed for compatibility with the short name code */
+}
 
 /* zero a name and a heap object */
 void zeroname(name_t* name) {
@@ -1487,7 +1503,7 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
 	address_t dim=1; /* the array dimension */
 
 	if (DEBUG) {
-		outsc("* array2: accessing "); 
+		outsc("* array: accessing "); 
 		outname(&name); outspc(); outspc(); 
 		outnumber(object->i); outspc(); 
 		outnumber(object->j); outspc(); 
@@ -3809,7 +3825,8 @@ void parsestringvar(string_t* strp, lhsobject_t* lhs) {
 	address_t temp;
 
 /* remember the variable name and prep the indices */
-	lhs->name=name;
+	//lhs->name=name;
+	copyname(&lhs->name, &name);
 	lhs->i=1; /* we start at 1 */
 	lhs->j=arraylimit; /* we assume a string array of length 1, all simple strings are like this */ 
 	lhs->i2=0; /* we want the full string length */
@@ -4151,7 +4168,8 @@ void factorarray() {
 	number_t v;
 
 /* remember the variable, because parsesubscript changes this */	
-	object.name=name;
+	// object.name=name;
+	copyname(&object.name, &name);
 
 /* parse the arguments */
 	parsesubscripts();
@@ -5068,7 +5086,8 @@ void assignment() {
 	lhsobject_t lhs;
 
 /* this code evaluates the left hand side, we remember the object information first */
-	lhs.name=name;
+	// lhs.name=name;
+	copyname(&lhs.name, &name);
 
 	lefthandside(&lhs);
 	if (!USELONGJUMP && er) return;
@@ -5305,7 +5324,8 @@ nextvariable:
 	if (token == VARIABLE || token == ARRAYVAR || token == STRINGVAR) {  
 
 /* check for a valid lefthandside expression */ 
-		lhs.name=name;
+		//lhs.name=name;
+		copyname(&lhs.name, &name);
 
 		lefthandside(&lhs);
 		if (!USELONGJUMP && er) return;
@@ -5629,7 +5649,8 @@ void xfor(){
 	
 /* we need at least a name */
 	if (!expect(VARIABLE, EUNKNOWN)) return;
-	variable=name;
+	//variable=name;
+	copyname(&variable, &name);
 
 /* 
  * This is not standard BASIC.
@@ -5777,7 +5798,8 @@ void xnext(){
 /* one variable is accepted as an argument, no list */
 	if (token == VARIABLE) {
 		if (DEBUG) { outsc("** variable argument "); outname(&name); outcr(); }
-		variable=name;
+		//variable=name;
+		copyname(&variable, &name);
 		nexttoken();
 		if (!termsymbol()) {
 			error(EUNKNOWN);
@@ -6282,7 +6304,8 @@ void xclr() {
 		ert=0;
     	ioer=0;
 	} else {
-		variable=name;
+		//variable=name;
+		copyname(&variable, &name);
 		switch (variable.token) {
 		case VARIABLE:
 			if (variable.c[0] == '@') { return; }
@@ -6354,7 +6377,8 @@ nextvariable:
 	if (token == ARRAYVAR || token == STRINGVAR ){
 
 /* remember the object, direct assignment of struct for the moment */	
-		variable=name;
+		//variable=name;
+		copyname(&variable, &name);
 
 		if (DEBUG)	{
 			outsc("** in xdim "); outname(&variable); outspc(); outnumber(variable.token); 
@@ -6855,7 +6879,8 @@ void xget(){
 	}
 
 /* this code evaluates the left hand side - remember type and name */
-	lhs.name=name; 
+	//lhs.name=name; 
+	copyname(&lhs.name, &name);
 
 	lefthandside(&lhs);
 	if (!USELONGJUMP && er) return;
@@ -8420,7 +8445,8 @@ nextdata:
 	nexttoken();
 
 /* this code evaluates the left hand side - remember type and name */
-	lhs.name=name;
+	//lhs.name=name;
+	copyname(&lhs.name, &name);
 
 	lefthandside(&lhs);
 	if (!USELONGJUMP && er) return;
@@ -8556,7 +8582,8 @@ void xdef(){
 /* the name of the function, it is tokenized as an array */
 	if (!expect(ARRAYVAR, EUNKNOWN)) return;
 
-	function=name;
+	//function=name;
+	copyname(&function, &name);
 	function.token=TFN; /* set the right type here */
 
 /* the argument variable */ 
@@ -8565,7 +8592,8 @@ void xdef(){
 	if (token == ')') { 
 		zeroname(&variable);
 	} else if (token == VARIABLE) {
-		variable=name; /* this is unclean */
+		// variable=name; /* this is unclean */
+		copyname(&variable, &name);
 		nexttoken();
 	} else {
 		error(EUNKNOWN);

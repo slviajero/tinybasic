@@ -36,7 +36,7 @@
 #define STRSIZEDEF      32
 
 /* the maximum name length */
-#define MAXNAME         16
+#define MAXNAME         32
 
 /*
  * The tokens for the BASIC keywords
@@ -401,7 +401,6 @@ typedef struct {
     number_t to;
     number_t step;
 } bloop_t;
-
 
 /* 
  * The accumulator type, used for the stack and the 
