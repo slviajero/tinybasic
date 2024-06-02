@@ -973,7 +973,7 @@ address_t bfind(name_t* name) {
 /* walk through the heap from the last object added to the first */
 	while (b <= memsize) {
 
-/* get the name and the type */
+/* get the name and the type and advance */
 		bfind_object.name.token=memread2(b++);
 		b=getname(b, &bfind_object.name, memread2);
 
@@ -998,7 +998,7 @@ address_t bfind(name_t* name) {
 		b0=b;
 		b+=bfind_object.size;
 
-/* safety net */
+/* safety net for wraparound situations - should never happen - means corrupt heap */
 		if (b0 > b) {
 			error(EVARIABLE);
 			return 0;
@@ -1349,6 +1349,13 @@ mem_t cmpname(name_t* a, name_t* b) {
 	if (a->c[0] == b->c[0] && a->c[1] == b->c[1]) return 1; else return 0;
 }
 
+/* copy the entire name stucture */
+void copyname(name_t* a, name_t* b) {
+	a->c[0]=b->c[0];
+	a->c[1]=b->c[1];
+	a->token=b->token;
+}
+
 /* zero a name and a heap object */
 void zeroname(name_t* name) {
 	name->c[0]=0;
@@ -1391,8 +1398,9 @@ address_t getname(address_t m, name_t* name, memreader_t f) {
 	name->l=f(m++);
 
 	for(l=0; l<name->l; l++) name->c[l]=f(m++);
-	for(; l<MAXNAME; l++) name->c[l]=0; /* should not be there, is needed for 
-		now because the lexer is not implemented correctly*/
+	// for(; l<MAXNAME; l++) name->c[l]=0; /* should not be there, is needed for */
+	/*	not having this here causes the obscure function namehandling bug if xfn does not do a zeroname
+		have not yet found the root cause for this */
 	return m;
 }
 
@@ -1403,6 +1411,15 @@ mem_t cmpname(name_t* a, name_t* b) {
 	for(l=0; l<a->l; l++) if (a->c[l] != b->c[l]) return 0;
 	return 1;
 }	
+
+/* copy the entire name stucture */
+void copyname(name_t* a, name_t* b) {
+	mem_t l;
+	a->l=b->l;
+	for(l=0; l<b->l; l++) a->c[l]=b->c[l];
+	a->token=b->token;
+	if (a->l == 1) a->c[1]=0; /* this is needed for compatibility with the short name code when handling special vars */
+}
 
 /* zero a name and a heap object */
 void zeroname(name_t* name) {
@@ -1486,7 +1503,7 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
 	address_t dim=1; /* the array dimension */
 
 	if (DEBUG) {
-		outsc("* array2: accessing "); 
+		outsc("* array: accessing "); 
 		outname(&name); outspc(); outspc(); 
 		outnumber(object->i); outspc(); 
 		outnumber(object->j); outspc(); 
@@ -2280,11 +2297,17 @@ void pushloop(name_t* name, token_t t, address_t here, number_t to, number_t ste
 		} else {
 			if (name != 0) {
 				loopstack[loopsp].var=*name;
+#if defined(HASAPPLE1) && defined(HASLOOPOPT)
+				loopstack[loopsp].varaddress=bfind(name);
+#else 
+				loopstack[loopsp].varaddress=0;
+#endif
 			} else {
 				loopstack[loopsp].var.c[0]=0;
 				loopstack[loopsp].var.l=0;
 				loopstack[loopsp].var.token=0;
-			}
+				loopstack[loopsp].varaddress=0;
+			}		
 		}
 		loopstack[loopsp].here=here;
 		loopstack[loopsp].to=to;	
@@ -3802,7 +3825,8 @@ void parsestringvar(string_t* strp, lhsobject_t* lhs) {
 	address_t temp;
 
 /* remember the variable name and prep the indices */
-	lhs->name=name;
+	//lhs->name=name;
+	copyname(&lhs->name, &name);
 	lhs->i=1; /* we start at 1 */
 	lhs->j=arraylimit; /* we assume a string array of length 1, all simple strings are like this */ 
 	lhs->i2=0; /* we want the full string length */
@@ -4144,7 +4168,8 @@ void factorarray() {
 	number_t v;
 
 /* remember the variable, because parsesubscript changes this */	
-	object.name=name;
+	// object.name=name;
+	copyname(&object.name, &name);
 
 /* parse the arguments */
 	parsesubscripts();
@@ -5061,7 +5086,8 @@ void assignment() {
 	lhsobject_t lhs;
 
 /* this code evaluates the left hand side, we remember the object information first */
-	lhs.name=name;
+	// lhs.name=name;
+	copyname(&lhs.name, &name);
 
 	lefthandside(&lhs);
 	if (!USELONGJUMP && er) return;
@@ -5298,7 +5324,8 @@ nextvariable:
 	if (token == VARIABLE || token == ARRAYVAR || token == STRINGVAR) {  
 
 /* check for a valid lefthandside expression */ 
-		lhs.name=name;
+		//lhs.name=name;
+		copyname(&lhs.name, &name);
 
 		lefthandside(&lhs);
 		if (!USELONGJUMP && er) return;
@@ -5622,7 +5649,8 @@ void xfor(){
 	
 /* we need at least a name */
 	if (!expect(VARIABLE, EUNKNOWN)) return;
-	variable=name;
+	//variable=name;
+	copyname(&variable, &name);
 
 /* 
  * This is not standard BASIC.
@@ -5770,7 +5798,8 @@ void xnext(){
 /* one variable is accepted as an argument, no list */
 	if (token == VARIABLE) {
 		if (DEBUG) { outsc("** variable argument "); outname(&name); outcr(); }
-		variable=name;
+		//variable=name;
+		copyname(&variable, &name);
 		nexttoken();
 		if (!termsymbol()) {
 			error(EUNKNOWN);
@@ -5801,8 +5830,20 @@ void xnext(){
 	}
 
 /* step=0 an infinite loop */
+/* this goes through the variable name */
+#ifndef HASLOOPOPT
 	value=getvar(&loop->var)+loop->step;
 	setvar(&loop->var, value);
+#else
+/* this goes through the stored address and then tries the name (for looping special variables) */
+	if (loop->varaddress) {
+		value=getnumber(loop->varaddress, memread2)+loop->step;
+		setnumber(loop->varaddress, memwrite2, value);
+	} else {
+		value=getvar(&loop->var)+loop->step;
+		setvar(&loop->var, value);
+	}
+#endif
 
 	if (DEBUG) { 
 		outsc("** next loop variable "); outname(&loop->var); outspc(); 
@@ -6263,7 +6304,8 @@ void xclr() {
 		ert=0;
     	ioer=0;
 	} else {
-		variable=name;
+		//variable=name;
+		copyname(&variable, &name);
 		switch (variable.token) {
 		case VARIABLE:
 			if (variable.c[0] == '@') { return; }
@@ -6335,7 +6377,8 @@ nextvariable:
 	if (token == ARRAYVAR || token == STRINGVAR ){
 
 /* remember the object, direct assignment of struct for the moment */	
-		variable=name;
+		//variable=name;
+		copyname(&variable, &name);
 
 		if (DEBUG)	{
 			outsc("** in xdim "); outname(&variable); outspc(); outnumber(variable.token); 
@@ -6429,6 +6472,7 @@ void xpoke(){
  */
 void xtab(){
 	address_t a;
+	number_t tmp;
 	token_t t = token;
 
 /* get the number of spaces, we allow brackets here to use xtab also in PRINT */
@@ -6438,8 +6482,13 @@ void xtab(){
 	if (!USELONGJUMP && er) return;
 	if (token == ')') nexttoken();
 
-	a=popaddress();
+/* we handle negative values here */
+	tmp=pop();
 	if (!USELONGJUMP && er) return; 
+
+/* negative tabs mapped to 0 */
+	if (tmp < 0) t=0;
+	a=tmp;
 
 /* the runtime environment can do a true tab then ...  */  
 #ifdef HASMSTAB
@@ -6652,13 +6701,11 @@ char* getfilename2(char d) {
  *	SAVE a file either to disk or to EEPROM
  */
 void xsave() {
-	// char filename[SBUFSIZE];
 	char *filename;
 	address_t here2;
 	token_t t;
 
 	nexttoken();
-	//getfilename(filename, 1);
 	filename=getfilename2(1);
 	if (!USELONGJUMP && er) return;
 	t=token;
@@ -6714,7 +6761,6 @@ void xsave() {
  * with getfilename.
  */
 void xload(const char* f) {
-	// char filename[SBUFSIZE];
 	char* filename;
 	char ch;
 	address_t here2;
@@ -6732,9 +6778,14 @@ void xload(const char* f) {
 		eload();
 	} else {
 
-/*	if load is called during runtime it chains
- *	load the program as new but perserve the variables
- *	gosub and for stacks are cleared 
+/*	
+ * If load is called during runtime it merges 
+ *	the program as new but perserve the variables
+ *	gosub and for stacks are cleared. This is incomplete
+ *  as there is one side effect. Functions are not cleared
+ *  as they are stored in the heap. If lines are overwritten 
+ *  by the merge, the function pointers in the heap become 
+ *  invalid. There is no safety net for this in the current
  */
 		if (st == SRUN) { 
 			chain=1; 
@@ -6830,7 +6881,8 @@ void xget(){
 	}
 
 /* this code evaluates the left hand side - remember type and name */
-	lhs.name=name; 
+	//lhs.name=name; 
+	copyname(&lhs.name, &name);
 
 	lefthandside(&lhs);
 	if (!USELONGJUMP && er) return;
@@ -8395,7 +8447,8 @@ nextdata:
 	nexttoken();
 
 /* this code evaluates the left hand side - remember type and name */
-	lhs.name=name;
+	//lhs.name=name;
+	copyname(&lhs.name, &name);
 
 	lefthandside(&lhs);
 	if (!USELONGJUMP && er) return;
@@ -8531,7 +8584,8 @@ void xdef(){
 /* the name of the function, it is tokenized as an array */
 	if (!expect(ARRAYVAR, EUNKNOWN)) return;
 
-	function=name;
+	//function=name;
+	copyname(&function, &name);
 	function.token=TFN; /* set the right type here */
 
 /* the argument variable */ 
@@ -8540,7 +8594,8 @@ void xdef(){
 	if (token == ')') { 
 		zeroname(&variable);
 	} else if (token == VARIABLE) {
-		variable=name;
+		// variable=name; /* this is unclean */
+		copyname(&variable, &name);
 		nexttoken();
 	} else {
 		error(EUNKNOWN);
@@ -8587,10 +8642,10 @@ void xdef(){
 /* store the number of variables */
 	memwrite2(a++, 1);
 
-/* store the type and the name of the variables */
+/* store the type and the entire name of the variables */
 	memwrite2(a++, variable.token);
 	setname_pgm(a, &variable);
-	a=a+sizeof(name_t)-1; /* useless now but needed later */
+	a=a+sizeof(name_t)-1; /* reserves space for redefinition of functions with different variable */
 
 /* skip the function body during defintion */
 	if (token == '=') {
@@ -8664,6 +8719,7 @@ void xfn(mem_t m) {
 
 /* what is the name of the variable, direct read as getname also gets a token */
 /* skip the type here as not needed*/
+	// zeroname(&variable); /* fixes the obscure function namehandling bug not needed any more with copyname in place */
 	variable.token=memread2(a++);
 	(void) getname(a, &variable, memread2);
 	a=a+sizeof(name_t)-1;

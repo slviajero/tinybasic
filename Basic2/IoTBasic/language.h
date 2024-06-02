@@ -12,12 +12,10 @@
  *
  *	This is the language definition file. Edit this to set the language 
  * 	capabilities.
- *
- *	MEMSIZE sets the BASIC main memory to a fixed value,
- *		if MEMSIZE=0 a heuristic is used based on free heap
- *		size and architecture parameters
+ * 
+ * MEMSIZE was moved to hardware.h now as it is a hardware setting.
+ * 
  */
-#define MEMSIZE 0
 
 /*
  *	DEBUG switches on compiled debug mode. Consider using runtime 
@@ -129,14 +127,20 @@
  *      In this mode false is 0 and -1 is true. (1) is C style boolean arithemtic.
  *      In this mode true is 1 and false is 0. AND and OR still do bitwise operations
  *      but NOT is C not. SET 19,1 or -1 can change this at runtime.
- *
+ *  HASFULLINSTR: the full C64 style INSTR command. Without this flag INSTR only accepts
+ *		a single character as argument. This is much faster and leaner on an Arduino. 
+ * 		This macro is activated when HASMSSTRINGS is set. 
+ * HASLOOPOPT: optimizes the FOR loops for speed. This is a trade off between speed and 
+ *     memory. It is activated by default. Speeup is about 10% on a Mac. On platforms
+ *     with low memory bandwidth it is much more.
  */
 #undef POWERRIGHTTOLEFT
 #undef MSARRAYLIMITS
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 0
 #define BOOLEANMODE -1
-
+#undef  HASFULLINSTR
+#define HASLOOPOPT
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -216,7 +220,7 @@
 #undef HASMULTILINEFUNCTIONS
 #undef HASEDITOR
 #define HASTINYBASICINPUT
-#undef  HASLONGNAMES 
+#undef HASLONGNAMES 
 #endif
 
 /* all features activated */
@@ -315,13 +319,17 @@
 #define HASDARTMOUTH
 #endif
 
-
 #if defined(HASDARTMOUTH) || defined(HASDARKARTS) || defined(HASIOT) || defined(HASMSSTRINGS)
 #define HASAPPLE1
 #endif
 
 #if defined(HASSTRUCT)
 #define HASSTEFANSEXT
+#endif
+
+/* MS strings also bring the full INSTR */
+#if defined(HASMSSTRINGS)
+#define HASFULLINSTR
 #endif
 
 /* dependencies on the hardware */

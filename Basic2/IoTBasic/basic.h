@@ -36,7 +36,7 @@
 #define STRSIZEDEF      32
 
 /* the maximum name length */
-#define MAXNAME         16
+#define MAXNAME         32
 
 /*
  * The tokens for the BASIC keywords
@@ -298,9 +298,13 @@ typedef long wnumber_t;
 typedef int number_t;
 typedef int wnumber_t;
 #endif
+/* default is 16bit addresses and max 64k memory, setting MEMSIZE in hardware.h overrides this */
+#if MEMSIZE == 0 && MEMSIZE < 65536
 typedef uint16_t address_t; /* this type addresses memory */
+#else
 /* use this for large memory systems, tested occassionally */
-// typedef uint32_t address_t;
+typedef uint32_t address_t;
+#endif
 typedef int8_t mem_t; /* a signed 8 bit type for the memory */
 typedef int index_t; /* this type counts at least 16 bit */
 #ifndef HASLONGTOKENS
@@ -392,11 +396,11 @@ typedef struct {
  */
 typedef struct {
     name_t var;
+    address_t varaddress; /* experimental to speed up loops */
     address_t here;
     number_t to;
     number_t step;
 } bloop_t;
-
 
 /* 
  * The accumulator type, used for the stack and the 
