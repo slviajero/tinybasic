@@ -1,5 +1,5 @@
-const char* ssid = "";
-const char* password = "";
+const char* ssid = "daheim1";
+const char* password = "xacobeo7";
 const char* mqtt_server = "test.mosquitto.org";
 const char* mqtt_user = "";
 const char* mqtt_passwd = "";

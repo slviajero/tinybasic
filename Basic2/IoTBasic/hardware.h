@@ -116,6 +116,10 @@
 /* IO control, emulate real tab */
 #define HASMSTAB
 
+/* experimental BUILDIN feature, implemented as a filesystem */
+#define HASBUILDIN
+#define BUILDINMODULE "buildin-tutorial.h"
+
 /* interrupts for the EVENT command */
 #undef ARDUINOINTERRUPTS
 
@@ -698,6 +702,15 @@
 #undef ARDUINOSD
 #undef STM32SDIO
 #define FILESYSTEMDRIVER
+#endif
+
+/*
+ * The build in file system for read only programs, only 
+ * if there is no other file system present
+ */
+#if defined(HASBUILDIN) && !defined(FILESYSTEMDRIVER)
+#define FILESYSTEMDRIVER
+#include BUILDINMODULE
 #endif
 
 /*

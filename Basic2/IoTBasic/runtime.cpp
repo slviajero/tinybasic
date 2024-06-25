@@ -20,6 +20,7 @@
 
 /* if the BASIC interpreter provides a loop function it will superseed this one */
 void __attribute__((weak)) bloop() {};
+
 /*
  * defining the systype variable which informs BASIC about the platform at runtime
  */
@@ -289,6 +290,7 @@ uint16_t nullbufsize = BUFSIZE;
 #define SD_DETECT_PIN SD_DETECT_NONE
 #endif
 #endif
+
 /*
  * external flash file systems override internal filesystems
  * currently BASIC can only have one filesystem
@@ -3963,6 +3965,17 @@ byte ofile;
 byte file;
 #endif
 
+/* the buildin file system for ro access */
+#ifdef HASBUILDIN
+char* ifile = 0;
+uint16_t ifilepointer = 0;
+char* file = 0;
+char* buildin_pgm = 0;
+uint16_t rootpointer = 0;
+char tempname[FBUFSIZE]; /* this is needed for the catalog code as strings need to be copied from progmem */
+#endif
+
+
 /* these filesystems may have a path prefixes, we treat STM32SDIO like an SD here */
 #if defined(RP2040LITTLEFS) || defined(ESPSPIFFS) || defined(ARDUINOSD) 
 char tmpfilename[10+FBUFSIZE];
@@ -3988,7 +4001,9 @@ const char* rmrootfsprefix(const char* filename) {
 
 /* 
  *	filesystem starter for SPIFFS and SD on ESP, ESP32 and Arduino plus LittleFS
- *	the verbose option needs to be checked 
+ *	the verbose option needs to be checked .
+ *  
+ *  Also here the driver for the buildin file system.
  * 
  * if SDPIN is empty it is the standard SS pin of the platfrom
  * 
@@ -4029,6 +4044,9 @@ void fsbegin() {
 		if (EFS.format(32)) fsstart=32; else fsstart=0;;
 	}
 #endif
+#ifdef HASBUILDIN
+/* hopefully nothing to be done */
+#endif
 }
 
 uint8_t fsstat(uint8_t c) { 
@@ -4058,9 +4076,12 @@ void filewrite(char c) {
     if (!EFS.fputc(c, ofile)) ioer=-1; 
   } else ioer=1;
 #endif
+#if defined(HASBUILDIN)
+  ioer=1;
+#endif
 }
 
-char fileread(){
+char fileread() {
 	char c;
 #if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
 	if (ifile) c=ifile.read(); else { ioer=1; return 0; }
@@ -4077,6 +4098,13 @@ char fileread(){
 	if (c == -1|| c == 255) ioer=-1;
 	return c;
 #endif
+/* experimental code, can do only one program for now */
+#if defined(HASBUILDIN)
+  if (ifile == 0) return 255; 
+  c=pgm_read_byte(ifile+ifilepointer);
+  if (c != '\f') ifilepointer++; else { ioer=-1; c=255; }
+  return c;
+#endif
 	return 0;
 }
 
@@ -4089,6 +4117,12 @@ int fileavailable(){
 #endif
 #ifdef ARDUINOEFS
 	return EFS.available(ifile);
+#endif
+#if defined(HASBUILDIN)
+  char c;
+  if (ifile == 0) return 0;
+  c=pgm_read_byte(ifile+ifilepointer);
+  if (c != '\f') return 1; else return 0;
 #endif
 	return 0;
 }
@@ -4114,7 +4148,37 @@ uint8_t ifileopen(const char* filename){
 	ifile=EFS.fopen(filename, "r");
 	return ifile != 0;
 #endif
-	return 0;
+#if defined(HASBUILDIN)
+  byte i, file;
+  char* name;
+
+  ifilepointer=0;
+  file=0;
+  while(1) {
+
+    /* find a name in progmem, 0 if no more name */
+    name=(char*)pgm_read_ptr(&buildin_program_names[file]);    
+    if (name == 0) { ifile=0; return 0; }
+
+    /* compare the name with the filename */  
+    for(i=0;i<32;i++) {
+    char c=pgm_read_byte(&name[i]);
+
+    /* we are at the end of the name, if filename is also ending, we got it */
+      if (c == 0 && filename[i] == 0) {
+        ifile=(char*)pgm_read_ptr(&buildin_programs[file]);
+        return (ifile != 0);
+      }
+
+/* a character mismatch means we need to go to the next name */
+      if (c != filename[i]) {
+          file++;
+          break;  
+      }
+    }
+  }
+#endif
+	return (ifile !=0);
 }
 
 void ifileclose(){
@@ -4126,6 +4190,10 @@ void ifileclose(){
 #endif
 #ifdef ARDUINOEFS
 	if (ifile) EFS.fclose(ifile);	
+#endif
+#if defined(HASBUILDIN)
+  ifile=0;
+  ifilepointer=0;
 #endif
 }
 
@@ -4161,6 +4229,10 @@ uint8_t ofileopen(const char* filename, const char* m){
 #ifdef ARDUINOEFS
 	ofile=EFS.fopen(filename, m);
 	return ofile != 0; 
+#endif
+#if defined(HASBUILDIN)
+  ioer=-1;
+  return 0;
 #endif
 	return 0;
 }
@@ -4205,6 +4277,9 @@ void rootopen() {
 #endif
 #ifdef ARDUINOEFS
 	EFS.dirp=0;
+#endif
+#ifdef HASBUILDIN
+  rootpointer=0;
 #endif	
 }
 
@@ -4235,6 +4310,14 @@ uint8_t rootnextfile() {
 	file = EFS.readdir();
 	return (file != 0);
 #endif
+#ifdef HASBUILDIN
+  file=(char*)pgm_read_ptr(&buildin_program_names[rootpointer]);
+  if (file != 0) {
+    buildin_pgm=(char*)pgm_read_ptr(&buildin_programs[rootpointer]);
+    rootpointer++;
+  }
+  return (file != 0);
+#endif
   return 0;
 }
 
@@ -4256,6 +4339,9 @@ uint8_t rootisfile() {
 #ifdef ARDUINOEFS
 	return 1;
 #endif	
+#ifdef HASBUILDIN
+  return 1;
+#endif
 	return 0;
 }
 
@@ -4284,6 +4370,14 @@ const char* rootfilename() {
 #ifdef ARDUINOEFS
 	return EFS.filename(file);
 #endif
+#ifdef HASBUILDIN
+  int i=0;
+  for(i=0; i<FBUFSIZE; i++) {
+    tempname[i]=(char)pgm_read_byte(&file[i]);
+    if (tempname[i] == 0) break;
+  }
+  return tempname;
+#endif
 	return 0; 
 }
 
@@ -4295,6 +4389,16 @@ uint32_t rootfilesize() {
 #endif
 #ifdef ARDUINOEFS
 	return EFS.filesize(file);
+#endif
+#ifdef HASBUILDIN
+  int i=0;
+  if (buildin_pgm) {
+    for (;;i++) {
+      char ch=pgm_read_byte(&buildin_pgm[i]);
+      if (ch == 0) break;
+    }
+  }
+  return i;
 #endif
   return 0;
 }
