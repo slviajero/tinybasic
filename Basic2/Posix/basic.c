@@ -1055,6 +1055,9 @@ number_t getvar(name_t *name){
 
 /* the special variables */
 	if (name->c[0] == '@') {
+#ifdef HASLONGNAMES
+    if (name->l == 1) name->c[1]=0; /* to make sure @ alone works */
+#endif
 		switch (name->c[1]) {
 		case 'A':
 			return availch();
