@@ -76,6 +76,9 @@
 /* use TAB in MS mode */
 #define HASMSTAB
 
+/* build in BASIC programs on Posix currently without function */
+#undef HASBUILDIN
+
 /* used pins and other parameters */
 
 /* set this is you want pin 4 on low interrupting the interpreter */

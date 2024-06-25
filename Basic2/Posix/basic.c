@@ -1418,7 +1418,7 @@ void copyname(name_t* a, name_t* b) {
 	a->l=b->l;
 	for(l=0; l<b->l; l++) a->c[l]=b->c[l];
 	a->token=b->token;
-	if (a->l == 1) a->c[1]=0; /* this is needed for compatibility with the short name code */
+	if (a->l == 1) a->c[1]=0; /* this is needed for compatibility with the short name code when handling special vars */
 }
 
 /* zero a name and a heap object */
@@ -6701,13 +6701,11 @@ char* getfilename2(char d) {
  *	SAVE a file either to disk or to EEPROM
  */
 void xsave() {
-	// char filename[SBUFSIZE];
 	char *filename;
 	address_t here2;
 	token_t t;
 
 	nexttoken();
-	//getfilename(filename, 1);
 	filename=getfilename2(1);
 	if (!USELONGJUMP && er) return;
 	t=token;
@@ -6763,7 +6761,6 @@ void xsave() {
  * with getfilename.
  */
 void xload(const char* f) {
-	// char filename[SBUFSIZE];
 	char* filename;
 	char ch;
 	address_t here2;
@@ -6781,9 +6778,14 @@ void xload(const char* f) {
 		eload();
 	} else {
 
-/*	if load is called during runtime it chains
- *	load the program as new but perserve the variables
- *	gosub and for stacks are cleared 
+/*	
+ * If load is called during runtime it merges 
+ *	the program as new but perserve the variables
+ *	gosub and for stacks are cleared. This is incomplete
+ *  as there is one side effect. Functions are not cleared
+ *  as they are stored in the heap. If lines are overwritten 
+ *  by the merge, the function pointers in the heap become 
+ *  invalid. There is no safety net for this in the current
  */
 		if (st == SRUN) { 
 			chain=1; 
@@ -8717,7 +8719,7 @@ void xfn(mem_t m) {
 
 /* what is the name of the variable, direct read as getname also gets a token */
 /* skip the type here as not needed*/
-	zeroname(&variable); /* fixes the obscure function namehandling bug */
+	// zeroname(&variable); /* fixes the obscure function namehandling bug not needed any more with copyname in place */
 	variable.token=memread2(a++);
 	(void) getname(a, &variable, memread2);
 	a=a+sizeof(name_t)-1;

@@ -17,11 +17,10 @@
 #include "hardware.h"
 #include "runtime.h"
 
-/* a small character buffer to receive strings - not needed any more */
-/* 
-#define CBUFSIZE 4 
-char* cbuffer[CBUFSIZE];
-*/
+/* the buildin BASIC programs, they appeare as a file system, on POSIX not implemented */
+#ifdef HASBUILDIN
+#include "buildin.h"
+#endif
 
 /* if the BASIC interpreter provides a loop function it will superseed this one */
 #ifndef MSDOS
@@ -29,7 +28,6 @@ void __attribute__((weak)) bloop() {}
 #else
 void bloop() {}
 #endif
-
 
 /* 
  *  Global variables of the runtime env.
