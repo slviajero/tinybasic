@@ -1,6 +1,6 @@
 # Stefan's IoT BASIC in a nutshell
 
-## Version information
+## Version information -
 
 This manual is for the released version 1.4 and 2.0 of Stefan's IoT BASIC interpreter. 
 
