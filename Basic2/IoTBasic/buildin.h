@@ -21,7 +21,7 @@ const char buildin_pgm1_name[] PROGMEM = "*hello.bas";
 
 const char buildin_pgm2[] PROGMEM = { 
 	"10 PI=22000/7\n"
-	"20 PRINT PI\n"
+	"20 PRINT 'PI=',INT(PI)\n"
 	"30 END\n"
 	"\f"
 };
