@@ -5955,13 +5955,14 @@ void outputtoken() {
 
 void listlines(address_t b, address_t e) {
 	mem_t oflag=0;
+	address_t here2=here;
 
 /* global variables controlling outputtoken, reset to default */
 	lastouttoken=0;
 	spaceafterkeyword=0;
 
 /* if there is a programm ... */
-	if ( top != 0 ) {
+	if (top != 0) {
 		here=0;
 		gettoken();
 		while (here < top) {
@@ -5980,6 +5981,7 @@ void listlines(address_t b, address_t e) {
     	if (e == maxaddr || b != e) outcr(); /* supress newlines in "list 50" - a little hack */
 	}
 
+	if (st != SINT) here=here2;
 }
 
 void xlist(){
