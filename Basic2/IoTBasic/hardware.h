@@ -117,8 +117,13 @@
 #define HASMSTAB
 
 /* experimental BUILDIN feature, implemented as a filesystem */
-#define HASBUILDIN
-#define BUILDINMODULE "buildin-tutorial.h"
+#undef HASBUILDIN
+/* this is the demo module */
+//#define BUILDINMODULE "buildin.h"
+/* a small tutorial */
+// #define BUILDINMODULE "buildin/buildin-tutorial.h"
+// #define BUILDINMODULE "buildin/buildin-arduinotest.h"
+#define BUILDINMODULE "buildin/buildin-games.h"
 
 /* interrupts for the EVENT command */
 #undef ARDUINOINTERRUPTS
@@ -708,7 +713,7 @@
  * The build in file system for read only programs, only 
  * if there is no other file system present
  */
-#if defined(HASBUILDIN) && !defined(FILESYSTEMDRIVER)
+#if defined(HASBUILDIN)
 #define FILESYSTEMDRIVER
 #include BUILDINMODULE
 #endif
