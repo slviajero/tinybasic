@@ -1516,10 +1516,11 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
 /* handling the special array, range check and access is done here */
 	if (object->name.c[0] == '@') {
 		switch(object->name.c[1]) {
+/* @E ranges from 1 to the end of the EEPROM minus the header */
 		case 'E': 
 			h=elength()/numsize;
 			a=elength()-numsize*object->i;
-			if (a < eheadersize) { error(EORANGE); return; }
+			if (a < eheadersize || a>elength()-numsize) { error(EORANGE); return; }
 			if (getset == 'g') *value=getnumber(a, beread);  
 			else if (getset == 's') setnumber(a, beupdate, *value);
 			return;
@@ -4021,6 +4022,8 @@ char stringvalue(string_t* strp) {
 				if (er != 0) return 0;
 				i=popaddress(); 
 			}
+			if (i == 0) i=1;
+			if (i > k) l=0;
 			if (k < i+l) l=k-i+1;
 			if (l < 0) l=0; 
 			if (strp->address != 0) strp->address=strp->address+i-1;
