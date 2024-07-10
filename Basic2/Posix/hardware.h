@@ -77,7 +77,13 @@
 #define HASMSTAB
 
 /* build in BASIC programs on Posix currently without function */
-#undef HASBUILDIN
+#define HASBUILDIN
+/* this is the demo module */
+//#define BUILDINMODULE "buildin.h"
+/* a small tutorial */
+// #define BUILDINMODULE "buildin/buildin-tutorial.h"
+// #define BUILDINMODULE "buildin/buildin-arduinotest.h"
+#define BUILDINMODULE "buildin/buildin-games.h"
 
 /* used pins and other parameters */
 
