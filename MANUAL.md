@@ -1609,6 +1609,14 @@ Key bindings to terminals are in preparation. A full editor is also in the backl
 
 # Hardware drivers 
 
+## Buildin Programs 
+
+BASIC 2.x can have a few BASIC programs compiled into the code. They have to be provided in modules like buildin.h. This feature is activated by setting HASBUILDIN in hardware.h and setting the right BUILDINMODULE. 
+
+Buildin programs can be loaded and saved with LOAD and SAVE. They can be openend and read with OPEN and they can be shown with CATALOG. 
+
+These programs are always scanned first, hence a program with the same name on the filesystem cannot be accessed. Best use a name convention or prefix that distinguished the build in programs from normal programs. If the characters _ or . are used as prefixes for the build in program, they are invisible for CATALOG.
+
 ## I/O Streams
 
 ### Introduction
