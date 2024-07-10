@@ -19,6 +19,7 @@
 
 /* the buildin BASIC programs, they appeare as a file system, on POSIX not implemented */
 #ifdef HASBUILDIN
+#define FBUFSIZE 32
 #include "buildin.h"
 #endif
 
@@ -1162,6 +1163,18 @@ void* root;
 void* file;
 #endif 
 
+/* the buildin file system for ro access - transfered and simplified from the Arduino runtime.cpp */
+#ifdef HASBUILDIN
+char* buildin_ifile = 0;
+uint16_t buildin_ifilepointer = 0;
+char* buildin_file = 0;
+char* buildin_pgm = 0;
+uint8_t buildin_rootactive = 0;
+uint16_t buildin_rootpointer = 0;
+char buildin_tempname[FBUFSIZE]; /* this is needed for the catalog code as strings need to be copied from progmem */
+#endif
+
+
 /* POSIX OSes always have filesystems */
 uint8_t fsstat(uint8_t c) { return 1; }
 
@@ -1181,17 +1194,68 @@ void filewrite(char c) {
 
 char fileread(){
   char c;
+/* the buildin file is active, we handle this first, else we allow for another FS */
+#if defined(HASBUILDIN)
+  if (buildin_ifile != 0) { 
+    c=buildin_ifile[buildin_ifilepointer];
+    if (c != '\f') buildin_ifilepointer++; else { ioer=-1; c=-1; }
+    return c;
+  }
+#endif
   if (ifile) c=fgetc(ifile); else { ioer=1; return 0; }
   if (cheof(c)) ioer=-1;
   return c;
 }
 
 uint8_t ifileopen(const char* filename){
+#if defined(HASBUILDIN)
+  int i, file;
+  char* name;
+  char c;
+
+/* opening a new file */
+  buildin_ifilepointer=0;
+  buildin_ifile=0;
+
+/* is a valid filename provided */
+  if (!filename) return 0;
+
+  file=0;
+  while(1) {
+
+/* find a name in progmem, 0 if no more name */
+    name=(char*)buildin_program_names[file];    
+    if (name == 0) break;
+
+/* compare the name with the filename */  
+    for(i=0;i<32;i++) {
+      c=name[i];
+
+/* we are at the end of the name, if filename is also ending, we got it */
+      if (c == 0 && filename[i] == 0) {
+        buildin_ifile=(char*)buildin_programs[file];
+        return (buildin_ifile != 0);
+      }
+
+/* a character mismatch means we need to go to the next name */
+      if (c != filename[i]) {
+          file++;
+          break;  
+      }
+    }
+  }
+#endif
   ifile=fopen(filename, "r");
   return ifile!=0;
 }
 
 void ifileclose(){
+  #if defined(HASBUILDIN)
+  if (buildin_ifile) {
+    buildin_ifile=0;
+    buildin_ifilepointer=0;   
+  }
+#endif
   if (ifile) fclose(ifile);
   ifile=0;  
 }
@@ -1206,7 +1270,12 @@ void ofileclose(){
   ofile=0;
 }
 
-int fileavailable(){ return !feof(ifile); }
+int fileavailable(){ 
+#if defined(HASBUILDIN)
+  if (buildin_ifile && buildin_ifile[buildin_ifilepointer] != '\f') return 1; else return 0;
+#endif
+  return !feof(ifile); 
+}
 
 /*
  * directory handling for the catalog function
@@ -1226,6 +1295,10 @@ struct ffblk *bffblk;
 #endif
 
 void rootopen() {
+#ifdef HASBUILDIN
+  buildin_rootpointer=0;
+  buildin_rootactive=1;
+#endif
 #ifndef MSDOS
   root=opendir ("./");
 #else 
@@ -1234,6 +1307,18 @@ void rootopen() {
 }
 
 uint8_t rootnextfile() {
+#ifdef HASBUILDIN
+  if (buildin_rootactive) {
+    buildin_file=(char*)buildin_program_names[buildin_rootpointer];
+    if (buildin_file != 0) {
+      buildin_pgm=(char*)buildin_programs[buildin_rootpointer];
+      buildin_rootpointer++;
+      return 1;
+    } else {
+      buildin_rootactive=0;
+    }
+  }
+#endif
 #ifndef MSDOS
   file = readdir(root);
   return (file != 0);
@@ -1243,6 +1328,9 @@ uint8_t rootnextfile() {
 }
 
 uint8_t rootisfile() {
+#ifdef HASBUILDIN
+  if (buildin_rootactive) return 1;
+#endif
 #if !defined(MSDOS) && !defined(MINGW)
   return (file->d_type == DT_REG);
 #else
@@ -1251,6 +1339,15 @@ uint8_t rootisfile() {
 }
 
 const char* rootfilename() { 
+/* can be simplified */
+#ifdef HASBUILDIN
+  if (buildin_rootactive) {
+    for(int i=0; i<FBUFSIZE; i++) {
+      buildin_tempname[i]=buildin_file[i];
+      if (buildin_tempname[i] == 0) return buildin_tempname;
+    }
+  }
+#endif
 #ifndef MSDOS
   return (file->d_name);
 #else
@@ -1259,6 +1356,15 @@ const char* rootfilename() {
 }
 
 uint32_t rootfilesize() { 
+#ifdef HASBUILDIN
+  int i=0;
+  if (buildin_rootactive && buildin_pgm) {
+    for (;;i++) {
+      char ch=buildin_pgm[i];
+      if (ch == 0) return i;
+    }
+  }
+#endif
 #ifndef MSDOS
   return 0;
 #else
@@ -1267,7 +1373,11 @@ uint32_t rootfilesize() {
 }
 
 void rootfileclose() {}
+
 void rootclose(){
+#ifdef HASBUILDIN
+  buildin_rootactive=0;
+#endif
 #ifndef MSDOS
   (void) closedir(root);
 #endif  
