@@ -1196,7 +1196,7 @@ char fileread(){
   char c;
 /* the buildin file is active, we handle this first, else we allow for another FS */
 #if defined(HASBUILDIN)
-  if (buildin_ifile != 0) { 
+  if (buildin_ifile) { 
     c=buildin_ifile[buildin_ifilepointer];
     if (c != '\f') buildin_ifilepointer++; else { ioer=-1; c=-1; }
     return c;
@@ -1272,7 +1272,9 @@ void ofileclose(){
 
 int fileavailable(){ 
 #if defined(HASBUILDIN)
-  if (buildin_ifile && buildin_ifile[buildin_ifilepointer] != '\f') return 1; else return 0;
+  if (buildin_ifile) {
+    if (buildin_ifile[buildin_ifilepointer] != '\f') return 1; else return 0;
+  }
 #endif
   return !feof(ifile); 
 }
