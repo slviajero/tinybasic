@@ -115,7 +115,7 @@ const char sdwrite[]  PROGMEM = "DWRITE";
 const char sdread[]   PROGMEM = "DREAD";
 const char sawrite[]  PROGMEM = "AWRITE";
 const char saread[]   PROGMEM = "AREAD";
-const char sdelay[]   PROGMEM = "DELAY";
+const char sdelay[]		PROGMEM = "DELAY";
 const char smillis[]	PROGMEM = "MILLIS";
 const char sazero[]		PROGMEM = "AZERO";
 const char sled[]		PROGMEM = "LED";
@@ -823,7 +823,7 @@ char autorun() {
 
 /* autorun from a given command line argument, if we have one */
 #ifdef HASARGS
-	if (bargc > 0 && ifileopen(bargv[1])) {
+	if (bargc > 1 && ifileopen(bargv[1])) {
 		xload(bargv[1]);
 		st=SRUN;
 		ifileclose();
@@ -1625,6 +1625,9 @@ address_t createstring(name_t* variable, address_t i, address_t j) {
 	address_t a;
 	
 	if (DEBUG) { outsc("Create string "); outname(variable); outcr(); }
+
+/* correct create length if arraylimit is not 1 */
+	j=(j-arraylimit)+1;	
 
 /* the MS string compatibility, DIM 10 creates 11 elements */
 	if (msarraylimits) j+=1;
@@ -6756,7 +6759,7 @@ void xsave() {
 		ofileclose();
 
 /* did an accident happen */
-    if (ert) { printmessage(EGENERAL); outcr();  ert=0; }
+    	if (ert) { printmessage(EGENERAL); outcr();  ert=0; }
 	}
 
 /* and continue remembering, where we were */
