@@ -119,11 +119,11 @@
 /* experimental BUILDIN feature, implemented as a filesystem */
 #undef HASBUILDIN
 /* this is the demo module */
-//#define BUILDINMODULE "buildin.h"
+#define BUILDINMODULE "buildin.h"
 /* a small tutorial */
 // #define BUILDINMODULE "buildin/buildin-tutorial.h"
 // #define BUILDINMODULE "buildin/buildin-arduinotest.h"
-#define BUILDINMODULE "buildin/buildin-games.h"
+// #define BUILDINMODULE "buildin/buildin-games.h"
 
 /* interrupts for the EVENT command */
 #undef ARDUINOINTERRUPTS
