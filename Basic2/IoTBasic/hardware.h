@@ -62,7 +62,8 @@
  * Secial features
  *  ARDUINOPGMEEPROM: makes the EEPROM primary program store
  *  HASMSTAB: counts characters, prerequisite for MSTAB in languages
- *
+ *  BUILDIN: include buildin programs 
+ *  
  *	leave this unset if you use the definitions below
  */
 
@@ -111,7 +112,7 @@
  * from elength() and then adding the BASIC RAM to it. himem and top need to be 
  * handled carefully. 
  */
-#undef ARDUINOPGMEEPROM
+#define ARDUINOPGMEEPROM
 
 /* IO control, emulate real tab */
 #define HASMSTAB
@@ -126,7 +127,7 @@
 // #define BUILDINMODULE "buildin/buildin-games.h"
 
 /* interrupts for the EVENT command */
-#undef ARDUINOINTERRUPTS
+#define ARDUINOINTERRUPTS
 
 /* 
  * Predefined hardware configurations, this assumes that all of the 
