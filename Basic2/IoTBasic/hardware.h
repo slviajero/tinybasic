@@ -112,7 +112,7 @@
  * from elength() and then adding the BASIC RAM to it. himem and top need to be 
  * handled carefully. 
  */
-#define ARDUINOPGMEEPROM
+#undef ARDUINOPGMEEPROM
 
 /* IO control, emulate real tab */
 #define HASMSTAB
@@ -372,9 +372,9 @@
 #define ARDUINOEEPROM
 #define ARDUINOVGA
 #define ARDUINOSD
-/* #define ARDUINOMQTT */
+/* #define ARDUINOMQTT */ /* currently broken */
 #define SDPIN   13
-#define STANDALONE 
+#define STANDALONE
 #endif
 
 /*
