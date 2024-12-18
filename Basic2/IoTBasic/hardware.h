@@ -1009,6 +1009,11 @@
 #endif
 
 /* the code to address EEPROMs directly */
+/* only AVR controllers are tested with this, don't use elsewhere, there are multiple bugs */
+#if defined(ARDUINOPGMEEPROM) & ! defined(ARDUINO_ARCH_AVR)
+#undef ARDUINOPGMEEPROM
+#endif
+
 #ifdef ARDUINOPGMEEPROM
 #define USEMEMINTERFACE
 #define EEPROMMEMINTERFACE
