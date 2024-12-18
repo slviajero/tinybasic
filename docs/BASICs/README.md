@@ -55,10 +55,6 @@ A few commercial BASICs seem seems to have inherited their core DNA from Apple 1
 
 ### Newer BASIC dialects 
 
-**Laser Color Computer BASIC**. A slightly extended MS BASIC with graphics commands. [laser_basic_manual.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/laser_basic_manual.pdf)
-
-**Talent MSX BASIC**. An example for an MSX BASIC. In Spanish. [Talent DPC-200 (Manual de uso y MSX Basic).pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/Talent%20DPC-200%20(Manual%20de%20uso%20y%20MSX%20Basic).pdf)
-
 **Mallard BASIC**. This is a very powerful BASIC that has inherited a bit from Microsoft but also went its own way. [PCWSBAS.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/PCWSBAS.pdf)
 
 **Enterprise BASIC**. Probably the most advanced BASIC interpreter for home computers. Written when home computers were at its peak. Never took off big time. [Enterprise_Programming_Guide.pdf](https://github.com/slviajero/tinybasic/blob/main/docs/BASICs/Enterprise_Programming_Guide.pdf)
