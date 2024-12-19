@@ -53,7 +53,7 @@
  *	ARDUINOTFT, ARDUINONOKIA51, ARDUINOILI9488,
  *  ARDUINOSSD1306, ARDUINOMCUFRIEND
  * storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS
- * storage ARDUINOEFS, SM32SDIO
+ * storage ARDUINOEFS, SM32SDIO, ESP32FAT
  * sensors ARDUINOWIRE, ARDUINOSIMPLEWIRE, ARDUINOSENSORS
  * network ARDUINORF24, ARDUNIOMQTT 
  * memory ARDUINOSPIRAM
@@ -88,6 +88,7 @@
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
+#undef ESP32FAT
 #undef RP2040LITTLEFS
 #undef STM32SDIO
 #undef ARDUINORTC
@@ -166,6 +167,9 @@
  *  same like above with an ESP32 core
  * MKRBOARD:
  *   a digital signage and low energy board
+ * TDECK: 
+ *   the LILYGO T-Deck - not yet finished
+ *   
  */
 
 #undef UNOPLAIN
@@ -183,6 +187,7 @@
 #undef RP2040BOARD2
 #undef ESP32BOARD
 #undef MKR1010BOARD
+#undef TDECK
 
 /* the default EEPROM dummy size */
 #define EEPROMSIZE 1024
@@ -554,6 +559,12 @@
 #endif
 
 /* 
+ *  The Liligo T-Deck configuration, stub only
+ */
+#ifdef TDECK
+#define ESP32FAT
+#endif
+/* 
  *  DUE has no tone, we switch to emulation mode automatically
  */
 #ifdef ARDUINO_SAM_DUE
@@ -604,7 +615,7 @@
 #endif
 
 /* a filesystem needs SPI */
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT)
 #define ARDUINOSPI
 #endif
 
@@ -671,6 +682,14 @@
 #endif
 
 /*
+ * ESP32FAT tested on ESP32
+ * supports formating in BASIC
+ */ 
+#ifdef ESP32FAT
+#define FILESYSTEMDRIVER
+#endif
+
+/*
  * RP2040 internal filesystem 
  * This is test code from https://github.com/slviajero/littlefs
  * and the main branch is actively developed
@@ -692,6 +711,7 @@
  */ 
 #ifdef ARDUINOSD
 #undef ESPSPIFFS
+#undef ESP32FAT
 #undef RP2040LITTLEFS
 #endif
 
@@ -704,6 +724,7 @@
  */ 
 #ifdef ARDUINOEFS
 #undef ESPSPIFFS
+#undef ESP32FAT
 #undef RP2040LITTLEFS
 #undef ARDUINOSD
 #undef STM32SDIO

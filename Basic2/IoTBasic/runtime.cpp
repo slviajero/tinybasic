@@ -265,6 +265,19 @@ uint16_t nullbufsize = BUFSIZE;
 #endif
 #endif
 
+
+/*
+ * ESP32FAT tested on ESP32
+ * supports formating in BASIC
+ */ 
+#ifdef ESP32FAT
+#define FILESYSTEMDRIVER
+#ifdef ARDUINO_ARCH_ESP32
+#include <FS.h>
+#include <FFat.h>
+#endif
+#endif
+
 /*
  * RP2040 internal filesystem 
  * This is test code from https://github.com/slviajero/littlefs
@@ -298,6 +311,7 @@ uint16_t nullbufsize = BUFSIZE;
 #ifdef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
+#undef ESP32FAT
 #endif
 
 /*
@@ -309,6 +323,7 @@ uint16_t nullbufsize = BUFSIZE;
  */ 
 #ifdef ARDUINOEFS
 #undef ESPSPIFFS
+#undef ESP32FAT
 #undef RP2040LITTLEFS
 #undef ARDUINOSD
 #undef STM32SDIO
@@ -3910,7 +3925,7 @@ void yieldschedule() {
 /* typical file name length */
 #define FBUFSIZE 32
  
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO)
 File ifile;
 File ofile;
 char tempname[FBUFSIZE]; /* this is needed for the catalog code as these platforms do not give static C strings back */
@@ -3923,7 +3938,7 @@ const char rootfsprefix[2] = "/";
 const char rootfsprefix[1] = "";
 #endif
 #endif
-#ifdef ESPSPIFFS
+#if defined(ESPSPIFFS) || defined(ESP32FAT)
 const char rootfsprefix[2] = "/";
 #ifdef ARDUINO_ARCH_ESP8266
 Dir root;
@@ -3978,7 +3993,7 @@ char buildin_tempname[FBUFSIZE]; /* this is needed for the catalog code as strin
 
 
 /* these filesystems may have a path prefixes, we treat STM32SDIO like an SD here */
-#if defined(RP2040LITTLEFS) || defined(ESPSPIFFS) || defined(ARDUINOSD) 
+#if defined(RP2040LITTLEFS) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(ARDUINOSD) 
 char tmpfilename[10+FBUFSIZE];
 
 /* add the prefix to the filename */
@@ -4033,6 +4048,9 @@ void fsbegin() {
 #if defined(ESPSPIFFS) && defined(ARDUINO_ARCH_ESP32) 
  	if (SPIFFS.begin()) fsstart=1; else fsstart=0;
 #endif
+#if defined(ESP32FAT) && defined(ARDUINO_ARCH_ESP32)
+  if (FFat.begin()) fsstart=1; else fsstart=0;
+#endif
 #ifdef RP2040LITTLEFS
 	myFS = new LittleFS_MBED();
 	if (myFS->init()) fsstart=1; else fsstart=0;
@@ -4066,7 +4084,7 @@ uint8_t fsstat(uint8_t c) {
  * only one file can be open for write and read at the same time
  */
 void filewrite(char c) {
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)||defined(ESP32FAT)||defined(STM32SDIO)
 	if (ofile) { ofile.write(c); return; }
 #endif
 #if defined(RP2040LITTLEFS)
@@ -4093,7 +4111,7 @@ char fileread() {
     return c;
   }
 #endif
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)||defined(ESP32FAT)||defined(STM32SDIO)
 	if (ifile) c=ifile.read(); else { ioer=1; return 0; }
 	if (c == -1 || c == 255) ioer=-1;
 	return c;
@@ -4120,7 +4138,7 @@ int fileavailable(){
     if (c != '\f') return 1; else return 0;
   }
 #endif
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO)
 	return ifile.available();
 #endif
 #ifdef RP2040LITTLEFS
@@ -4179,6 +4197,10 @@ uint8_t ifileopen(const char* filename){
 	ifile=SPIFFS.open(mkfilename(filename), "r");
 	return ifile != 0;
 #endif
+#ifdef ESP32FAT
+  ifile=FFat.open(mkfilename(filename), "r"); 
+  return ifile != 0;
+#endif
 #ifdef RP2040LITTLEFS
 	ifile=fopen(mkfilename(filename), "r");
 	return ifile != 0;
@@ -4197,7 +4219,7 @@ void ifileclose(){
     buildin_ifilepointer=0;   
   }
 #endif
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO)
 	if (ifile) ifile.close();
 #endif	
 #ifdef RP2040LITTLEFS
@@ -4234,6 +4256,10 @@ uint8_t ofileopen(const char* filename, const char* m){
 	ofile=SPIFFS.open(mkfilename(filename), m);
 	return ofile != 0;
 #endif
+#ifdef ESP32FAT
+  ofile=FFat.open(mkfilename(filename), m);
+  return ofile != 0;
+#endif
 #ifdef RP2040LITTLEFS
 	ofile=fopen(mkfilename(filename), m);
 	return ofile != 0; 
@@ -4251,7 +4277,7 @@ uint8_t ofileopen(const char* filename, const char* m){
 }
 
 void ofileclose(){
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)||defined(ESP32FAT)||defined(STM32SDIO)
   if (ofile) ofile.close();
 #endif
 #ifdef RP2040LITTLEFS
@@ -4289,6 +4315,9 @@ void rootopen() {
 #ifdef ARDUINO_ARCH_ESP32
 	root=SPIFFS.open("/");
 #endif
+#endif
+#ifdef ESP32FAT
+  root=FFat.open("/");
 #endif
 #ifdef RP2040LITTLEFS
 	root=opendir(rootfsprefix);
@@ -4330,6 +4359,12 @@ uint8_t rootnextfile() {
 	return (file != 0);
 #endif
 #endif
+#ifdef ESP32FAT
+#ifdef ARDUINO_ARCH_ESP32
+  file=root.openNextFile();
+  return (file != 0);
+#endif
+#endif
 #ifdef RP2040LITTLEFS
 	file = readdir(root);
 	return (file != 0);
@@ -4354,6 +4389,11 @@ uint8_t rootisfile() {
 #endif
 #ifdef ARDUINO_ARCH_ESP32
 	return (! file.isDirectory());
+#endif
+#endif
+#ifdef ESP32FAT
+#ifdef ARDUINO_ARCH_ESP32
+  return (! file.isDirectory());
 #endif
 #endif
 #ifdef RP2040LITTLEFS
@@ -4392,6 +4432,11 @@ const char* rootfilename() {
 	return rmrootfsprefix(file.name());
 #endif
 #endif
+#ifdef ESP32FAT
+#ifdef ARDUINO_ARCH_ESP32
+  return rmrootfsprefix(file.name());
+#endif
+#endif
 #ifdef RP2040LITTLEFS
 	return (file->d_name);
 #endif
@@ -4411,7 +4456,7 @@ uint32_t rootfilesize() {
     }
   }
 #endif
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO)
   return file.size();
 #endif  
 #ifdef RP2040LITTLEFS
@@ -4423,7 +4468,7 @@ uint32_t rootfilesize() {
 }
 
 void rootfileclose() {
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO)
   file.close();
 #endif 
 #ifdef RP2040LITTLEFS
@@ -4443,6 +4488,11 @@ void rootclose(){
 #ifdef ARDUINO_ARCH_ESP8266
   return;
 #endif
+#ifdef ARDUINO_ARCH_ESP32
+  root.close();
+#endif
+#endif
+#ifdef ESP32FAT
 #ifdef ARDUINO_ARCH_ESP32
   root.close();
 #endif
@@ -4469,6 +4519,10 @@ void removefile(const char *filename) {
 	SPIFFS.remove(mkfilename(filename));
 	return;
 #endif
+#ifdef ESP32FAT
+  FFat.remove(mkfilename(filename));
+  return;
+#endif
 #ifdef RP2040LITTLEFS
 	remove(mkfilename(filename));
 	return;
@@ -4488,6 +4542,10 @@ void formatdisk(uint8_t i) {
 #endif
 #ifdef ESPSPIFFS
 	if (SPIFFS.format()) { SPIFFS.begin(); fsstart=1; } else { fsstart=0; }
+#endif
+#ifdef ESP32FAT
+  FFat.end();
+  if (FFat.format()) { FFat.begin(); fsstart=1; } else { fsstart=0; }
 #endif
 #ifdef RP2040LITTLEFS
   fs.reformat(&bd); /* bd: this comes from the header */
