@@ -145,7 +145,7 @@ uint16_t nullbufsize = BUFSIZE;
 #endif
 
 /*
- * This is the monochrome library of Oli Kraus
+ * This is the monochrome library of Oli Kraus used for Nokia and SSD1306 displays
  * https://github.com/olikraus/u8g2/wiki/u8g2reference
  * It can harware scroll, but this is not yet implemented 
  */
@@ -194,7 +194,6 @@ uint16_t nullbufsize = BUFSIZE;
 #include "epd_driver.h"
 #include "font/firasans.h"
 #endif
-
 
 /* 
  * experimental networking code 
@@ -276,6 +275,16 @@ uint16_t nullbufsize = BUFSIZE;
 #include <FS.h>
 #include <FFat.h>
 #endif
+#endif
+
+/*
+ * TFT_eSPI is a library for the T-Deck from Lilygo
+ * #include "utilities.h" provided by Lilygo is coded directly into hardware.h
+ * For some reason this has to be included after FS and FFat. Not yet fully 
+ * understood why.
+ */
+#ifdef TFTESPI
+#include <TFT_eSPI.h>
 #endif
 
 /*
@@ -974,9 +983,13 @@ void activatesleep(long t) {
 }
 
 /* 
- * start the SPI bus - this is a little mean as some libraries also 
+ * Start the SPI bus - this is a little mean as some libraries also 
  * try to start the SPI which may lead to on override of the PIN settings
- * if the library code is not clean - currenty no conflict known
+ * if the library code is not clean - currenty no conflict known.
+ * 
+ * The startup on the T-Deck seems to be tricky and require precautions.
+ * The startup sequence used here is from the HelloWorld example of the
+ * TFT_eSPI library.
  */
 void spibegin() {
 #ifdef ARDUINOSPI
@@ -984,7 +997,25 @@ void spibegin() {
 /* this fixes the wrong board definition in the ESP32 core for this board */
   SPI.begin(14, 2, 12, 13);
 #else 
+#ifdef TFTESPI
+  //! The board peripheral power control pin needs to be set to HIGH when using the peripheral
+  pinMode(BOARD_POWERON, OUTPUT);
+  digitalWrite(BOARD_POWERON, HIGH);
+
+  //! Set CS on all SPI buses to high level during initialization
+  pinMode(BOARD_SDCARD_CS, OUTPUT);
+  pinMode(RADIO_CS_PIN, OUTPUT);
+  pinMode(BOARD_TFT_CS, OUTPUT);
+
+  digitalWrite(BOARD_SDCARD_CS, HIGH);
+  digitalWrite(RADIO_CS_PIN, HIGH);
+  digitalWrite(BOARD_TFT_CS, HIGH);
+
+  pinMode(BOARD_SPI_MISO, INPUT_PULLUP);
+  SPI.begin(BOARD_SPI_SCK, BOARD_SPI_MISO, BOARD_SPI_MOSI);
+#else
   SPI.begin();
+#endif
 #endif
 #endif
 }
@@ -1414,6 +1445,107 @@ void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r, dspfgcolor); }
 void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
 #endif
 
+#ifdef TFTESPI
+#define DISPLAYDRIVER
+#define DISPLAYHASCOLOR
+#define DISPLAYHASGRAPH
+/* 
+ * first draft od the code taken from the hello world demo 
+ * of Lilygo. This code only works on the 2.0.14 version of the ESP32 core.
+ * Physical display dimensions is 320x240. We use the 12pf font for a first 
+ * test. With this font we can display 26 columns and 20 rows. This is set 
+ * statically in the code at the moment. 
+ */
+/* constants for 16 bit fonts */
+const int dsp_rows=15;
+const int dsp_columns=20;
+char dspfontsize = 16;
+const char dspfontsizeindex = 2;
+/* constants for 8 bit fonts */
+/*
+const int dsp_rows=30;
+const int dsp_columns=40;
+char dspfontsize = 8;
+const char dspfontsizeindex = 1;
+*/
+/* unchanged from the ILI code */
+typedef uint16_t dspcolor_t;
+const uint16_t dspdefaultfgcolor = 0xFFFF;
+const uint8_t dspdefaultfgvgacolor = 0x0F;
+dspcolor_t dspfgcolor = dspdefaultfgcolor;
+dspcolor_t dspbgcolor = 0;
+dspcolor_t dsptmpcolor = 0;
+uint8_t dspfgvgacolor = dspdefaultfgvgacolor;
+uint8_t dsptmpvgacolor = 0;
+/* this is new for TFT_eSPI*/
+TFT_eSPI tft;
+/* change the brightness, taken from HelloWorld as well */
+void tftespisetBrightness(uint8_t value)
+{
+    static uint8_t level = 0;
+    static uint8_t steps = 16;
+    if (value == 0) {
+        digitalWrite(BOARD_BL_PIN, 0);
+        delay(3);
+        level = 0;
+        return;
+    }
+    if (level == 0) {
+        digitalWrite(BOARD_BL_PIN, 1);
+        level = steps;
+        delayMicroseconds(30);
+    }
+    int from = steps - level;
+    int to = steps - value;
+    int num = (steps + to - from) % steps;
+    for (int i = 0; i < num; i++) {
+        digitalWrite(BOARD_BL_PIN, 0);
+        digitalWrite(BOARD_BL_PIN, 1);
+    }
+    level = value;
+}
+void dspbegin() { 
+  tft.begin(); 
+  tft.setRotation(1);
+  tft.setTextDatum(6); /* upper left*/
+  tft.setTextColor(dspfgcolor);
+  tft.fillScreen(dspbgcolor); 
+  dspsetscrollmode(1, 4); /* scrolling is on, scroll 4 lines at once */
+  pinMode(BOARD_BL_PIN, OUTPUT);
+  tftespisetBrightness(16); /* maximum brightness */
+}
+void dspprintchar(char c, uint8_t col, uint8_t row) {  
+  if (c) tft.drawChar(col*dspfontsize, row*dspfontsize, c, dspfgcolor, dspbgcolor, dspfontsizeindex);  
+}
+void dspclear() { 
+  tft.fillScreen(dspbgcolor); 
+  dspfgcolor = dspdefaultfgcolor; 
+  dspfgvgacolor = dspdefaultfgvgacolor; 
+}
+void dspupdate() {}
+void dspsetcursor(uint8_t c) {}
+void dspsavepen() { dsptmpcolor=dspfgcolor; dsptmpvgacolor=dspfgvgacolor; }
+void dsprestorepen() { dspfgcolor=dsptmpcolor; dspfgvgacolor=dsptmpvgacolor; }
+void dspsetfgcolor(uint8_t c) { vgacolor(c); }
+void dspsetbgcolor(uint8_t c) { }
+void dspsetreverse(uint8_t c) {}
+uint8_t dspident() {return 0; }
+void rgbcolor(uint8_t r, uint8_t g, uint8_t b) { dspfgvgacolor=rgbtovga(r, g, b); dspfgcolor=tft.color565(r, g, b);}
+void vgacolor(uint8_t c) {  
+  short base=128;
+  dspfgvgacolor=c;
+  if (c==8) { dspfgcolor=tft.color565(64, 64, 64); return; }
+  if (c>8) base=255;
+  dspfgcolor=tft.color565(base*(c&1), base*((c&2)/2), base*((c&4)/4)); 
+}
+void plot(int x, int y) { tft.drawPixel(x, y, dspfgcolor); }
+void line(int x0, int y0, int x1, int y1)   { tft.drawLine(x0, y0, x1, y1, dspfgcolor); }
+void rect(int x0, int y0, int x1, int y1)   { tft.drawRect(x0, y0, x1, y1, dspfgcolor);}
+void frect(int x0, int y0, int x1, int y1)  { tft.fillRect(x0, y0, x1, y1, dspfgcolor); }
+void circle(int x0, int y0, int r) { tft.drawCircle(x0, y0, r, dspfgcolor); }
+void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r, dspfgcolor); }
+#endif
+
 /* 
  * A no operations graphics dummy  
  * Tests the BASIC side of the graphics code without triggering 
@@ -1453,7 +1585,6 @@ void frect(int x0, int y0, int x1, int y1) {}
 void circle(int x0, int y0, int r) {}
 void fcircle(int x0, int y0, int r) {}
 #endif
-
 
 /*
  * SD1963 TFT display code with UTFT.
@@ -1524,7 +1655,7 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
 #endif
 
 /* 
- * this is the VGA code for fablib - experimental
+ * this is the VGA code for fablib 
  * not all modes and possibilities explored, with networking on an ESP
  * VGA16 is advisable. It leaves enough memory for the interpreter and network.
  * this code overrides the display driver logic as fabgl brings an own 
