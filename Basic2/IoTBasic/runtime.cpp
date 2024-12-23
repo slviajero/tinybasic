@@ -1880,6 +1880,7 @@ const byte zx81pins[] = {ZX81PINS};
  *  from the board. A -1 is an I2C error condition for a non reply of 
  *  the keyboard. 
  */
+#ifdef ARDUINOI2CKBD
 char i2ckbdgetkey() {
   char c=0;
   Wire.requestFrom(I2CKBDADDR, 1);
@@ -1889,6 +1890,7 @@ char i2ckbdgetkey() {
     }
     return c;
 }
+#endif
 
 void kbdbegin() {
 #ifdef PS2KEYBOARD
