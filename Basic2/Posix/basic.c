@@ -115,7 +115,7 @@ const char sdwrite[]  PROGMEM = "DWRITE";
 const char sdread[]   PROGMEM = "DREAD";
 const char sawrite[]  PROGMEM = "AWRITE";
 const char saread[]   PROGMEM = "AREAD";
-const char sdelay[]		PROGMEM = "DELAY";
+const char sdelay[] PROGMEM = "DELAY";
 const char smillis[]	PROGMEM = "MILLIS";
 const char sazero[]		PROGMEM = "AZERO";
 const char sled[]		PROGMEM = "LED";
@@ -1627,7 +1627,7 @@ address_t createstring(name_t* variable, address_t i, address_t j) {
 	if (DEBUG) { outsc("Create string "); outname(variable); outcr(); }
 
 /* correct create length if arraylimit is not 1 */
-	j=(j-arraylimit)+1;	
+   j=(j-arraylimit)+1;	
 
 /* the MS string compatibility, DIM 10 creates 11 elements */
 	if (msarraylimits) j+=1;
@@ -2662,7 +2662,9 @@ int innumber(number_t *r, char* buffer, address_t k) {
 	if (buffer[i] == '-') { s=-1; i++; }
 
 /* check for the break character */
+#if defined(BREAKCHAR)
 	if (buffer[i] == BREAKCHAR) return -1;
+#endif
 
 /* the number */	
 #ifndef HASFLOAT
@@ -2693,9 +2695,9 @@ int innumber(number_t *r, char* buffer, address_t k) {
 	bi=buffer+k;
 
 /* BREAK handling */
-	if (*bi == BREAKCHAR) {
-		return -1;
-	}
+#if defined(BREAKCHAR)
+	if (*bi == BREAKCHAR) { return -1; }
+#endif
 
 /* start to interpret the buffer as an expression */
 	nexttoken();
