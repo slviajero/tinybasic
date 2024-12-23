@@ -2659,7 +2659,9 @@ int innumber(number_t *r, char* buffer, address_t k) {
 	if (buffer[i] == '-') { s=-1; i++; }
 
 /* check for the break character */
+#if defined(BREAKCHAR)
 	if (buffer[i] == BREAKCHAR) return -1;
+#endif
 
 /* the number */	
 #ifndef HASFLOAT
@@ -2690,9 +2692,9 @@ int innumber(number_t *r, char* buffer, address_t k) {
 	bi=buffer+k;
 
 /* BREAK handling */
-	if (*bi == BREAKCHAR) {
-		return -1;
-	}
+#if defined(BREAKCHAR)
+	if (*bi == BREAKCHAR) { return -1; }
+#endif
 
 /* start to interpret the buffer as an expression */
 	nexttoken();

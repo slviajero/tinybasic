@@ -71,6 +71,7 @@
 #undef ARDUINOPS2
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
+#undef ARDUINOI2CKBD
 #undef ARDUINOPRT
 #undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
@@ -616,7 +617,16 @@
 /* and now the BASIC stuff begins */
 #define ESP32FAT
 #define TFTESPI
-// #define ARDUINOGRAPHDUMMY
+#define DISPLAYCANSCROLL
+#define ARDUINOI2CKBD
+/* these are the board I2C pins, see above! */
+#define SDA_PIN 18
+#define SCL_PIN 8
+#define I2CKBDADDR 0x55
+/* the I2C keyboard is slow, consider to deactiveate BREAK until code is improved */
+// #undef BREAKCHAR
+/* can run standalone now */
+#define STANDALONE
 #endif
 /* 
  *  DUE has no tone, we switch to emulation mode automatically
@@ -656,6 +666,11 @@
 
 /* plain Wire support also needs wire ;-) */
 #if defined(ARDUINOWIRE) || defined(ARDUINOWIRESLAVE)
+#define HASWIRE
+#endif
+
+/* and I2C Keyboard needs wire */
+#if defined(ARDUINOI2CKBD)
 #define HASWIRE
 #endif
 
@@ -990,6 +1005,11 @@
 #if defined(ARDUINOZX81KBD)
 #define HASKEYBOARD
 #define ZX81KEYBOARD
+#endif
+
+#if defined(ARDUINOI2CKBD)
+#define HASKEYBOARD
+#define I2CKEYBOARD
 #endif
 
 /* 

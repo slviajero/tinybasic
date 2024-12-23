@@ -1,15 +1,11 @@
 /*
- *
- * $Id: $
- *
- * Stefan's basic interpreter 
+ * Stefan's basic interpreter - runtime environment runtime.cpp.
  * 
  * This is the Arduino runtime environment for BASIC. It maps the functions 
  * needed for the various subsystems to the MCU specific implementations. 
  *
  * Author: Stefan Lenz, sl001@serverfabrik.de
  *
- * 
  * Configure the hardware settings in hardware.h.
  *
  */
@@ -89,6 +85,16 @@ uint16_t nullbufsize = BUFSIZE;
  */
 #ifdef ARDUINOZX81KBD
 #include <ZX81Keyboard.h>
+#endif
+
+/*
+ * The I2C keyboard code - tested on ESP32 T-Deck only 
+ * Implementation is generic enough to work on other platforms.
+ * No headers are needed as the I2C library is included in the
+ * Arduino core and the keyboard implementation of the T-Deck
+ * is very generic.
+ */
+#ifdef ARDUINOI2CKBD
 #endif
 
 /*
@@ -675,9 +681,6 @@ uint16_t consins(char *b, uint16_t nb) {
  *  it works in line mode and ends reading after newline
  *
  *  the first element of the buffer is the lower byte of the length
- *
- *  this is corrected later in xinput, z.a has to be set as 
- *  a side effect
  *
  *  for streams providing entire strings as an input the 
  *  respective string method is called
@@ -1800,6 +1803,11 @@ char usbkey=0;
 #else 
 #if defined(ARDUINOZX81KBD)
 ZX81Keyboard keyboard;
+#else
+#if defined(ARDUINOI2CKBD)
+/* with an I2C keyboard we remeber the last key, this is similar to the USB keyboard */
+char i2ckey=0;
+#endif
 #endif
 #endif
 #endif
@@ -1867,6 +1875,21 @@ void keyReleased() {
 const byte zx81pins[] = {ZX81PINS}; 
 #endif
 
+/* 
+ *  A helper function for the I2C keyboard code. We get one character 
+ *  from the board. A -1 is an I2C error condition for a non reply of 
+ *  the keyboard. 
+ */
+char i2ckbdgetkey() {
+  char c=0;
+  Wire.requestFrom(I2CKBDADDR, 1);
+    if (Wire.available()) {
+      c=Wire.read();
+      if (c == -1) { ioer=1; c=0; }
+    }
+    return c;
+}
+
 void kbdbegin() {
 #ifdef PS2KEYBOARD
 #ifdef ARDUINOKBDLANG_GERMAN
@@ -1875,7 +1898,6 @@ void kbdbegin() {
   keyboard.begin(PS2DATAPIN, PS2IRQPIN, PS2Keymap_US);
 #endif
 #else
-
 #ifdef PS2FABLIB
 	PS2Controller.begin(PS2Preset::KeyboardPort0);
 #ifdef ARDUINOKBDLANG_GERMAN
@@ -1889,6 +1911,11 @@ void kbdbegin() {
 #else
 #ifdef ZX81KEYBOARD
   keyboard.begin(zx81pins);
+#else
+#ifdef ARDUINOI2CKBD
+/* this is from the T-Deck examples, time needed for the keyboard to start */
+  delay(500);
+#endif
 #endif
 #endif
 #endif
@@ -1914,6 +1941,16 @@ uint8_t kbdavailable(){
 #else
 #ifdef ZX81KEYBOARD
   return keyboard.available();
+#else
+#ifdef ARDUINOI2CKBD
+/* do we have a key stored, then return it */
+  if (i2ckey) {
+    return 1; 
+  } else {
+    i2ckey=i2ckbdgetkey(); 
+    if (i2ckey != 0) return 1;
+  }
+#endif
 #endif
 #endif
 #endif
@@ -1946,6 +1983,17 @@ char kbdread() {
 #else
 #ifdef ZX81KEYBOARD
   c=keyboard.read();
+#else
+#ifdef ARDUINOI2CKBD
+/* a key is stored from a previous kbdavailable() */
+ if (i2ckey) {
+    c=i2ckey;
+    i2ckey=0;
+  } else {
+/* if not look for a key, no need to store it */
+    c=i2ckbdgetkey();
+  }
+#endif
 #endif
 #endif
 #endif
@@ -1985,6 +2033,13 @@ char kbdcheckch() {
 #else 
 #ifdef ZX81KEYBOARD
   return keyboard.lastKey; /* dont peek here as checkch called in a fast loop in statement(), peek done in byield*/
+#else 
+#ifdef ARDUINOI2CKBD
+  if (!i2ckey) {
+    i2ckey=i2ckbdgetkey();
+  }
+  return i2ckey;
+#endif
 #endif
 #endif
 #endif
@@ -3600,7 +3655,6 @@ char mqttcheckch() {
 /* 
  * ins copies the buffer into a basic string 
  *  - behold the jabberwock - length gynmastics 
- * z.a has to be the loop variable and contain the length after this -> intended side effect
  */
 uint16_t mqttins(char *b, uint16_t nb) {
   uint16_t z;
@@ -5120,11 +5174,12 @@ char wireread() {
 
 /* send an entire string - truncate radically */
 void wireouts(char *b, uint8_t l) {
+  int16_t z;
   if (l>ARDUINOWIREBUFFER) l=ARDUINOWIREBUFFER; 
   if (wire_myid == 0) {
     Wire.beginTransmission(wire_slaveid); 
 #ifdef ARDUINO_ARCH_ESP32
-    for(z.a=0; z.a<l; z.a++) Wire.write(b[z.a]);  
+    for(z=0; z<l; z++) Wire.write(b[z]);  
 #else
     Wire.write(b, l);
 #endif
