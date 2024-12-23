@@ -238,6 +238,14 @@
 #undef SDA_PIN
 #undef SCL_PIN
 
+/*
+ *	BREAKCHAR is the character stopping the program on Ardunios
+ *  BREAKPIN can be set, it is a pin that needs to go to low to stop a BASIC program
+ *    This should be done in hardware*.h
+ *  BREAKSIGNAL can also be set, should be done in hardware*.h
+ */
+#define BREAKCHAR '#'
+
 /* set this is you want pin 4 on low interrupting the interpreter */
 /* #define BREAKPIN 4 */
 #undef BREAKPIN
