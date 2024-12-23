@@ -79,17 +79,27 @@
 /* build in BASIC programs on Posix currently without function */
 #define HASBUILDIN
 /* this is the demo module */
-//#define BUILDINMODULE "buildin.h"
+#define BUILDINMODULE "buildin.h"
 /* a small tutorial */
 // #define BUILDINMODULE "buildin/buildin-tutorial.h"
 // #define BUILDINMODULE "buildin/buildin-arduinotest.h"
-#define BUILDINMODULE "buildin/buildin-games.h"
+// #define BUILDINMODULE "buildin/buildin-games.h"
 
 /* used pins and other parameters */
 
+/*
+ * Mechanisms to interrupt the interpreter
+ *
+ *	BREAKCHAR is the character stopping the program on Ardunios
+ *  BREAKPIN can be set, it is a pin that needs to go to low to stop a BASIC program
+ *    This should be done in hardware*.h
+ *  BREAKSIGNAL can also be set, should be done in hardware*.h
+ */
+
+#define BREAKCHAR '#' /* the character to interrupt the interpreter */
+
 /* set this is you want pin 4 on low interrupting the interpreter */
 /* #define BREAKPIN 4 */
-#define BREAKPIN 4
 
 /* the SIGNAL the interpreters listens to for interrupt */
 #define BREAKSIGNAL SIGINT

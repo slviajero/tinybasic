@@ -227,15 +227,10 @@
  *	SINT means interactive mode
  *	SERUN means running directly from EEPROM
  *		(enum would be the right way of doing this.)
- *	BREAKCHAR is the character stopping the program on Ardunios
- *  BREAKPIN can be set, it is a pin that needs to go to low to stop a BASIC program
- *    This should be done in hardware*.h
- *  BREAKSIGNAL can also be set, should be done in hardware*.h
  */
 #define SINT 0
 #define SRUN 1
 #define SERUN 2
-#define BREAKCHAR '#'
 
 /*
  *	the message catalog

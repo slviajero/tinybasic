@@ -660,7 +660,7 @@ char rtcstring[20] = { 0 };
 address_t bpulseunit = 10; 
 
 /* only needed for POSIXNONBLOCKING */
-mem_t breakcondition = 0;
+char breakcondition = 0;
 
 /* the FN context, how deep are we in a nested function call, negative values reserved */
 int fncontext = 0; 
