@@ -105,6 +105,9 @@ extern uint8_t kbdrepeat;
 extern uint8_t blockmode;
 extern uint8_t sendcr;
 
+/* breaks */
+extern char breakcondition;
+
 /* counts the outputed characters on streams 0-3, used to emulate a real tab */
 extern uint8_t charcount[3]; /* devices 1-4 support tabing */
 

@@ -133,6 +133,15 @@
 #define ARDUINOINTERRUPTS
 
 /* 
+ * handle the break condition in the background. 
+ * Off by default but needed for some keyboards. 
+ * On an UNO 170 bytes overhead if on and 5% 
+ * performance loss. If any system runs background 
+ * tasks anyway, better to switch it on.
+ */
+#undef BREAKINBACKGROUND
+
+/* 
  * Predefined hardware configurations, this assumes that all of the 
  *	above are undef
  *
@@ -631,8 +640,6 @@
 #define SDA_PIN 18
 #define SCL_PIN 8
 #define I2CKBDADDR 0x55
-/* the I2C keyboard is slow, consider to deactiveate BREAK until code is improved */
-// #undef BREAKCHAR
 /* can run standalone now */
 #define STANDALONE
 #endif
@@ -714,6 +721,11 @@
 
 /* Networking and keyboards need the background task capability */
 #if defined(ARDUINOMQTT) || defined(ARDUINOETH) || defined(ARDUINOUSBKBD) || defined(ARDUINOZX81KBD)
+#define BASICBGTASK
+#endif
+
+/* Break in background needs background tasks as well */
+#if defined(BREAKINBACKGROUND)
 #define BASICBGTASK
 #endif
 
@@ -1015,9 +1027,11 @@
 #define ZX81KEYBOARD
 #endif
 
+/* BREAKINBACKGROUND is needed here to avoid slowdown, probably also for the other keyboards */
 #if defined(ARDUINOI2CKBD)
 #define HASKEYBOARD
 #define I2CKEYBOARD
+#define BREAKINBACKGROUND
 #endif
 
 /* 

@@ -4043,7 +4043,9 @@ void byield() {
     yieldfunction();
     lastyield=millis();
   }
+#endif
 
+#if defined(BASICBGTASK)
 /* yield every second */
   if (millis()-lastlongyield > LONGYIELDINTERVAL-1) {
     longyieldfunction();
@@ -4094,6 +4096,9 @@ void longyieldfunction() {
 #ifdef ARDUINOETH
   Ethernet.maintain();
 #endif 
+#ifdef BREAKINBACKGROUND
+  if (checkch() == BREAKCHAR) breakcondition=1;
+#endif
 }
 
 void yieldschedule() {
