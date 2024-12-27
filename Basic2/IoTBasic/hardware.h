@@ -632,13 +632,18 @@
 #endif
 #define DEFAULT_OPA          100
 /* and now the BASIC stuff begins */
-#define ESP32FAT
+/* either use the buildin FAT as a file system */
+#undef ESP32FAT
+/* or the SD card */
+#define ARDUINOSD
+#define SDPIN BOARD_SDCARD_CS
+/* the display */
 #define TFTESPI
 #define DISPLAYCANSCROLL
+/*the keyboard */
 #define ARDUINOI2CKBD
-/* these are the board I2C pins, see above! */
-#define SDA_PIN 18
-#define SCL_PIN 8
+#define SDA_PIN BOARD_I2C_SDA
+#define SCL_PIN BOARD_I2C_SCL
 #define I2CKBDADDR 0x55
 /* can run standalone now */
 #define STANDALONE

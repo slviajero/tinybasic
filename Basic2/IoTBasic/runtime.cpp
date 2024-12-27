@@ -4043,9 +4043,7 @@ void byield() {
     yieldfunction();
     lastyield=millis();
   }
-#endif
 
-#if defined(BASICBGTASK)
 /* yield every second */
   if (millis()-lastlongyield > LONGYIELDINTERVAL-1) {
     longyieldfunction();
