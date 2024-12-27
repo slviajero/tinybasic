@@ -104,8 +104,14 @@
 /* the SIGNAL the interpreters listens to for interrupt */
 #define BREAKSIGNAL SIGINT
 
-/* in case of non blocking IO turn on background tasks */
+/* 
+ * In case of non blocking IO turn on background tasks, we check BREAKCHAR only 
+ * once every second in background and don't poll the keyboard after each statement.
+ *
+ * This is also needed for slow keyboards on Arduino. 
+ */
 #ifdef POSIXNONBLOCKING
+#define BREAKINBACKGROUND
 #define BASICBGTASK
 #endif
 

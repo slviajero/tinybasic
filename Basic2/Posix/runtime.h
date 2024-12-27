@@ -17,6 +17,9 @@
 #if !defined(__RUNTIMEH__)
 #define __RUNTIMEH__ 
 
+/* we debug the runtime library */
+#define RTDEBUG 1
+
 /* 
  * system type identifiers
  */

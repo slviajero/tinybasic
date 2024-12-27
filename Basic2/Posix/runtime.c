@@ -1138,7 +1138,7 @@ void yieldfunction() {}
 void longyieldfunction() {
 #ifdef BASICBGTASK
 /* polling for the BREAKCHAR */
-#ifdef POSIXNONBLOCKING
+#ifdef BREAKINBACKGROUND
   if (checkch() == BREAKCHAR) breakcondition=1;
 #endif
 #endif

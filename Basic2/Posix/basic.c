@@ -659,7 +659,7 @@ char rtcstring[20] = { 0 };
 /* the units pulse operates on, in microseconds*/
 address_t bpulseunit = 10; 
 
-/* only needed for POSIXNONBLOCKING */
+/* only needed if the break condition is handled in the background */
 char breakcondition = 0;
 
 /* the FN context, how deep are we in a nested function call, negative values reserved */
@@ -9403,11 +9403,11 @@ void statement(){
 /* 
  * after each statement we check on a break character 
  * on an Arduino entering "#" at runtime stops the program 
- * for POSIXNONBLOCKING we do this in the background loop
- * to avoid slowing down 
+ * for BREAKINBACKGROUND we do this in the background loop
+ * to avoid slowing down. 
  */
 #if defined(BREAKCHAR)
-#ifndef POSIXNONBLOCKING
+#ifndef BREAKINBACKGROUND
 		if (checkch() == BREAKCHAR) {
 			st=SINT; 
 			if (od == 1) serialflush(); else xc=inch();
