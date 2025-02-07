@@ -734,8 +734,8 @@ float sensorread(uint8_t, uint8_t);
 /*
  * prototypes for the interrupt interface
  */
-/* some have it and some dont */
-#if !(defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_MBED_NANO) || defined(ARDUINO_ARCH_RENESAS))
+/* some have it and some dont (could be simplyfied by just using ARDUINO_ARCH_MBED */
+#if !(defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_MBED_NANO) || defined(ARDUINO_ARCH_RENESAS) || defined(ARDUINO_ARCH_MBED_GIGA))
 typedef int PinStatus;
 #endif
 

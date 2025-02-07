@@ -893,7 +893,7 @@ long freememorysize() {
 #endif
   return freeRam() - overhead;
 #endif
-#if defined(ARDUINO_NANO_RP2040_CONNECT) || defined(ARDUINO_RASPBERRY_PI_PICO)
+#if defined(ARDUINO_NANO_RP2040_CONNECT) || defined(ARDUINO_RASPBERRY_PI_PICO) || defined(ARDUINO_ARCH_MBED_GIGA)
   return 65536;
 #endif
   return 0;
@@ -1679,7 +1679,9 @@ fabgl::SoundGenerator soundGenerator;
 /* this starts the vga controller and the terminal right now */
 void vgabegin() {
 	VGAController.begin(GPIO_NUM_22, GPIO_NUM_21, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_23, GPIO_NUM_15);
-	VGAController.setResolution(VGA_640x200_70Hz);
+	//VGAController.setResolution(VGA_640x200_70Hz);
+  //VGAController.setResolution(VGA_640x400_70Hz);
+  VGAController.setResolution(TTGOVGARESOLUTION);
 	Terminal.begin(&VGAController);
 	Terminal.setBackgroundColor(vga_txt_background);
 	Terminal.setForegroundColor(vga_txt_pen);
@@ -1693,7 +1695,7 @@ int vgastat(uint8_t c) {return 0; }
 
 /* scale the screen size */
 void vgascale(int* x, int* y) {
-	*y=*y*10/16;
+	/* *y=*y*10/16; */
 }
 
 void rgbcolor(uint8_t r, uint8_t g, uint8_t b) {
