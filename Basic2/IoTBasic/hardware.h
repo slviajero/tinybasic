@@ -85,7 +85,7 @@
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #undef TFTESPI
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
@@ -766,7 +766,7 @@
  *  incompatibilities and library stuff
  */
 /* these platforms have no EEPROM and no emulation built-in */
-#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040) 
+#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_MBED_GIGA)
 #undef ARDUINOEEPROM
 #endif
 
