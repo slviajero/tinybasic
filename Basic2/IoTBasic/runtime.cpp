@@ -108,6 +108,13 @@ uint16_t nullbufsize = BUFSIZE;
 #endif
 #endif
 
+/*
+ * MBED OS type includes summarized here - tested for GIGA boards 
+*/
+#ifdef ARDUINO_ARCH_MBED_GIGA
+#include "mbed.h"
+#include <mbed_mktime.h>
+#endif
 
 /*
  * This works for AVR and ESP EEPROM dummy. 
@@ -2996,7 +3003,7 @@ void rtcset(uint8_t i, uint16_t v) {
    Wire.write(b);
    Wire.endTransmission(); 
 }
-#elif defined(HASBUILTINRTC) 
+#elif defined(HASBUILTINRTCZERO) 
 /*
  * Built-in clocks of STM32 and MKR are based on the RTCZero interface
  * an rtc object is created after loading the libraries
@@ -3262,10 +3269,10 @@ void rtcset(uint8_t i, uint16_t v) {
 /* remember when we set the clock */
   rtcutimeoffset = rtcutime - millis()/1000;  
 }
-#elif defined(ARDUINO_ARCH_ESP32)
+#elif defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_MBED_GIGA)
 /* 
  * On ESP32 we use the builtin clock, this is a generic Unix time mechanism equivalent
- * to the code in hardware-posix.h
+ * to the code in hardware-posix.h. The code works also for the GIGA which is surprising!
  */
 
 /* no begin needed */

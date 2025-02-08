@@ -212,6 +212,7 @@
  *	#define PS2DATAPIN, PS2IRQPIN sets PS2 pin
  */
 
+
 /* PS2 Keyboard pins for AVR - use one interrupt pin 2 and one date pin 
     5 not 4 because 4 conflicts with SDPIN of the standard SD shield */
 
@@ -870,17 +871,17 @@
  * state to sleep state via EEPROM)
  */
 #if defined(ARDUINO_ARCH_SAMD) 
-#define HASBUILTINRTC
+#define HASBUILTINRTCZERO
 #endif
 
 /* STM32duino have the same structure */
 #if defined(ARDUINO_ARCH_STM32)
-#define HASBUILTINRTC
+#define HASBUILTINRTCZERO
 #endif
 
 /* the NRENESA board have a buildin RTC as well */
 #if defined(ARDUINO_ARCH_RENESAS)
-#define HASBUILTINRTC
+#define HASBUILTINRTCZERO
 #endif
 
 /* 
@@ -1071,7 +1072,9 @@
  * available in BASIC.
  * 
  * Four software models are supported
- *  - Built-in clocks of STM32, MKR, and ESP32 are supported by default
+ *  - Built-in clocks of STM32 and MKR and NRESAS are supported by default as RTCZero type code
+ *  - Built-in clocks of ESP32 are supported by default with a time structure type code
+ *  - Built-in clocks of GIGA the same as ESP32
  *  - I2C clocks can be activated: DS1307, DS3231, and DS3232 
  *  - A Real Time Clock emulation is possible using millis()
  * 
@@ -1082,7 +1085,7 @@
  * On I2C clocks registers 7-255 are returned as memory cells
  */
 
-#if defined(ARDUINORTC) || defined(HASBUILTINRTC) || defined(ARDUINO_ARCH_ESP32) || defined(ARDUINORTCEMULATION)
+#if defined(ARDUINORTC) || defined(HASBUILTINRTCZERO) || defined(ARDUINO_ARCH_ESP32) || defined(ARDUINORTCEMULATION) || defined(ARDUINO_ARCH_MBED_GIGA) 
 #define HASCLOCK
 #endif
 
