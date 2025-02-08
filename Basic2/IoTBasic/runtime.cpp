@@ -291,6 +291,15 @@ uint16_t nullbufsize = BUFSIZE;
 #endif
 
 /*
+ * The USB filesystem for the GIGA board
+ */
+#ifdef GIGAUSBFS
+#include <DigitalOut.h>
+#include <FATFileSystem.h>
+#include <Arduino_USBHostMbed5.h>
+#endif
+
+/*
  * TFT_eSPI is a library for the T-Deck from Lilygo
  * #include "utilities.h" provided by Lilygo is coded directly into hardware.h
  * For some reason this has to be included after FS and FFat. Not yet fully 
@@ -334,6 +343,7 @@ uint16_t nullbufsize = BUFSIZE;
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ESP32FAT
+#undef GIGAUSBFS
 #endif
 
 /*
@@ -349,6 +359,7 @@ uint16_t nullbufsize = BUFSIZE;
 #undef RP2040LITTLEFS
 #undef ARDUINOSD
 #undef STM32SDIO
+#undef GIGAUSBFS
 #define FILESYSTEMDRIVER
 #endif
 
@@ -4172,6 +4183,18 @@ LittleFS_MBED *myFS;
 const char rootfsprefix[10] = MBED_LITTLEFS_FILE_PREFIX;
 #endif
 
+/* the API of the USB filesystem on GIGA and Portenta. looks like LITTLEFS */
+#ifdef GIGAUSBFS
+#define FILESYSTEMDRIVER
+USBHostMSD msd; /* remove this later once more USB happens but good for now */
+mbed::FATFileSystem usb("usb"); /* call it usb ;-) because it is on USB */
+FILE* ifile;
+FILE* ofile;
+DIR* root;
+struct dirent *file;
+const char rootfsprefix[10] = "/usb/";
+#endif
+
 /* use EEPROM as filesystem */
 #ifdef ARDUINOEFS
 byte ifile;
@@ -4192,7 +4215,7 @@ char buildin_tempname[FBUFSIZE]; /* this is needed for the catalog code as strin
 
 
 /* these filesystems may have a path prefixes, we treat STM32SDIO like an SD here */
-#if defined(RP2040LITTLEFS) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(ARDUINOSD) 
+#if defined(RP2040LITTLEFS) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(ARDUINOSD) || defined(GIGAUSBFS)
 char tmpfilename[10+FBUFSIZE];
 
 /* add the prefix to the filename */
@@ -4216,6 +4239,7 @@ const char* rmrootfsprefix(const char* filename) {
 
 /* 
  *	filesystem starter for SPIFFS and SD on ESP, ESP32 and Arduino plus LittleFS
+ *  and then also GIGAUSBFS
  *	the verbose option needs to be checked .
  *  
  *  Also here the driver for the buildin file system.
@@ -4254,6 +4278,19 @@ void fsbegin() {
 	myFS = new LittleFS_MBED();
 	if (myFS->init()) fsstart=1; else fsstart=0;
 #endif
+#ifdef GIGAUSBFS
+  static int fsbegins = 0;
+  int usbfsstat;
+/* power up the USB A port */
+  pinMode(PA_15, OUTPUT);
+  digitalWrite(PA_15, HIGH);
+/* try to connect the usb port, count to 10 */
+  while (!msd.connect() && fsbegins++ < 10) { bdelay(1000); }
+/* try to mount the filesystem if we got somewhere here with our 10 tries */
+  if (fsbegins<10) {
+    fsstart=usb.mount(&msd);
+  }
+#endif
 #ifdef ARDUINOEFS
 	uint8_t s=EFS.begin();
 	if (s>0) {
@@ -4267,6 +4304,11 @@ void fsbegin() {
 #endif
 }
 
+/* 
+ *  Maps information of the start of the filesystem to 
+ *  the USR(16,x) call. USR(16,0) checks if a filesystem is 
+ *  present and USR(16,1) checks if the filesystem has been mounted.
+ */
 uint8_t fsstat(uint8_t c) { 
 #if defined(FILESYSTEMDRIVER)
   if (c == 0) return 1;
@@ -4286,7 +4328,7 @@ void filewrite(char c) {
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)||defined(ESP32FAT)||defined(STM32SDIO)
 	if (ofile) { ofile.write(c); return; }
 #endif
-#if defined(RP2040LITTLEFS)
+#if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
 	if (ofile) { fputc(c, ofile); return; }
 #endif
 #if defined(ARDUINOEFS)
@@ -4315,7 +4357,7 @@ char fileread() {
 	if (c == -1 || c == 255) ioer=-1;
 	return c;
 #endif
-#ifdef RP2040LITTLEFS
+#if defined(RP2040LITTLEFS)||defined(GIGAUSBFS)
 	if (ifile) c=fgetc(ifile); else { ioer=1; return 0; }
 	if (c == -1 || c == 255) ioer=-1;
 	return c;
@@ -4340,7 +4382,7 @@ int fileavailable(){
 #if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO)
 	return ifile.available();
 #endif
-#ifdef RP2040LITTLEFS
+#if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
 	return !feof(ifile);
 #endif
 #ifdef ARDUINOEFS
@@ -4400,7 +4442,7 @@ uint8_t ifileopen(const char* filename){
   ifile=FFat.open(mkfilename(filename), "r"); 
   return ifile != 0;
 #endif
-#ifdef RP2040LITTLEFS
+#if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
 	ifile=fopen(mkfilename(filename), "r");
 	return ifile != 0;
 #endif
@@ -4421,7 +4463,7 @@ void ifileclose(){
 #if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO)
 	if (ifile) ifile.close();
 #endif	
-#ifdef RP2040LITTLEFS
+#if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
 	if (ifile) fclose(ifile);
 #endif
 #ifdef ARDUINOEFS
@@ -4459,7 +4501,7 @@ uint8_t ofileopen(const char* filename, const char* m){
   ofile=FFat.open(mkfilename(filename), m);
   return ofile != 0;
 #endif
-#ifdef RP2040LITTLEFS
+#if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
 	ofile=fopen(mkfilename(filename), m);
 	return ofile != 0; 
 #endif
@@ -4479,7 +4521,7 @@ void ofileclose(){
 #if defined(ARDUINOSD) || defined(ESPSPIFFS)||defined(ESP32FAT)||defined(STM32SDIO)
   if (ofile) ofile.close();
 #endif
-#ifdef RP2040LITTLEFS
+#if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
 	if (ofile) fclose(ofile); 
 #endif
 #ifdef ARDUINOEFS
@@ -4518,7 +4560,7 @@ void rootopen() {
 #ifdef ESP32FAT
   root=FFat.open("/");
 #endif
-#ifdef RP2040LITTLEFS
+#if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
 	root=opendir(rootfsprefix);
 #endif
 #ifdef ARDUINOEFS
@@ -4564,7 +4606,7 @@ uint8_t rootnextfile() {
   return (file != 0);
 #endif
 #endif
-#ifdef RP2040LITTLEFS
+#if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
 	file = readdir(root);
 	return (file != 0);
 #endif
@@ -4595,7 +4637,7 @@ uint8_t rootisfile() {
   return (! file.isDirectory());
 #endif
 #endif
-#ifdef RP2040LITTLEFS
+#if defined(RP2040LITTLEFS)||defined(GIGAUSBFS)
 	return (file->d_type == DT_REG);
 #endif
 #ifdef ARDUINOEFS
@@ -4636,7 +4678,7 @@ const char* rootfilename() {
   return rmrootfsprefix(file.name());
 #endif
 #endif
-#ifdef RP2040LITTLEFS
+#if defined(RP2040LITTLEFS)||defined(GIGAUSBFS)
 	return (file->d_name);
 #endif
 #ifdef ARDUINOEFS
@@ -4658,7 +4700,8 @@ uint32_t rootfilesize() {
 #if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO)
   return file.size();
 #endif  
-#ifdef RP2040LITTLEFS
+#if defined(RP2040LITTLEFS)||defined(GIGAUSBFS)
+/* to be done */
 #endif
 #ifdef ARDUINOEFS
 	return EFS.filesize(file);
@@ -4670,7 +4713,8 @@ void rootfileclose() {
 #if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO)
   file.close();
 #endif 
-#ifdef RP2040LITTLEFS
+#if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
+/* nothing to be done here as we work on dirents */
 #endif
 #ifdef ARDUINOEFS
 #endif
@@ -4698,6 +4742,9 @@ void rootclose(){
 #endif
 #ifdef RP2040LITTLEFS
 #endif
+#ifdef GIGAUSBFS
+  (void) closedir(root);
+#endif
 #ifdef ARDUINOEFS
 #endif
 }
@@ -4722,7 +4769,7 @@ void removefile(const char *filename) {
   FFat.remove(mkfilename(filename));
   return;
 #endif
-#ifdef RP2040LITTLEFS
+#if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
 	remove(mkfilename(filename));
 	return;
 #endif
@@ -4736,7 +4783,7 @@ void removefile(const char *filename) {
  * formatting for fdisk of the internal filesystems
  */
 void formatdisk(uint8_t i) {
-#if defined(ARDUINOSD) || defined(STM32SDIO)	
+#if defined(ARDUINOSD) || defined(STM32SDIO)||defined(GIGAUSBFS)
 	return;
 #endif
 #ifdef ESPSPIFFS

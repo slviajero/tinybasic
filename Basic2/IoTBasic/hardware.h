@@ -53,7 +53,7 @@
  *	ARDUINOTFT, ARDUINONOKIA51, ARDUINOILI9488,
  *  ARDUINOSSD1306, ARDUINOMCUFRIEND
  * storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS
- * storage ARDUINOEFS, SM32SDIO, ESP32FAT
+ * storage ARDUINOEFS, SM32SDIO, ESP32FAT, GIGAUSBFS
  * sensors ARDUINOWIRE, ARDUINOSIMPLEWIRE, ARDUINOSENSORS
  * network ARDUINORF24, ARDUNIOMQTT 
  * memory ARDUINOSPIRAM
@@ -93,6 +93,7 @@
 #undef ESP32FAT
 #undef RP2040LITTLEFS
 #undef STM32SDIO
+#undef GIGAUSBFS
 #undef ARDUINORTC
 #undef ARDUINORTCEMULATION
 #undef ARDUINOTONEEMULATION
@@ -821,6 +822,14 @@
 #define FILESYSTEMDRIVER
 #endif
 
+/* 
+ *  The USB filesystem of the GIGA board
+ */
+#ifdef GIGAUSBFS
+#define FILESYSTEMDRIVER
+#define NEEDSUSB
+#endif
+
 /*
  * external flash file systems override internal filesystems
  * currently BASIC can only have one filesystem
@@ -829,6 +838,7 @@
 #undef ESPSPIFFS
 #undef ESP32FAT
 #undef RP2040LITTLEFS
+#undef GIGAUSBFS
 #endif
 
 /*
@@ -844,6 +854,7 @@
 #undef RP2040LITTLEFS
 #undef ARDUINOSD
 #undef STM32SDIO
+#undef GIGAUSBFS
 #define FILESYSTEMDRIVER
 #endif
 
