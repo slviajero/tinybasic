@@ -261,6 +261,10 @@
 #define EARGS       22
 #define EEEPROM	    23
 #define ESDCARD     24
+#define MBASICLANGSET 25
+#define MLANGSET    26
+#define MKEYWORDS    27
+
 
 /*
  *	code for variable numbers and addresses sizes

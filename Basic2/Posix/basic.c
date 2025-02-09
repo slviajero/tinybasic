@@ -429,7 +429,7 @@ const char esdcard[]	PROGMEM = "SD card";
 #ifdef BASICFULL	
 const char mbasiclangset[] PROGMEM = "full";
 #elif defined(BASICSIMPLE)
-const char mbasiclangset[] PROGMEM = "simple";
+const char mbasiclangset[] PROGMEM = "simple with integer";
 #elif defined(BASICINTEGER)
 const char mbasiclangset[] PROGMEM = "integer";
 #elif defined(BASICMINIMAL)
@@ -6263,8 +6263,11 @@ void xhelp(){
 		}
 		outcr();
 	} else {
-		outputtoken(); outsc(": ");
-		outcr();
+		if (token<31 && token >= BASEKEYWORD) { /* attention, doesn't work with long tokens */
+			outputtoken(); 
+			outsc(": "); 
+			outcr();
+		}	
 		nexttoken();
 	}
 }
