@@ -141,6 +141,7 @@
 #define BOOLEANMODE -1
 #undef  HASFULLINSTR
 #define HASLOOPOPT
+#define HASHELP
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
