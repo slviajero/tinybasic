@@ -17,7 +17,7 @@ The language is scalable and can run from 2 kB memory Arduino UNOs to large memo
 
 Just like the home computer BASICs of the old times, BASIC is a small standalone operating system. It supports a number of peripherals and can be extended to new peripherals fast as there are generic device driver stubbs in the code.
 
-Supported platforms right now are all 8bit Arduino AVR systems, LGT8 systems, the various Arduino 32bit systems like the MKR and of cource the RP2040, plain Rasberry PI Pico, ESP8266 and ESP32, Infineon XMC, Seeeduino Xiao and STM32. A full list of supported platforms can be found here https://github.com/slviajero/tinybasic/wiki/Hardware-Platforms.
+Supported platforms right now are all 8bit Arduino AVR systems, LGT8 systems, the various Arduino 32bit systems like the MKR and GIGA. Of cource the RP2040, plain Rasberry PI Pico, ESP8266 and ESP32, Infineon XMC, Seeeduino Xiao and STM32. A full list of supported platforms can be found here https://github.com/slviajero/tinybasic/wiki/Hardware-Platforms.
 
 For Raspberry PI with Linux, frame buffer graphics and wiring is supported just like on the microcontroller platforms.
 
@@ -56,6 +56,11 @@ Files of the 2.x version
 - IoTBasic/hardware.h is the hardware configuration for Arduino
 - runtime.h is identical for all platforms, it is the interface definition of the runtime code
 - MSDOS and RaspPi contain the code with the right settings for there platforms and additional information.
+
+In addition to this there are files for the buildin programs in version 2.x. 
+
+- buildin.h is a demo for buildin programs
+- buildin is a folder to store buildin headers, as demos it contains buildin-arduinotest.h, buildin-games.h, buildin-tutorial.h
 
 To compile Basic2 you would check and edit hardware.h and language.h for your platform to set the hardware and language features. On Posix you would then do 
 
