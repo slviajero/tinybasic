@@ -425,6 +425,23 @@ const char eargs[]  	PROGMEM = "Args";
 const char eeeprom[]	PROGMEM = "EEPROM";
 const char esdcard[]	PROGMEM = "SD card";
 #endif
+#ifdef HASHELP
+#ifdef BASICFULL	
+const char mbasiclangset[] PROGMEM = "full";
+#elif defined(BASICSIMPLE)
+const char mbasiclangset[] PROGMEM = "simple";
+#elif defined(BASICINTEGER)
+const char mbasiclangset[] PROGMEM = "integer";
+#elif defined(BASICMINIMAL)
+const char mbasiclangset[] PROGMEM = "minimal";
+#elif defined(BASICSIMPLEWITHFLOAT)
+const char mbasiclangset[] PROGMEM = "simple with float";
+#elif defined(BASICTINYWITHFLOAT)
+const char mbasiclangset[] PROGMEM = "tiny with float";
+#endif
+const char mlangset[] PROGMEM = "Language set: ";
+const char mkeywords[] PROGMEM = "Keywords: ";
+#endif
 
 const char* const message[] PROGMEM = {
 	mfile, mprompt, mgreet, 
@@ -432,10 +449,13 @@ const char* const message[] PROGMEM = {
 	mstring, mstringv,
 	egeneral
 #ifdef HASERRORMSG
-	, eunknown, enumber, edivide, eline, 
+	,eunknown, enumber, edivide, eline, 
 	emem, estack, erange,
 	estring, evariable, eloop, efile, efun, eargs, 
 	eeeprom, esdcard
+#endif
+#ifdef HASHELP
+	,mbasiclangset, mlangset, mkeywords
 #endif
 };
 
@@ -6233,21 +6253,9 @@ void xhelp(){
 	nexttoken();
 	if (token == EOL) {
 		outsc(getmessage(MGREET)); outcr();
-		outsc("Language set: ");
-#ifdef BASICFULL	
-		outsc("full\n");
-#elif defined(BASICSIMPLE)
-		outsc("simple\n");
-#elif defined(BASICINTEGER)
-		outsc("integer\n");
-#elif defined(BASICMINIMAL)
-		outsc("minimal\n");
-#elif defined(BASICSIMPLEWITHFLOAT)
-		outsc("simple with float\n");
-#elif defined(BASICTINYWITHFLOAT)
-		outsc("tiny with float\n");
-#endif
-		outsc("Keywords: ");
+		outsc(getmessage(MLANGSET));
+		outsc(getmessage(MBASICLANGSET)); outcr();
+		outsc(getmessage(MKEYWORDS));
 		for(i=0; gettokenvalue(i) != 0; i++) {
 			outsc(getkeyword(i));
 			outch(' ');
@@ -6255,8 +6263,7 @@ void xhelp(){
 		}
 		outcr();
 	} else {
-		outsc("Help on ");
-		outputtoken();
+		outputtoken(); outsc(": ");
 		outcr();
 		nexttoken();
 	}
