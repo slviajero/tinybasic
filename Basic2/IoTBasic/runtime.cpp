@@ -4288,7 +4288,7 @@ void fsbegin() {
   while (!msd.connect() && fsbegins++ < 10) { bdelay(1000); }
 /* try to mount the filesystem if we got somewhere here with our 10 tries */
   if (fsbegins<10) {
-    fsstart=usb.mount(&msd);
+    fsstart=!usb.mount(&msd);
   }
 #endif
 #ifdef ARDUINOEFS

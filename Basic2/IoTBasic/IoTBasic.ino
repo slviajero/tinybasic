@@ -225,7 +225,9 @@ const char sspc[]		PROGMEM = "SPC";
 #ifdef HASEDITOR
 const char sedit[]		PROGMEM = "EDIT";
 #endif
-
+#ifdef HASHELP
+const char shelp[]		PROGMEM = "HELP";
+#endif
 
 /* zero terminated keyword storage */
 const char* const keyword[] PROGMEM = {
@@ -304,6 +306,9 @@ const char* const keyword[] PROGMEM = {
 #ifdef HASEDITOR
 	sedit,
 #endif
+#ifdef HASHELP
+	shelp,
+#endif
 	0
 };
 
@@ -380,6 +385,9 @@ const token_t tokens[] PROGMEM = {
 #endif
 #ifdef HASEDITOR
 	TEDIT,
+#endif
+#ifdef HASHELP
+	THELP,
 #endif
 	0
 };
@@ -6217,6 +6225,43 @@ void xrun(){
 }
 
 /*
+ * a simple help function for the help command, will be extended to 
+ * a more sophisticated help system in the future
+ */
+void xhelp(){
+	int i;
+	nexttoken();
+	if (token == EOL) {
+		outsc("BASIC 2.0\n");
+		outsc("Language set: ");
+#ifdef BASICFULL	
+		outsc("full\n");
+#elif defined(BASICSIMPLE)
+		outsc("simple\n");
+#elif defined(BASICINTEGER)
+		outsc("integer\n");
+#elif defined(BASICMINIMAL)
+		outsc("minimal\n");
+#elif defined(BASICSIMPLEWITHFLOAT)
+		outsc("simple with float\n");
+#elif defined(BASICTINYWITHFLOAT)
+		outsc("tiny with float\n");
+#endif
+		outsc("Keywords: ");
+		for(i=0; gettokenvalue(i) != 0; i++) {
+			outsc(getkeyword(i));
+			outch(' ');
+		}
+		outcr();
+	} else {
+		outsc("Help on ");
+		outputtoken();
+		outcr();
+		nexttoken();
+	}
+}
+
+/*
  * NEW the general cleanup function - new deletes everything
  * 
  * restbasicstate() is a helper, it keeps the memory intact
@@ -9393,6 +9438,11 @@ void statement(){
 			xedit();
 			break;
 #endif
+#ifdef HASHELP
+		case THELP:
+			xhelp();
+			break;
+#endif		
 		default:
 /*  strict syntax checking */
 			error(EUNKNOWN);

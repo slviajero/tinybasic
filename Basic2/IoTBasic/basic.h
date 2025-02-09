@@ -210,6 +210,7 @@
 
 /* The editor and other helpers */
 #define TEDIT 7
+#define THELP 8
 
 /* 
  * Extension tokens can be in the range from -128 upwards.
