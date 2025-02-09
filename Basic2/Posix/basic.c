@@ -6232,7 +6232,7 @@ void xhelp(){
 	int i;
 	nexttoken();
 	if (token == EOL) {
-		outsc("BASIC 2.0\n");
+		outsc(getmessage(MGREET)); outcr();
 		outsc("Language set: ");
 #ifdef BASICFULL	
 		outsc("full\n");
@@ -6251,6 +6251,7 @@ void xhelp(){
 		for(i=0; gettokenvalue(i) != 0; i++) {
 			outsc(getkeyword(i));
 			outch(' ');
+      		if (i%8==7) outcr();
 		}
 		outcr();
 	} else {
