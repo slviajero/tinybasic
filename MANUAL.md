@@ -1617,6 +1617,10 @@ Buildin programs can be loaded and saved with LOAD and SAVE. They can be openend
 
 These programs are always scanned first, hence a program with the same name on the filesystem cannot be accessed. Best use a name convention or prefix that distinguished the build in programs from normal programs. If the characters _ or . are used as prefixes for the build in program, they are invisible for CATALOG.
 
+### The help command
+
+Typing HELP will display the commands and the language set of the interpreter. HELP will be extended to a full help system later.
+
 ## I/O Streams
 
 ### Introduction
