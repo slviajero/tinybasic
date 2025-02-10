@@ -750,7 +750,7 @@
 
 
 /* Networking and keyboards need the background task capability */
-#if defined(ARDUINOMQTT) || defined(ARDUINOETH) || defined(ARDUINOUSBKBD) || defined(ARDUINOZX81KBD)
+#if defined(ARDUINOMQTT) || defined(ARDUINOETH) || defined(ARDUINOUSBKBD) || defined(ARDUINOZX81KBD) || defined(GIGAUSBKBD)
 #define BASICBGTASK
 #endif
 

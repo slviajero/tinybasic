@@ -2014,6 +2014,7 @@ uint8_t kbdavailable(){
 
 char kbdread() {
   char c = 0;
+/* wait for the keystrike in a tight loop, yielding a lot */
   while(!kbdavailable()) byield();
 #ifdef PS2KEYBOARD  
 	c=keyboard.read();
@@ -2041,8 +2042,9 @@ char kbdread() {
   }
 #else
 #if defined(GIGAUSBKBD)
-    auto _key = keyb.read();
-    c=keyb.getAscii(_key);
+/* sometimes 0s are returned even with avail > 0 */
+      auto _key = keyb.read();
+      c=keyb.getAscii(_key);
 #endif
 #endif
 #endif
