@@ -98,6 +98,16 @@ uint16_t nullbufsize = BUFSIZE;
 #endif
 
 /*
+ * This will be for the USB keyboard code on a GIGA board
+ * https://docs.arduino.cc/tutorials/giga-r1-wifi/giga-usb/#usb-host-keyboard
+ * 
+ */
+#ifdef GIGAUSBKBD
+#include "USBHostGiga.h"
+#endif
+
+
+/*
  * ESPy stuff, pgmspace has changed location 
  */
 #ifdef ARDUINOPROGMEM
@@ -1827,6 +1837,10 @@ ZX81Keyboard keyboard;
 #if defined(ARDUINOI2CKBD)
 /* with an I2C keyboard we remeber the last key, this is similar to the USB keyboard */
 char i2ckey=0;
+#else
+#if defined(GIGAUSBKBD)
+Keyboard keyb;
+#endif
 #endif
 #endif
 #endif
@@ -1912,6 +1926,7 @@ char i2ckbdgetkey() {
 }
 #endif
 
+/* start the keyboard */
 void kbdbegin() {
 #ifdef PS2KEYBOARD
 #ifdef ARDUINOKBDLANG_GERMAN
@@ -1937,6 +1952,11 @@ void kbdbegin() {
 #ifdef ARDUINOI2CKBD
 /* this is from the T-Deck examples, time needed for the keyboard to start */
   delay(500);
+#else 
+#ifdef GIGAUSBKBD
+  pinMode(PA_15, OUTPUT); /* no digitalWrite in original example file */
+  keyb.begin();
+#endif
 #endif
 #endif
 #endif
@@ -1972,6 +1992,10 @@ uint8_t kbdavailable(){
     i2ckey=i2ckbdgetkey(); 
     if (i2ckey != 0) return 1;
   }
+#else
+#if defined(GIGAUSBKBD)
+  return keyb.available();
+#endif
 #endif
 #endif
 #endif
@@ -2015,6 +2039,11 @@ char kbdread() {
 /* if not look for a key, no need to store it */
     c=i2ckbdgetkey();
   }
+#else
+#if defined(GIGAUSBKBD)
+    auto _key = keyb.read();
+    c=keyb.getAscii(_key);
+#endif
 #endif
 #endif
 #endif
@@ -2061,6 +2090,11 @@ char kbdcheckch() {
     i2ckey=i2ckbdgetkey();
   }
   return i2ckey;
+#else
+#if defined(GIGAUSBKBD)
+    auto _key = keyb.peek();
+    return keyb.getAscii(_key);
+#endif
 #endif
 #endif
 #endif
@@ -4186,7 +4220,7 @@ const char rootfsprefix[10] = MBED_LITTLEFS_FILE_PREFIX;
 /* the API of the USB filesystem on GIGA and Portenta. looks like LITTLEFS */
 #ifdef GIGAUSBFS
 #define FILESYSTEMDRIVER
-USBHostMSD msd; /* remove this later once more USB happens but good for now */
+USBHostMSD msd;
 mbed::FATFileSystem usb("usb"); /* call it usb ;-) because it is on USB */
 FILE* ifile;
 FILE* ofile;
@@ -4283,12 +4317,17 @@ void fsbegin() {
   int usbfsstat;
 /* power up the USB A port */
   pinMode(PA_15, OUTPUT);
+  digitalWrite(PA_15, LOW); /* power it down first and wait a bit */
+  bdelay(100);
   digitalWrite(PA_15, HIGH);
 /* try to connect the usb port, count to 10 */
-  while (!msd.connect() && fsbegins++ < 10) { bdelay(1000); }
+  while (!msd.connect() && fsbegins++ < 10) { bdelay(500); }
 /* try to mount the filesystem if we got somewhere here with our 10 tries */
-  if (fsbegins<10) {
+  if (msd.connected()) {
+    /* usb.mount produces an error status, 0 if successful */
     fsstart=!usb.mount(&msd);
+  } else {
+    fsstart=0;
   }
 #endif
 #ifdef ARDUINOEFS
@@ -4426,6 +4465,12 @@ uint8_t ifileopen(const char* filename){
     }
   }
 #endif
+/*
+ * All filesystems that are not buildin are checked for correct open
+ * This is needed for GIGA as the USB host tends to block.
+ */
+  if (!fsstart) return 0;
+
 #if defined(ARDUINOSD)
 	ifile=SD.open(mkfilename(filename), FILE_READ);
 	return ifile != 0;
@@ -4473,6 +4518,13 @@ void ifileclose(){
 }
 
 uint8_t ofileopen(const char* filename, const char* m){
+
+/*
+ * All filesystems that are not buildin are checked for correct open
+ * This is needed for GIGA as the USB host tends to block.
+ */
+  if (!fsstart) return 0;
+    
 #if defined(ARDUINOSD) 
 	if (*m == 'w') ofile=SD.open(mkfilename(filename), FILE_OWRITE);
 /* ESP32 has FILE_APPEND defined */
@@ -4546,6 +4598,12 @@ void rootopen() {
   buildin_rootpointer=0;
   buildin_rootactive=1;
 #endif
+/*
+ * All filesystems that are not buildin are checked for correct open
+ * This is needed for GIGA as the USB host tends to block.
+ */
+  if (!fsstart) return;
+  
 #if defined(ARDUINOSD) || defined(STM32SDIO)
 	root=SD.open("/");
 #endif
@@ -4582,6 +4640,12 @@ uint8_t rootnextfile() {
     }
   }
 #endif
+/*
+ * All filesystems that are not buildin are checked for correct open
+ * This is needed for GIGA as the USB host tends to block.
+ */
+  if (!fsstart) return 0;
+  
 #if defined(ARDUINOSD) || defined(STM32SDIO)
 	file=root.openNextFile();
 	return (file != 0);
@@ -4629,12 +4693,12 @@ uint8_t rootisfile() {
 	return 1;
 #endif
 #ifdef ARDUINO_ARCH_ESP32
-	return (! file.isDirectory());
+	return (!file.isDirectory());
 #endif
 #endif
 #ifdef ESP32FAT
 #ifdef ARDUINO_ARCH_ESP32
-  return (! file.isDirectory());
+  return (!file.isDirectory());
 #endif
 #endif
 #if defined(RP2040LITTLEFS)||defined(GIGAUSBFS)
@@ -4743,7 +4807,7 @@ void rootclose(){
 #ifdef RP2040LITTLEFS
 #endif
 #ifdef GIGAUSBFS
-  (void) closedir(root);
+  if (root) (void) closedir(root);
 #endif
 #ifdef ARDUINOEFS
 #endif
@@ -5051,7 +5115,7 @@ uint16_t serialins(char *b, uint16_t nb) {
 #ifdef ARDUINOPRT
 #if !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_SAM_DUE) && !defined(ARDUINO_AVR_NANO_EVERY) \
     && !defined(ARDUINO_NANO_RP2040_CONNECT) && !defined(ARDUINO_RASPBERRY_PI_PICO) \
-    && !defined(ARDUINO_SEEED_XIAO_M0) && !defined(ARDUINO_ARCH_RENESAS)
+    && !defined(ARDUINO_SEEED_XIAO_M0) && !defined(ARDUINO_ARCH_RENESAS) &&! defined(ARDUINO_ARCH_MBED)
 #include <SoftwareSerial.h>
 SoftwareSerial PRTSERIAL(SOFTSERIALRX, SOFTSERIALTX);
 #endif

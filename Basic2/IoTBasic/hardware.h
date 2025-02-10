@@ -48,7 +48,8 @@
  * Arduino hardware settings , set here what you need or
  * use one of the predefined configurations below
  *
- * input/output methods ARUINOPICOSERIAL, ARDUINOPS2
+ * input/output methods ARUINOPICOSERIAL, ARDUINOPS2,
+ *  ARDUINOUSBKBD, ARDUINOZX81KBD, ARDUINOI2CKBD, GIGAUSBKBD
  *	ARDUINOPRT, DISPLAYCANSCROLL, ARDUINOLCDI2C,
  *	ARDUINOTFT, ARDUINONOKIA51, ARDUINOILI9488,
  *  ARDUINOSSD1306, ARDUINOMCUFRIEND
@@ -72,6 +73,7 @@
 #undef ARDUINOUSBKBD
 #undef ARDUINOZX81KBD
 #undef ARDUINOI2CKBD
+#undef GIGAUSBKBD
 #undef ARDUINOPRT
 #undef DISPLAYCANSCROLL
 #undef ARDUINOLCDI2C
@@ -1071,6 +1073,12 @@
 #define I2CKEYBOARD
 #define BREAKINBACKGROUND
 #endif
+
+#if defined(GIGAUSBKBD)
+#define HASKEYBOARD
+#define GIGAUSBKEYBOARD
+#endif
+
 
 /* 
  * Arduino Real Time clock. The interface here offers the values as number_t 
