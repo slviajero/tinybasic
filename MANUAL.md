@@ -2119,13 +2119,13 @@ Currently the built-in clocks of ESP32, STM32 and Arduino MKR and I2C clocks DS1
 
 @T(2): hours
 
-@T(3): days
+@T(3): day of week (0-6) (not supported for all clocks)
 
-@T(4): month
+@T(4): days
 
-@T(5): year (0-99)
+@T(5): month
 
-@T(6): day of week (0-6)
+@T(6): year (0-99)
 
 @T(7): temperature (DS1307 only)
 
