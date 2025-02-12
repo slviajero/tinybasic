@@ -37,6 +37,8 @@ uint8_t bsystype = SYSTYPE_XMC;
 uint8_t bsystype = SYSTYPE_SMT32;
 #elif defined(ARDUINO_ARCH_RENESAS)
 uint8_t bsystype = SYSTYPE_NRENESA;
+#elif defined(ARDUINO_ARCH_MBED_GIGA)
+uint8_t bsystype = SYSTYPE_GIGA;
 #else
 uint8_t bsystype = SYSTYPE_UNKNOWN;
 #endif
@@ -4222,8 +4224,16 @@ const char rootfsprefix[10] = MBED_LITTLEFS_FILE_PREFIX;
 /* the API of the USB filesystem on GIGA and Portenta. looks like LITTLEFS */
 #ifdef GIGAUSBFS
 #define FILESYSTEMDRIVER
+/* call it usb ;-) because it is on USB */
+/*
 USBHostMSD msd;
-mbed::FATFileSystem usb("usb"); /* call it usb ;-) because it is on USB */
+mbed::FATFileSystem usb("usb"); 
+*/
+/* alternative implementation */
+USBHostMSD* msdp;
+mbed::FATFileSystem* usbp;
+
+
 FILE* ifile;
 FILE* ofile;
 DIR* root;
@@ -4317,20 +4327,42 @@ void fsbegin() {
 #ifdef GIGAUSBFS
   static int fsbegins = 0;
   int usbfsstat;
+/* */
+  if (RTDEBUG) consolelog("Starting USB file system.\n");
 /* power up the USB A port */
   pinMode(PA_15, OUTPUT);
-  digitalWrite(PA_15, LOW); /* power it down first and wait a bit */
+  if (RTDEBUG) consolelog("Power down USB port.\n");
+  digitalWrite(PA_15, LOW); 
   bdelay(100);
+  if (RTDEBUG) consolelog("Power up USB port.\n");
   digitalWrite(PA_15, HIGH);
-/* try to connect the usb port, count to 10 */
-  while (!msd.connect() && fsbegins++ < 10) { bdelay(500); }
-/* try to mount the filesystem if we got somewhere here with our 10 tries */
-  if (msd.connected()) {
-    /* usb.mount produces an error status, 0 if successful */
-    fsstart=!usb.mount(&msd);
+  bdelay(100);
+
+/* delete old objects */
+  if (msdp) delete msdp;
+  if (usbp) delete usbp;
+
+ /* create the msdp and the filesystem object */ 
+  msdp=new USBHostMSD();
+  usbp=new mbed::FATFileSystem("usb"); 
+
+  while(!msdp->connect() && fsbegins++ < 10) { bdelay(500); }
+  if (msdp->connected()) {
+    if (RTDEBUG) { consolelog("msd connected\n"); } 
+    usbfsstat=usbp->mount(msdp);
+    if (RTDEBUG) {
+      consolelog("USB mount status is "); 
+      consolelognum(usbfsstat);
+      consolelog("\n");
+    }
+    fsstart=!usbfsstat;
   } else {
+    if (RTDEBUG) { consolelog("msd not connected\n"); } 
     fsstart=0;
   }
+  
+  if (RTDEBUG) { consolelog("fsstart is: "); consolelognum(fsstart); 
+      consolelog("\n"); }
 #endif
 #ifdef ARDUINOEFS
 	uint8_t s=EFS.begin();

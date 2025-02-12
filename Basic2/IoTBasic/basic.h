@@ -568,6 +568,10 @@ void outspc();
 void outsc(const char*);
 void outscf(const char *, index_t);
 
+/* console logger as external function for runtime */
+void consolelog(char*);
+void consolelognum(int);
+
 /* output a name */
 void outname(name_t*);
 
