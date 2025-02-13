@@ -246,6 +246,9 @@ uint16_t nullbufsize = BUFSIZE;
 #if defined(ARDUINO_UNOR4_WIFI)
 #include <WiFiS3.h>
 #endif
+#if defined(ARDUINO_ARCH_MBED_GIGA)
+#include <WiFi.h>
+#endif
 #endif
 #include <PubSubClient.h>
 #endif
@@ -3521,6 +3524,14 @@ void netbegin() {
 #if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_UNOR4_WIFI)
 	WiFi.begin(ssid, password);
 #endif
+#if defined(ARDUINO_ARCH_MBED_GIGA)
+  int counter=0;
+  int status=WL_IDLE_STATUS;
+  while (status != WL_CONNECTED && counter++ < 10) {
+    status=WiFi.begin(ssid, password);
+    bdelay(500);  
+  }
+#endif
 #endif
 }
 
@@ -3536,7 +3547,7 @@ void netstop() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   WiFi.mode(WIFI_OFF);
 #endif
-#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_UNOR4_WIFI)
+#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_UNOR4_WIFI) || defined(ARDUINO_ARCH_MBED_GIGA)
   WiFi.end();
 #endif
 #endif
@@ -3553,10 +3564,10 @@ void netreconnect() {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   WiFi.reconnect(); 
   bdelay(1000); 
-#elif defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_UNOR4_WIFI)
-  WiFi.end();
-  WiFi.begin(ssid, password);
-  bdelay(1000);
+#elif defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_UNOR4_WIFI) || defined(ARDUINO_ARCH_MBED_GIGA)
+/* on these platforms there is no reconnect method, we simply stop and start again */
+  netstop();
+  netbegin();
 #endif  
 #endif
 }
@@ -4221,19 +4232,17 @@ LittleFS_MBED *myFS;
 const char rootfsprefix[10] = MBED_LITTLEFS_FILE_PREFIX;
 #endif
 
-/* the API of the USB filesystem on GIGA and Portenta. looks like LITTLEFS */
+/* 
+ * the API of the USB filesystem on GIGA and Portenta. 
+ * Looks like LITTLEFS. Pointers to the objects msd and usb are used and 
+ * allocation is postponed to fsbegin(). This was done to try to get the code 
+ * restartable, but it doesn't really work. Still, using the pointers
+ * is cleaner and more C++ish.
+ */
 #ifdef GIGAUSBFS
 #define FILESYSTEMDRIVER
-/* call it usb ;-) because it is on USB */
-/*
-USBHostMSD msd;
-mbed::FATFileSystem usb("usb"); 
-*/
-/* alternative implementation */
 USBHostMSD* msdp;
 mbed::FATFileSystem* usbp;
-
-
 FILE* ifile;
 FILE* ofile;
 DIR* root;
@@ -4327,7 +4336,6 @@ void fsbegin() {
 #ifdef GIGAUSBFS
   static int fsbegins = 0;
   int usbfsstat;
-/* */
   if (RTDEBUG) consolelog("Starting USB file system.\n");
 /* power up the USB A port */
   pinMode(PA_15, OUTPUT);
@@ -4346,6 +4354,7 @@ void fsbegin() {
   msdp=new USBHostMSD();
   usbp=new mbed::FATFileSystem("usb"); 
 
+/* connect and mount */
   while(!msdp->connect() && fsbegins++ < 10) { bdelay(500); }
   if (msdp->connected()) {
     if (RTDEBUG) { consolelog("msd connected\n"); } 
