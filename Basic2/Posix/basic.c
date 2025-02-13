@@ -2455,6 +2455,29 @@ void outscf(const char *c, index_t f){
 }
 
 /* 
+ *  two console logger functions, they are not needed in BASIC but in the runtime 
+ *  environment, RTDEBUGSTREAM is the channel to log to 
+ */
+
+#ifdef RTDEBUG
+ void consolelog(char* ch) { 
+  mem_t ood=od;
+  od=RTDEBUGSTREAM;
+  outsc(ch);
+  od=ood;
+ }
+ void consolelognum(int i) { 
+  mem_t ood=od;
+  od=RTDEBUGSTREAM; 
+  outnumber(i); 
+  od=ood;
+ }
+ #else 
+  void consolelog(char* ch) {}
+  void consolelognum(int i) {}
+ #endif
+ 
+/* 
  *	reading a positive number from a char buffer 
  *	maximum number of digits is adjusted to 16
  *	ugly here, testcode when introducting 
@@ -7061,8 +7084,12 @@ void xset(){
 		debuglevel=argument;
 		break;	
 /* autorun/run flag of the EEPROM 255 for clear, 0 for prog, 1 for autorun */
+/* eflush() is needed to make sure the change is written immediately */
+/* the bdelay is only for protection of the eeprom against tight loops doing SET 1,x */
 	case 1: 
 		eupdate(0, argument);
+    eflush();
+    bdelay(1000);
 		break;
 /* change the output device */			
 	case 2: 

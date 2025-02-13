@@ -130,9 +130,12 @@
  *  HASFULLINSTR: the full C64 style INSTR command. Without this flag INSTR only accepts
  *		a single character as argument. This is much faster and leaner on an Arduino. 
  * 		This macro is activated when HASMSSTRINGS is set. 
- * HASLOOPOPT: optimizes the FOR loops for speed. This is a trade off between speed and 
+ *  HASLOOPOPT: optimizes the FOR loops for speed. This is a trade off between speed and 
  *     memory. It is activated by default. Speeup is about 10% on a Mac. On platforms
  *     with low memory bandwidth it is much more.
+ *  HASHELP: the HELP command is activated. It is a simple help system for the commands, 
+ *    not for the language. It is activated by default. Currently it only lists the commands,
+ *    later it will give examples for the syntax.
  */
 #undef POWERRIGHTTOLEFT
 #undef MSARRAYLIMITS

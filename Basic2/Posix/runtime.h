@@ -17,8 +17,9 @@
 #if !defined(__RUNTIMEH__)
 #define __RUNTIMEH__ 
 
-/* we debug the runtime library */
-#define RTDEBUG 1
+/* we debug the runtime library and where the logging goes */
+#define RTDEBUG 0
+#define RTDEBUGSTREAM 1
 
 /* 
  * system type identifiers
@@ -32,6 +33,7 @@
 #define SYSTYPE_XMC		6
 #define SYSTYPE_SMT32	7
 #define SYSTYPE_NRENESA 8
+#define SYSTYPE_GIGA 9
 #define SYSTYPE_POSIX	32
 #define SYSTYPE_MSDOS	33
 #define SYSTYPE_MINGW   34
@@ -136,6 +138,13 @@ extern uint16_t avgfasttick;
  * A byte in the runtime memory containing the system type
  */
 extern uint8_t bsystype;
+
+/* 
+ *  Console logger functions for the runtime. Runtime does not know 
+ *  anything about output deviced. BASIC is to provide this.
+ */
+extern void consolelog(char*);
+extern void consolelognum(int);
 
 /*
  * These functions are always empty on Arduino, they are only used in 
@@ -734,8 +743,8 @@ float sensorread(uint8_t, uint8_t);
 /*
  * prototypes for the interrupt interface
  */
-/* some have it and some dont */
-#if !(defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_MBED_NANO) || defined(ARDUINO_ARCH_RENESAS))
+/* some have it and some dont (could be simplyfied by just using ARDUINO_ARCH_MBED */
+#if !(defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_MBED_NANO) || defined(ARDUINO_ARCH_RENESAS) || defined(ARDUINO_ARCH_MBED_GIGA))
 typedef int PinStatus;
 #endif
 
