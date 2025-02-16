@@ -120,6 +120,13 @@
  */
 #undef ARDUINOPGMEEPROM
 
+/* on an UNO we do two things by default to make it more usefule */
+#ifdef ARDUINO_AVR_UNO
+#define ARDUINOPGMEEPROM
+#define ARDUINOPICOSERIAL
+#define ARDUINOEEPROM
+#endif
+
 /* IO control, emulate real tab */
 #define HASMSTAB
 
