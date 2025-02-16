@@ -141,7 +141,7 @@
 #define BOOLEANMODE -1
 #undef  HASFULLINSTR
 #define HASLOOPOPT
-#define HASHELP
+#undef  HASHELP
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -249,6 +249,7 @@
 #define HASEDITOR
 #define HASTINYBASICINPUT
 #define HASLONGNAMES 
+
 #endif
 
 /* a simple BASIC with float support */
