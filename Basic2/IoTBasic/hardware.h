@@ -200,7 +200,7 @@
 #undef AVRLCD
 #undef WEMOSSHIELD
 #undef MEGASHIELD
-#undef TTGOVGA
+#define TTGOVGA
 #undef DUETFT
 #undef MEGATFT
 #undef NANOBOARD
@@ -480,8 +480,24 @@
 #define ARDUINOVGA
 #define ARDUINOSD
 /* #define ARDUINOMQTT */ /* currently broken */
+
 #define SDPIN   13
 #define STANDALONE
+/* this is a large screen with 48 kB memory, good fonts, should work for most situations */
+#define MEMSIZE 48000
+#define TTGOVGARESOLUTION VGA_640x400_70Hz
+/* a smaller screen, slightly odd fonts but graph and 60 kB, good screen 
+#define MEMSIZE 60000
+#define TTGOVGARESOLUTION VGA_512x384_60Hz 
+*/
+/* Other options that work:
+ * #define MEMSIZE 48000
+ * #define TTGOVGARESOLUTION VGA_640x480_73Hz
+ * 
+ * #define TTGOVGARESOLUTION VGA_640x384_60Hz 
+ * 
+ * #define TTGOVGARESOLUTION VGA_640x200_70HzRetro 
+ */
 #endif
 
 /*
