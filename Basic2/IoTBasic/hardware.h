@@ -394,6 +394,10 @@
 #if defined(ARDUINO_ARCH_AVR)
 #define ARDUINOEEPROM
 #endif
+/* megaAVR boards have an EEPROM */
+#if defined(ARDUINO_ARCH_MEGAAVR)
+#define ARDUINOEEPROM
+#endif
 /* all ESPs best are compiled with ESPSPIFFS predefined */
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
 #define ESPSPIFFS
@@ -406,6 +410,14 @@
 /* all RP2040 boards best are compiled with RP2040LITTLEFS predefined */
 #if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040)
 #define RP2040LITTLEFS
+#endif
+/* use the EEPROM dummy of the NRESESA boards */
+#if defined(ARDUINO_ARCH_RENESAS)
+#define ARDUINOEEPROM
+#endif
+/* for XMC there is an EEPROM emulation, which needs: https://github.com/slviajero/XMCEEPROMLib */
+#if defined(ARDUINO_ARCH_XMC)
+#define ARDUINOEEPROM
 #endif
 #endif
 
@@ -830,14 +842,6 @@
 #undef ARDUINOEEPROM
 #endif
 
-/* 
- *  Fix a few things around XMC, contributed by Florian
- */
-#if defined(ARDUINO_ARCH_XMC)
-#undef ARDUINOPICOSERIAL
-#undef ARDUINOPROGMEM
-#endif 
-
 /*
  * SD filesystems with the standard SD driver
  * for MEGA 256 a soft SPI solution is needed 
@@ -1213,6 +1217,13 @@
 #define PROGMEM
 #endif
 
+/* on XMC we circumvent progmem */
+#ifdef ARDUINO_ARCH_XMC
+#undef ARDUINOPROGMEM
+#define PROGMEM
+#endif
+
+
 /* the code to address EEPROMs directly */
 /* only AVR controllers are tested with this, don't use elsewhere, there are multiple bugs */
 #if defined(ARDUINOPGMEEPROM) & ! defined(ARDUINO_ARCH_AVR)
@@ -1262,7 +1273,7 @@
  * How restrictive are we on function recursive calls to protect the stack
  * On 8 bit Arduinos this needs to be limited strictly
  */
-#if defined(ARDUINO_ARCH_AVR)
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
 #define FNLIMIT 4
 #elif defined(ARDUINO_ARCH_ESP8266)
 #define FNLIMIT 64
@@ -1280,4 +1291,42 @@
 #define FNLIMIT 32
 #else
 #define FNLIMIT 128
+#endif
+
+/* 
+ *  here the runtime environment makes a good guess which 
+ *  language can be supported by the boards. This is tricky
+ *  it may not always work. 
+ *  
+ *  MEGAAVR does BASICFULL but this leaves little room for hardware drivers
+ *  LEONARDO and DUEMILLA currently broken, to much flash allocated.
+ */
+#if defined(ARDUINO_ARCH_AVR)
+#if defined(ARDUINO_AVR_DUEMILANOVE)
+#define BASICMINIMAL
+#endif
+#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_LEONARDO)
+#define BASICSIMPLE
+#endif
+#if defined(ARDUINO_AVR_MEGA2560)
+#define BASICFULL
+#endif
+#elif defined(ARDUINO_ARCH_MEGAAVR)
+#define BASICFULL
+#elif defined(ARDUINO_ARCH_ESP8266)
+#define BASICFULL
+#elif defined(ARDUINO_ARCH_ESP32)
+#define BASICFULL
+#elif defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040)
+#define BASICFULL
+#elif defined(ARDUINO_ARCH_SAM) && defined(ARDUINO_ARCH_SAMD)
+#define BASICFULL
+#elif defined(ARDUINO_ARCH_XMC)
+#define BASICFULL
+#elif defined(ARDUINO_ARCH_SMT32)
+#define BASICFULL
+#elif defined(ARDUINO_ARCH_RENESAS)
+#define BASICFULL
+#else
+#define BASICFULL
 #endif

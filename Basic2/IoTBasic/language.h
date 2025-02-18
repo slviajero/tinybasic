@@ -34,13 +34,24 @@
  * BASICTINYWITHFLOAT: a floating point tinybasic, if you have 32kB and need complex device drivers
  * BASICMINIMAL: minimal language, just Palo Alto plus Arduino I/O, works on 168 with 1kB RAM and 16kB flash
  * 
+ * The board will try to find the best language model for it's size and capabilities. Relies on the 
+ * information hardware.h produces. It set one of the language models: 
+ * 
+ * BASICFULL, BASICSIMPLE, BASICMINIMAL.
+ * 
+ * Setting NOLANGUAGEHEURISTICS and then one of the models below will override this 
+ * selection.
  */
-#undef  BASICFULL
+#define NOLANGUAGEHEURISTICS
+
+#ifdef NOLANGUAGEHEURISTICS
+#define  BASICFULL
 #undef	BASICINTEGER
-#define	BASICSIMPLE
+#undef	BASICSIMPLE
 #undef	BASICMINIMAL
 #undef	BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
+#endif
 
 /*
  * Custom settings undef all the the language sets above when you are using this. Not all language
@@ -75,9 +86,12 @@
  * 	are valid number input with it. Default now but can have odd side effects.
  * HASLONGNAMES: long variable names, up to 16 characters. Name length is set by MAXNAME in basic.h and
  * 	can be any value <128 bytes. Names are still only uppercase and all names will be uppercased by lexer.
+ * HASHELP: show the commands of the interpreter. Will be extended to a help system.
  * 
+ * If you want to set everything manually, set NOLANGUAGEHEURISTICS above
  */
 
+#ifdef NOLANGUAGEHEURISTICS
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
@@ -101,6 +115,9 @@
 #define HASEDITOR
 #define HASTINYBASICINPUT
 #define HASLONGNAMES 
+#define HASHELP
+#endif
+
 
 /*
  *
@@ -141,7 +158,6 @@
 #define BOOLEANMODE -1
 #undef  HASFULLINSTR
 #define HASLOOPOPT
-#undef  HASHELP
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -168,6 +184,7 @@
 #undef HASEDITOR
 #define HASTINYBASICINPUT
 #undef HASLONGNAMES 
+#undef  HASHELP
 #endif
 
 /* all features minus float and tone */
@@ -195,6 +212,7 @@
 #define HASEDITOR
 #define HASTINYBASICINPUT
 #define HASLONGNAMES 
+#define  HASHELP
 #endif
 
 /* a simple integer basic for small systems (UNO etc) */
@@ -222,6 +240,7 @@
 #undef HASEDITOR
 #define HASTINYBASICINPUT
 #undef HASLONGNAMES 
+#undef HASHELP
 #endif
 
 /* all features activated */
@@ -249,7 +268,7 @@
 #define HASEDITOR
 #define HASTINYBASICINPUT
 #define HASLONGNAMES 
-
+#define  HASHELP
 #endif
 
 /* a simple BASIC with float support */
@@ -277,6 +296,7 @@
 #undef HASEDITOR
 #define HASTINYBASICINPUT
 #undef HASLONGNAMES 
+#undef HASHELP
 #endif
 
 /* a Tinybasic with float support */
@@ -304,6 +324,7 @@
 #undef HASEDITOR
 #define HASTINYBASICINPUT
 #undef HASLONGNAMES 
+#undef HASHELP
 #endif
 
 /* 

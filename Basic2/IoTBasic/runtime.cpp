@@ -21,7 +21,7 @@ void __attribute__((weak)) bloop() {};
  * defining the systype variable which informs BASIC about the platform at runtime
  */
 
-#if defined(ARDUINO_ARCH_AVR)
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
 uint8_t bsystype = SYSTYPE_AVR;
 #elif defined(ARDUINO_ARCH_ESP8266)
 uint8_t bsystype = SYSTYPE_ESP8266;
@@ -5099,7 +5099,7 @@ void serialbegin() {
 /* state information on the serial port */
 uint8_t serialstat(uint8_t c) {
   if (c == 0) return 1;
-  if (c == 1) return serial_baudrate;
+  if (c == 1) return serial_baudrate/100;
   return 0;
 }
 
