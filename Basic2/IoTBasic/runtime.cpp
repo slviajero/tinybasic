@@ -959,7 +959,6 @@ void restartsystem() {
  * state to sleep state via EEPROM)
  */
 #if defined(ARDUINO_ARCH_SAMD) 
-#define HASBUILTINRTC
 #include "RTCZero.h"
 #include "ArduinoLowPower.h"
 RTCZero rtc;
@@ -967,7 +966,6 @@ RTCZero rtc;
 
 /* STM32duino have the same structure */
 #if defined(ARDUINO_ARCH_STM32)
-#define HASBUILTINRTC
 #include "STM32RTC.h"
 #include "STM32LowPower.h"
 STM32RTC& rtc = STM32RTC::getInstance();
@@ -975,7 +973,6 @@ STM32RTC& rtc = STM32RTC::getInstance();
 
 /* the NRENESA board have a buildin RTC as well */
 #if defined(ARDUINO_ARCH_RENESAS)
-#define HASBUILTINRTC
 #include "RTC.h"
 RTCTime rtc;
 #endif
@@ -3055,7 +3052,7 @@ void rtcset(uint8_t i, uint16_t v) {
    Wire.write(b);
    Wire.endTransmission(); 
 }
-#elif defined(HASBUILTINRTCZERO) 
+#elif defined(HASBUILTINRTC) 
 /*
  * Built-in clocks of STM32 and MKR are based on the RTCZero interface
  * an rtc object is created after loading the libraries

@@ -71,7 +71,7 @@
  *	leave this unset if you use the definitions below
  */
 
-#undef HARDWAREHEURISTICS
+#define HARDWAREHEURISTICS
 
 #undef ARDUINOPICOSERIAL 
 #undef ARDUINOPS2
@@ -94,7 +94,7 @@
 #undef TFTESPI
 #undef ARDUINOEEPROM
 #undef ARDUINOI2CEEPROM
-#define ARDUINOEFS
+#undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef ESP32FAT
@@ -379,7 +379,7 @@
  
 #ifdef HARDWAREHEURISTICS
 /* UNOS are very common. Small memory, we put the program into EEPROM and make everything small */
-#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_DUEMILANOVE)
+#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_DUEMILANOVE) || defined(ARDUINO_AVR_NANO)
 #define ARDUINOEEPROM
 #define ARDUINOPICOSERIAL
 #define ARDUINOPGMEEPROM
@@ -418,6 +418,10 @@
 /* for XMC there is an EEPROM emulation, which needs: https://github.com/slviajero/XMCEEPROMLib */
 #if defined(ARDUINO_ARCH_XMC)
 #define ARDUINOEEPROM
+#endif
+/* the China Nano clones. Super fast but with very small flash. */ 
+#if defined(ARDUINO_ARCH_LGT8F)
+#undef HASMSTAB
 #endif
 #endif
 
@@ -943,6 +947,8 @@
  * for this very simple implementation - needs to be improved (pass data from sleep
  * state to sleep state via EEPROM)
  */
+/* this is done only here now to make sure HASCLOCK is set properly */ 
+
 #if defined(ARDUINO_ARCH_SAMD) 
 #define HASBUILTINRTC
 #endif
@@ -1151,7 +1157,8 @@
  * available in BASIC.
  * 
  * The following software models are supported
- *  - Built-in clocks of STM32 and MKR and NRESAS are supported by default as RTCZero type code
+ *  - Built-in clocks of STM32 and MKR and NRESAS and XIAO are supported by default 
+ *      as RTCZero type code
  *  - Built-in clocks of ESP32 are supported by default with a time structure type code
  *  - Built-in clocks of GIGA the same as ESP32
  *  - I2C clocks can be activated: DS1307, DS3231, and DS3232
@@ -1164,7 +1171,7 @@
  * On I2C clocks registers 7-255 are returned as memory cells
  */
 
- #if defined(ARDUINORTC) || defined(HASBUILTINRTCZERO) || defined(ARDUINO_ARCH_ESP32) || defined(ARDUINORTCEMULATION) || defined(ARDUINO_ARCH_MBED_GIGA)
+ #if defined(ARDUINORTC) || defined(HASBUILTINRTC) || defined(ARDUINO_ARCH_ESP32) || defined(ARDUINORTCEMULATION) || defined(ARDUINO_ARCH_MBED_GIGA)
  #define HASCLOCK
  #endif
 
@@ -1305,12 +1312,14 @@
 #if defined(ARDUINO_AVR_DUEMILANOVE)
 #define BASICMINIMAL
 #endif
-#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_LEONARDO)
+#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_LEONARDO) || defined(ARDUINO_AVR_NANO)
 #define BASICSIMPLE
 #endif
 #if defined(ARDUINO_AVR_MEGA2560)
 #define BASICFULL
 #endif
+#elif defined(ARDUINO_ARCH_LGT8F)
+#define BASICSIMPLE
 #elif defined(ARDUINO_ARCH_MEGAAVR)
 #define BASICFULL
 #elif defined(ARDUINO_ARCH_ESP8266)
