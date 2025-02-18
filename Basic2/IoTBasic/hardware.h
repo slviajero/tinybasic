@@ -399,12 +399,16 @@
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
 #define ESPSPIFFS
 #endif
+/* all ESPs best have EEPROM emulation */
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
+#define ARDUINOEEPROM
+#define ESPSPIFFS
+#endif
 /* all RP2040 boards best are compiled with RP2040LITTLEFS predefined */
 #if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040)
 #define RP2040LITTLEFS
 #endif
 #endif
-
 
 /*
  * The hardware models.
