@@ -461,7 +461,7 @@ void ioinit() {
 #ifdef ARDUINOSPI
   spibegin();
 #endif
-#ifdef HASWIRE
+#if defined(HASWIRE) || defined(HASSIMPLEWIRE)
   wirebegin();
 #endif
 /* filesystems and networks */

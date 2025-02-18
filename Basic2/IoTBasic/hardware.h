@@ -71,7 +71,7 @@
  *	leave this unset if you use the definitions below
  */
 
-#define HARDWAREHEURISTICS
+#undef HARDWAREHEURISTICS
 
 #undef ARDUINOPICOSERIAL 
 #undef ARDUINOPS2
@@ -94,7 +94,7 @@
 #undef TFTESPI
 #undef ARDUINOEEPROM
 #undef ARDUINOI2CEEPROM
-#undef ARDUINOEFS
+#define ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
 #undef ESP32FAT
