@@ -1,8 +1,6 @@
 /*
  *
- * $Id: hardware-arduino.h,v 1.8 2023/02/18 20:16:59 stefan Exp stefan $
- *
- * Stefan's basic interpreter 
+ * Stefan's basic interpreter   
  *
  * Playing around with frugal programming. See the licence file on 
  * https://github.com/slviajero/tinybasic for copyright/left.
@@ -12,8 +10,9 @@
  * 
  * Credits:
  *  - XMC contributed by Florian
+ *  - Many people asked good questions and helped me. Thank you to all!
  *
- * Hardware definition file coming with TinybasicArduino.ino aka basic.c
+ * Hardware definition file coming with IotBasic.ino aka basic.c
  *
  * - ARDUINOLCD, ARDUINOTFT and LCDSHIELD active the LCD code, 
  *   LCDSHIELD automatically defines the right settings for 
@@ -46,15 +45,19 @@
 
 /* 
  * Arduino hardware settings , set here what you need or
- * use one of the predefined configurations below
+ * use one of the predefined configurations below.
+ * 
+ * If HARDWAREHEURISTICS is set, some of the settings below 
+ * are activated automatically for some platforms. If you want
+ * to control all settings below manually, undef HARDWAREHEURISTICS 
  *
- * input/output methods ARUINOPICOSERIAL, ARDUINOPS2,
+ * Input/output methods ARUINOPICOSERIAL, ARDUINOPS2
  *  ARDUINOUSBKBD, ARDUINOZX81KBD, ARDUINOI2CKBD, GIGAUSBKBD
  *	ARDUINOPRT, DISPLAYCANSCROLL, ARDUINOLCDI2C,
  *	ARDUINOTFT, ARDUINONOKIA51, ARDUINOILI9488,
  *  ARDUINOSSD1306, ARDUINOMCUFRIEND
- * storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS
- * storage ARDUINOEFS, SM32SDIO, ESP32FAT, GIGAUSBFS
+ * Storage ARDUINOEEPROM, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS
+ * storage ARDUINOEFS, SM32SDIO, ESP32FAT
  * sensors ARDUINOWIRE, ARDUINOSIMPLEWIRE, ARDUINOSENSORS
  * network ARDUINORF24, ARDUNIOMQTT 
  * memory ARDUINOSPIRAM
@@ -67,6 +70,8 @@
  *  
  *	leave this unset if you use the definitions below
  */
+
+#define HARDWAREHEURISTICS
 
 #undef ARDUINOPICOSERIAL 
 #undef ARDUINOPS2
@@ -87,7 +92,7 @@
 #undef ARDUINOTFT
 #undef ARDUINOVGA
 #undef TFTESPI
-#define ARDUINOEEPROM
+#undef ARDUINOEEPROM
 #undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
@@ -120,17 +125,14 @@
  */
 #undef ARDUINOPGMEEPROM
 
-/* on an UNO we do two things by default to make it more usefule */
-#ifdef ARDUINO_AVR_UNO
-#define ARDUINOPGMEEPROM
-#define ARDUINOPICOSERIAL
-#define ARDUINOEEPROM
-#endif
-
-/* IO control, emulate real tab */
+/* IO control, emulate real tab by counting characters  */
 #define HASMSTAB
 
-/* experimental BUILDIN feature, implemented as a filesystem */
+/* 
+ * Experimental BUILDIN feature, implemented as a filesystem. 
+ * Buildin BASIC programs are stored in the flash memory of the Arduino.
+ * They appear as files in the filesystem.
+ */
 #undef HASBUILDIN
 /* this is the demo module */
 #define BUILDINMODULE "buildin.h"
@@ -139,8 +141,8 @@
 // #define BUILDINMODULE "buildin/buildin-arduinotest.h"
 // #define BUILDINMODULE "buildin/buildin-games.h"
 
-/* interrupts for the EVENT command */
-#define ARDUINOINTERRUPTS
+/* interrupts for the EVENT command, this is needed to use Arduino interrupts */
+#undef ARDUINOINTERRUPTS
 
 /* 
  * handle the break condition in the background. 
@@ -153,7 +155,9 @@
 
 /* 
  * Predefined hardware configurations, this assumes that all of the 
- *	above are undef
+ *	above are undef. The configurations are used for some common 
+ *  board configurations. In the future this must go into a separate
+ *  file and folder.
  *
  *	UNOPLAIN: 
  *		a plain UNO with no peripherals
@@ -221,7 +225,6 @@
  *   	TTGO needs it as default definitions in the board file are broken
  *	#define PS2DATAPIN, PS2IRQPIN sets PS2 pin
  */
-
 
 /* PS2 Keyboard pins for AVR - use one interrupt pin 2 and one date pin 
     5 not 4 because 4 conflicts with SDPIN of the standard SD shield */
@@ -319,7 +322,8 @@
 #define ARDUINOI2CEEPROM_BUFFERED
 
 /*
- * Sensor library code - configure your sensors here
+ * Sensor library code - configure your sensors here, will go to a 
+* separate file in the future
  */
 #ifdef ARDUINOSENSORS
 #undef ARDUINODHT
@@ -347,6 +351,60 @@
 
 #define ARDUINOKBDLANG_GERMAN
 //#define ARDUINOKBDLANG_US 
+
+
+/*
+ * The heuristics. These are things that normally would make sense on a 
+ * certain hardware.
+ */
+
+/* 
+ *  Buffer sizes depending on what we are doing.
+ */
+
+ #if defined(ARDUINO_ARCH_AVR)
+ /* the small memory model with shallow stacks and small buffers */
+ #define BUFSIZE     80
+ #define STACKSIZE   15
+ #define GOSUBDEPTH  4
+ #define FORDEPTH    4
+ #define LINECACHESIZE 4
+ #else 
+ /* the for larger microcontrollers */
+ #define BUFSIZE     128
+ #define STACKSIZE   64
+ #define GOSUBDEPTH  8
+ #define FORDEPTH    8
+ #define LINECACHESIZE 16
+ #endif
+ 
+#ifdef HARDWAREHEURISTICS
+/* UNOS are very common. Small memory, we put the program into EEPROM and make everything small */
+#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_DUEMILANOVE)
+#define ARDUINOEEPROM
+#define ARDUINOPICOSERIAL
+#define ARDUINOPGMEEPROM
+#undef LINECACHESIZE
+#endif
+/* on a DUEMILA we allocate just as little main memory as possible, currenly not working because sketch too big 
+ * needs to be checked */
+#if defined(ARDUINO_AVR_DUEMILANOVE)
+#define MEMSIZE 128
+#endif
+/* all AVR 8 bit boards have an EEPROM (most probably) */
+#if defined(ARDUINO_ARCH_AVR)
+#define ARDUINOEEPROM
+#endif
+/* all ESPs best are compiled with ESPSPIFFS predefined */
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
+#define ESPSPIFFS
+#endif
+/* all RP2040 boards best are compiled with RP2040LITTLEFS predefined */
+#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040)
+#define RP2040LITTLEFS
+#endif
+#endif
+
 
 /*
  * The hardware models.
@@ -400,37 +458,16 @@
 
 /* 
  * VGA system with SD card, based on the TTGO VGA 1.4 
- * ESP32 with the following features: 
- *   - VGA Screen
- *   - 48 kB
- *   - SD card  
- *   - but definitely no MQTT
- * 
- * Standalone by default
+ * ESP32 
+ * standalone by default, with MQTT
  */
 #if defined(TTGOVGA)
 #define ARDUINOEEPROM
 #define ARDUINOVGA
 #define ARDUINOSD
+/* #define ARDUINOMQTT */ /* currently broken */
 #define SDPIN   13
-#undef  ARDUINOMQTT
 #define STANDALONE
-/* this is a large screen with 48 kB memory, good fonts, should work for most situations */
-#define MEMSIZE 48000
-#define TTGOVGARESOLUTION VGA_640x400_70Hz
-/* a smaller screen, slightly odd fonts but graph and 60 kB, good screen 
-#define MEMSIZE 60000
-#define TTGOVGARESOLUTION VGA_512x384_60Hz 
-*/
-/* Other options that work:
- * #define MEMSIZE 48000
- * #define TTGOVGARESOLUTION VGA_640x480_73Hz
- * 
- * #define TTGOVGARESOLUTION VGA_640x384_60Hz 
- * 
- * #define TTGOVGARESOLUTION VGA_640x200_70HzRetro 
- */
-
 #endif
 
 /*
@@ -613,7 +650,7 @@
  *  The Liligo T-Deck configuration
  *    supports the internal FFAT right now, SD not yet done
  */
-#ifdef TDECK
+#if defined(TDECK)
 /* these are the PIN definition from Lilygos utilities.h file */
 #define BOARD_POWERON       10
 #define BOARD_I2S_WS        5
@@ -680,8 +717,19 @@
 /* can run standalone now */
 #define STANDALONE
 #endif
+
+/*
+ * Here, dependencies are handled. Some settings require others to be set
+ * first. 
+ * 
+ * Examples:
+ *  Many filesystems and displays need SPI.
+ *  Some components need Wire. 
+ *  Some platforms do not have tone, so we need to emulate it.
+ */
+
 /* 
- *  DUE has no tone, we switch to emulation mode automatically
+ *  DUE has no tone, we switch to emulation mode automatically.
  */
 #ifdef ARDUINO_SAM_DUE
 #define ARDUINOTONEEMULATION
@@ -694,6 +742,10 @@
  * 
  * Handling Wire and SPI is tricky as some of the libraries 
  * also include and start SPI and Wire code. 
+ * 
+ * HASIMPLEWIRE avoids the overhead of importing the entire 
+ * filesystem code. It only activates plain Wire and provides
+ * the WIRE command in basic.
  */
 
 /* a clock needs wire */
@@ -723,7 +775,7 @@
 
 /* and I2C Keyboard needs wire */
 #if defined(ARDUINOI2CKBD)
-#define HASWIRE
+#define HASSIMPLEWIRE
 #endif
 
 #if defined (ARDUINOSIMPLEWIRE)
@@ -755,9 +807,8 @@
 #define ARDUINOSPI
 #endif
 
-
 /* Networking and keyboards need the background task capability */
-#if defined(ARDUINOMQTT) || defined(ARDUINOETH) || defined(ARDUINOUSBKBD) || defined(ARDUINOZX81KBD) || defined(GIGAUSBKBD)
+#if defined(ARDUINOMQTT) || defined(ARDUINOETH) || defined(ARDUINOUSBKBD) || defined(ARDUINOZX81KBD) || defined(ARDUINOI2CKBD) || defined(GIGAUSBKBD)
 #define BASICBGTASK
 #endif
 
@@ -847,7 +898,7 @@
 #undef ESPSPIFFS
 #undef ESP32FAT
 #undef RP2040LITTLEFS
-#undef GIGAUSBFS
+#undef GIAGUSBFS
 #endif
 
 /*
@@ -891,17 +942,17 @@
  * state to sleep state via EEPROM)
  */
 #if defined(ARDUINO_ARCH_SAMD) 
-#define HASBUILTINRTCZERO
+#define HASBUILTINRTC
 #endif
 
 /* STM32duino have the same structure */
 #if defined(ARDUINO_ARCH_STM32)
-#define HASBUILTINRTCZERO
+#define HASBUILTINRTC
 #endif
 
 /* the NRENESA board have a buildin RTC as well */
 #if defined(ARDUINO_ARCH_RENESAS)
-#define HASBUILTINRTCZERO
+#define HASBUILTINRTC
 #endif
 
 /* 
@@ -1081,11 +1132,11 @@
 #define BREAKINBACKGROUND
 #endif
 
+/* set the HASKEYBOARD feature to tell BASIC about it */
 #if defined(GIGAUSBKBD)
 #define HASKEYBOARD
 #define GIGAUSBKEYBOARD
 #endif
-
 
 /* 
  * Arduino Real Time clock. The interface here offers the values as number_t 
@@ -1097,11 +1148,11 @@
  * A clock must activate the macro #define HASCLOCK to make the clock 
  * available in BASIC.
  * 
- * Four software models are supported
+ * The following software models are supported
  *  - Built-in clocks of STM32 and MKR and NRESAS are supported by default as RTCZero type code
  *  - Built-in clocks of ESP32 are supported by default with a time structure type code
  *  - Built-in clocks of GIGA the same as ESP32
- *  - I2C clocks can be activated: DS1307, DS3231, and DS3232 
+ *  - I2C clocks can be activated: DS1307, DS3231, and DS3232
  *  - A Real Time Clock emulation is possible using millis()
  * 
  * rtcget accesses the internal registers of the clock. 
@@ -1111,9 +1162,9 @@
  * On I2C clocks registers 7-255 are returned as memory cells
  */
 
-#if defined(ARDUINORTC) || defined(HASBUILTINRTCZERO) || defined(ARDUINO_ARCH_ESP32) || defined(ARDUINORTCEMULATION) || defined(ARDUINO_ARCH_MBED_GIGA) 
-#define HASCLOCK
-#endif
+ #if defined(ARDUINORTC) || defined(HASBUILTINRTCZERO) || defined(ARDUINO_ARCH_ESP32) || defined(ARDUINORTCEMULATION) || defined(ARDUINO_ARCH_MBED_GIGA)
+ #define HASCLOCK
+ #endif
 
 /* 
  * External EEPROM is handled through an EFS filesystem object  
@@ -1164,32 +1215,6 @@
 #define PROGMEM
 #endif
 
-/* 
- *  Buffer sizes depending on what we are doing
- */
-
-#if defined(ARDUINO_ARCH_AVR)
-/* the small memory model with shallow stacks and small buffers */
-#define BUFSIZE     80
-#define STACKSIZE   15
-#define GOSUBDEPTH  4
-#define FORDEPTH    4
-#define LINECACHESIZE 4
-#else 
-/* the for larger microcontrollers */
-#define BUFSIZE     128
-#define STACKSIZE   64
-#define GOSUBDEPTH  8
-#define FORDEPTH    8
-#define LINECACHESIZE 16
-#endif
-
-/* on the real small systems we remove the linecache and set a fixed memory size*/
-#ifdef ARDUINO_AVR_DUEMILANOVE
-#undef LINECACHESIZE
-#define ARDUINOPICOSERIAL
-#endif
-
 /* the code to address EEPROMs directly */
 /* only AVR controllers are tested with this, don't use elsewhere, there are multiple bugs */
 #if defined(ARDUINOPGMEEPROM) & ! defined(ARDUINO_ARCH_AVR)
@@ -1212,7 +1237,7 @@
 /* 
  * to handle strings in situations with a memory interface two more buffers are 
  * needed they store intermediate results of string operations. The buffersize 
- * limits the maximum string length indepents of how big strings are set
+ * limits the maximum string length indepents of how big strings are set. 
  * 
  * default is 128, on an MEGA 512 is possible
  */
