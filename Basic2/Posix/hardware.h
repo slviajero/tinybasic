@@ -252,3 +252,6 @@ unsigned long millis();
  */
 #define FNLIMIT 128
 
+/* all POSIXish systems can do the full interpreter, only here for compatibility with Arduino */
+#define BASICFULL
+
