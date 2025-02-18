@@ -197,7 +197,6 @@
  *   
  */
 
-#undef UNOPLAIN
 #undef AVRLCD
 #undef WEMOSSHIELD
 #undef MEGASHIELD
@@ -414,11 +413,6 @@
  * The hardware models.
  * These are predefined hardware configurations.
  */
-
-/* an AVR based Arduino with nothing else */
-#if defined(UNOPLAIN)
-#define ARDUINOEEPROM
-#endif
 
 /* an AVR ARDUINO (UNO or MEGA) with the classical LCD shield */
 #if defined(AVRLCD)
