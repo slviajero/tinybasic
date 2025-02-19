@@ -200,7 +200,7 @@
 #undef AVRLCD
 #undef WEMOSSHIELD
 #undef MEGASHIELD
-#define TTGOVGA
+#undef TTGOVGA
 #undef DUETFT
 #undef MEGATFT
 #undef NANOBOARD
@@ -388,7 +388,8 @@
 /* on a DUEMILA we allocate just as little main memory as possible, currenly not working because sketch too big 
  * needs to be checked */
 #if defined(ARDUINO_AVR_DUEMILANOVE)
-#define MEMSIZE 128
+/* no fixed memsize because this seems to need more space */
+/* #define MEMSIZE 128 */ 
 #endif
 /* all AVR 8 bit boards have an EEPROM (most probably) */
 #if defined(ARDUINO_ARCH_AVR)

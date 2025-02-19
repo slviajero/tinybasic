@@ -42,10 +42,10 @@
  * Setting NOLANGUAGEHEURISTICS and then one of the models below will override this 
  * selection.
  */
-#define NOLANGUAGEHEURISTICS
+#define LANGUAGEHEURISTICS
 
-#ifdef NOLANGUAGEHEURISTICS
-#define  BASICFULL
+#ifndef LANGUAGEHEURISTICS
+#undef  BASICFULL
 #undef	BASICINTEGER
 #undef	BASICSIMPLE
 #undef	BASICMINIMAL
@@ -91,7 +91,7 @@
  * If you want to set everything manually, set NOLANGUAGEHEURISTICS above
  */
 
-#ifdef NOLANGUAGEHEURISTICS
+#ifndef LANGUAGEHEURISTICS
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
@@ -268,7 +268,7 @@
 #define HASEDITOR
 #define HASTINYBASICINPUT
 #define HASLONGNAMES 
-#define  HASHELP
+#define HASHELP
 #endif
 
 /* a simple BASIC with float support */

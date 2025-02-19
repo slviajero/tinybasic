@@ -438,6 +438,8 @@ const char mbasiclangset[] PROGMEM = "minimal";
 const char mbasiclangset[] PROGMEM = "simple with float";
 #elif defined(BASICTINYWITHFLOAT)
 const char mbasiclangset[] PROGMEM = "tiny with float";
+#else 
+const char mbasiclangset[] PROGMEM = "custom";
 #endif
 const char mlangset[] PROGMEM = "Language set: ";
 const char mkeywords[] PROGMEM = "Keywords: ";

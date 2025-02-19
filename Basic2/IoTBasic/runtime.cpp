@@ -1711,6 +1711,9 @@ void vgabegin() {
 	VGAController.begin(GPIO_NUM_22, GPIO_NUM_21, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_23, GPIO_NUM_15);
 	//VGAController.setResolution(VGA_640x200_70Hz);
   //VGAController.setResolution(VGA_640x400_70Hz);
+
+  
+  
   VGAController.setResolution(TTGOVGARESOLUTION);
 	Terminal.begin(&VGAController);
 	Terminal.setBackgroundColor(vga_txt_background);
