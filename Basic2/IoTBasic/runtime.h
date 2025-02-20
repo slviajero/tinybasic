@@ -25,7 +25,7 @@
  * system type identifiers
  */
 #define SYSTYPE_UNKNOWN	0
-#define SYSTYPE_AVR     1
+#define SYSTYPE_AVR 	1
 #define SYSTYPE_ESP8266 2
 #define SYSTYPE_ESP32	3
 #define SYSTYPE_RP2040  4
@@ -33,7 +33,7 @@
 #define SYSTYPE_XMC		6
 #define SYSTYPE_SMT32	7
 #define SYSTYPE_NRENESA 8
-#define SYSTYPE_GIGA    9
+#define SYSTYPE_GIGA 9
 #define SYSTYPE_POSIX	32
 #define SYSTYPE_MSDOS	33
 #define SYSTYPE_MINGW   34
@@ -76,6 +76,9 @@
  *  The main IO interface. This is how BASIC uses I/O functions
  *
  * ioinit(): called at setup to initialize what ever io is needed
+ * iostat(): returns the io channel status
+ * iodefaults(): sets the default io channels
+ * cheof(): checks for end of file
  * outch(): prints one ascii character 
  * inch(): gets one character (and waits for it)
  * checkch(): checks for one character (non blocking)
@@ -83,6 +86,7 @@
  *
  */
 void ioinit();
+int iostat(int);
 void iodefaults();
 int cheof(int);
 char inch();

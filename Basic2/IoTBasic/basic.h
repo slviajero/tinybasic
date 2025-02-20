@@ -475,7 +475,12 @@ address_t ballocmem();
 /* handle files im EEPROM */
 void eload();
 void esave();
+
+/* starts programs from the filesystem */
 char autorun();
+
+/* display a startup banner */
+void displaybanner();
 
 /* the variable heap from Apple 1 BASIC */
 address_t bmalloc(name_t*, address_t);
