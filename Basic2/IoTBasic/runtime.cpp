@@ -534,7 +534,7 @@ int iostat(int channel) {
     break;
 #endif
 /* channel 9 mqtt */
-#ifdef POSIXMQTT
+#ifdef ARDUINOMQTT
   case IMQTT:
     return mqttstat(0);
     break;
@@ -2225,7 +2225,7 @@ uint8_t dspprintmode = 0;
 uint8_t dspscrollmode = 0;
 uint8_t dsp_scroll_rows = 1;
 
-uint8_t dspstat(uint8_t c) { return 0; }
+uint8_t dspstat(uint8_t c) { return 1; }
 
 void dspsetcursorx(uint8_t c) {
   if (c>=0 && c<dsp_columns) dspmycol=c;
@@ -2992,7 +2992,7 @@ void dspwrite(char c) {
   }
   dspouts(&c, 1);
 }
-int dspstat(char c) { return 0; }
+int dspstat(char c) { return 1; }
 int dspgetcursorx() { return dspgraphcursor_x; }
 int dspgetcursory() { return dspgraphcursor_y; }
 void dspsetcursorx(int v) { dspgraphcursor_x = v; }
