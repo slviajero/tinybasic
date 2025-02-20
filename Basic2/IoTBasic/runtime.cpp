@@ -516,7 +516,7 @@ int iostat(int channel) {
     return dspstat(0);
     break;
 /* channel 4, the second serial device */
-#ifdef POSIXPRT
+#ifdef ARDUINOPRT
   case ISERIAL1:
     return prtstat(0);
     break;
