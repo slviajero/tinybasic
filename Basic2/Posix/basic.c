@@ -438,6 +438,8 @@ const char mbasiclangset[] PROGMEM = "minimal";
 const char mbasiclangset[] PROGMEM = "simple with float";
 #elif defined(BASICTINYWITHFLOAT)
 const char mbasiclangset[] PROGMEM = "tiny with float";
+#else 
+const char mbasiclangset[] PROGMEM = "custom";
 #endif
 const char mlangset[] PROGMEM = "Language set: ";
 const char mkeywords[] PROGMEM = "Keywords: ";
@@ -6275,9 +6277,7 @@ void xhelp(){
 	int i;
 	nexttoken();
 	if (token == EOL) {
-		outsc(getmessage(MGREET)); outcr();
-		outsc(getmessage(MLANGSET));
-		outsc(getmessage(MBASICLANGSET)); outcr();
+		displaybanner();
 		outsc(getmessage(MKEYWORDS));
 		for(i=0; gettokenvalue(i) != 0; i++) {
 			outsc(getkeyword(i));
@@ -9636,6 +9636,34 @@ errorhandler:
 	}
 }
 
+/* 
+ * the banner message 
+ */
+void displaybanner() {
+	int i;
+	printmessage(MGREET); outspc();
+	printmessage(EOUTOFMEMORY); outspc(); 
+	if (memsize < maxnum) outnumber(memsize+1); else { outnumber(memsize/1024+1); outch('k'); }
+	outspc();
+#ifdef HASERRORHANDLING
+	printmessage(EEEPROM);
+	outspc();
+#endif
+	outnumber(elength()); 
+	outcr();
+#ifdef HASHELP
+	outsc(getmessage(MLANGSET));
+	outsc(getmessage(MBASICLANGSET)); outcr();
+	outsc("IO: ");
+	for(i=0; i<32; i++) {
+		if (iostat(i)) {
+			outnumber(i); outspc();
+		}
+	}
+	outcr();
+#endif
+ }
+
 /*
  *	the setup routine - Arduino style
  */
@@ -9696,13 +9724,7 @@ void setup() {
 
 /* check if there is something to autorun and prepare 
 		the interpreter to got into autorun once loop is reached */
- 	if (!autorun()) {
-		printmessage(MGREET); outspc();
-		printmessage(EOUTOFMEMORY); outspc(); 
-		if (memsize < maxnum) outnumber(memsize+1); else { outnumber(memsize/1024+1); outch('k'); }
-		outspc();
-		outnumber(elength()); outcr();
- 	}
+ 	if (!autorun()) displaybanner();
 
 /* activate the BREAKPIN */
 	breakpinbegin();

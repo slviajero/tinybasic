@@ -48,6 +48,7 @@ uint8_t charcount[3]; /* devices 1-4 support tabing */
 /* the pointer to the buffer used for the &0 device */
 char* nullbuffer = ibuffer;
 uint16_t nullbufsize = BUFSIZE; 
+uint8_t bufferstat(uint8_t c) { return 1; }
 
 /* the system type */
 #if defined(MSDOS)
@@ -181,6 +182,56 @@ void iodefaults() {
   od=odd;
   id=idd;
 }
+
+/* the status of the io streams (on/off) */
+int iostat(int channel) {
+  switch(channel) {
+/* channel 0, the buffer */
+  case ONULL:
+    return bufferstat(0);
+    break;
+/* channel 1, the serial port */
+  case ISERIAL:
+    return serialstat(0);
+    break;
+/* channel 2, the display */
+  case ODSP:
+    return dspstat(0);
+    break;
+/* channel 4, the second serial device */
+#ifdef POSIXPRT
+  case ISERIAL1:
+    return prtstat(0);
+    break;
+#endif
+/* channel 7 wire */
+#if defined(HASWIRE)
+  case IWIRE:
+    return wirestat(0);
+    break;
+#endif
+/* channel 8 radio adaptors */
+#ifdef HASRF24
+  case IRADIO:
+    return radiostat(0);
+    break;
+#endif
+/* channel 9 mqtt */
+#ifdef POSIXMQTT
+  case IMQTT:
+    return mqttstat(0);
+    break;
+#endif
+/* channel 16 file system */
+#ifdef FILESYSTEMDRIVER
+  case IFILE:
+    return fsstat(0);
+    break;
+#endif
+  }
+  return 0;
+}
+
 
 /* 
  *  Layer 0 - The generic IO code 
