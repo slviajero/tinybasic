@@ -8434,6 +8434,10 @@ void xcall() {
 	case 1:
 		fsbegin();
 		break;
+/* show the banner again */ 
+  case 2:
+    displaybanner();
+    break;
 /* call values to 31 reserved! */
 	default:
 /* your custom code into usrcall() */
