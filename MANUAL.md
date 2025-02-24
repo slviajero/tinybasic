@@ -58,6 +58,8 @@ Configuration of the hardware is done in hardware.h. Please look into the hardwa
 
 Configuration of the language features is done in language.h. 
 
+Both files are explained in more detail in https://github.com/slviajero/tinybasic/wiki/How-to-compile-Stefan's-BASIC-(and-how-it-works)
+
 To compile BASIC on an Arduino, copy the folder IotBasic into your Arduino sketch folder and compile. I still use 1.18.5 to compile but test the 2.x versions of the Arduino IDE occasionally. 
 
 To compile on Posix system, type 
