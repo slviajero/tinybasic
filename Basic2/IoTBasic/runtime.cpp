@@ -56,7 +56,7 @@ int8_t ioer = 0; // the io error variable, always or-ed with ert in BASIC
 
 /* counts the outputed characters on streams 0-3, used to emulate a real tab */
 #ifdef HASMSTAB
-uint8_t charcount[3]; /* devices 1-4 support tabing */
+uint8_t charcount[5]; /* devices 1-4 support tabing */
 #endif
 
 /* the pointer to the buffer used for the &0 device */
@@ -820,9 +820,9 @@ void outch(char c) {
 /* this does not work for control characters - needs to go to vt52 later */
 
 #ifdef HASMSTAB
-  if (od > 0 && od <= OPRT) {
-    if (c > 31) charcount[od-1]+=1;
-    if (c == 10) charcount[od-1]=0;
+  if (od >= 0 && od <= OPRT) {
+    if (c > 31) charcount[od]+=1;
+    if (c == 10) charcount[od]=0;
   }
 #endif
 
