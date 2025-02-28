@@ -347,6 +347,8 @@ The program area is protected by BASIC. The maximum index prevents a program to 
 
 @E() is the EEPROM array. It indexes the entire EEPROM area down from the highest address. 
 
+@M() is the memory array. It is equivalent to @() but recalls individual bytes. 
+
 @E is the number of elements in the EEPROM array. Unlike with the memory array @() there is no protection of saved programs in the EEPROM. @E() can overwrite the program space. 
 
 @R is the random number seed. It can be written and read. 
@@ -364,6 +366,12 @@ The program area is protected by BASIC. The maximum index prevents a program to 
 @V is the number of characters processed in VAL(). 
 
 @U is the user variable. It can be used to extend BASIC. 
+
+@P is the accuracy of floating point compare operations. It is zero by default. Setting it makes A=B type of compares safer.
+
+@T is the time in milliseconds. 
+
+@P() is the port array. 
 
 The variables @O, @I, @C, and @A can be used for byte I/O on any stream. 
 
