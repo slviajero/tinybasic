@@ -42,7 +42,7 @@ int8_t ioer = 0; // the io error variable, always or-ed with ert in BASIC
 
 /* counts the outputed characters on streams 0-3, used to emulate a real tab */
 #ifdef HASMSTAB
-uint8_t charcount[3]; /* devices 1-4 support tabing */
+uint8_t charcount[5]; /* devices 1-4 support tabing */
 #endif
 
 /* the pointer to the buffer used for the &0 device */
@@ -249,6 +249,7 @@ int cheof(int c) { if ((c == -1) || (c == 255)) return 1; else return 0; }
 
 /* the generic inch code reading one character from a stream */
 char inch() {
+
   switch(id) {
   case ONULL:
     return bufferread();
@@ -430,6 +431,12 @@ uint16_t consins(char *b, uint16_t nb) {
   b[z]=0x00;
   z--;
   b[0]=(unsigned char)z;
+
+ /* clean up charcount after every ins in MSTAB mode */
+#ifdef HASMSTAB
+  if (od >= 0 && od <= OPRT) charcount[od]=0;
+#endif  
+
   return z;
 }
 
@@ -495,10 +502,12 @@ void outch(char c) {
 /* do we have a MS style tab command, then count characters on stream 1-4 but not in fileio */
 /* this does not work for control characters - needs to go to vt52 later */
 
+/* also composite characters like German Umlaut does not count properly */
+
 #ifdef HASMSTAB
-  if (od > 0 && od <= OPRT) {
-    if (c > 31) charcount[od-1]+=1;
-    if (c == 10) charcount[od-1]=0;
+  if (od >= 0 && od <= OPRT) {
+    if (c > 31) charcount[od]+=1;
+    if (c == 10) charcount[od]=0;
   }
 #endif
 
@@ -536,7 +545,7 @@ void outch(char c) {
   default:
     break;
   }
-  byield(); /* yield after every character for ESP8266 */
+  byield(); /* yield after every character for fuzzy OSes */
 }
 
 /*

@@ -1195,7 +1195,7 @@ void setvar(name_t *name, number_t v){
         	dspsetcursorx((int)v);
 /* set the charcount, this is half broken but works */
 #ifdef HASMSTAB
-			if (od > 0 && od <= OPRT) charcount[od-1]=v;
+			if (od > 0 && od <= OPRT) charcount[od]=v;
 #endif
 			return;
 		case 'Y':
@@ -2598,7 +2598,7 @@ address_t tinydtostrf(number_t v, index_t p, char* c) {
 		return writenumber(c, (int)v);
 	}
 
-/* we do the sign here and don't rely on writenumbers sign handling, guess why */
+/* we do the sign here */
 	if (v<0) {
 		v=fabs(v);
 		c[nd++]='-';
@@ -2663,7 +2663,7 @@ address_t writenumber2(char *c, number_t vi) {
 	}
 
 /* remove trailing zeros */
-	for (i=0; (i < SBUFSIZE && c[i] !=0 ); i++);
+	for (i=0; (i < SBUFSIZE && c[i] != 0 ); i++);
 	i--;
 
 /* */	
@@ -3887,15 +3887,11 @@ void parsestringvar(string_t* strp, lhsobject_t* lhs) {
 	address_t temp;
 
 /* remember the variable name and prep the indices */
-	//lhs->name=name;
 	copyname(&lhs->name, &name);
 	lhs->i=1; /* we start at 1 */
 	lhs->j=arraylimit; /* we assume a string array of length 1, all simple strings are like this */ 
 	lhs->i2=0; /* we want the full string length */
 	lhs->ps=1; /* we deal with a pure string */
-
-/* the array index default, can vary */
-	/* array_index=arraylimit; this is i2 */
 
 /* remember the location */
 	pushlocation(&l);
@@ -4232,7 +4228,6 @@ void factorarray() {
 	number_t v;
 
 /* remember the variable, because parsesubscript changes this */	
-	// object.name=name;
 	copyname(&object.name, &name);
 
 /* parse the arguments */
@@ -5150,7 +5145,6 @@ void assignment() {
 	lhsobject_t lhs;
 
 /* this code evaluates the left hand side, we remember the object information first */
-	// lhs.name=name;
 	copyname(&lhs.name, &name);
 
 	lefthandside(&lhs);
@@ -5388,7 +5382,6 @@ nextvariable:
 	if (token == VARIABLE || token == ARRAYVAR || token == STRINGVAR) {  
 
 /* check for a valid lefthandside expression */ 
-		//lhs.name=name;
 		copyname(&lhs.name, &name);
 
 		lefthandside(&lhs);
@@ -5713,7 +5706,6 @@ void xfor(){
 	
 /* we need at least a name */
 	if (!expect(VARIABLE, EUNKNOWN)) return;
-	//variable=name;
 	copyname(&variable, &name);
 
 /* 
@@ -5862,7 +5854,7 @@ void xnext(){
 /* one variable is accepted as an argument, no list */
 	if (token == VARIABLE) {
 		if (DEBUG) { outsc("** variable argument "); outname(&name); outcr(); }
-		//variable=name;
+
 		copyname(&variable, &name);
 		nexttoken();
 		if (!termsymbol()) {
@@ -6396,7 +6388,6 @@ void xclr() {
 		ert=0;
     	ioer=0;
 	} else {
-		//variable=name;
 		copyname(&variable, &name);
 		switch (variable.token) {
 		case VARIABLE:
@@ -6469,7 +6460,6 @@ nextvariable:
 	if (token == ARRAYVAR || token == STRINGVAR ){
 
 /* remember the object, direct assignment of struct for the moment */	
-		//variable=name;
 		copyname(&variable, &name);
 
 		if (DEBUG)	{
@@ -6584,10 +6574,22 @@ void xtab(){
 
 /* the runtime environment can do a true tab then ...  */  
 #ifdef HASMSTAB
-	if (t != TSPC && reltab && od <= OPRT && od > 0) {
-		if (charcount[od-1] >= a) a=0; else a=a-charcount[od-1]-1;
+	if (t != TSPC && reltab && od <= OPRT && od >= 0) {
+		if (charcount[od] >= a) a=0; else a=a-charcount[od]-1;
 	} 
 #endif	
+
+/* debug output */
+	if (DEBUG) {
+		outsc("** tabbing "); 
+		outnumber(a); 
+		outsc(" spaces "); 
+		outsc(" charcount"); 
+		outnumber(charcount[od-1]);
+		outcr();
+	}
+
+/* output the spaces */
 	while (a-- > 0) outspc();	
 }
 #endif
@@ -6616,7 +6618,7 @@ void xlocate() {
 
 /* set the charcount, this is half broken on escape sequences */
 #ifdef HASMSTAB
-	if (od > 0 && od <= OPRT) charcount[od-1]=cx;
+	if (od >= 0 && od <= OPRT) charcount[od]=cx;
 #endif
 
 }
@@ -6973,7 +6975,6 @@ void xget(){
 	}
 
 /* this code evaluates the left hand side - remember type and name */
-	//lhs.name=name; 
 	copyname(&lhs.name, &name);
 
 	lefthandside(&lhs);
@@ -8547,7 +8548,6 @@ nextdata:
 	nexttoken();
 
 /* this code evaluates the left hand side - remember type and name */
-	//lhs.name=name;
 	copyname(&lhs.name, &name);
 
 	lefthandside(&lhs);
@@ -8684,7 +8684,6 @@ void xdef(){
 /* the name of the function, it is tokenized as an array */
 	if (!expect(ARRAYVAR, EUNKNOWN)) return;
 
-	//function=name;
 	copyname(&function, &name);
 	function.token=TFN; /* set the right type here */
 
@@ -8694,7 +8693,6 @@ void xdef(){
 	if (token == ')') { 
 		zeroname(&variable);
 	} else if (token == VARIABLE) {
-		// variable=name; /* this is unclean */
 		copyname(&variable, &name);
 		nexttoken();
 	} else {
@@ -9204,9 +9202,9 @@ void statement(){
 				nexttoken();
 				if (termsymbol()) { push(0); }
 				else expression();
-				return;
+				return; /* this returns from statement and ends one interpreter instance */
 			} else 
-				xreturn();
+				xreturn(); /* while this happens inside the instance */
 #endif
 			break;
 #ifndef HASMULTILINEFUNCTIONS
@@ -9244,8 +9242,8 @@ void statement(){
 				restartsystem();
 			}
 			*ibuffer=0;	/* clear ibuffer - this is a hack */
-			st=SINT;		/* switch to interactive mode */
-			return;
+			st=SINT;	/* switch to interactive mode */
+			return; 	/* leave the interpreter instance */
 		case TLIST:		
 			xlist();
 			break;
