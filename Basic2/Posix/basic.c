@@ -2633,6 +2633,43 @@ address_t writenumber(char *c, wnumber_t v){
 	return nd;
 } 
 
+address_t writenumbern(char *c, wnumber_t v, mem_t n){
+	address_t nd = 0;	
+	index_t i,j;
+	mem_t s = 1;
+	char c1;
+
+/* the sign */
+	if (v<0) s=-1;
+
+/* the digits */
+	do {
+		c[nd]=(v%n)*s+'0';
+		v=v/n;
+/* for base 16 we need more work */
+		if (c[nd] > '9') c[nd]=c[nd]+7;
+		nd++;
+	} while (v != 0);	
+
+/* print the minus */
+if (s < 0 ) c[nd]='-'; else nd--;
+
+/* reverse the order of digits */
+	i=0; 
+	j=nd;
+	while (j>i) {
+		c1=c[i];
+		c[i]=c[j];
+		c[j]=c1;
+		i++;
+		j--;
+	}
+
+	nd++;
+	c[nd]=0;
+	return nd;
+} 
+
 #ifdef HASFLOAT
 /*
  * this is for floats, handling output without library 
@@ -4033,6 +4070,11 @@ char stringvalue(string_t* strp) {
 
 	lhsobject_t lhs;
 
+#ifdef HASNUMSYSTEM
+	mem_t base=10;
+	number_t n;
+#endif
+
 	if (DEBUG) outsc("** entering stringvalue \n");
 
 /* make sure everything is nice and clean */
@@ -4060,10 +4102,31 @@ char stringvalue(string_t* strp) {
 		nexttoken();
 		expression();
 		if (er != 0) return 0;
+#ifdef HASNUMSYSTEM
+		if (token == ',') { 
+			nexttoken();
+			expression();
+			if (er != 0) return 0;
+			base=pop();
+			if (base !=2 && base != 8 && base != 10 && base != 16) { error(EARGS); return 0; }	
+		}
+		n=pop();
+#ifdef HASFLOAT
+	if (base == 10) {
+		strp->length=writenumber2(sbuffer, n);
+	} else {
+		n=floor(n);
+		strp->length=writenumbern(sbuffer, n, base);
+	}
+#else
+		strp->length=writenumbern(sbuffer, n, base);
+#endif
+#else 
 #ifdef HASFLOAT
 		strp->length=writenumber2(sbuffer, pop());
 #else
 		strp->length=writenumber(sbuffer, pop());
+#endif
 #endif
 		strp->ir=sbuffer;
 		if (er != 0) return 0;
