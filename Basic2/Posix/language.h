@@ -162,6 +162,7 @@
 #undef  HASFULLINSTR
 #define HASLOOPOPT
 #define HASNUMSYSTEM
+#define HASBITWISE
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL

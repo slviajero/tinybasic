@@ -1047,6 +1047,13 @@ int8_t eread(uint16_t a) { if (a>=0 && a<EEPROMSIZE) return eeprom[a]; else retu
  *	the wrappers of the arduino io functions
  */ 
 
+ /* dummy functions right now as not implemented for wirings */
+void portwrite(uint8_t p, int v) {}
+int portread(uint8_t p) { return 0; }
+void ddrwrite(uint8_t p, int v) {}
+int ddrread(uint8_t p) { return 0; }
+int pinread(uint8_t p) { return 0; }
+
 #if !defined(POSIXWIRING) && !defined(POSIXPIGPIO)
 uint16_t aread(uint8_t p) { return 0; }
 uint8_t dread(uint8_t p) { return 0; }
