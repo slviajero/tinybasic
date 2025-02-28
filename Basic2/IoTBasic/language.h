@@ -161,7 +161,8 @@
 #define BOOLEANMODE -1
 #undef  HASFULLINSTR
 #define HASLOOPOPT
-#undef HASNUMSYSTEM
+#define HASNUMSYSTEM
+#define HASBITWISE
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
