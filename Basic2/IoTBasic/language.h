@@ -150,8 +150,8 @@
  * HASLOOPOPT: optimizes the FOR loops for speed. This is a trade off between speed and 
  *     memory. It is activated by default. Speeup is about 10% on a Mac. On platforms
  *     with low memory bandwidth it is much more.
- * HASNUMSYSTEM: constants can be hex, octal, binary or decimal. This is activated by 
- *      default. Currently only implemented in VAL(). 
+ * HASNUMSYSTEM: constants can be hex, octal, binary or decimal. This is not activated by 
+ *      default. Currently only implemented in VAL(). Still experimental.
  */
 
 #undef POWERRIGHTTOLEFT
@@ -161,7 +161,7 @@
 #define BOOLEANMODE -1
 #undef  HASFULLINSTR
 #define HASLOOPOPT
-#define HASNUMSYSTEM
+#undef HASNUMSYSTEM
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
