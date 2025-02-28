@@ -2481,9 +2481,7 @@ void outscf(const char *c, index_t f){
  
 /* 
  *	reading a positive number from a char buffer 
- *	maximum number of digits is adjusted to 16
- *	ugly here, testcode when introducting 
- *	number_t was only 16 bit before
+ *	maximum number of digits is adjusted to SBUFSIZE
  */
 address_t parsenumber(char *c, number_t *r) {
 	address_t nd = 0;
@@ -2491,6 +2489,59 @@ address_t parsenumber(char *c, number_t *r) {
 	*r=0;
 	while (*c >= '0' && *c <= '9' && *c != 0) {
 		*r=*r*10+*c++-'0';
+		nd++;
+		if (nd == SBUFSIZE) break;
+	}
+	return nd;
+}
+
+/*
+ * reimplementation of parsenumber with the capability
+ * to scan hex, octal, and binary numbers as well 
+ */
+address_t parsenumbern(char *c, number_t *r) {
+	address_t nd = 0;
+	mem_t base = 10;
+
+	*r=0;
+
+	/* the base */
+	if (*c == '0') {
+		c++;
+		nd++;
+		if (*c == 'x' || *c == 'X') {
+			c++;
+			nd++;
+			base=16;
+		} else if (*c == 'b' || *c == 'B') {
+			c++;
+			nd++;
+			base=2;
+		} else if (*c == 'o' || *c == 'O') {
+			c++;
+			nd++;
+			base=8;
+		}
+	}
+
+	/* the digits */
+	while (*c != 0) {
+		if (base == 16) {
+			if (*c >= '0' && *c <= '9') *r=*r*16+*c-'0';
+			else if (*c >= 'A' && *c <= 'F') *r=*r*16+*c-'A'+10;
+			else if (*c >= 'a' && *c <= 'f') *r=*r*16+*c-'a'+10;
+			else break;
+		} else if (base == 8) {
+			if (*c >= '0' && *c <= '7') *r=*r*8+*c-'0';
+			else break;
+		} else if (base == 2) {
+			if (*c == '0' || *c == '1') *r=*r*2+*c-'0';
+			else break;
+		} else {
+			if (*c >= '0' && *c <= '9') *r=*r*10+*c-'0';
+			else break;
+		}
+		c++;
 		nd++;
 		if (nd == SBUFSIZE) break;
 	}
@@ -4311,6 +4362,11 @@ void factorval() {
 	string_t s;
 	address_t a;
 	char *ir;
+
+#define DEBUG 0	
+
+	mem_t numsys = 0;
+
  
 	nexttoken();
 	if (token != '(') { error(EARGS); return; }
@@ -4331,17 +4387,57 @@ void factorval() {
 	stringtobuffer(sbuffer, &s);
 	ir=sbuffer;
 
+	if (DEBUG) {
+		outsc("factorval: ");
+		outsc(ir);
+		outcr();
+	}
+
 /* remove whitespaces */
 	while(*ir==' ' || *ir=='\t') { ir++; vlength++; }
 
 /* find a sign */
 	if(*ir=='-') { y=-1; ir++; vlength++; } else y=1;
-    
+
+/* see if we scan integer hex, octal or bin constants, the real scanning is done in parsenumbern */
+#ifdef HASNUMSYSTEM
+	if (*ir == '0' && ( *(ir+1) == 'x' || *(ir+1) == 'X' || *(ir+1) == 'b' || *(ir+1) == 'B' \
+		|| *(ir+1) == 'o' || *(ir+1) == 'O' )) { numsys=1; }
+#endif
+
+
+if (DEBUG) {
+	outsc("factorval: ");
+	outsc(ir);
+	outsc(" ");
+	outnumber(y);
+	outsc(" ");
+	outnumber(numsys);
+	outcr();
+}
+#define DEBUG 0
+
 	x=0;
 #ifdef HASFLOAT
+#ifdef HASNUMSYSTEM
+	if (numsys) {
+		if ((a=parsenumbern(ir, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
+	} else {
+		if ((a=parsenumber2(ir, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
+	}
+#else
 	if ((a=parsenumber2(ir, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
+#endif
 #else 
+#ifdef HASNUMSYSTEM
+	if (numsys) {
+		if ((a=parsenumbern(ir, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
+	} else {
+		if ((a=parsenumber(ir, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
+	}
+#else
 	if ((a=parsenumber(ir, &x)) > 0) {vlength+=a; ert=0; } else {vlength=0; ert=1;};
+#endif
 #endif
 	push(x*y);
     

@@ -42,9 +42,9 @@
  * Setting NOLANGUAGEHEURISTICS and then one of the models below will override this 
  * selection.
  */
-#undef NOLANGUAGEHEURISTICS
+#define LANGUAGEHEURISTICS
 
-#ifdef NOLANGUAGEHEURISTICS
+#ifndef LANGUAGEHEURISTICS
 #undef  BASICFULL
 #undef	BASICINTEGER
 #undef	BASICSIMPLE
@@ -91,7 +91,7 @@
  * If you want to set everything manually, set NOLANGUAGEHEURISTICS above
  */
 
-#ifdef NOLANGUAGEHEURISTICS
+#ifndef LANGUAGEHEURISTICS
 #define HASAPPLE1
 #define HASARDUINOIO
 #define HASFILEIO
@@ -150,7 +150,10 @@
  * HASLOOPOPT: optimizes the FOR loops for speed. This is a trade off between speed and 
  *     memory. It is activated by default. Speeup is about 10% on a Mac. On platforms
  *     with low memory bandwidth it is much more.
+ * HASNUMSYSTEM: constants can be hex, octal, binary or decimal. This is not activated by 
+ *      default. Currently only implemented in VAL(). Still experimental.
  */
+
 #undef POWERRIGHTTOLEFT
 #undef MSARRAYLIMITS
 #undef SUPPRESSSUBSTRINGS
@@ -158,6 +161,7 @@
 #define BOOLEANMODE -1
 #undef  HASFULLINSTR
 #define HASLOOPOPT
+#define HASNUMSYSTEM
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -268,7 +272,7 @@
 #define HASEDITOR
 #define HASTINYBASICINPUT
 #define HASLONGNAMES 
-#define  HASHELP
+#define HASHELP
 #endif
 
 /* a simple BASIC with float support */

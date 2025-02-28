@@ -582,6 +582,7 @@ void outname(name_t*);
 
 /* I/O of number_t - floats and integers */
 address_t parsenumber(char*, number_t*);
+address_t parsenumbern(char*, number_t*); /* can do hex,oct,bin */
 address_t parsenumber2(char*, number_t*);
 address_t writenumber(char*, wnumber_t); 
 address_t writenumber2(char*, number_t);
