@@ -3964,6 +3964,16 @@ int8_t eread(uint16_t a) { return 0; }
 #endif
 #endif
 
+/*
+ * A set of function to directly accessing IO ports 
+ * Unfinished code right now.
+ */
+void portwrite(uint8_t p, int v) {}
+int portread(uint8_t p) { return 0; }
+void ddrwrite(uint8_t p, int v) {}
+int ddrread(uint8_t p) { return 0; }
+int pinread(uint8_t p) { return 0; }
+
 /* 
  *	the wrappers of the arduino io functions
  *  awrite requires ESP32 2.0.2 core, else disable awrite() 

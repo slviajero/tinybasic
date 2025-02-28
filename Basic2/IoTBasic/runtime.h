@@ -267,6 +267,13 @@ void tonetoggle(); /* internal function of the tone emulation, called by byield 
 void breakpinbegin();
 uint8_t getbreakpin();
 
+/* these are the port register access function, very hardware dependent */
+void portwrite(uint8_t, int);
+int portread(uint8_t);
+void ddrwrite(uint8_t, int);
+int ddrread(uint8_t);
+int pinread(uint8_t);
+
 /*
  * DISPLAY driver code section, the hardware models define a set of 
  * of functions and definitions needed for the display driver. These are 

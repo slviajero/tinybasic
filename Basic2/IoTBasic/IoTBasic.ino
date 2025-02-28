@@ -1108,6 +1108,8 @@ number_t getvar(name_t *name){
 			return id;
 		case 'O':
 			return od;
+		case 'T':
+			return millis();
 		case 'C':
 			if (availch()) return inch(); else return 0;
 		case 'E':
@@ -1182,6 +1184,8 @@ void setvar(name_t *name, number_t v){
 			return;
 		case 'O':
 			od=v;
+			return;
+		case 'T':
 			return;
 		case 'C':
 			outch(v);
@@ -1600,6 +1604,24 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
 			if (getset == 'g') *value=memread2(a); 
 			else if (getset == 's') memwrite2(a, *value); 
 			return;
+		case 'P':
+		/* the io ports */
+		if (object->i >= 0 && object->i < 16) {
+			if (getset == 'g') *value=portread(object->i); 
+			else if (getset == 's') portwrite(object->i, *value);
+			return;
+		}
+		/* the data direction registers */
+		if (object->i >= 16 && object->i < 32) {
+			if (getset == 'g') *value=ddrread(object->i-16); 
+			else if (getset == 's') ddrwrite(object->i-16, *value);
+			return;
+		}
+		/* the pin registers (only input) */
+		if (object->i >= 32 && object->i < 48) {
+			if (getset == 'g') *value=pinread(object->i-32); 
+			return;
+		}
 		default:
 			error(EVARIABLE);
 			return;
