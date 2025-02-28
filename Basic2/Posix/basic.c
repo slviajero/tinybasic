@@ -228,6 +228,11 @@ const char sedit[]		PROGMEM = "EDIT";
 #ifdef HASHELP
 const char shelp[]		PROGMEM = "HELP";
 #endif
+#ifdef HASBITWISE
+const char sshl[]		PROGMEM = "<<";
+const char sshr[]		PROGMEM = ">>";
+const char sbit[]		PROGMEM = "BIT";
+#endif
 
 /* zero terminated keyword storage */
 const char* const keyword[] PROGMEM = {
@@ -309,6 +314,9 @@ const char* const keyword[] PROGMEM = {
 #ifdef HASHELP
 	shelp,
 #endif
+#ifdef HASBITWISE
+	sshl, sshr, sbit,
+#endif
 	0
 };
 
@@ -388,6 +396,9 @@ const token_t tokens[] PROGMEM = {
 #endif
 #ifdef HASHELP
 	THELP,
+#endif
+#ifdef HASBITWISE
+	TSHL, TSHR, TBIT,
 #endif
 	0
 };
@@ -2480,8 +2491,9 @@ void outscf(const char *c, index_t f){
  #endif
  
 /* 
- *	reading a positive number from a char buffer 
- *	maximum number of digits is adjusted to SBUFSIZE
+ *	Reading a positive number from a char buffer 
+ *	maximum number of digits is adjusted to SBUFSIZE.
+ *  This is only for integers. 
  */
 address_t parsenumber(char *c, number_t *r) {
 	address_t nd = 0;
@@ -2496,8 +2508,9 @@ address_t parsenumber(char *c, number_t *r) {
 }
 
 /*
- * reimplementation of parsenumber with the capability
- * to scan hex, octal, and binary numbers as well 
+ * Reimplementation of parsenumber with the capability
+ * to scan hex, octal, and binary numbers as well. 
+ * This is only for integers. 
  */
 address_t parsenumbern(char *c, number_t *r) {
 	address_t nd = 0;
@@ -2595,9 +2608,11 @@ address_t parsenumber2(char *c, number_t *r) {
 #endif
 
 /*
- *	convert a number to a string
- *	the argument type controls the largest displayable integer
- *  default is int but it can be increased without any side effects
+ *	Convert a number to a string.
+ *
+ *	The argument type controls the largest displayable integer.
+ *  wnumber_t is defined in basic.h as either int or long for float
+ *  systems.
  */
 address_t writenumber(char *c, wnumber_t v){
 	address_t nd = 0;	
@@ -2633,6 +2648,7 @@ address_t writenumber(char *c, wnumber_t v){
 	return nd;
 } 
 
+/* writenumber with arbitrary base support */
 address_t writenumbern(char *c, wnumber_t v, mem_t n){
 	address_t nd = 0;	
 	index_t i,j;
@@ -3011,6 +3027,11 @@ void nexttoken() {
 		if (*bi == '=') {
 			token=GREATEREQUAL;
 			bi++;
+#ifdef HASBITWISE
+		} else if(*bi == '>') {
+			token=TSHR;
+			bi++;
+#endif
 		} else  {
 			token='>';
 		}
@@ -3024,12 +3045,17 @@ void nexttoken() {
 		if (*bi == '=') {
 			token=LESSEREQUAL;
 			bi++;
-		} else  if (*bi == '>') {
+		} else if(*bi == '>') {
 			token=NOTEQUAL;
 			bi++;
+#ifdef HASBITWISE
+		} else if(*bi == '<') {
+			token=TSHL;
+			bi++;
+#endif
 		} else {
 			token='<';
-		}
+		} 
 		if (DEBUG) debugtoken();
 		return;
 	}
@@ -4060,6 +4086,8 @@ void parsestringvar(string_t* strp, lhsobject_t* lhs) {
  * stringvalue(string_t*) evaluates a string value, return 0 if there is no string,
  * 	1 if there is a string. The pointer contains all the data needed to process the string.
  * 
+ * In STR all number bases are allowed now. 
+ * 
  */
 
 char stringvalue(string_t* strp) {
@@ -4108,7 +4136,6 @@ char stringvalue(string_t* strp) {
 			expression();
 			if (er != 0) return 0;
 			base=pop();
-			//if (base !=2 && base != 8 && base != 10 && base != 16) { error(EARGS); return 0; }	
 		}
 		n=pop();
 #ifdef HASFLOAT
@@ -4313,6 +4340,21 @@ void xexp() { push(exp(pop())); }
 void xint() { push(floor(pop())); }
 #else 
 void xint() {}
+#endif
+
+#ifdef HASBITWISE
+/* this function does a bitwise compare. It checks if one bit is 1 or 0 and returns
+	the right BASIC boolean value */
+void xbit() {
+	int a, b;
+
+	/* this is slightly unclean as we do no error detection on the range */
+	b=(int)pop();
+	a=(int)pop();
+
+	/* pushing booleanmode makes sure we have the right kind of true (1 or -1) */
+	if (a & (1<<b)) push(booleanmode); else push(0);
+}
 #endif
 
 /*
@@ -4854,6 +4896,11 @@ void factor(){
 		factorasc();
 		break;	
 #endif
+#ifdef HASBITWISE
+	case TBIT:
+		parsefunction(xbit, 2);
+		break;
+#endif
 /* unknown function */
 	default:
 		error(EUNKNOWN);
@@ -4940,6 +4987,18 @@ nextfactor:
 			return;	
 		}
 		goto nextfactor;
+#ifdef HASBITWISE
+	} else if (token == TSHL) {
+		parseoperator(power);
+		if (!USELONGJUMP && er) return;
+		push((int)x << (int)y);
+		goto nextfactor;
+	} else if (token == TSHR) {
+		parseoperator(power);
+		if (!USELONGJUMP && er) return;
+		push((int)x >> (int)y);
+		goto nextfactor;
+#endif
 	}
 	if (DEBUG) bdebug("leaving term\n");
 }
@@ -6136,13 +6195,23 @@ void outputtoken() {
 				token == TOR ||
 				token == TAND) && lastouttoken != LINENUMBER) outspc();
 			else 
-				if (lastouttoken == NUMBER || lastouttoken == VARIABLE) outspc(); 	
+				if (lastouttoken == NUMBER || lastouttoken == VARIABLE) {
+					if (token != GREATEREQUAL &&
+						token<= LESSEREQUAL
+#ifdef HASBITWISE
+						&& token != TSHL &&
+						token != TSHR
+#endif
+					) outspc();
+				} 	
 
 			for(i=0; gettokenvalue(i)!=0 && gettokenvalue(i)!=token; i++);
 			outsc(getkeyword(i)); 
 			if (token != GREATEREQUAL && 
 				token != NOTEQUAL && 
 				token != LESSEREQUAL && 
+				token != TSHL &&
+				token != TSHR &&
 				token != TREM &&
 				token != TFN) spaceafterkeyword=1;
 			break;

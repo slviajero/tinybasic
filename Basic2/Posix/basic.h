@@ -212,6 +212,10 @@
 #define TEDIT 7
 #define THELP 8
 
+/* bitwise operations, avoid 10 as a token value*/
+#define TSHL 9
+#define TSHR 11
+#define TBIT 12
 /* 
  * Extension tokens can be in the range from -128 upwards.
  * one needs to set HASLONGTOKENS. Currently ony one set of 
@@ -585,6 +589,7 @@ address_t parsenumber(char*, number_t*);
 address_t parsenumbern(char*, number_t*); /* can do hex,oct,bin */
 address_t parsenumber2(char*, number_t*);
 address_t writenumber(char*, wnumber_t); 
+address_t writenumbern(char*, wnumber_t, mem_t); /* can do hex,oct,bin */
 address_t writenumber2(char*, number_t);
 address_t tinydtostrf(number_t, index_t, char*);
 int innumber(number_t*, char*, address_t);
