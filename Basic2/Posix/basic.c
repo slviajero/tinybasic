@@ -4108,7 +4108,7 @@ char stringvalue(string_t* strp) {
 			expression();
 			if (er != 0) return 0;
 			base=pop();
-			if (base !=2 && base != 8 && base != 10 && base != 16) { error(EARGS); return 0; }	
+			//if (base !=2 && base != 8 && base != 10 && base != 16) { error(EARGS); return 0; }	
 		}
 		n=pop();
 #ifdef HASFLOAT
