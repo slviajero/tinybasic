@@ -1,12 +1,12 @@
 # Stefan's IoT BASIC in a nutshell
 
-## Version information -
+## Version information
 
 This manual is for the released version 1.4 and 2.0 of Stefan's IoT BASIC interpreter. 
 
 ## Supported hardware 
 
-BASIC runs on Mac, Windows, Raspberry PI, MSDOS and many Arduino plattforms. I test regularly on 8 and 32 bit AVR, ESP8266. ESP2, RP2040 but also on some less common platforms like MKR, XMC and SMT. Have a look in the hardware section for more information. Many peripherals are supported. You find details in the hardware section of the manual.
+BASIC runs on Mac, Windows, Raspberry PI, MSDOS and many Arduino plattforms. I test regularly on 8 and 32 bit AVR, ESP8266. ESP2, RP2040 but also on some less common platforms like MKR, XMC, SMT, and GIGA. Have a look in the hardware section for more information. Many peripherals are supported. You find details in the hardware section of the manual.
 
 ## BASIC language sets
 
@@ -1177,7 +1177,7 @@ A=INSTR(A\$, ",")
 
 finds the first comma in the string. INSTR can be used to split strings. See splitstr.bas in the tutorial for more information.
 
-In BASIC 2 INSTR is not fully implemented. The second argument can be a string and not just a single character.
+In BASIC 2 INSTR is fully implemented. The second argument can be a string and not just a single character. For this, the interpreter has to be compiled with HASFULLINSTR defined in language.h. This settings is normally on if HASMSSTRINGS is set. 
 
 VAL scans a string for a number and returns the value. If no number is found the return value is 0. Example: 
 
@@ -1187,9 +1187,21 @@ A=VAL(A\$)
 
 VAL uses the special variable @V to report back the number of characters in the number. The status of the conversion is stored in @S. If @S is 0 after a conversion a number was found. Otherwise @S is 1. @V is set to the number of characters only if the conversion was succesful. 
 
+If the setting HASNUMSYSTEM is on in BASIC 2, VAL can process hexadecimal, octal and binary constants. These constants begin with 0x for hex, 0o for octal, and 0b for binary. The letter can also be uppercase. Examples would be 0xFF, 0b100110, 0o4750. The maximum length of the entire string is 32 characters. This limits the number range of binaries. Example:
+
+PRINT VAL("0xFF")
+
+which would output 255.
+
 STR converts a number to a string. Example: 
 
 A\$=STR(125)
+
+IF the interpreter is compiled with HASNUMSYSTEM in BASIC 2, STR can have a second argument defining the number base of the conversion. This can be any number but the range is limited by the ASCII character set available. Example:
+
+PRINT STR(255, 16)
+
+gives the output FF.
 
 Tutorial: splitstr.bas, converst.bas
 
@@ -1197,7 +1209,7 @@ Tutorial: splitstr.bas, converst.bas
 
 SENSOR is the generic sensor interface. It handles sensor drivers in the hardware dependent code. The first argument of the function is the sensor number. The second argument can be used to indentify interal properties of the sensor. If the second argument is zero, SENSOR returns if the sensor code is available. Example: 
 
-10 IF NOT SENSOR(1, 0) THEN PRINT "no DHT11 sensor detected": END
+10 IF SENSOR(1, 0)=0 THEN PRINT "no DHT11 sensor detected": END
 
 20 PRINT SENSOR(1, 2)
 
@@ -1609,6 +1621,33 @@ u: undo all edits and stay in editor
 
 Key bindings to terminals are in preparation. A full editor is also in the backlog but not yet scheduled for implementations. 
 
+### The HELP command
+
+Typing HELP will display the commands and the language set of the interpreter. HELP will be extended to a full help system later.
+
+### Bitwise arithemtic operators
+
+If BASIC 2 is compiled with the HASBITWISE option, two operators and one function is added. 
+
+The operators >> and << shift the value on the left side bitwise. The logic is like in the C programming language. Operator precendence is equivalent to multiplication. Typical use would be 
+
+PRINT 1<<2 
+
+output is 4. 
+
+These operator cast the numbers to the platforms integer type, do the shift and then cast back to the number type. This limits the accuracy on platforms where integer and float have the same length. On 32 bit platforms the maximum accurate integer stored in a float is 16777216 which is 24 bit. Accurate 32 bit operation of these function would require the interpreter to be compiled with 64bit floats. This can be defined in basic.h.
+
+Testing of individual bits is done with the BIT function. It is meant to be used in boolean expressions. 
+
+
+Example: 
+
+IF BIT(255, 1) PRINT "bit set"
+
+will return "bit set." as bit 1 of the number is set.
+
+The numerical value of BIT depends on the interpreters boolean mode. If the bit is not set the answer is always 0. If the bit is not set the answer will be either -1 or 1. 
+
 # Hardware drivers 
 
 ## Buildin Programs 
@@ -1619,9 +1658,6 @@ Buildin programs can be loaded and saved with LOAD and SAVE. They can be openend
 
 These programs are always scanned first, hence a program with the same name on the filesystem cannot be accessed. Best use a name convention or prefix that distinguished the build in programs from normal programs. If the characters _ or . are used as prefixes for the build in program, they are invisible for CATALOG.
 
-### The help command
-
-Typing HELP will display the commands and the language set of the interpreter. HELP will be extended to a full help system later.
 
 ## I/O Streams
 
