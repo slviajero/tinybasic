@@ -379,6 +379,10 @@ The array @T() is the real time clock array. @T\$ is a string containing date an
 
 The string @A\$ is the command line argument on POSIX systems. See the hardware section for more details.
 
+@D() is the display array. It contains the display characters row by row. 
+
+Some special variables are only present in some language sets. @D() comes with the display driver. @U, @M are part of Stefan's extensions. @T() only exists on systems with clocks.
+
 ## Apple 1 language set
 
 ### Introduction
@@ -1635,9 +1639,7 @@ Typing HELP will display the commands and the language set of the interpreter. H
 
 ### Bitwise arithemtic operators
 
-If BASIC 2 is compiled with the HASBITWISE option, two operators and one function is added. 
-
-The operators >> and << shift the value on the left side bitwise. The logic is like in the C programming language. Operator precendence is equivalent to multiplication. Typical use would be 
+In BASIC 2 two operators and one function have been added for bitwise operations. The operators >> and << shift the value on the left side bitwise. The logic is like in the C programming language. Operator precendence is equivalent to multiplication. Typical use would be 
 
 PRINT 1<<2 
 
@@ -1647,14 +1649,13 @@ These operator cast the numbers to the platforms integer type, do the shift and 
 
 Testing of individual bits is done with the BIT function. It is meant to be used in boolean expressions. 
 
-
 Example: 
 
 IF BIT(255, 1) PRINT "bit set"
 
 will return "bit set." as bit 1 of the number is set.
 
-The numerical value of BIT depends on the interpreters boolean mode. If the bit is not set the answer is always 0. If the bit is not set the answer will be either -1 or 1. 
+The numerical value of BIT depends on the interpreters boolean mode. If the bit is not set the answer is always 0. If the bit is set the answer will be either -1 or 1. 
 
 # Hardware drivers 
 
