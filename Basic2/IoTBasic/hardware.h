@@ -114,7 +114,7 @@
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
 #undef STANDALONESECONDSERIAL
-//#define ALTSERIAL Serial1
+// #define ALTSERIAL Serial
 
 /* experimental features, don't use unless you know the code */
 /* 
@@ -361,7 +361,7 @@
  *  Buffer sizes depending on what we are doing.
  */
 
- #if defined(ARDUINO_ARCH_AVR)
+ #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_LGT8F)
  /* the small memory model with shallow stacks and small buffers */
  #define BUFSIZE     80
  #define STACKSIZE   15
@@ -389,7 +389,11 @@
  * needs to be checked */
 #if defined(ARDUINO_AVR_DUEMILANOVE)
 /* no fixed memsize because this seems to need more space */
-/* #define MEMSIZE 128 */ 
+#endif
+#if defined(ARDUINO_ARCH_LGT8F)
+#define ARDUINOEEPROM
+#define ARDUINOPICOSERIAL
+#undef LINECACHESIZE
 #endif
 /* all AVR 8 bit boards have an EEPROM (most probably) */
 #if defined(ARDUINO_ARCH_AVR)
@@ -1297,7 +1301,7 @@
  * How restrictive are we on function recursive calls to protect the stack
  * On 8 bit Arduinos this needs to be limited strictly
  */
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_LGT8F)
 #define FNLIMIT 4
 #elif defined(ARDUINO_ARCH_ESP8266)
 #define FNLIMIT 64

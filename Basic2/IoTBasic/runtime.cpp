@@ -991,7 +991,7 @@ long freeRam() {
   extern int __heap_start,*__brkval;
   int v;
   return (int)&v - (__brkval == 0  
-    ? (int)&__heap_start : (int) __brkval);  
+     ? (int)&__heap_start : (int) __brkval); 
 }
 #elif defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
 long freeRam() {
@@ -1026,6 +1026,9 @@ long freememorysize() {
 #endif
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_LGT8F) 
   int overhead=256;
+#ifdef ARDUINO_ARCH_LGT8F
+  overhead+=128;
+#endif
 #ifdef ARDUINO_AVR_MEGA2560
   overhead+=96;
 #endif
@@ -3945,8 +3948,6 @@ void eflush(){
 }
 
 #if defined(ARDUINOEEPROM) && !defined(ARDUINOI2CEEPROM)
-
-
 uint16_t elength() { 
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
   return EEPROMSIZE;
