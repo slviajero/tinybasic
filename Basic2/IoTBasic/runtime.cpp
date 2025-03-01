@@ -1027,7 +1027,7 @@ long freememorysize() {
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_LGT8F) 
   int overhead=256;
 #ifdef ARDUINO_ARCH_LGT8F
-  overhead+=128;
+  overhead+=0;
 #endif
 #ifdef ARDUINO_AVR_MEGA2560
   overhead+=96;
