@@ -1,0 +1,18 @@
+10 INPUT "Range: ",L
+20 PRINT "N    ISQR ASQR         SQR          SQR-ASQR     (SQR-ASQR)/SQR "
+100 FOR X=1 TO L
+110 GOSUB 1000
+115 GOSUB 1200
+120 PRINT #4,X,S,#12,A,SQR(X),SQR(X)-A,(SQR(X)-A)/A
+140 NEXT X
+999 END
+1000 REM "Find the closest integer square root"
+1010 FOR I=1 TO 1000
+1020 IF I*I>X THEN S=I-1 ELSE  GOTO 1030
+1025 IF I*I-X<X-S*S THEN S=I
+1026 RETURN
+1030 NEXT
+1050 RETURN
+1200 REM "Approximate the root with first order taylor"
+1220 A=S+(X-S*S)/S/2
+1230 RETURN
