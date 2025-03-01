@@ -43,6 +43,8 @@
  *
  */
 
+ #define MEMSIZE 0
+
 /* 
  * Arduino hardware settings , set here what you need or
  * use one of the predefined configurations below.
@@ -394,6 +396,7 @@
 #define ARDUINOEEPROM
 #define ARDUINOPICOSERIAL
 #undef LINECACHESIZE
+// #define ARDUINOPGMEEPROM /* could be done but not recommended as EEPROM in flash */
 #endif
 /* all AVR 8 bit boards have an EEPROM (most probably) */
 #if defined(ARDUINO_ARCH_AVR)
@@ -1254,7 +1257,7 @@
 
 /* the code to address EEPROMs directly */
 /* only AVR controllers are tested with this, don't use elsewhere, there are multiple bugs */
-#if defined(ARDUINOPGMEEPROM) & ! defined(ARDUINO_ARCH_AVR)
+#if defined(ARDUINOPGMEEPROM) & ! ( defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_LGT8F) )
 #undef ARDUINOPGMEEPROM
 #endif
 

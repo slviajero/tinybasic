@@ -511,7 +511,7 @@ number_t vars[VARSIZE];
 #endif
 
 /* the BASIC working memory, either malloced or allocated as a global array */
-#if MEMSIZE != 0
+#if (defined(MEMSIZE) && MEMSIZE != 0)
 mem_t mem[MEMSIZE];
 #else
 mem_t* mem;
@@ -733,7 +733,7 @@ void bmillis() {
  *	allocate it here at all.
  *
  */
-#if MEMSIZE == 0 && !(defined(SPIRAMINTERFACE))
+#if (!defined(MEMSIZE) || MEMSIZE == 0) && !(defined(SPIRAMINTERFACE))
 address_t ballocmem() { 
 
 /* on most platforms we know the free memory for BASIC, this comes from runtime */
@@ -9932,7 +9932,7 @@ void setup() {
 
 /* get the BASIC memory, either as memory array with
 	ballocmem() or as an SPI serical memory */
-#if (defined(SPIRAMINTERFACE) || defined(SPIRAMSIMULATOR)) && MEMSIZE == 0
+#if (defined(SPIRAMINTERFACE) || defined(SPIRAMSIMULATOR)) && (!defined(MEMSIZE) || MEMSIZE == 0 )
 	himem=memsize=spirambegin();
 #else 
 #if defined(EEPROMMEMINTERFACE)

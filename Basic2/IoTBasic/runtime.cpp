@@ -980,6 +980,7 @@ void signalon() {}
  * Arduino information from
  * data from https://docs.arduino.cc/learn/programming/memory-guide
  */
+#if ! defined(MEMSIZE) || MEMSIZE == 0
 #if defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_STM32) || defined(ARDUINO_ARCH_RENESAS)
 extern "C" char* sbrk(int incr);
 long freeRam() {
@@ -1054,6 +1055,11 @@ long freememorysize() {
 #endif
   return 0;
 }
+
+#else 
+long freeRam() { return 0; }
+long freememorysize() { return MEMSIZE-1; }
+#endif
 
 /* 
  * the sleep and restart functions - only implemented for some controllers
