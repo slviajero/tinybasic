@@ -1,5 +1,5 @@
 /*
- * Stefan's basic interpreter - runtime environment runtime.cpp.
+ * Stefan's basic interpreter - Arduino runtime environment runtime.cpp.
  * 
  * This is the Arduino runtime environment for BASIC. It maps the functions 
  * needed for the various subsystems to the MCU specific implementations. 
@@ -14,11 +14,13 @@
 #include "hardware.h"
 #include "runtime.h"
 
-/* if the BASIC interpreter provides a loop function it will superseed this one */
+/* If the BASIC interpreter provides a loop function it will superseed this one */
 void __attribute__((weak)) bloop() {};
 
 /*
- * defining the systype variable which informs BASIC about the platform at runtime
+ * Defining the bssystype variable which informs BASIC about the platform at runtime.
+ * bssystype is not used by the interpreter, but can be used by BASIC programs to
+ * determine the platform they are running on.
  */
 
 #if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR)
@@ -53,13 +55,14 @@ int8_t idd = ISERIAL; // default input stream in interactive mode
 int8_t odd = OSERIAL; // default output stream in interactive mode 
 int8_t ioer = 0; // the io error variable, always or-ed with ert in BASIC
 
+/* counts the outputed characters on streams 0-4, used to emulate a real tab */
 
-/* counts the outputed characters on streams 0-3, used to emulate a real tab */
 #ifdef HASMSTAB
-uint8_t charcount[5]; /* devices 1-4 support tabing */
+uint8_t charcount[5]; /* 5 devices 0-4 support tabing */
 #endif
 
 /* the pointer to the buffer used for the &0 device */
+
 char* nullbuffer = ibuffer;
 uint16_t nullbufsize = BUFSIZE; 
 uint8_t bufferstat(uint8_t ch) { return 1; }
@@ -71,6 +74,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  * https://github.com/slviajero/PS2Keyboard
  * works with ESP, has keyboard.peek()
  */
+
 #ifdef ARDUINOPS2
 #include <PS2Keyboard.h>
 #endif
@@ -79,6 +83,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  * The USB keyboard code - tested only on DUE and the like
  * not really good 
  */
+
 #ifdef ARDUINOUSBKBD
 #include <KeyboardController.h>
 #endif
@@ -86,6 +91,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 /*
  * The ZX81 keyboard code - tested on AVR MEGA256
  */
+
 #ifdef ARDUINOZX81KBD
 #include <ZX81Keyboard.h>
 #endif
@@ -97,6 +103,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  * Arduino core and the keyboard implementation of the T-Deck
  * is very generic.
  */
+
 #ifdef ARDUINOI2CKBD
 #endif
 
@@ -105,14 +112,16 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  * https://docs.arduino.cc/tutorials/giga-r1-wifi/giga-usb/#usb-host-keyboard
  * 
  */
+
 #ifdef GIGAUSBKBD
 #include "USBHostGiga.h"
 #endif
 
 
 /*
- * ESPy stuff, pgmspace has changed location 
+ * ESPy stuff, pgmspace has changed location.
  */
+
 #ifdef ARDUINOPROGMEM
 #ifdef ARDUINO_ARCH_ESP32
 #include <pgmspace.h>
@@ -122,8 +131,9 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #endif
 
 /*
- * MBED OS type includes summarized here - tested for GIGA boards 
+ * MBED OS type includes summarized here - tested for GIGA boards. 
 */
+
 #ifdef ARDUINO_ARCH_MBED_GIGA
 #include "mbed.h"
 #include <mbed_mktime.h>
@@ -134,6 +144,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  * On XMC you need https://github.com/slviajero/XMCEEPROMLib
  * Throws a compiler error for other platforms.
  */
+
 #ifdef ARDUINOEEPROM
 #ifdef ARDUINO_ARCH_XMC
 #include <XMCEEPROMLib.h>
@@ -147,25 +158,29 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #endif
 
 /* Standard SPI */
+
 #ifdef ARDUINOSPI
 #include <SPI.h>
 #endif
 
 /* Standard wire - triggered by the HASWIRE macro now */
+
 #if defined(HASWIRE) || defined(HASSIMPLEWIRE)
 #include <Wire.h>
 #endif
 
 /* 
- * the display library includes for LCD
+ * The display library includes for the parallel LCD.
  */
+
 #ifdef LCDSHIELD 
 #include <LiquidCrystal.h>
 #endif
 
 /*
- * I2C displays 
+ * I2C LCD displays, this library works almost universally.
  */
+
 #ifdef ARDUINOLCDI2C
 #include <LiquidCrystal_I2C.h>
 #endif
@@ -175,6 +190,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  * https://github.com/olikraus/u8g2/wiki/u8g2reference
  * It can harware scroll, but this is not yet implemented 
  */
+
 #if defined(ARDUINONOKIA51) || defined(ARDUINOSSD1306)
 #include <U8g2lib.h>
 #endif
@@ -184,6 +200,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  * https://github.com/slviajero/ILI9488
  * It can hardware scroll (not yet used)
  */
+
 #ifdef ARDUINOILI9488
 #include <Adafruit_GFX.h>
 #include <ILI9488.h>
@@ -192,8 +209,13 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 /*
  * This is the MCUFRIED library originally for parallel TFTs
  * https://github.com/prenticedavid/MCUFRIEND_kbv
- * 
+ * For R4 boards, use my patched version
+ * https://github.com/slviajero/MCUFRIEND_kbv
+ * This library can drive the TFT from any board as it has a
+ * generic section using the Arduino GPIOs. This is slow but 
+ * works. For R4 it uses the port macros.
  */
+
 #ifdef ARDUINOMCUFRIEND
 #include <Adafruit_GFX.h>
 #include <MCUFRIEND_kbv.h>
@@ -205,6 +227,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  * please note the License, it is not GPL but NON COMMERCIAL 
  * Creative Commons. 
  */
+
 #ifdef ARDUINOTFT
 #include <memorysaver.h>
 #include <UTFT.h>
@@ -212,10 +235,9 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 
 /*
  * Lilygo EDP47 displays, 4.7 inch epapers using the respective library 
- * from Lilygo
- * https://github.com/Xinyuan-LilyGO/LilyGo-EPD47
- * 
+ * from Lilygo https://github.com/Xinyuan-LilyGO/LilyGo-EPD47
  */
+
 #ifdef ARDUINOEDP47
 #include "epd_driver.h"
 #include "font/firasans.h"
@@ -231,6 +253,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  * https://github.com/slviajero/pubsubclient
  * for MQTT
  */
+
 #ifdef ARDUINOMQTT
 #ifdef ARDUINOETH
 #include <Ethernet.h>
@@ -258,17 +281,20 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  * VGA is only implemented on one platform - TTGO VGA 1.4
  * Needs https://github.com/slviajero/FabGL
  */
+
 #if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32)
 #include <WiFi.h> 
 #include <fabgl.h> 
 #endif
 
 /*
- * SD filesystems with the standard SD driver
- * for MEGA 256 a soft SPI solution is needed 
- * if standard shields are used, this is a patched
- * SD library https://github.com/slviajero/SoftSD
+ * SD filesystems with the standard SD driver.
+ *
+ * For MEGA 256 a soft SPI solution is needed 
+ * if standard shields are used, this done in is a 
+ * patched SD library https://github.com/slviajero/SoftSD
  */
+
 #ifdef ARDUINOSD
 #define FILESYSTEMDRIVER
 #if defined(SOFTWARE_SPI_FOR_SD)
@@ -280,8 +306,9 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 
 /*
  * ESPSPIFFS tested on ESP8266 and ESP32
- * supports formating in BASIC
+ * supports formating in BASIC.
  */ 
+
 #ifdef ESPSPIFFS
 #define FILESYSTEMDRIVER
 #ifdef ARDUINO_ARCH_ESP8266
@@ -295,9 +322,9 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 
 
 /*
- * ESP32FAT tested on ESP32
- * supports formating in BASIC
+ * ESP32FAT tested on ESP32 supports formating in BASIC.
  */ 
+
 #ifdef ESP32FAT
 #define FILESYSTEMDRIVER
 #ifdef ARDUINO_ARCH_ESP32
@@ -307,8 +334,10 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #endif
 
 /*
- * The USB filesystem for the GIGA board
+ * The USB filesystem for the GIGA board.
+ * USB device has to be connected at boot time. No remount is possible.
  */
+
 #ifdef GIGAUSBFS
 #include <DigitalOut.h>
 #include <FATFileSystem.h>
@@ -316,20 +345,23 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #endif
 
 /*
- * TFT_eSPI is a library for the T-Deck from Lilygo
+ * TFT_eSPI is a library for the T-Deck from Lilygo.
+ * 
  * #include "utilities.h" provided by Lilygo is coded directly into hardware.h
  * For some reason this has to be included after FS and FFat. Not yet fully 
  * understood why.
  */
+
 #ifdef TFTESPI
 #include <TFT_eSPI.h>
 #endif
 
 /*
- * RP2040 internal filesystem 
+ * RP2040 internal filesystem. 
  * This is test code from https://github.com/slviajero/littlefs
- * and the main branch is actively developed
+ * and the main branch is actively developed.
  */
+
 #ifdef RP2040LITTLEFS
 #define FILESYSTEMDRIVER
 #define LFS_MBED_RP2040_VERSION_MIN_TARGET      "LittleFS_Mbed_RP2040 v1.1.0"
@@ -341,8 +373,9 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #endif
 
 /*
- * STM32 SDIO driver for he SD card slot of the STM32F4 boards (and others)
+ * STM32 SDIO driver for he SD card slot of the STM32F4 boards (and others).
  */
+
 #ifdef STM32SDIO 
 #define FILESYSTEMDRIVER
 #include <STM32SD.h> 
@@ -352,9 +385,10 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #endif
 
 /*
- * external flash file systems override internal filesystems
- * currently BASIC can only have one filesystem
+ * External flash file systems override internal filesystems
+ * currently BASIC can only have one filesystem. 
  */ 
+
 #ifdef ARDUINOSD
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
@@ -363,7 +397,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #endif
 
 /*
- * support for external EEPROMs as filesystem
+ * Support for external EEPROMs as filesystem
  * overriding all other filessystems. This is a minimalistic
  * filesystem meant for very small systems with not enough 
  * memory for real filesystems
@@ -379,19 +413,23 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #define FILESYSTEMDRIVER
 #endif
 
-/* the EFS object is used for filesystems and raw EEPROM access */
+/* The EFS object is used for filesystems and raw EEPROM access. */
+
 #if (defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)) || defined(ARDUINOEFS)
 #include <EepromFS.h>
 #endif
 
-/* if there is an unbuffered I2C EEPROM, use an autodetect mechanism */
+/* If there is an unbuffered I2C EEPROM, use an autodetect mechanism. */
+
 #if defined(ARDUINOI2CEEPROM) 
 unsigned int i2ceepromsize = 0;
 #endif
 
 /*
- * Software SPI only on Mega2560
+ * Software SPI only on Mega2560. This only used for the SD shield typically 
+ * but not necessarily with a TFT display. 
  */
+
 #ifndef ARDUINO_AVR_MEGA2560
 #undef SOFTWARE_SPI_FOR_SD
 #endif
@@ -401,15 +439,21 @@ unsigned int i2ceepromsize = 0;
  * two supported serial interfaces. Serial is always active and 
  * connected to channel &1 with 9600 baud. 
  * 
- * channel 4 (ARDUINOPRT) can be either in character or block 
+ * Channel 4 (ARDUINOPRT) can be either in character or block 
  * mode. Blockmode is set as default here. This means that all 
- * available characters are always loaded to a string -> inb()
+ * available characters are always loaded to a string -> inb(). 
+ * This is typically needed if you want to receive AT commands from
+ * a modem or a GPS device.
+ * 
+ * Serial baudrate of the second channel is changeable in the BASIC
+ * program.
  */
+
 const uint16_t serial_baudrate = 9600;
 uint8_t sendcr = 0;
 
 #ifdef ARDUINOPRT
-uint32_t serial1_baudrate = 9600; /* this is not const because it can be changed */
+uint32_t serial1_baudrate = 9600; 
 uint8_t blockmode = 1;
 #else 
 const int serial1_baudrate = 0;
@@ -419,8 +463,8 @@ uint8_t blockmode = 0;
 /* 
  *  Input and output functions.
  * 
- * ioinit(): called at setup to initialize what ever io is needed
- * outch(): prints one ascii character 
+ * ioinit(): called at setup to initialize what ever io is needed.
+ * outch(): prints one ascii character.
  * inch(): gets one character (and waits for it)
  * checkch(): checks for one character (non blocking)
  * ins(): reads an entire line (uses inch except for pioserial)
@@ -429,12 +473,14 @@ uint8_t blockmode = 0;
 void ioinit() {
 
 /* a standalone system runs from keyboard and display */
+
 #ifdef STANDALONE
   idd = IKEYBOARD;
   odd = ODSP;
 #endif
 
 /* run standalone on second serial, set the right parameters */
+
 #ifdef STANDALONESECONDSERIAL
   idd = ISERIAL1;
   odd = OPRT;
@@ -442,18 +488,23 @@ void ioinit() {
   sendcr = 0;
 #endif
 
-/* signal handling - by default SIGINT which is ^C is always caught and 
-  leads to program stop. Side effect: the interpreter cannot be stopped 
-  with ^C, it has to be left with CALL 0, works on Linux, Mac and MINGW
-  but not on DOSBOX MSDOS as DOSBOS does not handle CTRL BREAK correctly 
-  DOS can be interrupted with the CONIO mechanism using BREAKCHAR. 
-*/ 
+/* 
+ * Signal handling - by default SIGINT which is ^C is always caught and 
+ * leads to program stop. Side effect: the interpreter cannot be stopped 
+ * with ^C, it has to be left with CALL 0, works on Linux, Mac and MINGW
+ * but not on DOSBOX MSDOS as DOSBOS does not handle CTRL BREAK correctly 
+ * DOS can be interrupted with the CONIO mechanism using BREAKCHAR. 
+ * Here on Arduino signalon() is currentl unused. It may be needed in the future.
+ */ 
+
   signalon();
 
-/* this is only for RASPBERRY - wiring has to be started explicitly */
+/* This is only for RASPBERRY - wiring has to be started explicitly. */
+
   wiringbegin();
 
-/* all serial protocolls, ttl channels, SPI and Wire */
+/* Start all serial protocolls, ttl channels, SPI and Wire. */
+
   serialbegin();
   
 #ifdef ARDUINOPRT
@@ -465,7 +516,9 @@ void ioinit() {
 #if defined(HASWIRE) || defined(HASSIMPLEWIRE)
   wirebegin();
 #endif
-/* filesystems and networks */
+
+/* Filesystems and networks */
+
   fsbegin();
 #ifdef ARDUINOMQTT
   netbegin();  
@@ -473,34 +526,48 @@ void ioinit() {
 #endif
 
 /* the keyboards */
+
 #if defined(HASKEYBOARD) || defined(HASKEYPAD)
   kbdbegin();
 #endif
+
 /* the displays */
+
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
   dspbegin();
 #endif
-#if defined(ARDUINOVGA) || defined(POSIXFRAMEBUFFER)
-  vgabegin();  /* mind this - the fablib code and framebuffer is special here */
+
+/* fablib code (and framebuffer on POSIX) do not use the graphics driver startup 
+    they use vgabegin() */
+
+#if defined(ARDUINOVGA)
+  vgabegin();  
 #endif
+
 /* sensor startup */
+
 #ifdef ARDUINOSENSORS
   sensorbegin();
 #endif
+
 /* clocks and time */
+
 #if defined(HASCLOCK)
   rtcbegin();
 #endif
 
 /* the eeprom dummy */
+
   ebegin();
 
 /* activate the iodefaults */
+
   iodefaults();
 }
 
 
 /* the status of the io streams (on/off) */
+
 int iostat(int channel) {
   switch(channel) {
 /* channel 0, the buffer */
@@ -549,7 +616,7 @@ int iostat(int channel) {
   return 0;
 }
 
-
+/* set the iodefaults at startup and in runtime status change to interactive */
 
 void iodefaults() {
   od=odd;
@@ -3965,14 +4032,60 @@ int8_t eread(uint16_t a) { return 0; }
 #endif
 
 /*
- * A set of function to directly accessing IO ports 
- * Unfinished code right now.
+ * A set of function to directly accessing IO ports. This is 
+ * hardware dependend and needs to be implemented for each
+ * platform.
+ *  
+ * Unfinished code right now, test code for the UNO.
  */
+#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_DUEMILANOVE) || defined(ARDUINO_AVR_NANO)
+void portwrite(uint8_t p, int v) { 
+  switch (p) {
+    case 0: PORTB = v; break;
+    case 1: PORTC = v; break;
+    case 2: PORTD = v; break; 
+    default: break;
+  }
+}
+int portread(uint8_t p) { 
+  switch (p) {
+    case 0: return PORTB; break;
+    case 1: return PORTC; break;
+    case 2: return PORTD; break; 
+    default: return 0;
+  }
+}
+void ddrwrite(uint8_t p, int v) { 
+  switch (p) {
+    case 0: DDRB = v; break;
+    case 1: DDRC = v; break;
+    case 2: DDRD = v; break; 
+    default: break;
+  }
+}
+int ddrread(uint8_t p) { 
+  switch (p) {
+    case 0: return DDRB; break;
+    case 1: return DDRC; break;
+    case 2: return DDRD; break; 
+    default: return 0;
+  }
+}
+int pinread(uint8_t p) { 
+  switch (p) {
+    case 0: return PINB; break;
+    case 1: return PINC; break;
+    case 2: return PIND; break; 
+    default: return 0;
+  }
+}
+#else
 void portwrite(uint8_t p, int v) {}
 int portread(uint8_t p) { return 0; }
 void ddrwrite(uint8_t p, int v) {}
 int ddrread(uint8_t p) { return 0; }
 int pinread(uint8_t p) { return 0; }
+#endif
 
 /* 
  *	the wrappers of the arduino io functions

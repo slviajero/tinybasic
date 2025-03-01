@@ -49,6 +49,7 @@
 #undef	BASICINTEGER
 #undef	BASICSIMPLE
 #undef	BASICMINIMAL
+#undef  BASICPALOALTO
 #undef	BASICSIMPLEWITHFLOAT
 #undef	BASICTINYWITHFLOAT
 #endif
@@ -87,6 +88,15 @@
  * HASLONGNAMES: long variable names, up to 16 characters. Name length is set by MAXNAME in basic.h and
  * 	can be any value <128 bytes. Names are still only uppercase and all names will be uppercased by lexer.
  * HASHELP: show the commands of the interpreter. Will be extended to a help system.
+ *  HASFULLINSTR: the full C64 style INSTR command. Without this flag INSTR only accepts
+ *		a single character as argument. This is much faster and leaner on an Arduino. 
+ * 		This macro is activated when HASMSSTRINGS is set. 
+ * HASLOOPOPT: optimizes the FOR loops for speed. This is a trade off between speed and 
+ *     memory. It is activated by default. Speeup is about 10% on a Mac. On platforms
+ *     with low memory bandwidth it is much more.
+ * HASNUMSYSTEM: constants can be hex, octal, binary or decimal. This is not activated by 
+ *      default. Currently only implemented in VAL() and STR().
+ * HASBITWISE: has bitwise operations >>, << and the function BIT -> removed and default now.
  * 
  * If you want to set everything manually, set NOLANGUAGEHEURISTICS above
  */
@@ -116,6 +126,9 @@
 #define HASTINYBASICINPUT
 #define HASLONGNAMES 
 #define HASHELP
+#define HASFULLINSTR
+#define HASLOOPOPT
+#define HASNUMSYSTEM
 #endif
 
 
@@ -144,14 +157,6 @@
  *      In this mode false is 0 and -1 is true. (1) is C style boolean arithemtic.
  *      In this mode true is 1 and false is 0. AND and OR still do bitwise operations
  *      but NOT is C not. SET 19,1 or -1 can change this at runtime.
- *  HASFULLINSTR: the full C64 style INSTR command. Without this flag INSTR only accepts
- *		a single character as argument. This is much faster and leaner on an Arduino. 
- * 		This macro is activated when HASMSSTRINGS is set. 
- * HASLOOPOPT: optimizes the FOR loops for speed. This is a trade off between speed and 
- *     memory. It is activated by default. Speeup is about 10% on a Mac. On platforms
- *     with low memory bandwidth it is much more.
- * HASNUMSYSTEM: constants can be hex, octal, binary or decimal. This is not activated by 
- *      default. Currently only implemented in VAL(). Still experimental.
  */
 
 #undef POWERRIGHTTOLEFT
@@ -159,10 +164,6 @@
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 0
 #define BOOLEANMODE -1
-#undef  HASFULLINSTR
-#define HASLOOPOPT
-#define HASNUMSYSTEM
-#define HASBITWISE
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -189,7 +190,44 @@
 #undef HASEDITOR
 #define HASTINYBASICINPUT
 #undef HASLONGNAMES 
-#undef  HASHELP
+#undef HASHELP
+#undef HASFULLINSTR
+#undef HASLOOPOPT
+#undef HASNUMSYSTEM
+#endif
+
+/* the original Palo Alto Tinybasic, this is the real minimum */
+#ifdef BASICPALOALTO
+#undef HASAPPLE1
+#undef HASARDUINOIO
+#undef HASFILEIO
+#undef HASTONE
+#undef HASPULSE
+#undef HASSTEFANSEXT
+#undef HASERRORMSG
+#undef HASVT52
+#undef HASFLOAT
+#undef HASGRAPH
+#undef HASDARTMOUTH
+#undef HASDARKARTS
+#undef HASIOT
+#undef HASMULTIDIM
+#undef HASTIMER
+#undef HASEVENTS
+#undef HASERRORHANDLING
+#undef HASSTRUCT
+#undef HASMSSTRINGS
+#undef HASMULTILINEFUNCTIONS
+#undef HASEDITOR
+#define HASTINYBASICINPUT
+#undef HASLONGNAMES 
+#undef HASHELP
+#undef HASLOOPOPT
+#undef HASNUMSYSTEM
+#undef HASBITWISE
+#undef HASFULLINSTR
+#undef HASLOOPOPT
+#undef HASNUMSYSTEM
 #endif
 
 /* all features minus float and tone */
@@ -217,7 +255,10 @@
 #define HASEDITOR
 #define HASTINYBASICINPUT
 #define HASLONGNAMES 
-#define  HASHELP
+#define HASHELP
+#define HASFULLINSTR
+#define HASLOOPOPT
+#define HASNUMSYSTEM
 #endif
 
 /* a simple integer basic for small systems (UNO etc) */
@@ -246,6 +287,9 @@
 #define HASTINYBASICINPUT
 #undef HASLONGNAMES 
 #undef HASHELP
+#undef HASFULLINSTR
+#undef HASLOOPOPT
+#undef HASNUMSYSTEM
 #endif
 
 /* all features activated */
@@ -274,6 +318,9 @@
 #define HASTINYBASICINPUT
 #define HASLONGNAMES 
 #define HASHELP
+#define HASFULLINSTR
+#define HASLOOPOPT
+#define HASNUMSYSTEM
 #endif
 
 /* a simple BASIC with float support */
@@ -302,6 +349,9 @@
 #define HASTINYBASICINPUT
 #undef HASLONGNAMES 
 #undef HASHELP
+#undef HASFULLINSTR
+#undef HASLOOPOPT
+#undef HASNUMSYSTEM
 #endif
 
 /* a Tinybasic with float support */
@@ -330,6 +380,9 @@
 #define HASTINYBASICINPUT
 #undef HASLONGNAMES 
 #undef HASHELP
+#undef HASFULLINSTR
+#undef HASLOOPOPT
+#undef HASNUMSYSTEM
 #endif
 
 /* 

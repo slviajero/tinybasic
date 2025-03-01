@@ -228,11 +228,11 @@ const char sedit[]		PROGMEM = "EDIT";
 #ifdef HASHELP
 const char shelp[]		PROGMEM = "HELP";
 #endif
-#ifdef HASBITWISE
+/* was BITWISE, now always there because really important */
 const char sshl[]		PROGMEM = "<<";
 const char sshr[]		PROGMEM = ">>";
 const char sbit[]		PROGMEM = "BIT";
-#endif
+
 
 /* zero terminated keyword storage */
 const char* const keyword[] PROGMEM = {
@@ -314,9 +314,7 @@ const char* const keyword[] PROGMEM = {
 #ifdef HASHELP
 	shelp,
 #endif
-#ifdef HASBITWISE
 	sshl, sshr, sbit,
-#endif
 	0
 };
 
@@ -397,9 +395,7 @@ const token_t tokens[] PROGMEM = {
 #ifdef HASHELP
 	THELP,
 #endif
-#ifdef HASBITWISE
 	TSHL, TSHR, TBIT,
-#endif
 	0
 };
 
@@ -1118,8 +1114,10 @@ number_t getvar(name_t *name){
 			return (himem-top)/numsize;
 		case 'R':
 			return rd;
+#ifdef HASSTEFANSEXT
 		case 'U':
 			return getusrvar();
+#endif
 #ifdef HASFLOAT
 		case 'P':
 			return epsilon;
@@ -1193,9 +1191,11 @@ void setvar(name_t *name, number_t v){
 		case 'R':
 			rd=v;
 			return;
+#ifdef HASTEFANSEXT
 		case 'U':
 			setusrvar(v);
-			return;
+      return;
+#endif
 #ifdef HASFLOAT
 		case 'P':
 			epsilon=v;
@@ -1586,10 +1586,12 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
 			if (getset == 'g') *value=sensorread(object->i, 0); 
 			return;
 #endif
+#ifdef HASSTEFANSEXT
 		case 'U': 
 			if (getset == 'g') *value=getusrarray(object->i); 
 			else if (getset == 's') setusrarray(object->i, *value);
 			return;
+#endif
 		case 0: 
 			h=(himem-top)/numsize;
 			a=himem-numsize*(object->i+1)+1; 
@@ -1597,6 +1599,7 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
 			if (getset == 'g') *value=getnumber(a, memread2); 
 			else if (getset == 's') setnumber(a, memwrite2, *value);	
 			return;
+#ifdef HASSTEFANSEXT
 		case 'M':
 			h=himem-top;
 			a=himem-object->i;
@@ -1604,6 +1607,7 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
 			if (getset == 'g') *value=memread2(a); 
 			else if (getset == 's') memwrite2(a, *value); 
 			return;
+#endif
 		case 'P':
 		/* the io ports */
 		if (object->i >= 0 && object->i < 16) {
@@ -3049,11 +3053,9 @@ void nexttoken() {
 		if (*bi == '=') {
 			token=GREATEREQUAL;
 			bi++;
-#ifdef HASBITWISE
 		} else if(*bi == '>') {
 			token=TSHR;
 			bi++;
-#endif
 		} else  {
 			token='>';
 		}
@@ -3070,11 +3072,9 @@ void nexttoken() {
 		} else if(*bi == '>') {
 			token=NOTEQUAL;
 			bi++;
-#ifdef HASBITWISE
 		} else if(*bi == '<') {
 			token=TSHL;
 			bi++;
-#endif
 		} else {
 			token='<';
 		} 
@@ -4364,7 +4364,6 @@ void xint() { push(floor(pop())); }
 void xint() {}
 #endif
 
-#ifdef HASBITWISE
 /* this function does a bitwise compare. It checks if one bit is 1 or 0 and returns
 	the right BASIC boolean value */
 void xbit() {
@@ -4377,7 +4376,6 @@ void xbit() {
 	/* pushing booleanmode makes sure we have the right kind of true (1 or -1) */
 	if (a & (1<<b)) push(booleanmode); else push(0);
 }
-#endif
 
 /*
  * Recursive expression parser functions 
@@ -4918,11 +4916,9 @@ void factor(){
 		factorasc();
 		break;	
 #endif
-#ifdef HASBITWISE
 	case TBIT:
 		parsefunction(xbit, 2);
 		break;
-#endif
 /* unknown function */
 	default:
 		error(EUNKNOWN);
@@ -5009,7 +5005,6 @@ nextfactor:
 			return;	
 		}
 		goto nextfactor;
-#ifdef HASBITWISE
 	} else if (token == TSHL) {
 		parseoperator(power);
 		if (!USELONGJUMP && er) return;
@@ -5020,7 +5015,6 @@ nextfactor:
 		if (!USELONGJUMP && er) return;
 		push((int)x >> (int)y);
 		goto nextfactor;
-#endif
 	}
 	if (DEBUG) bdebug("leaving term\n");
 }
@@ -6220,10 +6214,8 @@ void outputtoken() {
 				if (lastouttoken == NUMBER || lastouttoken == VARIABLE) {
 					if (token != GREATEREQUAL &&
 						token<= LESSEREQUAL
-#ifdef HASBITWISE
 						&& token != TSHL &&
 						token != TSHR
-#endif
 					) outspc();
 				} 	
 

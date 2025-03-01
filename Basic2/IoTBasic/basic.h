@@ -212,7 +212,7 @@
 #define TEDIT 7
 #define THELP 8
 
-/* bitwise operations, avoid 10 as a token value*/
+/* bitwise operations, avoid 10 as a token value */
 #define TSHL 9
 #define TSHR 11
 #define TBIT 12

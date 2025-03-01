@@ -1323,11 +1323,12 @@
  *  it may not always work. 
  *  
  *  MEGAAVR does BASICFULL but this leaves little room for hardware drivers
- *  LEONARDO and DUEMILLA currently broken, to much flash allocated.
+ *  LEONARDO currently broken, to much flash allocated.
  */
 #if defined(ARDUINO_ARCH_AVR)
 #if defined(ARDUINO_AVR_DUEMILANOVE)
 #define BASICMINIMAL
+#undef HASMSTAB
 #endif
 #if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_LEONARDO) || defined(ARDUINO_AVR_NANO)
 #define BASICSIMPLE
