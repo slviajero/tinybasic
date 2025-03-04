@@ -1313,6 +1313,10 @@ Events can be reenabled with the command
 
 EVENT CONT
 
+All events are cleared with 
+
+EVENT CLR
+
 Like the ERROR command, EVENT can be used with ON. 
 
 ON EVENT 2,0 GOSUB 1000
