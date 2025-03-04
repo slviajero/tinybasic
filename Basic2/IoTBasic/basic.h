@@ -28,7 +28,7 @@
  */
 
 /* Additional buffers and vars, VARSIZE only needed for Tinybasics */
-#define SBUFSIZE        32
+#define SBUFSIZE       	16*sizeof(number_t) 
 #define VARSIZE         26
 
 /* Default sizes of arrays and strings if they are not DIMed */
@@ -303,7 +303,7 @@ typedef int number_t;
 typedef int wnumber_t;
 #endif
 /* default is 16bit addresses and max 64k memory, setting MEMSIZE in hardware.h overrides this */
-#if MEMSIZE == 0 && MEMSIZE < 65536
+#if !defined(MEMSIZE) || MEMSIZE < 65536
 typedef uint16_t address_t; /* this type addresses memory */
 #else
 /* use this for large memory systems, tested occassionally */
@@ -314,7 +314,7 @@ typedef int index_t; /* this type counts at least 16 bit */
 #ifndef HASLONGTOKENS
 typedef int8_t token_t; /* the type of tokens, normally mem_t with a maximum of 127 commands and data types */
 #else
-typedef int16_t token_t; /* token type extension, allows an extra of 127 commands and symbols */
+typedef int16_t token_t; /* token type extension, allows more commands and symbols */
 #endif
 
 /* the memreader function type, a function accessing memory has to have this shape */
