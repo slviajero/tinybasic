@@ -156,5 +156,12 @@ These tests stress test BASIC, provoke errors or go to limits.
 
 57multifunc.bas - multi line function code tests
 
+58longnames.bas - test long names feature 
+
+59trek.bas - tiny trek developed for Palo Alto BASIC
+
+60rantest.bas - random number tests for different modes
+
+61euler.bas - calculates the gcd of two numbers using a function 
 
 61testvalandstr.bas - handling of alternative number bases in VAL and STR, by Serge Caron
