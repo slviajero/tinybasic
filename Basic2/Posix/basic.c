@@ -8709,8 +8709,8 @@ void initevents() {
   mem_t i;
 
   for (i = 0; i < EVENTLISTSIZE; i++) eventlist[i].pin = -1;
+  nevents = 0;
 }
-
 
 void xevent() {
   mem_t pin, mode;
@@ -8726,7 +8726,9 @@ void xevent() {
       if (eventlist[ax].pin >= 0) {
         outnumber(eventlist[ax].pin); outspc();
         outnumber(eventlist[ax].mode); outspc();
-        outnumber(eventlist[ax].type); outspc();
+        // outnumber(eventlist[ax].type); outspc();
+        if (eventlist[ax].type == TGOTO) outsc("GOTO"); else outsc("GOSUB");
+        outspc();
         outnumber(eventlist[ax].linenumber); outspc();
         outcr();
       }
@@ -8737,6 +8739,8 @@ void xevent() {
   }
 
   /* control of events */
+
+  /* stop and continue */
   if (token == TSTOP) {
     events_enabled = 0;
     nexttoken();
@@ -8745,6 +8749,13 @@ void xevent() {
 
   if (token == TCONT) {
     events_enabled = 1;
+    nexttoken();
+    return;
+  }
+
+  /* clear the event list */
+  if (token == TCLR) {
+    initevents();
     nexttoken();
     return;
   }
@@ -8774,8 +8785,12 @@ void xevent() {
     /* which line to go to */
     if (!expectexpr()) return;
     line = pop();
+  } else {
+    if (!termsymbol()) {
+      error(EARGS);
+      return;
+    }
   }
-
 
   /* all done either set the interrupt up or delete it*/
   if (type) {
@@ -8806,9 +8821,15 @@ mem_t addevent(mem_t pin, mem_t mode, mem_t type, address_t linenumber) {
     if (pin == eventlist[i].pin) goto slotfound;
 
   /* if not, look for a free slot */
+  /* there is none, return with an error */
   if (nevents >= EVENTLISTSIZE) return 0;
+
+  /* we have a free slot, increase number of events in list */
   for (i = 0; i < EVENTLISTSIZE; i++)
-    if (eventlist[i].pin == -1) goto slotfound;
+    if (eventlist[i].pin == -1) {
+      nevents++;
+      goto slotfound;
+    }
 
   /* no free event slot */
   return 0;
@@ -8821,7 +8842,6 @@ slotfound:
   eventlist[i].type = type;
   eventlist[i].linenumber = linenumber;
   eventlist[i].active = 0;
-  nevents++;
   return 1;
 }
 
@@ -9719,7 +9739,10 @@ void xfn(mem_t m) {
   h2 = here;
   here = h1;
 
-  /* for simple singleline function, we directly do experession evaluation */
+  /* 
+   * For simple singleline function, we directly do expression evaluation.
+   * This is inexpensive as no new interpreter instance is started.
+   */
   if (type == VARIABLE) {
     if (DEBUG) {
       outsc("** evaluating expression at ");
@@ -9729,8 +9752,15 @@ void xfn(mem_t m) {
     if (!expectexpr()) return;
   } else {
 #ifdef HASMULTILINEFUNCTIONS
-
-    /* here comes the tricky part, we start a new interpreter instance */
+    /* 
+     * Here comes the tricky part, we start a new interpreter instance.
+     * For multiline functions we generate a new interpreter instance by 
+     * calling statement(). The variable m decides whether the stack should
+     * contain a return value (call from factor) or should be empty.
+     * fncontext counts and limits the depth of function calls. This is 
+     * important to avoid stack overflow. For this reason statement() 
+     * should not allocate a lot of memory on the C stack.
+     */
 
     if (DEBUG) {
       outsc("** starting a new interpreter instance ");
@@ -10515,9 +10545,10 @@ errorhandler:
        We can savely interrupt and return only if here points either to
        a termsymbol : or LINENUMBER. NEXT is a special case. We need to
        catch this here because empty FOR loops never even have a termsymbol
-       a : is swallowed after FOR.
+       a ":"" is swallowed after FOR. This is probably also true for 
+       WHILE and REPEAT loops but has not been tested yet.
 
-       the interrupts are only triggered in fncontext 0, i.e. in the
+       The interrupts are only triggered in fncontext 0, i.e. in the
        main loop. While in functions, all interrupts are disabled.
 
     */
@@ -10566,11 +10597,11 @@ errorhandler:
               pushgosubstack(TEVENT);
               if (er) return;
             }
-            findline(eventlist[ievent].linenumber);
+            findline(eventlist[ievent].linenumber); /* here we jump to the new line */
             if (er) return;
             eventlist[ievent].active = 0;
             enableevent(eventlist[ievent].pin); /* events are disabled in the interrupt function, here they are activated again */
-            events_enabled = 0; /* once we have jumped, we keep the events in BASIC off until reenabled by the program*/
+            events_enabled = 0; /* once we have jumped, we keep the events in BASIC off until reenabled by the program */
             break;
           }
           ievent = (ievent + 1) % EVENTLISTSIZE;
