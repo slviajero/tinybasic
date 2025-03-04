@@ -43,8 +43,6 @@
  *
  */
 
- #define MEMSIZE 0
-
 /* 
  * Arduino hardware settings , set here what you need or
  * use one of the predefined configurations below.
@@ -72,7 +70,7 @@
  *  
  *	leave this unset if you use the definitions below
  */
-
+ 
 #define HARDWAREHEURISTICS
 
 #undef ARDUINOPICOSERIAL 
@@ -118,6 +116,12 @@
 #undef STANDALONESECONDSERIAL
 // #define ALTSERIAL Serial
 
+/* the memory size, set to 0 means determine automatically 
+ leaving it undefined means zero. setting it larger than 16 bit
+ make the address_t 32bit */
+
+#define MEMSIZE 0
+
 /* experimental features, don't use unless you know the code */
 /* 
  * this setting uses the EEPROM as program storage 
@@ -144,7 +148,7 @@
 // #define BUILDINMODULE "buildin/buildin-games.h"
 
 /* interrupts for the EVENT command, this is needed to use Arduino interrupts */
-#undef ARDUINOINTERRUPTS
+#define ARDUINOINTERRUPTS
 
 /* 
  * handle the break condition in the background. 
@@ -385,18 +389,22 @@
 #define ARDUINOEEPROM
 #define ARDUINOPICOSERIAL
 #define ARDUINOPGMEEPROM
-#undef LINECACHESIZE
+#undef  LINECACHESIZE
 #endif
 /* on a DUEMILA we allocate just as little main memory as possible, currenly not working because sketch too big 
  * needs to be checked */
 #if defined(ARDUINO_AVR_DUEMILANOVE)
-/* no fixed memsize because this seems to need more space */
+#define MEMSIZE 128
+#undef  HASMSTAB
 #endif
+/* tested for LTQF32 Mini EVB - very low memory as core needs a lot */
 #if defined(ARDUINO_ARCH_LGT8F)
 #define ARDUINOEEPROM
 #define ARDUINOPICOSERIAL
 #undef LINECACHESIZE
-// #define ARDUINOPGMEEPROM /* could be done but not recommended as EEPROM in flash */
+#undef HASMSTAB
+#define MEMSIZE 256
+#define ARDUINOPGMEEPROM
 #endif
 /* all AVR 8 bit boards have an EEPROM (most probably) */
 #if defined(ARDUINO_ARCH_AVR)
@@ -405,6 +413,10 @@
 /* megaAVR boards have an EEPROM */
 #if defined(ARDUINO_ARCH_MEGAAVR)
 #define ARDUINOEEPROM
+#endif
+/* LEONARDO boards */
+#if defined(ARDUINO_AVR_LEONARDO)
+/* to be done */ 
 #endif
 /* all ESPs best are compiled with ESPSPIFFS predefined */
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
@@ -1334,11 +1346,13 @@
  */
 #if defined(ARDUINO_ARCH_AVR)
 #if defined(ARDUINO_AVR_DUEMILANOVE)
-#define BASICMINIMAL
-#undef HASMSTAB
+#define BASICPALOALTO
 #endif
-#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_LEONARDO) || defined(ARDUINO_AVR_NANO)
+#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_NANO)
 #define BASICSIMPLE
+#endif
+#if defined(ARDUINO_AVR_LEONARDO)
+#define BASICSMALL
 #endif
 #if defined(ARDUINO_AVR_MEGA2560)
 #define BASICFULL

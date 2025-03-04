@@ -292,6 +292,38 @@
 #undef HASNUMSYSTEM
 #endif
 
+/* a small integer BASIC for 32kB systems with big cores */
+#ifdef  BASICSMALL
+#define HASAPPLE1
+#define HASARDUINOIO
+#undef  HASFILEIO
+#undef  HASTONE
+#undef  HASPULSE
+#define HASSTEFANSEXT
+#define HASERRORMSG
+#undef  HASVT52
+#undef  HASFLOAT
+#undef  HASGRAPH
+#undef  HASDARTMOUTH
+#undef  HASDARKARTS
+#define HASIOT
+#undef  HASMULTIDIM
+#define HASTIMER
+#define HASEVENTS
+#define HASERRORHANDLING
+#undef   HASSTRUCT
+#undef  HASMSSTRINGS
+#undef HASMULTILINEFUNCTIONS
+#undef HASEDITOR
+#define HASTINYBASICINPUT
+#undef HASLONGNAMES 
+#undef HASHELP
+#undef HASFULLINSTR
+#undef HASLOOPOPT
+#undef HASNUMSYSTEM
+#endif
+
+
 /* all features activated */
 #ifdef BASICFULL
 #define HASAPPLE1
