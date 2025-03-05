@@ -2364,7 +2364,7 @@ SET 16 controls the default dimension of a string on creation. Default is 32. SE
 
 SET 17 controls the boolean mode of the interpreter. With the default value -1 the interpreter behaves like a MS BASIC interpreter. True is -1 and NOT -1 is 0. The operations NOT, AND, OR are all three bitwise logical operations of 16 bit signed integers. SET 17,1 sets the boolean mode to C style logic. This was also used by some of the old BASIC interpretes like Apple1, Palo Alto, and Cromeco. True is 1 and NOT 1 is 0. AND and OR still are bitwise logical operations but NOT behaves like the C logical NOT. This setting helps when BASIC programs of older interpreters are used. Check out trek.bas in the expamples section. 
 
-SET 18,1 sets the interpreter to integer mode even if if is compiled with HASFLOAT. Variables still stay floats internally but values are truncated on store or print. The arithmetic stays integer in this mode hence A=1/2 produces A to be 0 but A=1/2\*2 produces A to be 1. This setting is used for compatibility with some programs of Integer BASICs including the #undef HASFLOAT variants of this interpreter.
+SET 18,1 sets the interpreter to integer mode even if if is compiled with HASFLOAT. Variables still stay floats internally but values are truncated on store or print. The arithmetic is integer in this mode hence A=1/2 produces A to be 0 and A=1/2\*2 also produces A to be 0. This setting is used for compatibility with some programs of Integer BASICs including the #undef HASFLOAT variants of this interpreter.
 
 SET 19 controls the behaviour of the random number generator. One some BASIC interpreters RND(8) would produce numbers from 0 to 7 (or 7.999999 in floating point BASICs). The value 8 is never reached. This is the default behaviour. Other BASIC would produce numbers in the range from 1 to 8. SET 19,1 switches on this mode. 
 
@@ -2373,6 +2373,10 @@ SET 20 controls the substring logic. With SET 20, 0 the substring syntax is surp
 SET 21 controls the array creation behaviour. With SET 21, 1 the language creates arrays in the range of 0 to 10 with DIM A(10) i.e. in Microsoft conventions. With SET 21, 0 the array limits are 1 to 10. 
 
 SET 22 sets a group of parameters and can be used to set the interpreter personality. SET 22, "Microsoft" makes the language as MS BASIC compatible as possible. SET 22, "Apple1" makes it Apple 1 BASIC compatible. This is the default. SET 22, "PaloAlto" makes the language Palo Alto BASIC compatible and forces integer mode. 
+
+SET 23 disables or enables lower case names. Default are uppercase names. All names on input are converted to upper case. SET 23,1 enables lower case letters in names. This needs to be set before entering program lines or interactive commands. It does not change already defined variables. It only affects tokenisation and not the existing objects.
+
+SET 24 sets the precision of the floating point output. Default is 5 digits output after the comma. SET 24, n sets this to n digits.
 
 More SET parameter will be implemented in the future.
 
