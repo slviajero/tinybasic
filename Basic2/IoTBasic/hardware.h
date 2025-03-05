@@ -78,7 +78,7 @@
  */
 #define PREDEFINEDBOARD "boards/dummy.h"
 
-/* undef this if you really wan 
+/* undef this if you really want it */
 #define HARDWAREHEURISTICS
 
 #undef ARDUINOPICOSERIAL 
