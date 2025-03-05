@@ -8,48 +8,14 @@
  *
  * Author: Stefan Lenz, sl001@serverfabrik.de
  * 
- * Credits:
- *  - XMC contributed by Florian
- *  - Many people asked good questions and helped me. Thank you to all!
- *
- * Hardware definition file coming with IotBasic.ino aka basic.c
- *
- * - ARDUINOLCD, ARDUINOTFT and LCDSHIELD active the LCD code, 
- *   LCDSHIELD automatically defines the right settings for 
- *   the classical shield modules
- *  - ARDUINOPS2 activates the PS2 code. Default pins are 2 and 3.
- *    If you use other pins the respective changes have to be made 
- *    below. 
- *  - _if_  and PS2 are both activated STANDALONE cause the Arduino
- *    to start with keyboard and lcd as standard devices.
- *  - ARDUINOEEPROM includes the EEPROM access code
- *  - ARDUINOEFS, ARDUINOSD, ESPSPIFFS, RP2040LITTLEFS activate filesystem code 
- * - activating Picoserial, Picoserial doesn't work on MEGA
- *
- * Architectures and the definitions from the Arduino IDE
- *
- *  ARDUINO_ARCH_SAM: no tone command, dtostrf
- *  ARDUINO_ARCH_RP2040: dtostrf (for ARDUINO_NANO_RP2040_CONNECT)
- *  ARDUINO_ARCH_SAMD: dtostrf (for ARDUINO_SAMD_MKRWIFI1010, ARDUINO_SEEED_XIAO_M0)
- *  ARDUINO_ARCH_ESP8266: SPIFFS, dtostrf (ESP8266)
- *  ARDUINO_AVR_MEGA2560, ARDUARDUINO_SAM_DUE: second serial port is Serial1-3 - no software serial
- *  ARDUINO_SAM_DUE: hardware heuristics
- *  ARDUINO_ARCH_AVR: nothing
- *  ARDUINO_ARCH_LGT8F: EEPROM code for flash EEPROM - platform fully supported now, yet no call 0
- *  ARDUINO_ARCH_ESP32 and ARDUINO_TTGO_T7_V14_Mini32, no tone, no analogWrite, avr/xyz obsolete
- *
- * The code still contains hardware heuristics from my own projects, 
- * will be removed in the future
- *
- */
-
-/* 
+ * Architectures and the definitions from the Arduino IDE. 
+ * 
  * Arduino hardware settings , set here what you need or
  * use one of the predefined configurations below.
  * 
  * If HARDWAREHEURISTICS is set, some of the settings below 
  * are activated automatically for some platforms. If you want
- * to control all settings below manually, undef HARDWAREHEURISTICS 
+ * to control ALL settings below manually, undef HARDWAREHEURISTICS 
  *
  * Input/output methods ARUINOPICOSERIAL, ARDUINOPS2
  *  ARDUINOUSBKBD, ARDUINOZX81KBD, ARDUINOI2CKBD, GIGAUSBKBD
@@ -68,9 +34,51 @@
  *  HASMSTAB: counts characters, prerequisite for MSTAB in languages
  *  BUILDIN: include buildin programs 
  *  
- *	leave this unset if you use the definitions below
+ * Instead of setting all this manually, you can use one of the 
+ * predefined hardware models. They are stored in board and are sources
+ * here later in the code to override some of the defaults. Custom configurations
+ * coming with BASIC are: 
+ * 
+ *  dummy.h: 
+ *      do nothing.
+ *  avrlcd.h:
+ *      a AVR system with a LCD shield
+ *  wemosshield.h: 
+ *      a ESP8266 UNO lookalike with a modified datalogger shield
+ *      great hardware for small BASIC based IoT projects.
+ *  megashield.h: 
+ *      an Arduino Mega with Ethernet Shield optional keyboard 
+ *      and i2c display
+ *  megatft.h: 
+ *  duetft.h:
+ *      TFT 7inch screen systems, standalone
+ *  nanoboard.h:
+ *      Arduino Nano Every board with PS2 keyboard and sensor 
+ *      kit.
+ *  megaboard.h:
+ *      A board for the MEGA with 64 kB RAM, SD Card, and real time
+ *      clock.
+ *  unoboard.h:
+ *      A board for an UNO with 64kB memory and EEPROM disk
+ *      fits into an UNO flash only with integer
+ *  esp01board.h:
+ *      ESP01 based board as a sensor / MQTT interface
+ * rp2040board.h:
+ *      A ILI9488 hardware design based on an Arduino connect RP2040.
+ * rp2040board2.h:
+ *      like the one above but based on the Pi Pico core
+ * esp32board.h:
+ *      same like above with an ESP32 core
+ * mkboard.h:
+ *      a digital signage and low energy board
+ * tdeck.h: 
+ *      the LILYGO T-Deck - not yet finished
+ * ttgovga.h:
+ *      the TTGO VGA 1.4 board with VGA output
  */
- 
+#define PREDEFINEDBOARD "boards/dummy.h"
+
+/* undef this if you really wan 
 #define HARDWAREHEURISTICS
 
 #undef ARDUINOPICOSERIAL 
@@ -159,65 +167,6 @@
  */
 #undef BREAKINBACKGROUND
 
-/* 
- * Predefined hardware configurations, this assumes that all of the 
- *	above are undef. The configurations are used for some common 
- *  board configurations. In the future this must go into a separate
- *  file and folder.
- *
- *	UNOPLAIN: 
- *		a plain UNO with no peripherals
- *	AVRLCD: 
- *		a AVR system with an LCD shield
- *	WEMOSSHIELD: 
- *		a Wemos D1 with a modified simple datalogger shield
- *		optional keyboard and i2c display
- *	MEGASHIELD: 
- *		an Arduino Mega with Ethernet Shield
- *		optional keyboard and i2c display
- *	TTGOVGA: 
- *		TTGO VGA1.4 system with PS2 keyboard, standalone
- * MEGATFT, DUETFT
- *    TFT 7inch screen systems, standalone
- * NANOBOARD:
- *   Arduino Nano Every board with PS2 keyboard and sensor 
- *    kit
- * MEGABOARD:
- *  A board for the MEGA with 64 kB RAM, SD Card, and real time
- *    clock
- * UNOBOARD:
- *  A board for an UNO with 64kB memory and EEPROM disk
- *    fits into an UNO flash only with integer
- * ESP01BOARD:
- *    ESP01 based board as a sensor / MQTT interface
- * RP2040BOARD:
- *    A ILI9488 hardware design based on an Arduino connect RP2040.
- * RP2040BOARD2:
- *  like the one above but based on the Pi Pico core
- * ESP32BOARD:
- *  same like above with an ESP32 core
- * MKRBOARD:
- *   a digital signage and low energy board
- * TDECK: 
- *   the LILYGO T-Deck - not yet finished
- *   
- */
-
-#undef AVRLCD
-#undef WEMOSSHIELD
-#undef MEGASHIELD
-#undef TTGOVGA
-#undef DUETFT
-#undef MEGATFT
-#undef NANOBOARD
-#undef MEGABOARD
-#undef UNOBOARD
-#undef ESP01BOARD
-#undef RP2040BOARD
-#undef RP2040BOARD2
-#undef ESP32BOARD
-#undef MKR1010BOARD
-#undef TDECK
 
 /* the default EEPROM dummy size */
 #define EEPROMSIZE 1024
@@ -360,7 +309,7 @@
 
 /*
  * The heuristics. These are things that normally would make sense on a 
- * certain hardware.
+ * board.
  */
 
 /* 
@@ -446,327 +395,9 @@
 #endif
 
 /*
- * The hardware models.
- * These are predefined hardware configurations.
+ * Now source the the hardware models. 
  */
-
-/* an AVR ARDUINO (UNO or MEGA) with the classical LCD shield */
-#if defined(AVRLCD)
-#define ARDUINOEEPROM
-#define DISPLAYCANSCROLL
-#define LCDSHIELD
-#endif
-
-/*
- * a Wemos ESP8266 with a mdified datalogger shield 
- * standalone capable, with Wire and MQTT.
- */
-#if defined(WEMOSSHIELD)
-#define ARDUINOEEPROM
-#define ARDUINOPS2
-#define DISPLAYCANSCROLL
-#define ARDUINOLCDI2C
-#define ARDUINOSD
-#define ARDUINORTC
-#define ARDUINOWIRE
-#define SDPIN 			D8
-#define PS2DATAPIN	D2
-#define PS2IRQPIN		D9
-#define ARDUINOMQTT
-#endif
-
-/*
- * mega with a Ethernet shield 
- * standalone capable, Ethernet is not enabled by default
- */
-#if defined(MEGASHIELD)
-#define ARDUINOEEPROM
-#define ARDUINOPS2
-#define DISPLAYCANSCROLL
-#define ARDUINOLCDI2C
-#define ARDUINOSD
-#define ARDUINOWIRE
-#define ARDUINOPRT
-#define SDPIN	4
-#endif
-
-/* 
- * VGA system with SD card, based on the TTGO VGA 1.4 
- * ESP32 
- * standalone by default, with MQTT
- */
-#if defined(TTGOVGA)
-#define ARDUINOEEPROM
-#define ARDUINOVGA
-#define ARDUINOSD
-/* #define ARDUINOMQTT */ /* currently broken */
-
-#define SDPIN   13
-#define STANDALONE
-/* this is a large screen with 48 kB memory, good fonts, should work for most situations */
-#define MEMSIZE 48000
-#define TTGOVGARESOLUTION VGA_640x400_70Hz
-/* a smaller screen, slightly odd fonts but graph and 60 kB, good screen 
-#define MEMSIZE 60000
-#define TTGOVGARESOLUTION VGA_512x384_60Hz 
-*/
-/* Other options that work:
- * #define MEMSIZE 48000
- * #define TTGOVGARESOLUTION VGA_640x480_73Hz
- * 
- * #define TTGOVGARESOLUTION VGA_640x384_60Hz 
- * 
- * #define TTGOVGARESOLUTION VGA_640x200_70HzRetro 
- */
-#endif
-
-/*
- * MEGA with a TFT shield, standalone by default
- */
-#if defined(MEGATFT)
-#define ARDUINOEEPROM
-#define ARDUINOPS2
-#define DISPLAYCANSCROLL
-#define ARDUINOTFT
-#define ARDUINOSD
-#define ARDUINOWIRE
-#define ARDUINOPRT
-#define PS2DATAPIN 18
-#define PS2IRQPIN  19
-#define SDPIN 53
-#define STANDALONE
-#endif
-
-/*
- * DUE with a TFT shield, standalone by default
- */
-#if defined(DUETFT)
-#undef  ARDUINOEEPROM
-#define ARDUINOPS2
-#undef ARDUINOUSBKBD
-#define DISPLAYCANSCROLL
-#define ARDUINOTFT
-#define ARDUINOSD
-#define ARDUINOWIRE
-#define ARDUINOPRT
-#define ARDUINORTC
-#define PS2DATAPIN 9
-#define PS2IRQPIN  8
-#define SDPIN 53
-#define STANDALONE
-#endif
-
-#if defined(NANOBOARD)
-#undef ARDUINOPICOSERIAL 
-#define ARDUINOPS2
-#define DISPLAYCANSCROLL
-#define ARDUINOLCDI2C
-#define ARDUINOEEPROM
-#define ARDUINOPRT
-#define ARDUINOEFS
-#define ARDUINORTC
-#define ARDUINOWIRE
-#define EFSEEPROMADDR 0x050 /* use clock EEPROM 0x057, set to 0x050 for external EEPROM */
-#define STANDALONE
-#endif
-
-/* a UNO shield with memory and EFS EEPROM */
-#if defined(UNOBOARD)
-#define ARDUINOEEPROM
-#define ARDUINOSPIRAM
-#define ARDUINOEFS
-#define ARDUINOWIRE
-#define EFSEEPROMADDR 0x050
-#define EFSEEPROMSIZE 65534
-#endif
-
-/* a MEGA shield with memory and SD card */
-#if defined(MEGABOARD)
-#undef ARDUINOPICOSERIAL
-#define DISPLAYCANSCROLL
-#define ARDUINOLCDI2C
-#define ARDUINOEEPROM
-#define ARDUINOPRT
-#define ARDUINOSD
-#define ARDUINOWIRE
-#define ARDUINORTC 
-#define ARDUINOSPIRAM
-#define RAMPIN 53
-#define SDPIN  49
-#endif
-
-/* an ESP01 board, using the internal flash 
- *  with the ESP01-8266 only pins 0 and 2 are usable freely
- *  on ESP01-ESP32C3 this is 9 and 2 while 2 is an analog pin
- *  9 cannot be pulled on low by any peripheral on boot because this 
- *  brings the board to flash mode
- */
-#if defined(ESP01BOARD)
-#undef ARDUINOEEPROM
-#define ESPSPIFFS
-#define ARDUINOMQTT
-#define ARDUINOWIRE
-#if defined(ARDUINOWIRE) && defined(ARDUINO_ARCH_ESP8266)
-#define SDA_PIN 0
-#define SCL_PIN 2
-#endif
-/* see:  https://github.com/espressif/arduino-esp32/issues/6376 
- *  nothing should block the port, e.g. DHT or anything
- */
-#if defined(ARDUINOWIRE) && defined(ARDUINO_ARCH_ESP32)
-#define SDA_PIN 9
-#define SCL_PIN 2
-#endif
-/*
- *
- * Currently only 8=SDA and 9=SCL works / tested with AHT10
- */
-#endif
-
-/* an RP2040 based board with an ILI9488 display */
-#if defined(RP2040BOARD)
-#undef ARDUINOPICOSERIAL
-#define DISPLAYCANSCROLL
-#define ARDUINOILI9488
-#undef ARDUINOEEPROM
-#define ARDUINOI2CEEPROM
-#define ARDUINOPRT
-#define ARDUINOSD
-#undef RP2040LITTLEFS
-#define ARDUINOWIRE
-#define ARDUINORTC 
-#define ARDUINOPS2
-#define ARDUINOMQTT
-#undef STANDALONE
-#endif
-
-/* an RP2040 Raspberry Pi Pico based board with an ILI9488 display */
-#if defined(RP2040BOARD2)
-#undef ARDUINOPICOSERIAL
-#define DISPLAYCANSCROLL
-#define ARDUINOILI9488
-#undef ARDUINOEEPROM
-#undef ARDUINOPRT
-#undef ARDUINOSD
-#define RP2040LITTLEFS
-#undef ARDUINOWIRE
-#undef ARDUINORTC 
-#undef ARDUINOPS2
-#undef ARDUINOMQTT
-#undef STANDALONE
-#define ILI_LED A2
-#define ILI_CS  15
-#define ILI_RST 14
-#define ILI_DC  13
-#endif
-
-
-/* an ESP32 board with an ILI9488 display, 
-  some SD problems here with some hardware */
-#if defined(ESP32BOARD)
-#define ILI_CS 12
-#define ILI_DC 27
-#define ILI_RST 14
-#define ILI_LED 26
-#undef ARDUINOPICOSERIAL
-#define ESPSPIFFS
-#define DISPLAYCANSCROLL
-#define ARDUINOILI9488
-#define ARDUINOEEPROM
-#define ARDUINOMQTT
-#define ARDUINOWIRE
-#endif
-
-/* a board based on the Arduino MKR 1010 Wifi 
- *  made for low energy games 
- */
-#if defined(MKR1010BOARD)
-#define ILI_CS 7
-#define ILI_DC 4
-#define ILI_RST 6
-#define ILI_LED A3
-#undef  ARDUINOPICOSERIAL
-#define DISPLAYCANSCROLL
-#define ARDUINOILI9488
-#define ARDUINOEFS
-#define ARDUINOMQTT
-#define ARDUINOWIRE
-/* careful with the setting, lockout possible easily */
-#undef ARDUINOUSBKBD
-#undef STANDALONE
-#endif
-
-/* 
- *  The Liligo T-Deck configuration
- *    supports the internal FFAT right now, SD not yet done
- */
-#if defined(TDECK)
-/* these are the PIN definition from Lilygos utilities.h file */
-#define BOARD_POWERON       10
-#define BOARD_I2S_WS        5
-#define BOARD_I2S_BCK       7
-#define BOARD_I2S_DOUT      6
-#define BOARD_I2C_SDA       18
-#define BOARD_I2C_SCL       8
-#define BOARD_BAT_ADC       4
-#define BOARD_TOUCH_INT     16
-#define BOARD_KEYBOARD_INT  46
-#define BOARD_SDCARD_CS     39
-#define BOARD_TFT_CS        12
-#define RADIO_CS_PIN        9
-#define BOARD_TFT_DC        11
-#define BOARD_TFT_BACKLIGHT 42
-#define BOARD_SPI_MOSI      41
-#define BOARD_SPI_MISO      38
-#define BOARD_SPI_SCK       40
-#define BOARD_TBOX_G02      2
-#define BOARD_TBOX_G01      3
-#define BOARD_TBOX_G04      1
-#define BOARD_TBOX_G03      15
-#define BOARD_ES7210_MCLK   48
-#define BOARD_ES7210_LRCK   21
-#define BOARD_ES7210_SCK    47
-#define BOARD_ES7210_DIN    14
-#define RADIO_BUSY_PIN      13
-#define RADIO_RST_PIN       17
-#define RADIO_DIO1_PIN      45
-#define BOARD_BOOT_PIN      0
-#define BOARD_BL_PIN        42
-#define BOARD_GPS_TX_PIN    43
-#define BOARD_GPS_RX_PIN    44
-#ifndef RADIO_FREQ
-#define RADIO_FREQ           868.0
-#endif
-#ifndef RADIO_BANDWIDTH
-#define RADIO_BANDWIDTH      125.0
-#endif
-#ifndef RADIO_SF
-#define RADIO_SF             10
-#endif
-#ifndef RADIO_CR
-#define RADIO_CR             6
-#endif
-#ifndef RADIO_TX_POWER
-#define RADIO_TX_POWER       22
-#endif
-#define DEFAULT_OPA          100
-/* and now the BASIC stuff begins */
-/* either use the buildin FAT as a file system */
-#undef ESP32FAT
-/* or the SD card */
-#define ARDUINOSD
-#define SDPIN BOARD_SDCARD_CS
-/* the display */
-#define TFTESPI
-#define DISPLAYCANSCROLL
-/*the keyboard */
-#define ARDUINOI2CKBD
-#define SDA_PIN BOARD_I2C_SDA
-#define SCL_PIN BOARD_I2C_SCL
-#define I2CKBDADDR 0x55
-/* can run standalone now */
-#define STANDALONE
-#endif
+#include PREDEFINEDBOARD
 
 /*
  * Here, dependencies are handled. Some settings require others to be set
