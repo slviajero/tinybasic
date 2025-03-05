@@ -475,7 +475,11 @@ const char* const message[] PROGMEM = {
   		stringlength type. Currently only 1 byte and 2 bytes are tested.
 */
 #ifdef HASFLOAT
+#ifdef HAS64BIT
+const number_t maxnum = 9007199254740992;
+#else 
 const number_t maxnum = 16777216;
+#endif
 #else
 const number_t maxnum = (number_t)~((number_t)1 << (sizeof(number_t) * 8 - 1));
 #endif
@@ -9719,7 +9723,10 @@ void xfn(mem_t m) {
   h2 = here;
   here = h1;
 
-  /* for simple singleline function, we directly do experession evaluation */
+  /* 
+   * For simple singleline function, we directly do expression evaluation.
+   * This is inexpensive as no new interpreter instance is started.
+   */
   if (type == VARIABLE) {
     if (DEBUG) {
       outsc("** evaluating expression at ");
@@ -9729,8 +9736,15 @@ void xfn(mem_t m) {
     if (!expectexpr()) return;
   } else {
 #ifdef HASMULTILINEFUNCTIONS
-
-    /* here comes the tricky part, we start a new interpreter instance */
+    /* 
+     * Here comes the tricky part, we start a new interpreter instance.
+     * For multiline functions we generate a new interpreter instance by 
+     * calling statement(). The variable m decides whether the stack should
+     * contain a return value (call from factor) or should be empty.
+     * fncontext counts and limits the depth of function calls. This is 
+     * important to avoid stack overflow. For this reason statement() 
+     * should not allocate a lot of memory on the C stack.
+     */
 
     if (DEBUG) {
       outsc("** starting a new interpreter instance ");
@@ -10515,9 +10529,10 @@ errorhandler:
        We can savely interrupt and return only if here points either to
        a termsymbol : or LINENUMBER. NEXT is a special case. We need to
        catch this here because empty FOR loops never even have a termsymbol
-       a : is swallowed after FOR.
+       a ":"" is swallowed after FOR. This is probably also true for 
+       WHILE and REPEAT loops but has not been tested yet.
 
-       the interrupts are only triggered in fncontext 0, i.e. in the
+       The interrupts are only triggered in fncontext 0, i.e. in the
        main loop. While in functions, all interrupts are disabled.
 
     */
@@ -10566,11 +10581,11 @@ errorhandler:
               pushgosubstack(TEVENT);
               if (er) return;
             }
-            findline(eventlist[ievent].linenumber);
+            findline(eventlist[ievent].linenumber); /* here we jump to the new line */
             if (er) return;
             eventlist[ievent].active = 0;
             enableevent(eventlist[ievent].pin); /* events are disabled in the interrupt function, here they are activated again */
-            events_enabled = 0; /* once we have jumped, we keep the events in BASIC off until reenabled by the program*/
+            events_enabled = 0; /* once we have jumped, we keep the events in BASIC off until reenabled by the program */
             break;
           }
           ievent = (ievent + 1) % EVENTLISTSIZE;
