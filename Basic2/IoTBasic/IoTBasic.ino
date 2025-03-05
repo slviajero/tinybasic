@@ -475,9 +475,9 @@ const char* const message[] PROGMEM = {
   		stringlength type. Currently only 1 byte and 2 bytes are tested.
 */
 #ifdef HASFLOAT
-#ifdef HAS64BIT
+#ifdef HAS64BIT 
 const number_t maxnum = 9007199254740992;
-#else 
+#else   
 const number_t maxnum = 16777216;
 #endif
 #else
@@ -577,7 +577,6 @@ address_t arraylimit = 0;
 mem_t msarraylimits = 0;
 address_t arraylimit = 1;
 #endif
-
 
 /* behaviour around boolean, needed to change the interpreters personality at runtime */
 /* -1 is microsoft true while 1 is Apple 1 and C style true. */
@@ -713,6 +712,11 @@ int fncontext = 0;
 number_t epsilon = 0;
 #else
 const number_t epsilon = 0;
+#endif
+
+/* the number of digits displayed in the fraction of a float */
+#ifdef HASFLOAT
+mem_t precision = 5;
 #endif
 
 /*
@@ -2969,9 +2973,9 @@ address_t writenumber2(char *c, number_t vi) {
   /* there are platforms where dtostrf is broken, we do things by hand in a simple way */
 
   if (exponent > -2 && exponent < 7) {
-    tinydtostrf(vi, 5, c);
+    tinydtostrf(vi, precision, c);
   } else {
-    tinydtostrf(f, 5, c);
+    tinydtostrf(f, precision, c);
     eflag = 1;
   }
 
@@ -8008,6 +8012,11 @@ void xset() {
       lowercasenames = (argument != 0);
       break;
 #endif
+#ifdef HASFLOAT
+    case 24:
+      precision = argument;
+      break;
+#endif
   }
 }
 
@@ -8713,8 +8722,8 @@ void initevents() {
   mem_t i;
 
   for (i = 0; i < EVENTLISTSIZE; i++) eventlist[i].pin = -1;
+  nevents = 0;
 }
-
 
 void xevent() {
   mem_t pin, mode;
@@ -8730,7 +8739,9 @@ void xevent() {
       if (eventlist[ax].pin >= 0) {
         outnumber(eventlist[ax].pin); outspc();
         outnumber(eventlist[ax].mode); outspc();
-        outnumber(eventlist[ax].type); outspc();
+        // outnumber(eventlist[ax].type); outspc();
+        if (eventlist[ax].type == TGOTO) outsc("GOTO"); else outsc("GOSUB");
+        outspc();
         outnumber(eventlist[ax].linenumber); outspc();
         outcr();
       }
@@ -8741,6 +8752,8 @@ void xevent() {
   }
 
   /* control of events */
+
+  /* stop and continue */
   if (token == TSTOP) {
     events_enabled = 0;
     nexttoken();
@@ -8749,6 +8762,13 @@ void xevent() {
 
   if (token == TCONT) {
     events_enabled = 1;
+    nexttoken();
+    return;
+  }
+
+  /* clear the event list */
+  if (token == TCLR) {
+    initevents();
     nexttoken();
     return;
   }
@@ -8778,8 +8798,12 @@ void xevent() {
     /* which line to go to */
     if (!expectexpr()) return;
     line = pop();
+  } else {
+    if (!termsymbol()) {
+      error(EARGS);
+      return;
+    }
   }
-
 
   /* all done either set the interrupt up or delete it*/
   if (type) {
@@ -8810,9 +8834,15 @@ mem_t addevent(mem_t pin, mem_t mode, mem_t type, address_t linenumber) {
     if (pin == eventlist[i].pin) goto slotfound;
 
   /* if not, look for a free slot */
+  /* there is none, return with an error */
   if (nevents >= EVENTLISTSIZE) return 0;
+
+  /* we have a free slot, increase number of events in list */
   for (i = 0; i < EVENTLISTSIZE; i++)
-    if (eventlist[i].pin == -1) goto slotfound;
+    if (eventlist[i].pin == -1) {
+      nevents++;
+      goto slotfound;
+    }
 
   /* no free event slot */
   return 0;
@@ -8825,7 +8855,6 @@ slotfound:
   eventlist[i].type = type;
   eventlist[i].linenumber = linenumber;
   eventlist[i].active = 0;
-  nevents++;
   return 1;
 }
 
