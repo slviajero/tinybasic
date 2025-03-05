@@ -164,6 +164,7 @@
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 0
 #define BOOLEANMODE -1
+#undef HAS64BIT
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
