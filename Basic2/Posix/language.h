@@ -157,6 +157,9 @@
  *      In this mode false is 0 and -1 is true. (1) is C style boolean arithemtic.
  *      In this mode true is 1 and false is 0. AND and OR still do bitwise operations
  *      but NOT is C not. SET 19,1 or -1 can change this at runtime.
+ * HAS64BIT: use 64 bit floats for the interpreter. With this setting, 32 bit integers 
+ *      can be processed exactly. It is useful for 32 bit register access. Tested on
+ *      GIGA and POSIX. 
  */
 
 #undef POWERRIGHTTOLEFT
@@ -164,6 +167,7 @@
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 0
 #define BOOLEANMODE -1
+#undef HAS64BIT
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -291,6 +295,38 @@
 #undef HASLOOPOPT
 #undef HASNUMSYSTEM
 #endif
+
+/* a small integer BASIC for 32kB systems with big cores */
+#ifdef  BASICSMALL
+#define HASAPPLE1
+#define HASARDUINOIO
+#undef  HASFILEIO
+#undef  HASTONE
+#undef  HASPULSE
+#define HASSTEFANSEXT
+#define HASERRORMSG
+#undef  HASVT52
+#undef  HASFLOAT
+#undef  HASGRAPH
+#undef  HASDARTMOUTH
+#undef  HASDARKARTS
+#define HASIOT
+#undef  HASMULTIDIM
+#define HASTIMER
+#define HASEVENTS
+#define HASERRORHANDLING
+#undef   HASSTRUCT
+#undef  HASMSSTRINGS
+#undef HASMULTILINEFUNCTIONS
+#undef HASEDITOR
+#define HASTINYBASICINPUT
+#undef HASLONGNAMES 
+#undef HASHELP
+#undef HASFULLINSTR
+#undef HASLOOPOPT
+#undef HASNUMSYSTEM
+#endif
+
 
 /* all features activated */
 #ifdef BASICFULL

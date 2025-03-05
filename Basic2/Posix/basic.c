@@ -475,7 +475,11 @@ const char* const message[] PROGMEM = {
   		stringlength type. Currently only 1 byte and 2 bytes are tested.
 */
 #ifdef HASFLOAT
+#ifdef HAS64BIT 
+const number_t maxnum = 9007199254740992;
+#else   
 const number_t maxnum = 16777216;
+#endif
 #else
 const number_t maxnum = (number_t)~((number_t)1 << (sizeof(number_t) * 8 - 1));
 #endif
@@ -573,7 +577,6 @@ address_t arraylimit = 0;
 mem_t msarraylimits = 0;
 address_t arraylimit = 1;
 #endif
-
 
 /* behaviour around boolean, needed to change the interpreters personality at runtime */
 /* -1 is microsoft true while 1 is Apple 1 and C style true. */
@@ -709,6 +712,11 @@ int fncontext = 0;
 number_t epsilon = 0;
 #else
 const number_t epsilon = 0;
+#endif
+
+/* the number of digits displayed in the fraction of a float */
+#ifdef HASFLOAT
+mem_t precision = 5;
 #endif
 
 /*
@@ -2965,9 +2973,9 @@ address_t writenumber2(char *c, number_t vi) {
   /* there are platforms where dtostrf is broken, we do things by hand in a simple way */
 
   if (exponent > -2 && exponent < 7) {
-    tinydtostrf(vi, 5, c);
+    tinydtostrf(vi, precision, c);
   } else {
-    tinydtostrf(f, 5, c);
+    tinydtostrf(f, precision, c);
     eflag = 1;
   }
 
@@ -8002,6 +8010,11 @@ void xset() {
 #ifdef HASAPPLE1
     case 23:
       lowercasenames = (argument != 0);
+      break;
+#endif
+#ifdef HASFLOAT
+    case 24:
+      precision = argument;
       break;
 #endif
   }

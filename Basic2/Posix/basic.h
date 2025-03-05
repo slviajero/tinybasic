@@ -296,8 +296,13 @@
  *		1 byte or 2 bytes - no other values supported
  */
 #ifdef HASFLOAT
+#ifdef HAS64BIT
+typedef double number_t;
+typedef long long wnumber_t;
+#else
 typedef float number_t;
 typedef long wnumber_t;
+#endif
 #else
 typedef int number_t;
 typedef int wnumber_t;
