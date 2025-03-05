@@ -1,0 +1,14 @@
+/* an RP2040 based board with an ILI9488 display */
+#undef ARDUINOPICOSERIAL
+#define DISPLAYCANSCROLL
+#define ARDUINOILI9488
+#undef ARDUINOEEPROM
+#define ARDUINOI2CEEPROM
+#define ARDUINOPRT
+#define ARDUINOSD
+#undef RP2040LITTLEFS
+#define ARDUINOWIRE
+#define ARDUINORTC 
+#define ARDUINOPS2
+#define ARDUINOMQTT
+#undef STANDALONE
