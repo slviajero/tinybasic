@@ -149,10 +149,12 @@
  */
 #undef HASBUILDIN
 /* this is the demo module */
-#define BUILDINMODULE "buildin.h"
+#define BUILDINMODULE "buildin/buildin.h"
 /* a small tutorial */
 // #define BUILDINMODULE "buildin/buildin-tutorial.h"
+/* test program for Arduinos */
 // #define BUILDINMODULE "buildin/buildin-arduinotest.h"
+/* a games module */
 // #define BUILDINMODULE "buildin/buildin-games.h"
 
 /* interrupts for the EVENT command, this is needed to use Arduino interrupts */
@@ -395,9 +397,11 @@
 #endif
 
 /*
- * Now source the the hardware models. 
+ * Now source the the hardware models if this is set.
  */
+#ifdef PREDEFINEDBOARD
 #include PREDEFINEDBOARD
+#endif
 
 /*
  * Here, dependencies are handled. Some settings require others to be set
