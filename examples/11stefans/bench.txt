@@ -1,0 +1,45 @@
+Oneline tests running:
+10 T=MILLIS(1): FOR I=1 TO 10000: A=5: NEXT: PRINT MILLIS(1)-T
+
+Explanation:
+ 
+In this loop the interpreter processes the following per iteration:
+5 token reads (VARIABLE A, =, NUMBER 5, :, NEXT)
+2 heap searches (for A and I)
+1 assignment
+6+numsize byte reads
+As a rough over the thumb estimate 50% of the runtime goes into
+the two heap searches and 50% in token and byte read operations.
+This may vary a lot.
+
+
+Times in milliseconds
+
+Floating point results (BASICFULL, LONG NAMES, NO NETWORK): 
+
+Boardtype	ms	loops/ms
+Arduino GIGA:	82	117
+TTGO ESP32:	258	39 
+WROOM ESP32:	371	27
+Rasp RP2040:	588	17 
+Arduino DUE:	589	17
+Wifi R4:	629	16
+ESP8266:	1178	8
+XMC1100: 	1442    7	
+MEGA256:	2198	5
+
+BASIC can do between 5 and 117 loops per millisecond. The typical 
+timescale for one loop of 32bit boards is 20 microseconds. 
+Everything in this range can be done with BASIC. 
+
+Integer results (BASICSIMPLE, SHORT NAMES):
+UNO R3: 	1800
+LEONARDO:	1574 (Tinybasic, static vars)
+
+
+Floating point results (BASICFULL, LONG NAMES, NO NETWORK, 64bit FLOAT): 
+Arduino GIGA:	85
+ESP8266:	1479	
+
+The GIGA board has a double precision hardware FPU and can do process
+the additions and compares of the loop as fast as with 32 bits.
