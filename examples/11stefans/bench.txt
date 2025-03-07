@@ -33,8 +33,8 @@ timescale for one loop of 32bit boards is 20 microseconds.
 Everything in this range can be done with BASIC. 
 
 Integer results (BASICSIMPLE, SHORT NAMES):
-UNO R3: 	1800
-LEONARDO:	1574 (Tinybasic, static vars)
+UNO R3: 	1800	5.5.
+LEONARDO:	1574 	6.3 (Tinybasic, static vars)
 
 
 Floating point results (BASICFULL, LONG NAMES, NO NETWORK, 64bit FLOAT): 
