@@ -1178,25 +1178,9 @@ void spibegin() {
 
 /*
  * DISPLAY driver code section, the hardware models define a set of 
- * of functions and definitions needed for the display driver. These are 
- *
- * dsp_rows, dsp_columns: size of the display
- * dspbegin(), dspprintchar(c, col, row), dspclear(), dspupdate()
+ * of functions and definitions needed for the display driver. 
  * 
- * All displays which have this functions can be used with the 
- * generic display driver below.
- * 
- * Graphics displays need to implement the functions 
- * 
- * rgbcolor(), vgacolor()
- * plot(), line(), rect(), frect(), circle(), fcircle() 
- * 
- * Color is currently either 24 bit or 4 bit 16 color vga.
- * 
- * Non rgb ready displays on rgbcolor translate to their native color
- * when BASIC requests an rgb color, in this case the nearest 4 bit 
- * color of the display is also stored for use in the text DISLAY driver
- * code
+ * See runtime.h for the definitions of the display driver functions.
  */
 
  /* generate a 4 bit vga color from a given rgb color */
@@ -2239,40 +2223,7 @@ char kbdcheckch() {
 }
 
 /*
- * this is a generic display code 
- * it combines the functions of LCD and TFT drivers
- * if this code is active 
- *
- * dspprintchar(char c, uint8_t col, uint8_t row)
- * dspclear()
- * dspbegin()
- * dspupdate()
- * dspsetcursor(uint8_t c) 
- * dspsetfgcolor(address_t c)  
- * void dspsetbgcolor(address_t c)  
- * void dspsetreverse(uint8_t c)  
- * uint8_t dspident()  
- *
- * have to be defined before in a hardware dependent section.
- * Only dspprintchar and dspclear are needed, all other can be stubs
- *
- * VGA systems don't use the display driver for text based output.
- *
- * The display driver exists as a buffered version that can scroll
- * or an unbuffered version that cannot scroll. Interfaces to hardware
- * scrolling are not yet implemented.
- * 
- * A VT52 state engine is implemented and works for buffered and 
- * unbuffered displays. Only buffered displays have the full VT52
- * feature set including most of the GEMDOS extensions described here:
- * https://en.wikipedia.org/wiki/VT52
- * 
- * dspupdatemode controls the page update behaviour 
- *    0: character mode, display each character separately
- *    1: line mode, update the display after each line
- *    2: page mode, update the display after an ETX
- * ignored if the display has no update function
- *
+ * Display driver code - documentation is in the header file
  */
 
 #ifdef DISPLAYDRIVER
@@ -2321,9 +2272,9 @@ uint8_t dspactive() {
 void dspbell() {}
 
 /*
- * control the update modes for page update displays
+ * Control the update modes for page update displays
  * like Epaper, Nokia 5110 and SSD1306
- * dspgraphupdate is the helper for the graphics functions
+ * dspgraphupdate is the helper for the graphics functions.
  */
 
 void dspsetupdatemode(uint8_t c) {
@@ -2341,20 +2292,6 @@ void dspgraphupdate() {
 /* scrollable displays need a character buffer */
 #ifdef DISPLAYCANSCROLL
 
-/* 
- * text color code for the scrolling display 
- * 
- * non scrolling displays simply use the pen color of the display
- * stored in dspfgcolor to paint the information on the screen
- * 
- * for scrolling displays we store the color information of every
- * character in the display buffer to enable scrolling, to limit the 
- * storage requirements, this code translates the color to a 4 bit VGA
- * color. This means that if BASIC uses 24 bit colors, the color may
- * change at scroll
- *
- */
-
 #ifndef DISPLAYHASCOLOR
 const uint16_t dspfgvgacolor = 0;
 #endif
@@ -2362,12 +2299,14 @@ const uint16_t dspfgvgacolor = 0;
 dspbuffer_t dspbuffer[dsp_rows][dsp_columns];
 
 /* buffer access functions */
+
+/* needed for @D() */
 dspbuffer_t dspget(uint16_t i) {
   if (i>=0 && i<=dsp_columns*dsp_rows-1) return dspbuffer[i/dsp_columns][i%dsp_columns]; else return 0;
 }
 
+/* print line and screen helpers */
 dspbuffer_t dspgetrc(uint8_t r, uint8_t c) { return dspbuffer[r][c]; }
-
 dspbuffer_t dspgetc(uint8_t c) { return dspbuffer[dspmyrow][c]; }
 
 /* this functions prints a character and updates the display buffer */
@@ -2378,6 +2317,7 @@ void dspsetxy(dspbuffer_t ch, uint8_t c, uint8_t r) {
   }
 }
 
+/* needed for @D() access */
 void dspset(uint16_t i, dspbuffer_t ch) {
   uint8_t c=i%dsp_columns;
   uint8_t r=i/dsp_columns;
@@ -2401,6 +2341,7 @@ void dspbufferclear() {
 }
 
 #ifdef DISPLAYHASCOLOR
+/* separates characters and color/font */
 const uint16_t charmask = 0x80FF;
 #endif
 
@@ -2496,14 +2437,13 @@ char dspwaitonscroll() {
 	}
 	return 0;
 }
+#else 
 
 /* code for low memory simple display access */
-#else 
-/* buffer access functions */
+
+/* buffer access functions - stubs for displays without buffer */
 dspbuffer_t dspget(uint16_t i) { return 0; }
-
 dspbuffer_t dspgetrc(uint8_t r, uint8_t c) { return 0; }
-
 dspbuffer_t dspgetc(uint8_t c) { return 0; }
 
 void dspsetxy(dspbuffer_t ch, uint8_t c, uint8_t r) {
@@ -2522,6 +2462,7 @@ void dspbufferclear() {
   dspmycol=0;
 }
 
+/* no scroll no wait */
 char dspwaitonscroll() { return 0; }
 
 /* a stub for dspwrite */
@@ -2529,23 +2470,23 @@ void dspscroll(uint8_t scroll_rows, uint8_t scroll_top=0){
   dspmyrow=dsp_rows-1;
 }
 
+/* no scroll without buffer */
 void dspsetscrollmode(uint8_t c, uint8_t l) {}
 void dspreversescroll(uint8_t a){}
 #endif
 
 /* the generic write function for displays with and without buffers */
-
 void dspwrite(char c){
 int8_t dspmycolt;
 
-/* on escape call the vt52 state engine */
+/* on escape call the vt52 state engine, it modifies the character */
 #ifdef HASVT52
   if (dspesc) { 
     dspvt52(&c); 
   }
 #endif
 
-/* do we print ? */
+/* do we print? */
 #ifdef ARDUINOPRT
   if (dspprintmode) {
     prtwrite(c);
@@ -2554,13 +2495,14 @@ int8_t dspmycolt;
   }
 #endif 
   
+/* the buildin control characters for all displays */
   switch(c) {
     case 0:
       return;
-    case 7: // bell just a stub
+    case 7: // the function dspbell() is not implemented.
       dspbell();
       return;
-    case 9: // tab 
+    case 9: // tab moves on 8 positions
       dspmycolt = dspmycol/8;
       if ((dspmycolt+1)*8<dsp_columns-1) dspmycol=(dspmycolt+1)*8;
       return;
@@ -2746,13 +2688,8 @@ void vt52graphcommand(uint8_t c) {
 #endif
 
 /* 
- * this is an odd part of the vt52 code with this, the terminal 
+ * This is an odd part of the vt52 code with this, the terminal 
  * can control the digital and analog pins.
- * it is meant for situations where the terminal is controlled by a (powerful)
- * device with no or very few I/O pins. It can use the pins of the Arduino through  
- * the terminal. This works as long as everything stays within the terminals timescale
- * On a 9600 baud interface, the character processing time is 1ms, everything slower 
- * than approximately 10ms can be done through the serial line.
  */
 
 #ifdef VT52WIRING
@@ -2760,7 +2697,7 @@ void vt52graphcommand(uint8_t c) {
   void vt52wiringcommand(uint8_t c) {
     switch(c) { 
       case 'p': /* pinMode z */
-        pinMode(vt52regz);
+        pinMode(vt52regz, vt52regx);
         break;
       case 'l': /* digital write low pin z*/
         digitalWrite(vt52regz, LOW);
@@ -2784,7 +2721,7 @@ void vt52graphcommand(uint8_t c) {
 #endif
 
 
-/* vt52 state engine */
+/* the actual vt52 state engine */
 void dspvt52(char* c){
   
 /* reading and processing multi byte commands */
@@ -2990,7 +2927,7 @@ void dspvt52(char* c){
       dspmyrow=vt52tmpr;
       dspmycol=vt52tmpc;
       break;
-#ifdef VT52REGISTERS
+#ifdef VT52HASREGISTERS
     case 'x': // set the x register 
     case 'y': // set the y register 
       vt52s=*c;
@@ -3013,7 +2950,7 @@ void dspvt52(char* c){
       break;
 #endif
 #ifdef VT52WIRING
-    case 'a':
+    case 'a': // execute a wiring command
       vt52s=*c;
       dspesc=1;
       *c=0;
@@ -4358,9 +4295,9 @@ void yieldfunction() {
   (void) keyboard.peek(); /* scan once and set lastkey properly every 32 ms */
 #endif
 /* delay(0) is only needed on ESP8266! it calls the scheduler - no bdelay here!! */
- #if defined(ARDUINO_ARCH_ESP8266)
-  delay(0);
- #endif
+#if defined(ARDUINO_ARCH_ESP8266)
+ delay(0);
+#endif
 }
 
 /* everything that needs to be done not so often - 1 second */

@@ -66,7 +66,7 @@
  * HASPULSE: pulseIn() function for measuring pulse lengths. Pulse output. Both mapped to the PULSE command.
  * HASSTEFANSEXT: Stefan's BASIC extensions, including ELSE, PUT, GET, advanced FOR loops, SQR and POW.
  * HASERRORMSG: error messages for syntax and runtime errors.
- * HASVT52: VT52 terminal emulation for text output.
+ * HASVT52: VT52 terminal emulation for text output -> moved to hardware.h
  * HASFLOAT: floating point support.
  * HASGRAPH: graphics support, including line, circle, rectangle, fill, color.
  * HASDARTMOUTH: Dartmouth BASIC compatibility: single line DEF FN, ON, READ, DATA.
@@ -109,7 +109,6 @@
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#define HASVT52
 #define HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
@@ -175,7 +174,6 @@
 #undef HASPULSE
 #undef HASSTEFANSEXT
 #undef HASERRORMSG
-#undef HASVT52
 #undef HASFLOAT
 #undef HASGRAPH
 #undef HASDARTMOUTH
@@ -206,7 +204,6 @@
 #undef HASPULSE
 #undef HASSTEFANSEXT
 #undef HASERRORMSG
-#undef HASVT52
 #undef HASFLOAT
 #undef HASGRAPH
 #undef HASDARTMOUTH
@@ -240,7 +237,6 @@
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#define HASVT52
 #undef  HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
@@ -271,7 +267,6 @@
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#define HASVT52
 #undef  HASFLOAT
 #undef  HASGRAPH
 #define HASDARTMOUTH
@@ -302,7 +297,6 @@
 #undef  HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#undef  HASVT52
 #undef  HASFLOAT
 #undef  HASGRAPH
 #undef  HASDARTMOUTH
@@ -334,7 +328,6 @@
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#define HASVT52
 #define HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
@@ -365,7 +358,6 @@
 #undef HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#undef HASVT52
 #define HASFLOAT
 #undef HASGRAPH
 #define HASDARTMOUTH
@@ -396,7 +388,6 @@
 #undef HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#undef HASVT52
 #define HASFLOAT
 #undef HASGRAPH
 #undef HASDARTMOUTH

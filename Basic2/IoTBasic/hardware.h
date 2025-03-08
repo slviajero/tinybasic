@@ -1,6 +1,5 @@
 /*
- *
- * Stefan's basic interpreter   
+ * Stefan's basic interpreter.  
  *
  * Playing around with frugal programming. See the licence file on 
  * https://github.com/slviajero/tinybasic for copyright/left.
@@ -88,8 +87,8 @@
 #undef ARDUINOI2CKBD
 #undef GIGAUSBKBD
 #undef ARDUINOPRT
-#undef DISPLAYCANSCROLL
-#undef ARDUINOLCDI2C
+#define DISPLAYCANSCROLL
+#define ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
@@ -101,7 +100,7 @@
 #undef ARDUINOVGA
 #undef TFTESPI
 #undef ARDUINOEEPROM
-#undef ARDUINOI2CEEPROM
+#define ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -117,7 +116,7 @@
 #undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#define ARDUINOMQTT 
+#undef ARDUINOMQTT 
 #undef ARDUINOSENSORS
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
@@ -141,6 +140,11 @@
 
 /* IO control, emulate real tab by counting characters  */
 #define HASMSTAB
+
+/* VT52 settings */
+#define HASVT52
+#define VT52WIRING 
+
 
 /* 
  * Experimental BUILDIN feature, implemented as a filesystem. 

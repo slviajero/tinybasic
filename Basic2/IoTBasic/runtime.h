@@ -402,34 +402,79 @@ int ddrread(uint8_t);
 int pinread(uint8_t);
 
 /*
- * DISPLAY driver code section. The hardware models define a set of 
- * of functions and definitions needed for the display driver. These are 
- *
- * dsp_rows, dsp_columns: size of the display
- * dspbegin(), dspprintchar(c, col, row), dspclear(), dspupdate()
+ * DISPLAY driver code section. The display driver is a generic text and graphics
+ * output device. Characters are buffered in a display buffer if DISPLAYCANSCROLL 
+ * is defined. These displays can scroll. Scrolling is handled by the display driver.
+ * It is soft scroll, meaning that the display buffer is scrolled and the display is
+ * updated. This is slow for large displays. Hardware scrolling is not yet implemented.
  * 
- * All displays which have this functions can be used with the 
- * generic display driver below.
+ * The display driver is used by the terminal code to output text and
+ * graphics. It is needed because there is no standard terminal emulation on Arduino
+ * systems. It tries to be so generic that everything from small 16*2 LCDs to large
+ * TFT displays can be used. It contains a VT52 state engine to process control
+ * sequences.
+ * 
+ * The hardware dependent part of the display driver has to implement the following
+ * functions:
+ *
+ * Text display functions:
+ * 
+ * dsp_rows, dsp_columns: size of the display
+ * dspbegin(): start the display - can be empty
+ * dspprintchar(c, col, row): print a character at a given position
+ *      logic here that col is the x coordinate and row the y coordinate
+ *      for text and graphics the display coordinate system has its origin
+ *      in the upper left corner
+ * dspclear(): clear the display
+ * dspupdate(): update the display, this function is needed for displays that
+ *      have a buffer and can update the display after a series of prints. 
+ *      Examples are epaper displays and LCD displays like the Nokia. Writing 
+ *      directly to them is slow. 
+ * dspsetcursor(c): switch the cursor on or off, typically used for text 
+ *      displays with blinking cursors.
+ * dspsetfgcolor(c): set the foreground color of the display.
+ * dspsetbgcolor(c): set the background color of the display.
+ *      c is a VGA color. 4bit VGA colors are used for text displays. 
+ *      Graphics is 24 bit color rgb and 8 bit VGA color.
+ * dspsetreverse(c): set the reverse mode of the display, currently unused.
+ * dspident(): return the display type, currently unused.
+ * 
+ * For displays with color, the macro DISPLAYHASCOLOR has to be defined.
+ * The text display buffer then contains one byte for the character and 
+ * one byte for color and font. 
+ *
+ * All displays which have these functions can be used with the 
+ * generic display driver below. For minimal functionality only
+ * dspprintchar() and dspclear() are needed. The screen dimensions
+ * have to be set in dsp_rows and dsp_columns.
  * 
  * Graphics displays need to implement the functions 
  * 
- * rgbcolor(), vgacolor()
- * plot(), line(), rect(), frect(), circle(), fcircle() 
+ * rgbcolor(r, g, b): set the color for graphics. The color
+ *     is 24 bit rgb. This function needs to convert the byte 
+ *     values to the native color of the display.
+ * vgacolor(c): set the color for text. The color is a 256 VGA  
+ *    color for most displays. This function needs to convert this
+ *    one byte value to the native color of the display.
+ * These two functions are called by the BASIC COLOR command.
  * 
- * Color is currently either 24 bit or 4 bit 16 color vga.
+ * plot(x, y): plot a pixel at x, y
+ * line(x1, y1, x2, y2): draw a line from x1, y1 to x2, y2
+ * rect(x1, y1, x2, y2): draw a rectangle from x1, y1 to x2, y2
+ * frect(x1, y1, x2, y2): draw a filled rectangle from x1, y1 to x2, y2
+ * circle(x, y, r): draw a circle with center x, y and radius r
+ * fcircle(x, y, r): draw a filled circle with center x, y and radius r
  * 
- * For non RGB ready displays, rgbcolor translates to the native color
- * when BASIC requests an rgb color, in this case the nearest 4 bit 
- * color of the display is also stored for use in the text DISPLAY 
- * driver code
+ * 
+ * Color is currently either 24 bit or 8 bit 16 VGA color. BW and displays
+ * only have 0 and 1 as colors. Text is buffered in 4 bit VGA color (see below).
  */
 
- /* generate a 4 bit vga color from a given rgb color */
+ /* Generate a 4 bit vga color from a given rgb color, to be checked */
 uint8_t rgbtovga(uint8_t, uint8_t, uint8_t);
 
-/* 
- * prototypes for screen handling
- */
+
+/* Text functions */
 void dspbegin(); 
 void dspprintchar(char, uint8_t, uint8_t);
 void dspclear();
@@ -441,6 +486,8 @@ void dspsetfgcolor(uint8_t);
 void dspsetbgcolor(uint8_t);
 void dspsetreverse(uint8_t);
 uint8_t dspident();
+
+/* graphics functions */
 void rgbcolor(uint8_t, uint8_t, uint8_t);
 void vgacolor(uint8_t);
 void plot(int, int);
@@ -450,66 +497,109 @@ void frect(int, int, int, int);
 void circle(int, int, int);
 void fcircle(int, int, int);
 
+/* to whom the bell tolls - implement this to you own liking, reacts to ASCII 7 */
+void dspbell(); 
+
 /*
- * this is a generic display code 
- * it combines the functions of LCD and TFT drivers
- * if this code is active 
+ * The public functions of the display driver are the following:
  *
- * dspprintchar(char c, uint8_t col, uint8_t row)
- * dspclear()
- * dspbegin()
- * dspupdate()
- * dspsetcursor(uint8_t c) 
- * dspsetfgcolor(uint8_t c)  
- * void dspsetbgcolor(uint8_t c)  
- * void dspsetreverse(uint8_t c)  
- * uint8_t dspident()  
- *
- * have to be defined before in a hardware dependent section.
- * Only dspprintchar and dspclear are needed, all other can be stubs
- *
- * VGA systems don't use the display driver for text based output.
- *
- * The display driver exists as a buffered version that can scroll
- * or an unbuffered version that cannot scroll. Interfaces to hardware
- * scrolling are not yet implemented.
- * 
- * A VT52 state engine is implemented and works for buffered and 
- * unbuffered displays. Only buffered displays have the full VT52
- * feature set including most of the GEMDOS extensions described here:
- * https://en.wikipedia.org/wiki/VT52
- * 
- * dspupdatemode controls the page update behaviour 
- *    0: character mode, display each character separately
- *    1: line mode, update the display after each line
- *    2: page mode, update the display after an ETX
- * ignored if the display has no update function
- *
+ * dspouts(s, l): print a string of length l to the display. This 
+ *      function is only used for output on certain graphics displays
+ *      These displays expect an entire string to be printed at once.
+ *      Currently this is only implemented for epaper displays.
+ * dspwrite(c): print a character to the display. This function is 
+ *      the main output method for text displays. It prints a character
+ *      at the current cursor position and updates the cursor position.
+ *      For vt52 capable displays, the character goes through the vt52
+ *      state engine and it processed there. 
+ * dspstat(s): check the status of the display. It returns 1 if the 
+ *      display is present and 0 if it is not. 
+ * dspactive(): check if the display is the current output device.
+ *      This function is used to control scrolling in the LIST command.
+ * dspwaitonscroll(): this function waits for character input if the 
+ *      display wants to scroll.  This is used in the LIST command to
+ *       wait for a keypress before scrolling the display. It returns the 
+ *      character that was pressed. This can also be used to end the output
+ *      of the LIST command.
+ * dspsetupdatemode(m): set the update mode of the display. Valid update
+ *     modes are 0, 1, 2. 0 is character mode, 1 is line mode, 2 is page mode.
+ *     In character mode, the display is updated after every character. In line
+ *     mode, the display is updated after every line. In page mode, the display
+ *     is updated after an ETX character. This function is only used for displays
+ *     that implement the dspupdate() function.
+ * dspgetupdatemode(): get the current update mode of the display.
+ * dspgraphupdate(): update the display after a series of graphics commands. While
+ *     dspsetupdatemode() and dspgetupdatemode() control the update from the text buffer,
+ *     dspgraphupdate() controls the update from the graphics buffer. See for example 
+ *     the Nokia display as an example. This function must be called after graphics 
+ *     operations to update the display. Typically this is done in the graphics functions
+ *     like line(), rect(), circle(), etc.
+ * dspsetcursorx(x): set the x coordinate of the cursor
+ * dspsetcursory(y): set the y coordinate of the cursor
+ * dspgetcursorx(): get the x coordinate of the cursor
+ * dspgetcursory(): get the y coordinate of the cursor
  */
 
+void dspouts(char*, uint16_t);
+void dspwrite(char);
+uint8_t dspstat(uint8_t);
+uint8_t dspactive();
+char dspwaitonscroll();
+void dspsetupdatemode(uint8_t);
+uint8_t dspgetupdatemode(); 
+void dspgraphupdate();
 void dspsetcursorx(uint8_t);
 void dspsetcursory(uint8_t);
 uint8_t dspgetcursorx();
 uint8_t dspgetcursory();
-void dspbell(); /* to whom the bell tolls - implement this to you own liking */
-
 
 /* 
- * text color code for the scrolling display 
+ * These are the buffer control functions for the display driver.
  * 
- * non scrolling displays simply use the pen color of the display
- * stored in dspfgcolor to paint the information on the screen
+ * Color handling: 
  * 
- * for scrolling displays we store the color information of every
- * character in the display buffer to enable scrolling, to limit the 
- * storage requirements, this code translates the color to a 4 bit VGA
- * color. This means that if BASIC uses 24 bit colors, the color may
- * change at scroll
+ * Non scrolling displays simply use the pen color of the display
+ * stored in dspfgcolor() to paint the information on the screen.
+ * 
+ * For scrolling displays we store the color information of every
+ * character in the display buffer to enable scrolling with color. 
+ * To limit the storage requirements, this code translates the color 
+ * to a 4 bit VGA color. This means that if BASIC uses 24 bit colors, 
+ * the color may change at scroll
  *
- * for color displays the buffer is a 16 bit object 
- * lower 8 bits plus the sign are the character, 
- * higher 7 the color and font.
- * for monochrome just the character is stored
+ * For color displays the buffer is a 16 bit object. The lower 8 bits 
+ * plus the sign are the character, higher 7 the color and font.
+ * For monochrome just the character is stored in an 8 bit object.
+ * 
+ * The type dspbuffer_t is defined according to the display type.
+ * 
+ * The following functions are used to control the display buffer:
+ * 
+ * dspget(): get a character from the display buffer in form of a linear
+ *    address. This is only used for the special array @D() in BASIC.
+ *    It allows direct access to the display buffer.
+ * dspgetrc(r, c): get a character from the display buffer at row r and column c.
+ *    This is used for the print function of the vt52 terminal. An entire display 
+ *    can be sent to the printer device OPRT
+ * dspgetc(c): get a character from the current line at column c. Also this is 
+ *   used for the print function of the VT52 terminal. This only sents the 
+ *   current line to the printer device OPRT.
+ * For both functions the actual print code is in the VT52 object.
+ * These three functions are somewhat redundant.
+ * 
+ * dspsetxy(c, x, y): set a character at x, y in the display buffer and on the 
+ *   display. This function is needed for various control sequences of the VT52 
+ *   terminal.
+ * dspset(c, v): set a character at a linear address in the display buffer. Also u
+ *   used for the @D() array in BASIC.
+ * 
+ * dspsetscrollmode(m, l): set the scroll mode. m is the mode and l is the number
+ *    of lines to be scrolled. Mode 0 means that dspwaitonscroll() does not 
+ *    wait for keyboard input. Mode 1 is wait for input. 
+ * dspbufferclear(): clears the input buffer. 
+ * dspscroll(l, t): do the actual scrolling. l is the number of lines to be scrolled.
+ *    t is the topmost line included in the scroll. O by default.
+ * dspreversescroll(l): reverse scroll from line l downward.
  */
 
 #ifdef DISPLAYHASCOLOR
@@ -522,49 +612,53 @@ dspbuffer_t dspget(uint16_t);
 dspbuffer_t dspgetrc(uint8_t, uint8_t);
 dspbuffer_t dspgetc(uint8_t);
 
-void dspsetxy(dspbuffer_t, uint8_t, uint8_t); /* this functions prints a character and updates the display buffer */
+void dspsetxy(dspbuffer_t, uint8_t, uint8_t); 
 void dspset(uint16_t, dspbuffer_t);
-void dspsetscrollmode(uint8_t, uint8_t); /* 0 normal scroll, 1 enable waitonscroll function */
+void dspsetscrollmode(uint8_t, uint8_t);
 
-void dspbufferclear(); /* clear the buffer */
-void dspscroll(uint8_t, uint8_t); /* do the scroll */
-void dspreversescroll(uint8_t); /* do the reverse scroll only one line implemented */
+void dspbufferclear(); 
+void dspscroll(uint8_t, uint8_t); 
+void dspreversescroll(uint8_t); 
 
-/* 
- * This is the minimalistic VT52 state engine. It is an interface to 
- * process single byte control sequences of the form <ESC> char 
+/*
+ * 
+ * A VT52 state engine is implemented and works for buffered and 
+ * unbuffered displays. Only buffered displays have the full VT52
+ * feature set including most of the GEMDOS extensions described here:
+ * https://en.wikipedia.org/wiki/VT52
+ * 
+ * The VT52 state engine processes sequences of the form <ESC> char.
+ * 
+ * In addition to this, it also gives back certain return values. 
+ * The can be read by vt52read() and vt52avail().
+ * vt52push() is used to push characters into the VT52 buffer.
+ * vt52number() is used to convert a character into the VT52 number format.
+ * vt52graphcommand() is a VT52 extension to display graphics on the screen.
  */
 
-char vt52read(); /* the reader from the buffer, for messages going back from the display */
-uint8_t vt52avail(); /* the avail from the buffer */
-void vt52push(char); /* putting something into the buffer */
-uint8_t vt52number(char); /* something little, generating numbers */
-void vt52graphcommand(uint8_t); /* execute one graphics command */
+char vt52read(); 
+uint8_t vt52avail(); 
+void vt52push(char); 
+uint8_t vt52number(char); 
+void vt52graphcommand(uint8_t);
 
 /* 
  * this is a special part of the vt52 code with this, the terminal 
  * can control the digital and analog pins.
- * it is meant for situations where the terminal is controlled by a (powerful)
+ * 
+ * It is meant for situations where the terminal is controlled by a (powerful)
  * device with no or very few I/O pins. It can use the pins of the Arduino through  
- * the terminal. This works as long as everything stays within the terminals timescale
- * On a 9600 baud interface, the character processing time is 1ms, everything slower 
- * than approximately 10ms can be done through the serial line.
+ * the terminal. 
+ * 
+ * This works as long as everything stays within the terminals timescale.
+ * On a 9600 baud interface, the character processing time is 1ms, everything 
+ * slower than approximately 10ms can be done through the serial line.
  */
+
 void vt52wiringcommand(uint8_t);
 
 /* the vt52 state engine */
 void dspvt52(char*);
-
-
-/* these functions are used to access the display */
-void dspouts(char*, uint16_t);
-void dspwrite(char);
-uint8_t dspstat(uint8_t);
-char dspwaitonscroll();
-uint8_t dspactive();
-void dspsetupdatemode(uint8_t);
-uint8_t dspgetupdatemode(); 
-void dspgraphupdate();
 
 /* 
  * code for the VGA system of Fabgl 
