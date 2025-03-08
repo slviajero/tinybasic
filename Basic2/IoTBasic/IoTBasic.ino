@@ -1,13 +1,11 @@
 /*----------------------------------------------------------------
-   Please read this before compiling:
+   Please read this before compiling the code.
     - Review hardware.h for settings specific hardware settings.
         Super important on Arduino and Raspberry PI.
     - language.h controls the language features.
-        For Arduino Integer BASIC is default and a limited language
-        set. For the larger boards this can be extended a lot.
+        A heuristic is used to compile the language features if 
+        not defined explicitly in language.h.
   -----------------------------------------------------------------
-
- 	$Id: basic.c,v 1.5 2024/03/02 15:38:20 stefan Exp stefan $
 
  	Stefan's IoT BASIC interpreter - BASIC for everywhere.
 
@@ -19,7 +17,9 @@
 
  	Currently there are two versions of the runtime environment.
  		One contains all platforms compiled in the Arduino IDE
- 		(ESP8266, ESP32, AVR, MEGAAVR, SAM*, RP2040)
+ 		(ESP8266, ESP32, AVR, MEGAAVR, SAM*, RP2040, STM*, 
+    XMC*, NRENESA, Arduino GIGA).
+
 
  		Anothers contains all platforms compiled in gcc with a POSIX OS
  		(Mac, Raspberry, Windows/MINGW) plus rudimentary MSDOS with tc2.0. The
@@ -33,8 +33,8 @@
 #include "runtime.h"
 
 /*
-   the core basic language headers
-*/
+ *  the core basic language headers
+ */
 #include "language.h"
 #include "basic.h"
 
@@ -105,7 +105,7 @@ const char sget[]    PROGMEM = "GET";
 const char sput[]    PROGMEM = "PUT";
 const char sset[]    PROGMEM = "SET";
 const char scls[]    PROGMEM = "CLS";
-const char slocate[]  PROGMEM  = "LOCATE";
+const char slocate[]  PROGMEM = "LOCATE";
 const char selse[]  PROGMEM  = "ELSE";
 #endif
 /* Arduino functions */
@@ -1341,7 +1341,7 @@ void clrvars() {
 
 /*
    To avoid nasty warnings we encapsulate the EEPROM access functions
- 	from runtime.c
+ 	 from runtime.c
    This is only needed for the get* and set* functions as we use the
    memreader_t and memwriter_t function pointers here.
    This way, types in runtime.c can be changed without changing the

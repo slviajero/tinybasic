@@ -72,13 +72,13 @@
 #define TSTEP   -109
 #define TNEXT   -108
 #define TSTOP   -107
-#define TLIST	-106
+#define TLIST   -106
 #define TNEW    -105
 #define TRUN    -104
-#define TABS 	-103
-#define TRND	-102
+#define TABS    -103
+#define TRND    -102
 #define TSIZE   -101
-#define TREM 	-100
+#define TREM    -100
 /* this is the Apple 1 language set in addition to Palo Alto (14) */
 #define TNOT    -99
 #define TAND	-98
