@@ -117,7 +117,7 @@
 #undef ARDUINOWIRESLAVE
 #undef ARDUINORF24
 #undef ARDUINOETH
-#undef ARDUINOMQTT 
+#define ARDUINOMQTT 
 #undef ARDUINOSENSORS
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
@@ -499,6 +499,11 @@
 
 /* Networking and keyboards need the background task capability */
 #if defined(ARDUINOMQTT) || defined(ARDUINOETH) || defined(ARDUINOUSBKBD) || defined(ARDUINOZX81KBD) || defined(ARDUINOI2CKBD) || defined(GIGAUSBKBD)
+#define BASICBGTASK
+#endif
+
+/* the ESP8266 needs to run the background task calls for the scheduler */
+#if defined(ARDUINO_ARCH_ESP8266)
 #define BASICBGTASK
 #endif
 

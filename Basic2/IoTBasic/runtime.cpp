@@ -4305,7 +4305,7 @@ void byield() {
  #endif
  
  /* call the background task scheduler on some platforms implemented in hardware-* */
-  yieldschedule();
+
 }
 
 /* delay must be implemented to use byield() while waiting */
@@ -4357,6 +4357,10 @@ void yieldfunction() {
 #ifdef ARDUINOZX81KBD
   (void) keyboard.peek(); /* scan once and set lastkey properly every 32 ms */
 #endif
+/* delay(0) is only needed on ESP8266! it calls the scheduler - no bdelay here!! */
+ #if defined(ARDUINO_ARCH_ESP8266)
+  delay(0);
+ #endif
 }
 
 /* everything that needs to be done not so often - 1 second */
@@ -4368,13 +4372,6 @@ void longyieldfunction() {
   if (checkch() == BREAKCHAR) breakcondition=1;
 #endif
 }
-
-void yieldschedule() {
-/* delay(0) is only needed on ESP8266! it calls the scheduler - no bdelay here!! */
- #if defined(ARDUINO_ARCH_ESP8266)
-  delay(0);
- #endif
- }
 
 /* 
  *	The file system driver - all methods needed to support BASIC fs access
