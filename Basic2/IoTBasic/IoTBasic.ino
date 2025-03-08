@@ -675,7 +675,7 @@ btimer_t every_timer = {0, 0, 0, 0, 0};
 #define EVENTLISTSIZE 4
 
 /* the event list, nevents is the number of active events */
-int nevents = 0;
+mem_t nevents = 0;
 int ievent = 0;
 mem_t events_enabled = 1;
 volatile bevent_t eventlist[EVENTLISTSIZE];
@@ -9196,7 +9196,10 @@ void xusr() {
 #endif
         case 34: push(0); break;
 #ifdef FASTTICKERPROFILE
-        case 35: push(avgfasttick); break;
+        case 35: 
+          push(avgfastticker()); 
+          clearfasttickerprofile();
+          break;
 #endif
         /* - 48 reserved, don't use */
         case 48: push(id); break;
@@ -10565,8 +10568,11 @@ errorhandler:
        main loop. While in functions, all interrupts are disabled.
 
     */
-#ifdef HASTIMER
+
     if ((token == LINENUMBER || token == ':' || token == TNEXT) && (st == SERUN || st == SRUN)) {
+      
+/* timer functions are processed before events */
+#ifdef HASTIMER
       /* after is always processed before every */
       if (after_timer.enabled && fncontext == 0) {
         if (millis() > after_timer.last + after_timer.interval) {
@@ -10594,14 +10600,11 @@ errorhandler:
           if (er) return;
         }
       }
-    }
-#endif
-
+ #endif
     /* the branch code for interrupts, we round robin through the event list */
 #ifdef HASEVENTS
-    if ((token == LINENUMBER || token == ':' || token == TNEXT) && (st == SERUN || st == SRUN)) {
       /* interrupts */
-      if (events_enabled && nevents > 0 && fncontext == 0) {
+      if (nevents > 0 && events_enabled && fncontext == 0) {
         for (xc = 0; xc < EVENTLISTSIZE; xc++) {
           if (eventlist[ievent].pin && eventlist[ievent].enabled && eventlist[ievent].active) {
             if (eventlist[ievent].type == TGOSUB) {
@@ -10620,8 +10623,8 @@ errorhandler:
           ievent = (ievent + 1) % EVENTLISTSIZE;
         }
       }
-    }
 #endif
+    } 
   }
 }
 

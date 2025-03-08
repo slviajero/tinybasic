@@ -169,6 +169,11 @@
  */
 #undef BREAKINBACKGROUND
 
+/* 
+ * This code measures the fast ticker frequency in microseconds 
+ * It counts the number of tokens drawn plus statements executed.
+ */
+#undef FASTTICKERPROFILE
 
 /* the default EEPROM dummy size */
 #define EEPROMSIZE 1024
@@ -934,12 +939,6 @@
 #define SPIRAMSBSIZE 128
 #endif
 
-/* 
- * This code measures the fast ticker frequency in microseconds 
- * It leaves the data in variable F. Activate this only for test 
- * purposes.
- */
-#undef FASTTICKERPROFILE
 
 /*
  * Does the platform has command line args and do we want to use them 

@@ -283,7 +283,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  */
 
 #if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32)
-#include <WiFi.h> 
+#include <WiFi.h> t 
 #include <fabgl.h> 
 #endif
 
@@ -1811,11 +1811,13 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
 #endif
 
 /* 
- * this is the VGA code for fablib 
- * not all modes and possibilities explored, with networking on an ESP
- * VGA16 is advisable. It leaves enough memory for the interpreter and network.
- * this code overrides the display driver logic as fabgl brings an own 
- * terminal emulation
+ * This is the VGA code for fablib.
+ *
+ * Not all modes and possibilities explored. It leaves enough memory for the 
+ * interpreter. Networking is not possible an a TTGO T7 V1.4. 
+ * 
+ * This code overrides the display driver logic as fabgl brings an own 
+ * terminal emulation.
  */
 #if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32) 
 /* static fabgl::VGAController VGAController; */
@@ -1832,11 +1834,6 @@ fabgl::SoundGenerator soundGenerator;
 /* this starts the vga controller and the terminal right now */
 void vgabegin() {
 	VGAController.begin(GPIO_NUM_22, GPIO_NUM_21, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_23, GPIO_NUM_15);
-	//VGAController.setResolution(VGA_640x200_70Hz);
-  //VGAController.setResolution(VGA_640x400_70Hz);
-
-  
-  
   VGAController.setResolution(TTGOVGARESOLUTION);
 	Terminal.begin(&VGAController);
 	Terminal.setBackgroundColor(vga_txt_background);
@@ -1847,9 +1844,13 @@ void vgabegin() {
   Terminal.setTerminalType(TermType::VT52);
 }
 
+/* for Arduino just a dummy, needed in the POSIX branch of the code */
+void vgaend() {}
+
+/* this is a dummy function, we do not have a status line */
 int vgastat(uint8_t c) {return 0; }
 
-/* scale the screen size */
+/* scale the screen size to make a circle round, unneeded if the right resulution is set */
 void vgascale(int* x, int* y) {
 	/* *y=*y*10/16; */
 }
@@ -1932,6 +1933,7 @@ void vgawrite(char c){
 void vgabegin(){}
 int vgastat(uint8_t c) {return 0; }
 void vgawrite(char c){}
+void vgaend() {}
 #endif
 
 /* 
@@ -3604,7 +3606,7 @@ char mqtt_itopic[MQTTLENGTH];
  * the buffers for MQTT messages, input and output goes 
  * through these static buffers. 
  */
-#define MQTTBLENGTH 128
+
 volatile char mqtt_buffer[MQTTBLENGTH];
 volatile uint16_t mqtt_messagelength;
 volatile char mqtt_obuffer[MQTTBLENGTH];
@@ -3612,7 +3614,7 @@ volatile uint16_t mqtt_charsforsend;
 
 /* the name of the client, generated pseudo randomly to avoind 
 		naming conflicts */
-char mqttname[12] = "iotbasicxxx";
+char mqttname[MQTTNAMELENGTH] = "iotbasicxxx";
 void mqttsetname() {
 	uint32_t m = millis();
 	mqttname[8]=(char)(65+m%26);
@@ -4274,6 +4276,7 @@ void playtone(uint8_t pin, uint16_t frequency, uint16_t duration, uint8_t volume
 
 uint32_t lastyield=0;
 uint32_t lastlongyield=0;
+int countfasttick = 0;
 
 void byield() { 
 
@@ -4284,16 +4287,20 @@ void byield() {
   bloop();
 
 #if defined(BASICBGTASK)
+/* what time is it, call millis only once */
+  long m=millis();
+
 /* yield all 32 milliseconds */
-  if (millis()-lastyield > YIELDINTERVAL-1) {
+
+  if (m-lastyield > YIELDINTERVAL-1) {
     yieldfunction();
-    lastyield=millis();
+    lastyield=m;
   }
 
 /* yield every second */
-  if (millis()-lastlongyield > LONGYIELDINTERVAL-1) {
+  if (m-lastlongyield > LONGYIELDINTERVAL-1) {
     longyieldfunction();
-    lastlongyield=millis();
+    lastlongyield=m;
   }
  #endif
  
@@ -4310,11 +4317,28 @@ void bdelay(uint32_t t) {
   } 
 }
 
-/* fastticker is the hook for all timing functions */
+/* 
+ * This code measures the fast ticker frequency in microseconds 
+ * It leaves the data in variable F. Activate this only for test 
+ * purposes.
+ */
+
+#ifdef FASTTICKERPROFILE
+int avgfastticker() {
+  return countfasttick;
+}
+
+void clearfasttickerprofile() {
+  countfasttick=0;
+}
+#endif
+
+
+/* fastticker is the hook for all fast timing functions */
 void fastticker() {
 /* fastticker profiling test code */
-#ifdef FASTTICKERPROFILE
-  fasttickerprofile();
+#if defined(FASTTICKERPROFILE)
+  countfasttick++;
 #endif
 /* toggle the tone pin */
 #ifdef ARDUINOTONEEMULATION
@@ -6056,25 +6080,4 @@ void spiramrawwrite(uint16_t a, int8_t c) {
 /* the string buffers of the memory interface */
 char spistrbuf1[SPIRAMSBSIZE];
 char spistrbuf2[SPIRAMSBSIZE];
-#endif
-
-/* 
- * This code measures the fast ticker frequency in microseconds 
- * It leaves the data in variable F. Activate this only for test 
- * purposes.
- */
-
-#ifdef FASTTICKERPROFILE
-uint32_t lastfasttick = 0;
-uint32_t fasttickcalls = 0;
-uint16_t avgfasttick = 0;
-int32_t devfasttick = 0;
-
-void fasttickerprofile() {
-  if (lastfasttick == 0) { lastfasttick=micros(); return; }
-  int delta=micros()-lastfasttick;
-  lastfasttick=micros();
-  avgfasttick=(avgfasttick*fasttickcalls+delta)/(fasttickcalls+1);
-  fasttickcalls++; 
-}
 #endif

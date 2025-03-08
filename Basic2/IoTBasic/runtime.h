@@ -1,7 +1,4 @@
 /*
- *
- * $Id: runtime.h,v 1.1 2024/02/25 04:43:16 stefan Exp stefan $
- *
  * Stefan's basic interpreter 
  *
  * Prototypes for the runtime environment of the BASIC interpreter.
@@ -22,8 +19,27 @@
 #define RTDEBUGSTREAM 1
 
 /* 
- * system type identifiers
+ * The system type identifiers
+ * 
+ * SYSTYPE_UNKNOWN: unknown system, typically an unknown Arduino
+ * SYSTYPE_AVR: an AVR based Arduino, like the UNO, NANO, MEGA
+ * SYSTYPE_ESP8266: an ESP8266 based Arduino, like the Wemos D1, very common and generic
+ * SYSTYPE_ESP32: an ESP32 based Arduino, like the Wemos Lolin32, very common and generic
+ * SYSTYPE_RP2040: a Raspberry PI Pico, the first RP2040 based Arduino
+ * SYSTYPE_SAM: a SAM based Arduino, like the DUE
+ * SYSTYPE_XMC: an XMC based Arduino, like the Infineon XMC1100
+ * SYSTYPE_SMT32: an STM32 based Arduino, like the Blue Pill
+ * SYSTYPE_NRENESA: a Renesas based Arduino, like the R4 Wifi and Minimal
+ * SYSTYPE_GIGA: Arduino GIGA board 
+ * SYSTYPE_POSIX: a POSIX system, like Linux, MacOS
+ * SYSTYPE_MSDOS: a DOS system, like FreeDOS
+ * SYSTYPE_MINGW: a Windows system with MinGW
+ * SYSTYPE_RASPPI: a Raspberry PI system
+ * 
+ * Number ranges from 0-31 are reserved for Arduino systems
+ * Number ranges from 32-63 are reserved for POSIX systems
  */
+
 #define SYSTYPE_UNKNOWN	0
 #define SYSTYPE_AVR 	1
 #define SYSTYPE_ESP8266 2
@@ -40,23 +56,27 @@
 #define SYSTYPE_RASPPI  35
 
 /* 
- *  Input and output channels.
-    *  The channels are used to identify the I/O devices in the
-    * runtime environment. 
-    * 
-    * NULL is the memory channel outputting to a buffer.
-    * SERIAL is the standard serial channel and the default device. 
-    * DSP is the display channel.
-    * PRT is the second serial channel used for printing and communication
-    *   with external devices.
-    * WIRE is the I2C channel.
-    * RADIO is the RF24 channel.
-    * MQTT is the MQTT channel.
-    * FILE is the file system channel.
+ * Input and output channels.
+ * 
+ * The channels are used to identify the I/O devices in the
+ * runtime environment. 
+ * 
+ * NULL is the memory channel outputting to a buffer.
+ * SERIAL is the standard serial channel and the default device. 
+ * DSP is the display channel.
+ * GRAPH is the additional graphics display channel.
+ * PRT is the second serial channel used for printing and communication
+ *   with external devices.
+ * WIRE is the I2C channel.
+ * RADIO is the RF24 channel.
+ * MQTT is the MQTT channel.
+ * FILE is the file system channel.
  */
+
 #define ONULL 0
 #define OSERIAL 1
 #define ODSP 2
+#define OGRAPH 3
 #define OPRT 4
 #define OWIRE 7
 #define ORADIO 8
@@ -66,6 +86,7 @@
 #define INULL 0
 #define ISERIAL 1
 #define IKEYBOARD 2
+#define IGRAPH 3  
 #define ISERIAL1 4
 #define IWIRE 7
 #define IRADIO 8
@@ -73,52 +94,47 @@
 #define IFILE 16
 
 /* 
- *  The main IO interface. This is how BASIC uses I/O functions
- *
- * ioinit(): called at setup to initialize what ever io is needed
- * iostat(): returns the io channel status
- * iodefaults(): sets the default io channels
- * cheof(): checks for end of file
- * outch(): prints one ascii character 
- * inch(): gets one character (and waits for it)
- * checkch(): checks for one character (non blocking)
- * ins(): reads an entire line (uses inch except for pioserial)
- *
- */
-void ioinit();
-int iostat(int);
-void iodefaults();
-int cheof(int);
-char inch();
-char checkch();
-uint16_t availch();
-uint16_t inb(char*, int16_t);
-uint16_t ins(char*, uint16_t);
-void outch(char);
-void outs(char*, uint16_t);
+ * Global variables of the runtime env, visible to BASIC. 
+ * These are the variables that BASIC provides to the runtime  
+ * environment. They are used all over the BASIC code. Some 
+ * could be encapsulated as function calls calls.
 
 /* 
- *  Global variables of the runtime env, visible to BASIC
- */
-extern int8_t id; /* active input stream */
-extern int8_t od; /* active output stream */
-extern int8_t idd; /* default input stream in interactive mode */
-extern int8_t odd; /* default output stream in interactive mode */
-extern int8_t ioer; /* the io error */
+ * Variables to control the io device channels. 
 
-/* io control flags */
+ * id: the current input device
+ * od: the current output device
+ * idd: the default input device in interactive mode
+ * odd: the default output device in interactive mode
+ * ioer: the io error   
+ */
+extern int8_t id; 
+extern int8_t od; 
+extern int8_t idd;
+extern int8_t odd;
+extern int8_t ioer;
+
+/* 
+ * Io control flags.
+ *
+ * These flags are used to control the I/O devices.
+ * kbdrepeat: the keyboard repeat flag
+ * blockmode: the blockmode flag, switch a channel to blockmode
+ * sendcr: the sendcr flag, send a carriage return after a newline if true
+ */
+
 extern uint8_t kbdrepeat;
 extern uint8_t blockmode;
 extern uint8_t sendcr;
 
-/* breaks */
+/* breaks, signaly back that the breakcondition has been detected */
 extern char breakcondition;
 
 /* counts the outputed characters on streams 0-4, used to emulate a real tab */
 extern uint8_t charcount[5]; /* devices 0-4 support tabing */
 
-/* the memory buffer comes from BASIC in this version */
-extern char ibuffer[BUFSIZE]; /* the input buffer */
+/* the memory buffer comes from BASIC in this version, it is the input buffer for lines */
+extern char ibuffer[BUFSIZE];
 
 /* only needed in POSIX worlds */
 extern uint8_t breaksignal; 
@@ -127,26 +143,66 @@ extern uint8_t vt52active;
 /* the string buffer the interpreter needs, here to be known by BASIC */
 extern char spistrbuf1[SPIRAMSBSIZE], spistrbuf2[SPIRAMSBSIZE];
 
-/* the mqtt variable the interpreter needs */
+/* 
+ * the mqtt variable the interpreter needs.
+ * The following parameters are configured here:
+ * 
+ * MQTTLENGTH: the length of the mqtt topic, restricted to 32 by default.
+ * MQTTBLENGTH: the length of the mqtt buffer, 128 by default.
+ * MQTTNAMELENGTH: the length of the autogenerated mqtt name, 12 by default. 
+ * The mqtt name is used to identify the device in the mqtt network.
+ * 
+ * mqtt_otopic: the outgoing topic
+ * mqtt_itopic: the incoming topic
+ * mqttname: the name of the device in the mqtt network
+*/
+
 #define MQTTLENGTH 32
+#define MQTTBLENGTH 128
+#define MQTTNAMELENGTH 12
+
 extern char mqtt_otopic[MQTTLENGTH];
 extern char mqtt_itopic[MQTTLENGTH];
 extern char mqttname[];
 
-/* 
- * accessing the fastticker information
- */
-extern uint16_t avgfasttick;
-
-/* 
- * A byte in the runtime memory containing the system type
- */
+/* a byte in the runtime memory containing the system type */
 extern uint8_t bsystype;
 
 /* 
- *  Console logger functions for the runtime. Runtime does not know 
- *  anything about output deviced. BASIC is to provide this.
+ * The main IO interface. This is how BASIC uses I/O functions
+ *
+ * ioinit(): called at setup to initialize what ever io is needed
+ * iostat(): check which io devices are available
+ * iodefaults(): called at setup and while changing to interactive mode 
+ *       to set the default io devices
+ * cheof(): checks for end of file condition on the current input stream
+ * inch(): gets one character from the current input stream and waits for it
+ * checkch(): checks for one character on the current input stream, non blocking
+ * availch(): checks for available characters on the current input stream
+ * inb(): reads a block of characters from the current input stream
+ * ins(): reads an entire line from the current input stream, usually by consins()
+ * outch(): prints one ascii character to the current output stream
+ * outs(): prints a string of characters to the current output stream
  */
+
+ void ioinit();
+ int iostat(int);
+ void iodefaults();
+ int cheof(int);
+ char inch();
+ char checkch();
+ uint16_t availch();
+ uint16_t inb(char*, int16_t);
+ uint16_t ins(char*, uint16_t);
+ void outch(char);
+ void outs(char*, uint16_t);
+
+/* 
+ *  Console logger functions for the runtime code. Runtime does not know 
+ *  anything about output deviced. BASIC is to provide this. This 
+ *  is used for debugging and logging.
+ */
+
 extern void consolelog(char*);
 extern void consolelognum(int);
 
@@ -154,7 +210,8 @@ extern void consolelognum(int);
  * These functions are always empty on Arduino, they are only used in 
  * the POSIX branch of the code.
  * 
- * BASIC calls these functions once to start the timing, wiring, and signal handling.
+ * BASIC calls these functions once to start the timing, wiring, and 
+ * signal handling.
  */
 
 void timeinit();	/* handling time - part of the Arduino core - only needed on POSIX OSes */
@@ -165,9 +222,9 @@ void signalon();	/* POSIX signals - not needed on Ardunino */
  * Memory allocation functions.
  * 
  * BASIC calls freememorysize() to detemine how much memory can be allocated 
- *  savely on the heap.
+ * savely on the heap.
  * BASIC calls restartsystem() for a complete reboot. 
- * freeRam() is the actual free heap. Used in BASIC only in USR.
+ * freeRam() is the actual free heap. Used by freememorysize() and in USR()
  * 
  * Arduino data from https://docs.arduino.cc/learn/programming/memory-guide
  */
@@ -186,58 +243,91 @@ void activatesleep(long);
  * 
  * Some libraries also try to start the SPI which may lead to on override of 
  * the PIN settings if the library code is not clean - currenty no conflict known.
- * for the libraries used here.
+ * for the libraries used here. Old SD card libraries have problems as they always 
+ * start the SPI bus with default settings and cannot get the settings from the
+ * SPI.begin() call. In these cases patching of the SD library is needed.
  */
+
 void spibegin();
 
 /* 
  *  Timeing functions and background tasks. 
  *  
- *  byield() is called after every statement and in all 
+ *  byield() must be called after every statement and in all 
  *  waiting loops for I/O. BASIC gives back the unneeded 
  *  CPU cycles by calling byield().
  *  
- *  byield() it allows three levels of background tasks. 
+ *  byield() allows three levels of background tasks. 
  *
  *  BASICBGTASK controls if time for background tasks is 
  *  needed, usually set by hardware features
  *
  *  YIELDINTERVAL by default is 32, generating a 32 ms call
- *    to the network loop function.
+ *    to the network loop function. This is the frequency 
+ *    yieldfunction() is called.
  *
  *  LONGYIELDINTERVAL by default is 1000, generating a one second
- *    call to maintenance functions.
+ *    call to maintenance functions. This is the frequency 
+ *    longyieldfunction() is called.
  *    
  *  fastticker() is called in every byield for fast I/O control.
  *    It is currently only used for the tone emulation.
  *    
- *  byield calls back bloop() in the BASIC interpreter for user 
- *    defined background tasks.
+ *  byield() calls back bloop() in the BASIC interpreter for user 
+ *    defined background tasks in an Arduino style loop() function.
+ * 
+ *  bdelay() is a delay function using byield() to allow for
+ *   background tasks to run even when the main code does a delay.
  *
- * the time intervall in ms needed for 
- *  ESP8266 yields, network client loops 
- *  and other timing related functions 
+ *  The yield mechanism is needed for ESP8266 yields, network client 
+ *  loops and other timing related functions.
+ * 
+ *  yieldschedule() is a function that calls the buildin scheduler 
+ *   of some platforms. Currently it is only used in ESP8266. The 
+ *   core on this boards does not tolerate that the loop() function
+ *   does not return and crashes the system. This can be prevented 
+ *   by calling yieldschedule() often enough.  
  */
+
 #define LONGYIELDINTERVAL 1000
 #define YIELDINTERVAL 32
 
-void byield(); /* the yield function called in empty loops */
-void bdelay(uint32_t); /* a delay function using byield() */
-void fastticker(); /* a function for very frequent background tasks */
-void yieldfunction(); /* everything that needs to be done often - 32 ms */
-void longyieldfunction(); /* everything that needs to be done not so often - 1 second */
-void yieldschedule(); /* scheduler call for some platforms */
+void byield(); 
+void bdelay(uint32_t); 
+void fastticker(); 
+void yieldfunction(); 
+void longyieldfunction();
+void yieldschedule();
 
 /* 
- *  EEPROM handling, these function enable the @E array and 
- *  loading and saving to EEPROM with the "!" mechanism
+ * This function measures the fast ticker frequency in microseconds.
+ * This can be accessed with USR(0, 35) in BASIC.
+ * Activate this only for test  purposes as it slows down the interpreter. 
+ * The value is the shortest timeframe the interpreter can handle. Activated 
+ * if the code is compiled with FASTTICKERPROFILE in hardware.h.
+ */
+
+void fasttickerprofile();
+void clearfasttickerprofile();
+int  avgfastticker();
+
+/* 
+ * EEPROM handling, these function enable the @E array and 
+ * loading and saving to EEPROM with the "!" mechanism
  * 
  * The EEPROM code can address EEPROMS up to 64 kB. It returns 
  * signed byte values which corresponds to the definition of 
  * mem_t in BASIC. This is needed because running from EEPROM
  * requires negative token values to be recongized. 
  * 
+ * ebegin() starts the EEPROM code. Needed for the emulations.
+ * eflush() writes the EEPROM buffer to the EEPROM. Also this is 
+ *    mainly needed in the emulations. 
+ * elength() returns the length of the EEPROM.
+ * eupdate() updates one EEPROM cell with a value. Does not flush. 
+ * eread() reads one EEPROM cell.
  */ 
+
 void ebegin(); 
 void eflush();
 uint16_t elength();
@@ -249,11 +339,29 @@ int8_t eread(uint16_t);
  *  
  *  The normalize the differences of some of the Arduino cores 
  *  and raspberyy PI wiring implementations.
- *  
- *  pulseout generates microsecond pulses. 
- *  
- *  awrite requires ESP32 2.0.2 core, else disable awrite().
+ * 
+ *  Pin numbers are the raw numerical pin values in BASIC. 
+ *  The functions are called with this raw pin number and the value.
+ * 
+ * The functions are:
+ * aread(pin): read an analog value from a pin
+ * dread(pin): read a digital value from a pin
+ * awrite(pin, value): write an analog value to a pin
+ * dwrite(pin, value): write a digital value to a pin
+ * pinm(pin, mode): set the mode of a pin, mode is also the raw value from the core
+ * pulsein(pin, value, timeout): read a pulse from a pin, timeout in microseconds
+ * void pulseout(unit, pin, duration, val, repetition, interval): generate a pulse on a pin
+ *    unit is the timeunit in microsecind and the duration is the pulse length in this unit.
+ *    This is needed for system were the number_t is only 16 bit. This way longer pulses can 
+ *    be generated.
+ * void playtone(pin, frequency, duration, volume): generate a tone on a pin. 
+ *   frequency is the frequency in Hz, duration the duration in ms, volume the volume in percent.
+ *   The tone is generated in the background, the function returns immediately.
+ * tonetoggle(): toggle the tone generation, needed for the tone emulation, this is called 
+ *  by byield() to generate the tone.
+ *
  */ 
+
 uint16_t aread(uint8_t);
 uint8_t dread(uint8_t);
 void awrite(uint8_t, uint16_t);
@@ -264,10 +372,29 @@ void pulseout(uint16_t, uint8_t, uint16_t, uint16_t, uint16_t, uint16_t);
 void playtone(uint8_t, uint16_t, uint16_t, uint8_t);
 void tonetoggle(); /* internal function of the tone emulation, called by byield */
 
+/*
+ * The break pin code. This is a pin that can be used to break the execution of the
+ * BASIC code. This is used as an alternative to the BREAK key in the terminal.
+ * 
+ * brakepinbegin() initializes the break pin, usually a button connected to a pin.
+ * getbreakpin() returns the state of the break pin. This is called in statement() to 
+ * check if the break condition is met and then change the interpreter state at the end
+ * of the statement.
+ */
+
 void breakpinbegin();
 uint8_t getbreakpin();
 
-/* these are the port register access function, very hardware dependent */
+/* 
+ * The hardware port register access functions.
+ * They can be used to directly access hardware ports. Typically they 
+ * call port macros like PORTB on the Arduino AVR platform. They are very 
+ * fast and can be used to implement fast I/O functions but they are hardware
+ * dependent and not portable. Currently only AVR UNO and MEGA are implemented.
+ * 
+ * The calling mechanism in BASIC is the special array @P()for read and write.
+ */
+
 void portwrite(uint8_t, int);
 int portread(uint8_t);
 void ddrwrite(uint8_t, int);
@@ -275,7 +402,7 @@ int ddrread(uint8_t);
 int pinread(uint8_t);
 
 /*
- * DISPLAY driver code section, the hardware models define a set of 
+ * DISPLAY driver code section. The hardware models define a set of 
  * of functions and definitions needed for the display driver. These are 
  *
  * dsp_rows, dsp_columns: size of the display
@@ -450,16 +577,21 @@ void vgaend();
 
 /* 
  * Keyboard code for either the Fablib Terminal class or 
- * PS2Keyboard - please note that you need the ESP patched 
- * version here as mentioned above
+ * PS2Keyboard - please note that you need the patched 
+ * version here as mentioned above.
  * 
- * sets HASKEYBOARD to inform basic about this capability
+ * Keyboards implement kbdbegin() which is called at startup
+ * and kbdstat() which is called to check if the keyboard is
+ * available.
  * 
- * keyboards can implement 
- * 	kbdbegin()
- * they need to provide
- * 	kbdavailable(), kbdread(), kbdcheckch()
- * the later is for interrupting running BASIC code
+ * They need to provide
+ * kbdavailable(), kbdread(), kbdins(), kbdcheckch()
+ * the later is for interrupting running BASIC code with a 
+ * BREAKCHAR character from the keyboard.
+ * 
+ * kbdins() is usually using consins() to read a line from the
+ * keyboard repeatedly calling kbdread() until a newline is
+ * received. A keyboard can also bring its on kbdins() function.
  */
 
 void kbdbegin();
@@ -474,12 +606,12 @@ uint16_t kbdins(char*, uint16_t);
  * combining all values. 
  * 
  * The code does not use an RTC library any more all the rtc support is 
- * builtin now. 
+ * builtin now for standard I2C clocks. 
  * 
  * A clock must activate the macro #define HASCLOCK to make the clock 
  * available in BASIC.
  * 
- * Four software models are supported
+ * Four software models are supported in runtime.cpp:
  *  - Built-in clocks of STM32, MKR, and ESP32 are supported by default
  *  - I2C clocks can be activated: DS1307, DS3231, and DS3232 
  *  - A Real Time Clock emulation is possible using millis()
@@ -488,27 +620,35 @@ uint16_t kbdins(char*, uint16_t);
  * Registers 0-6 are bcd transformed to return 
  * seconds, minutes, hours, day of week, day, month, year
  * 
- * On I2C clocks registers 7-255 are returned as memory cells
+ * On I2C clocks registers 7-255 are returned as memory cells.
+ * 
+ * rtcbegin() is called at startup to initialize the clock, normally 
+ * a dummy function.
+ * rtcget() reads the clock and returns the time as an integer.
+ * rtcset() sets the clock to a given time.
+ * rtctimetoutime() converts the clock time to a unix time number.
+ * rtcutimetotime() converts the unix time number to a clock time.
+ * Code in these two functions is taken from the German Wikipedia
+ * article on Unix time. https://de.wikipedia.org/wiki/Unixzeit
  */
 
-/* No begin method needed */
 void rtcbegin();
-uint16_t rtcget(uint8_t); /* get the time from the registers */
+uint16_t rtcget(uint8_t); 
 void rtcset(uint8_t, uint16_t);
-
-/* convert the time to a unix time number from https://de.wikipedia.org/wiki/Unixzeit  */
 void rtctimetoutime();
 void rtcutimetotime();
 
 /*
- * definitions for ESP Wifi and MQTT, super experimental.
+ * Definitions for ESP Wifi and MQTT.
+ *
  * As networking is only used for MQTT at the moment, 
  * mqtt, Wifi and Ethernet comes all in one. 
  *
- * No encryption/authetication is implemented in MQTT. 
- * Only public, open servers can be used.
+ * No encryptionis implemented in MQTT. 
+ * Only unencrypted servers can be used.
  *
- * MQTT topics can only be 32 bytes long.
+ * MQTT topics can be 32 bytes long.
+ * 
  * Buffered incoming and outgoing messages can be 128 bytes
  * per default.
  *
@@ -755,7 +895,7 @@ float sensorread(uint8_t, uint8_t);
  * prototypes for the interrupt interface
  */
 /* some have it and some dont (could be simplyfied by just using ARDUINO_ARCH_MBED */
-#if !(defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_MBED_NANO) || defined(ARDUINO_ARCH_RENESAS) || defined(ARDUINO_ARCH_MBED_GIGA) || defined(ARDUINO_ARCH_MEGAAVR))
+#if !(defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_MBED_NANO) || defined(ARDUINO_ARCH_RENESAS) || defined(ARDUINO_ARCH_MBED_GIGA))
 typedef int PinStatus;
 #endif
 
@@ -789,14 +929,6 @@ void spiram_rwbufferflush(); /* flush the buffer */
 int8_t spiram_rwbufferread(uint16_t);
 void spiram_rwbufferwrite(uint16_t, int8_t); /* the buffered file write */
 void spiramrawwrite(uint16_t, int8_t); /* the simple unbuffered byte write, with a cast to signed char */
-
-
-/* 
- * This code measures the fast ticker frequency in microseconds 
- * It leaves the data in variable F. Activate this only for test 
- * purposes.
- */
-void fasttickerprofile();
 
 // defined RUNTIMEH
 #endif
