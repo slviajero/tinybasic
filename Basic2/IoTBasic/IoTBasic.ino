@@ -496,7 +496,6 @@ const address_t maxaddr = (address_t)(~0);
 */
 
 /* the stack, all BASIC arithmetic is done here */
-//number_t stack[STACKSIZE];
 accu_t stack[STACKSIZE];
 address_t sp = 0;
 
@@ -2454,7 +2453,7 @@ void clearst() {
   sp = 0;
 }
 
-/* these are not really stack operations but a way to handle temp char data */
+/* these are not really stack operations but a way to handle temp char data (not needed right now) */
 address_t charsp;
 
 void pushchar(char ch) {}
@@ -7373,7 +7372,6 @@ void xlocate() {
 /*
  	Stefan's additions to Palo Alto BASIC
    DUMP, SAVE, LOAD, GET, PUT, SET
-
 */
 
 /*

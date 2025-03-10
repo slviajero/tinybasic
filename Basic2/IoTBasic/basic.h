@@ -301,11 +301,19 @@ typedef double number_t;
 typedef long long wnumber_t;
 #else
 typedef float number_t;
-typedef long wnumber_t;
+typedef long long wnumber_t;
 #endif
+#else
+#ifdef HAS64BIT
+typedef int64_t number_t;
+typedef int64_t wnumber_t;
+#elif defined(HAS32BITINT)
+typedef int32_t number_t;
+typedef int32_t wnumber_t;
 #else
 typedef int number_t;
 typedef int wnumber_t;
+#endif
 #endif
 /* default is 16bit addresses and max 64k memory, setting MEMSIZE in hardware.h overrides this */
 #if !defined(MEMSIZE) || MEMSIZE < 65536
