@@ -88,14 +88,14 @@
  * HASLONGNAMES: long variable names, up to 16 characters. Name length is set by MAXNAME in basic.h and
  * 	can be any value <128 bytes. Names are still only uppercase and all names will be uppercased by lexer.
  * HASHELP: show the commands of the interpreter. Will be extended to a help system.
- *  HASFULLINSTR: the full C64 style INSTR command. Without this flag INSTR only accepts
- *		a single character as argument. This is much faster and leaner on an Arduino. 
- * 		This macro is activated when HASMSSTRINGS is set. 
+ * HASFULLINSTR: the full C64 style INSTR command. Without this flag INSTR only accepts
+ *	a single character as argument. This is much faster and leaner on an Arduino. 
+ * 	This macro is activated when HASMSSTRINGS is set. 
  * HASLOOPOPT: optimizes the FOR loops for speed. This is a trade off between speed and 
- *     memory. It is activated by default. Speeup is about 10% on a Mac. On platforms
- *     with low memory bandwidth it is much more.
+ *  memory. It is activated by default. Speeup is about 10% on a Mac. On platforms
+ *  with low memory bandwidth it is much more.
  * HASNUMSYSTEM: constants can be hex, octal, binary or decimal. This is not activated by 
- *      default. Currently only implemented in VAL() and STR().
+ *  default. Currently only implemented in VAL() and STR().
  * HASBITWISE: has bitwise operations >>, << and the function BIT -> removed and default now.
  * 
  * If you want to set everything manually, set NOLANGUAGEHEURISTICS above
@@ -164,6 +164,7 @@
 #define USELONGJUMP 0
 #define BOOLEANMODE -1
 #undef  HAS64BIT
+#undef  HAS32BITINT
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
