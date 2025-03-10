@@ -47,25 +47,47 @@ uint8_t bsystype = SYSTYPE_UNKNOWN;
 
 /* 
  *  Global variables of the runtime env.
+ * 
+ * id: the active input stream
+ * od: the active output stream
+ * idd: the default input stream in interactive mode
+ * odd: the default output stream in interactive mode
+ * ioer: the io error variable, always or-ed with ert in BASIC
  */
 
-int8_t id; // active input stream 
-int8_t od; // active output stream 
-int8_t idd = ISERIAL; // default input stream in interactive mode 
-int8_t odd = OSERIAL; // default output stream in interactive mode 
-int8_t ioer = 0; // the io error variable, always or-ed with ert in BASIC
+int8_t id; 
+int8_t od;  
+int8_t idd = ISERIAL;
+int8_t odd = OSERIAL; 
+int8_t ioer = 0; 
 
-/* counts the outputed characters on streams 0-4, used to emulate a real tab */
+/*
+ * MS Basic and many terminals have a real TAB function advanceing to 
+ * the next tab stop. This is emulated by counting the characters on 
+ * the output streams 0-4. The feature is activated with the HASMSTAB.
+ * The code cannot processes composed characters like Germin Umlauts
+ * correctly.
+ */
 
 #ifdef HASMSTAB
-uint8_t charcount[5]; /* 5 devices 0-4 support tabing */
+uint8_t charcount[5]; 
 #endif
 
-/* the pointer to the buffer used for the &0 device */
+/* 
+ * The pointer to the buffer used for the &0 device.
+ * The BASIC input buffer is used. With this feature, a line can be printed
+ * to the buffer and then accessed as a string @$ in BASIC. In systems where
+ * CHR() is not available, this can be used to convert a number to a string.
+ */
 
 char* nullbuffer = ibuffer;
 uint16_t nullbufsize = BUFSIZE; 
 uint8_t bufferstat(uint8_t ch) { return 1; }
+
+
+/* 
+ * External libraries of the runtime environment for the peripherals.
+ */
 
 /* 
  * Keyboard library, on AVR systems Paul Stoffregens original 
@@ -147,7 +169,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 
 #ifdef ARDUINOEEPROM
 #ifdef ARDUINO_ARCH_XMC
-#include <XMCEEPROMLib.h>
+#include "src/XMCEEPROMLib/XMCEEPROMLib.h"
 #else
 #ifdef ARDUINO_ARCH_SAMD
 //#include <FlashStorage_SAMD.h>
@@ -305,8 +327,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #endif
 
 /*
- * ESPSPIFFS tested on ESP8266 and ESP32
- * supports formating in BASIC.
+ * ESPSPIFFS tested on ESP8266 and ESP32 supports formating in BASIC.
  */ 
 
 #ifdef ESPSPIFFS
@@ -416,7 +437,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 /* The EFS object is used for filesystems and raw EEPROM access. */
 
 #if (defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)) || defined(ARDUINOEFS)
-#include <EepromFS.h>
+#include "src/EepromFS/EepromFS.h"
 #endif
 
 /* If there is an unbuffered I2C EEPROM, use an autodetect mechanism. */
@@ -3027,25 +3048,8 @@ uint8_t vt52avail() { return 0; }
 #endif
 
 /* 
- * Arduino Real Time clock. The interface here offers the values as number_t 
- * combining all values. 
- * 
- * The code does not use an RTC library any more all the rtc support is 
- * builtin now. 
- * 
- * A clock must activate the macro #define HASCLOCK to make the clock 
- * available in BASIC, this happens in runtime.h. 
- * 
- * Four software models are supported
- *  - Built-in clocks of STM32, MKR, and ESP32 are supported by default
- *  - I2C clocks can be activated: DS1307, DS3231, and DS3232 
- *  - A Real Time Clock emulation is possible using millis()
- * 
- * rtcget accesses the internal registers of the clock. 
- * Registers 0-6 are bcd transformed to return 
- * seconds, minutes, hours, day of week, day, month, year
- * 
- * On I2C clocks registers 7-255 are returned as memory cells
+ * Real time clock access for the system. See runtime.h for the
+ * configuration of the clock access. 
  */
 
 #if defined(ARDUINORTC)

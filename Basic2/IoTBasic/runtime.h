@@ -49,7 +49,7 @@
 #define SYSTYPE_XMC		6
 #define SYSTYPE_SMT32	7
 #define SYSTYPE_NRENESA 8
-#define SYSTYPE_GIGA 9
+#define SYSTYPE_GIGA    9
 #define SYSTYPE_POSIX	32
 #define SYSTYPE_MSDOS	33
 #define SYSTYPE_MINGW   34
@@ -487,7 +487,7 @@ void dspsetbgcolor(uint8_t);
 void dspsetreverse(uint8_t);
 uint8_t dspident();
 
-/* graphics functions */
+/* Graphics functions */
 void rgbcolor(uint8_t, uint8_t, uint8_t);
 void vgacolor(uint8_t);
 void plot(int, int);
@@ -661,27 +661,37 @@ void vt52wiringcommand(uint8_t);
 void dspvt52(char*);
 
 /* 
- * code for the VGA system of Fabgl 
+ * Code for the VGA system of Fabgl. This is a full VT52 terminal. The 
+ * display driver is not used for this. 
  */
-void vgabegin(); /* this starts the vga controller and the terminal right now */
-int vgastat(uint8_t); /* currently unused */
-void vgascale(int*, int*); /* scale the screen size */
+
+void vgabegin(); 
+int vgastat(uint8_t); 
+void vgascale(int*, int*); 
 void vgawrite(char); 
 void vgaend();
 
 /* 
- * Keyboard code for either the Fablib Terminal class or 
- * PS2Keyboard - please note that you need the patched 
+ * Keyboard code for either the Fablib Terminal class,  
+ * PS2Keyboard or other keyboards. 
+ * 
+ * PS2Keyboard: please note that you need the patched 
  * version here as mentioned above.
  * 
  * Keyboards implement kbdbegin() which is called at startup
  * and kbdstat() which is called to check if the keyboard is
  * available.
  * 
- * They need to provide
- * kbdavailable(), kbdread(), kbdins(), kbdcheckch()
- * the later is for interrupting running BASIC code with a 
- * BREAKCHAR character from the keyboard.
+ * Keyboards need to provide the following functions:
+ * 
+ * kbdavailable(): check if a character is available
+ * kbdread(): read a character from the keyboard
+ * kbdcheckch(): check if a character is available without blocking
+ * kbdins(): read a line from the keyboard
+ * 
+ * kbdcheckch() is for interrupting running BASIC code with a 
+ * BREAKCHAR character from the keyboard. If this functions is 
+ * not implemented, the BREAKCHAR character is ignored.
  * 
  * kbdins() is usually using consins() to read a line from the
  * keyboard repeatedly calling kbdread() until a newline is
@@ -696,32 +706,38 @@ char kbdcheckch();
 uint16_t kbdins(char*, uint16_t);
 
 /* 
- * Arduino Real Time clock. The interface here offers the values as number_t 
+ * The Real Time clock. The interface here offers the values as number_t 
  * combining all values. 
  * 
- * The code does not use an RTC library any more all the rtc support is 
- * builtin now for standard I2C clocks. 
+ * On Arduino, he code does not use an RTC library any more all the 
+ * RTC support is builtin now for standard I2C clocks. 
  * 
  * A clock must activate the macro #define HASCLOCK to make the clock 
  * available in BASIC.
  * 
- * Four software models are supported in runtime.cpp:
- *  - Built-in clocks of STM32, MKR, and ESP32 are supported by default
+ * Four software models are supported in runtime.cpp for Arduino:
+ *  - Built-in clocks of STM32, MKR, and ESP32 are supported by default.
  *  - I2C clocks can be activated: DS1307, DS3231, and DS3232 
- *  - A Real Time Clock emulation is possible using millis()
+ *  - A Real Time Clock emulation using millis()
  * 
- * rtcget accesses the internal registers of the clock. 
- * Registers 0-6 are bcd transformed to return 
- * seconds, minutes, hours, day of week, day, month, year
+ * On POSIX the standard time functions are used and mapped to this API.
  * 
- * On I2C clocks registers 7-255 are returned as memory cells.
+ * rtcget(r) accesses the internal registers of the clock. 
+ * r==0 is the seconds, r==1 the minutes, r==2 the hours, r==3 the 
+ * day of week, r==4 the day, r==5 the month, r==6 the year.
+ * The day of the week feature is not supported by all clocks.
+ * rtcset(r, v) sets the internal registers of the clock.
+ * 
+ * On I2C clocks with NVRAM the  registers 7-255 are accessed as 
+ * memory cells through these functions.
  * 
  * rtcbegin() is called at startup to initialize the clock, normally 
  * a dummy function.
- * rtcget() reads the clock and returns the time as an integer.
- * rtcset() sets the clock to a given time.
+ *
  * rtctimetoutime() converts the clock time to a unix time number.
  * rtcutimetotime() converts the unix time number to a clock time.
+ * Both are private functions of the clock emulation.
+ * 
  * Code in these two functions is taken from the German Wikipedia
  * article on Unix time. https://de.wikipedia.org/wiki/Unixzeit
  */
@@ -733,42 +749,65 @@ void rtctimetoutime();
 void rtcutimetotime();
 
 /*
- * Definitions for ESP Wifi and MQTT.
+ * The network code. Only MQTT is implemented at the moment.
+ * It is accessible as io stream &9 in BASIC like a file. 
  *
- * As networking is only used for MQTT at the moment, 
- * mqtt, Wifi and Ethernet comes all in one. 
- *
- * No encryptionis implemented in MQTT. 
- * Only unencrypted servers can be used.
- *
- * MQTT topics can be 32 bytes long.
+ * Underlying networks can be the Wifi classes of the ESP, MKR, and
+ * STM32 cores. The network code is based on the PubSubClient library.
+ * Ethernet is supported with the standard Ethernet library on Arduino.
  * 
- * Buffered incoming and outgoing messages can be 128 bytes
- * per default.
+ * On POSIX systems networking is currently not supported.
  *
- * wifisettings.h is the generic network definition file
- * all network settings are compiled into the code 
- * BASIC cannot change them at runtime.
+ * No encryptionis implemented in MQTT. Only unencrypted servers can be used.
+ * 
+ * Buffers are defined above in the mqtt section.
+ * 
+ * MQTTLENGTH: the length of the mqtt topic, restricted to 32 by default.
+ * MQTTBLENGTH: the length of the mqtt buffer, 128 by default.
+ * MQTTNAMELENGTH: the length of the autogenerated mqtt name, 12 by default.
+ *
+ * wifisettings.h is the generic network definition file all network settings 
+ * are compiled into the code. BASIC cannot change them at runtime.
+ * 
+ * Low level network functions are:
+ * 
+ * netbegin(): start the network
+ * netstop(): stop the network
+ * netreconnect(): reconnect the network
+ * netconnected(): check if the network is connected
+ * 
+ * BASIC uses these function to control the network and reconnect if
+ * the connection is lost.
  */
 
-void mqttsetname(); 
 void netbegin();
 void netstop();
 void netreconnect();
 uint8_t netconnected();
 
 /*
- * mqtt event handling in BASIC can be triggered here
- * the prototype uses exactly the Arduino types of the
- * pubsub library.
+ * The mqtt prototypes used by BASIC are:
  * 
- */
-void mqttcallback(char*, byte*, unsigned int);
-
-/*
- * mqtt prototypes 
+ * mqttbegin(): start the mqtt client
+ * mqttsetname(): set the name of the mqtt client. The name is autogenerated.
+ * mqttstat(s): check the status of the mqtt client
+ * mqttreconnect(): reconnect the mqtt client
+ * mqttstate(): get the state of the mqtt client (redunant to mqttstat())
+ * mqttsubscribe(t): subscribe to a topic
+ * mqttunsubscribe(): unsubscribe from a topic
+ * mqttsettopic(t): set the topic of the mqtt client
+ * mqttouts(s, l): send a string of length l to the mqtt server
+ * mqttwrite(c): send a character to the mqtt server.
+ * These two functions work buffered. The write to the MQTT output buffer. Only
+ * when the buffer is full or a newline is received, the buffer is sent to the
+ * server.
+ * mqttread(): read a character from the mqtt input buffer.
+ * mqttins(s, l): read a line from the mqtt input buffer.
+ * mqttavailable(): check if characters are available in the mqtt input buffer. 
+ * mqttcheckch(): get the next character from the mqtt input buffer without advancing.
  */
 void mqttbegin();
+void mqttsetname();
 uint8_t mqttstat(uint8_t);
 uint8_t mqttreconnect();
 uint8_t mqttstate();
@@ -782,24 +821,61 @@ uint16_t mqttins(char*, uint16_t);
 uint16_t mqttavailable();
 char mqttcheckch();
 
+/*
+ * The callback function of the pubsub client. This is called when a
+ * message is received from the mqtt server. 
+ * 
+ * The Arduino type byte is used here because it is used this way in Pubsub.
+ */
+void mqttcallback(char*, byte*, unsigned int);
+
 /* 
- *	The file system driver - all methods needed to support BASIC fs access
+ *	The file system driver - all methods needed to support BASIC fs access. 
+ *  The file system is accessed through io stream &16 in BASIC. 
+ * 
  * 	Different filesystems need different prefixes and fs objects, these 
- * 	filesystems use the stream API
+ * 	filesystems use the stream API in the Arduino world.
+ * 
+ *  The functions to access the filesystem are:
+ * 
+ * fsbegin(): start the filesystem
+ * fsstat(s): check the status of the filesystem
+ * mkfilename(s): make a filename from a string
+ * rmrootfsprefix(s): remove the prefix from a filename
+ * 
+ * Different filesystems have different prefixes. In BASIC we 
+ * only show a flat file system with no path names and prefixes.
+ * 
+ * Supported filesystems are:
+ * 
+ * SPIFF - the internal flash file system of the ESP32 and ESP8266
+ * SD - the SD card file system (no formatting)
+ * EFS - the file system EFS for I2C EEPROMs
+ * LittleFS - the LittleFS file system on RP2040
+ * USB devices on Arduino GIGA boards
+ * Posix and Windows file systems on POSIX systems
  */
 
-char* mkfilename(const char*);
-const char* rmrootfsprefix(const char*); /* remove the prefix from the filename */
 void fsbegin(); 
 uint8_t fsstat(uint8_t);
+char* mkfilename(const char*);
+const char* rmrootfsprefix(const char*); 
 
 /*
- *	File I/O function on an Arduino
+ *	File I/O function on an Arduino:
  * 
- * filewrite(), fileread(), fileavailable() as byte access
- * open and close is handled separately by (i/o)file(open/close)
- * only one file can be open for write and read at the same time
+ *  filewrite(c): write a character to a file
+ *  fileread(): read a character from a file
+ *  fileavailable(): check if a character is available in the file
+ *  ifileopen(s): open a file for input
+ *  ifileclose(): close a file for input
+ *  ofileopen(s, m): open a file for output with mode m
+ *  ofileclose(): close a file for output 
+ * 
+ * The wrapper and BASIC currently only support one file for read 
+ * and one file for write.
  */
+
 void filewrite(char);
 char fileread();
 int fileavailable(); /* is int because some of the fs do this */
@@ -809,15 +885,24 @@ uint8_t ofileopen(const char*, const char*);
 void ofileclose();
 
 /*
- * directory handling for the catalog function
- * these methods are needed for a walkthtrough of 
- * one directory
+ * Directory handling for the catalog function these methods are
+ * needed for a walkthtrough of one directory. 
+ * 
+ * The logic is:
  *
  * rootopen()
  * while rootnextfile()
  * 	if rootisfile() print rootfilename() rootfilesize()
  *	rootfileclose()
  * rootclose()
+ * 
+ * rootopen(): opens the root directory
+ * rootnextfile(): gets the next file in the directory
+ * rootisfile(): checks if the file is a file or something else
+ * rootfilename(): gets the name of the file
+ * rootfilesize(): gets the size of the file
+ * rootfileclose(): closes the root file
+ * 
  */
 void rootopen();
 uint8_t rootnextfile(); 
@@ -826,15 +911,18 @@ const char* rootfilename();
 uint32_t rootfilesize();
 void rootfileclose(); 
 void rootclose();
+
+/* delete a file, needed in the DELETE command of BASIC */
 void removefile(const char*);
 
 /*
- * formatting for fdisk of the internal filesystems
+ * Formatting for fdisk of the internal filesystems. This 
+ * is not implemented for all filesystems.
  */
 void formatdisk(uint8_t);
 
 /*
- * The buffer I/O device. This is a stream to write to a given bufer
+ * The buffer I/O device. This is a stream to write to the input buffer
  * from BASIC.
  */
 
@@ -848,11 +936,12 @@ uint16_t bufferins(char*, uint16_t);
 void bufferouts(char*, uint16_t);
 
 /*
- *	Primary serial code uses the Serial object or Picoserial
+ * Primary serial code uses the Serial object or Picoserial
  *
- *	The picoseria an own interrupt function. This is used to fill 
- *  the input buffer directly on read. Write is standard like in 
- *  the serial code.
+ * The picoseria an own interrupt function. This is used to fill 
+ * the input buffer directly on read. Write is standard like in 
+ * the serial code. Currently picoserial is only implemented for
+ * AVR UNO, NANO and MEGA. 
  *  
  * As echoing is done in the interrupt routine, the code cannot be 
  * used to receive keystrokes from serial and then display the echo
@@ -863,13 +952,19 @@ void bufferouts(char*, uint16_t);
  * 
  * The code for the UART control is mostly taken from PicoSerial
  * https://github.com/gitcnd/PicoSerial, originally written by Chris Drake
- * and published under GPL3.0 just like this code
+ * and published under GPL3.0 just like this code.
+ * 
+ * Functions for the picoserial code are:
+ * 
+ * picobegin(baud): start the picoserial port with the baud rate baud
+ * picowrite(c): write a character to the picoserial port
+ * picoins(s, l): read a line from the picoserial port
  * 
  */
 
 void picobegin(uint32_t);
-void picowrite(char); /* the write code, sending bytes directly to the UART */
-uint16_t picoins(char *, uint16_t); /* the ins code of picoserial, called like this in consins */
+void picowrite(char);
+uint16_t picoins(char *, uint16_t);
 
 /* 
  *  picogetchar: this is the interrupt service routine.  It 
@@ -883,13 +978,27 @@ uint16_t picoins(char *, uint16_t); /* the ins code of picoserial, called like t
 void picogetchar(char);
 
 /* 
- * blocking serial single char read for Serial
- * unblocking for Picoserial because it is not 
- * character oriented -> blocking is handled in 
- * consins instead.
+ * The serial io stream is &1 in BASIC. On Arduino this is the
+ * (mostly) the standard Serial object. On POSIX systems this is
+ * the standard input/output stream.
+ * 
+ * Functions are: 
+ * 
+ * serialbegin(): start the serial port
+ * serialread(): read a character from the serial port, this is blocking 
+ *  for the standard Serial object and non blocking for Picoserial.
+ *  Picoserial is not character oriented. It read one entire line. 
+ * serialstat(s): check the status of the serial port
+ * serialwrite(c): write a character to the serial port
+ * serialcheckch(): check if a character is available without blocking
+ * serialavailable(): check if characters are available
+ * serialflush(): flush the serial port
+ * serialins(s, l): read a line from the serial port
  */
-char serialread();
+
+
 void serialbegin();
+char serialread();
 uint8_t serialstat(uint8_t); /* state information on the serial port */
 void serialwrite(char); /* write to a serial stream */
 char serialcheckch(); /* check on a character, needed for breaking */
@@ -898,15 +1007,34 @@ void serialflush(); /* flush serial */
 uint16_t serialins(char*, uint16_t); /* read a line from serial */
 
 /*
- * reading from the console with inch or the picoserial callback
- * this mixes interpreter levels as inch/outch are used here 
- * this code needs to go to the main interpreter section after 
- * thorough rewrite
+ * reading from the console with inch or the picoserial callback.
+ * consins() is used for all devices that have a character oriented
+ * input and creates entire lines from it.
  */
 uint16_t consins(char *, uint16_t);
 
-void prtbegin(); /* second serial port */
-char prtopen(char*, uint16_t); /* the open functions are not needed here */
+/*
+ * The second serial port code. This is the (mostly) the Serial1 object 
+ * on Arduino. On POSIX systems this opens a serial port like /dev/ttyUSB1.
+ * This &4 in BASIC.
+ * 
+ * Functions are:
+ * 
+ * prtbegin(): start the serial port
+ * prtopen(name, baud): open the serial port with the baud rate baud. Only 
+ *  neded in POSIX to open the port.
+ * prtclose(): close the serial port
+ * prtstat(s): check the status of the serial port
+ * prtwrite(c): write a character to the serial port
+ * prtread(): read a character from the serial port
+ * prtcheckch(): check if a character is available without blocking
+ * prtavailable(): check if characters are available
+ * prtset(baud): set the baud rate of the serial port
+ * prtins(s, l): read a line from the serial port
+ */
+
+void prtbegin();
+char prtopen(char*, uint16_t); 
 void prtclose();
 uint8_t prtstat(uint8_t);
 void prtwrite(char);
@@ -1000,16 +1128,16 @@ void detachinterrupt(uint8_t);
 /*
  * Experimental code to drive SPI SRAM 
  *
- * Currently only the 23LCV512 is implemented, assuming a 
- * 64kB SRAM
- * The code below is taken in part from the SRAMsimple library
+ * Currently only the 23LCV512 is implemented, assuming a 64kB SRAM.
+ * Part of code is taken in part from the SRAMsimple library.
  * 
- * two buffers are implemented: 
+ * Two buffers are implemented: 
+ * 
  * - a ro buffer used by memread, this buffer is mainly reading the token 
  *  stream at runtime. 
  * - a rw buffer used by memread2 and memwrite2, this buffer is mainly accessing
  *  the heap at runtime. In interactive mode this is also the interface to read 
- *  and write program code to memory 
+ *  and write program code to memory. 
  * 
  */
 
