@@ -168,14 +168,12 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  */
 
 #ifdef ARDUINOEEPROM
-#ifdef ARDUINO_ARCH_XMC
+#if defined(ARDUINO_ARCH_XMC)
 #include "src/XMCEEPROMLib/XMCEEPROMLib.h"
-#else
-#ifdef ARDUINO_ARCH_SAMD
-//#include <FlashStorage_SAMD.h>
+#elif defined(ARDUINO_ARCH_SAMD)
+#include <FlashStorage_SAMD.h>
 #else
 #include <EEPROM.h>
-#endif
 #endif
 #endif
 
@@ -3844,6 +3842,9 @@ void ebegin(){
 #if (defined(ARDUINO_ARCH_XMC)) && defined(ARDUINOEEPROM)
   EEPROM.begin();
 #endif
+#if (defined(ARDUINO_ARCH_SAMD)) && defined(ARDUINOEEPROM)
+/* no begin method needed */
+#endif
 /* an unbuffered EEPROM, typically used to store a program */
 #if defined(ARDUINOI2CEEPROM) && !defined(ARDUINOI2CEEPROM_BUFFERED)
 /* 
@@ -3878,7 +3879,9 @@ void ebegin(){
 
 void eflush(){
 /* code for the EEPROM dummy */
-#if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_XMC) ) && defined(ARDUINOEEPROM) 
+#if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) || \ 
+    defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_SAMD)) \ 
+    && defined(ARDUINOEEPROM) 
   EEPROM.commit();
 #endif 
 #if (defined(ARDUINO_ARCH_STM32)) && defined(ARDUINOEEPROM) 
@@ -3895,7 +3898,8 @@ uint16_t elength() {
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
   return EEPROMSIZE;
 #endif
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_STM32) || defined(ARDUINO_ARCH_RENESAS)
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_XMC) || \ 
+    defined(ARDUINO_ARCH_STM32) || defined(ARDUINO_ARCH_RENESAS) || defined(ARDUINO_ARCH_SAMD)
   return EEPROM.length(); 
 #endif
 #ifdef ARDUINO_ARCH_LGT8F 
@@ -3905,7 +3909,8 @@ uint16_t elength() {
 }
 
 void eupdate(uint16_t a, int8_t c) { 
-#if defined(ARDUINO_ARCH_ESP8266) ||defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F) || defined(ARDUINO_ARCH_XMC)
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F) || \ 
+    defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_SAMD)
   EEPROM.write(a, c);
 #else
 #if defined(ARDUINO_ARCH_STM32)
