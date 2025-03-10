@@ -1,13 +1,11 @@
 /*----------------------------------------------------------------
-   Please read this before compiling:
+   Please read this before compiling the code.
     - Review hardware.h for settings specific hardware settings.
         Super important on Arduino and Raspberry PI.
     - language.h controls the language features.
-        For Arduino Integer BASIC is default and a limited language
-        set. For the larger boards this can be extended a lot.
+        A heuristic is used to compile the language features if 
+        not defined explicitly in language.h.
   -----------------------------------------------------------------
-
- 	$Id: basic.c,v 1.5 2024/03/02 15:38:20 stefan Exp stefan $
 
  	Stefan's IoT BASIC interpreter - BASIC for everywhere.
 
@@ -19,7 +17,9 @@
 
  	Currently there are two versions of the runtime environment.
  		One contains all platforms compiled in the Arduino IDE
- 		(ESP8266, ESP32, AVR, MEGAAVR, SAM*, RP2040)
+ 		(ESP8266, ESP32, AVR, MEGAAVR, SAM*, RP2040, STM*, 
+    XMC*, NRENESA, Arduino GIGA).
+
 
  		Anothers contains all platforms compiled in gcc with a POSIX OS
  		(Mac, Raspberry, Windows/MINGW) plus rudimentary MSDOS with tc2.0. The
@@ -33,8 +33,8 @@
 #include "runtime.h"
 
 /*
-   the core basic language headers
-*/
+ *  the core basic language headers
+ */
 #include "language.h"
 #include "basic.h"
 
@@ -105,7 +105,7 @@ const char sget[]    PROGMEM = "GET";
 const char sput[]    PROGMEM = "PUT";
 const char sset[]    PROGMEM = "SET";
 const char scls[]    PROGMEM = "CLS";
-const char slocate[]  PROGMEM  = "LOCATE";
+const char slocate[]  PROGMEM = "LOCATE";
 const char selse[]  PROGMEM  = "ELSE";
 #endif
 /* Arduino functions */
@@ -496,7 +496,6 @@ const address_t maxaddr = (address_t)(~0);
 */
 
 /* the stack, all BASIC arithmetic is done here */
-//number_t stack[STACKSIZE];
 accu_t stack[STACKSIZE];
 address_t sp = 0;
 
@@ -675,7 +674,7 @@ btimer_t every_timer = {0, 0, 0, 0, 0};
 #define EVENTLISTSIZE 4
 
 /* the event list, nevents is the number of active events */
-int nevents = 0;
+mem_t nevents = 0;
 int ievent = 0;
 mem_t events_enabled = 1;
 volatile bevent_t eventlist[EVENTLISTSIZE];
@@ -1341,7 +1340,7 @@ void clrvars() {
 
 /*
    To avoid nasty warnings we encapsulate the EEPROM access functions
- 	from runtime.c
+ 	 from runtime.c
    This is only needed for the get* and set* functions as we use the
    memreader_t and memwriter_t function pointers here.
    This way, types in runtime.c can be changed without changing the
@@ -2454,7 +2453,7 @@ void clearst() {
   sp = 0;
 }
 
-/* these are not really stack operations but a way to handle temp char data */
+/* these are not really stack operations but a way to handle temp char data (not needed right now) */
 address_t charsp;
 
 void pushchar(char ch) {}
@@ -7373,7 +7372,6 @@ void xlocate() {
 /*
  	Stefan's additions to Palo Alto BASIC
    DUMP, SAVE, LOAD, GET, PUT, SET
-
 */
 
 /*
@@ -9196,7 +9194,10 @@ void xusr() {
 #endif
         case 34: push(0); break;
 #ifdef FASTTICKERPROFILE
-        case 35: push(avgfasttick); break;
+        case 35: 
+          push(avgfastticker()); 
+          clearfasttickerprofile();
+          break;
 #endif
         /* - 48 reserved, don't use */
         case 48: push(id); break;
@@ -10565,8 +10566,11 @@ errorhandler:
        main loop. While in functions, all interrupts are disabled.
 
     */
-#ifdef HASTIMER
+
     if ((token == LINENUMBER || token == ':' || token == TNEXT) && (st == SERUN || st == SRUN)) {
+      
+/* timer functions are processed before events */
+#ifdef HASTIMER
       /* after is always processed before every */
       if (after_timer.enabled && fncontext == 0) {
         if (millis() > after_timer.last + after_timer.interval) {
@@ -10594,14 +10598,11 @@ errorhandler:
           if (er) return;
         }
       }
-    }
-#endif
-
+ #endif
     /* the branch code for interrupts, we round robin through the event list */
 #ifdef HASEVENTS
-    if ((token == LINENUMBER || token == ':' || token == TNEXT) && (st == SERUN || st == SRUN)) {
       /* interrupts */
-      if (events_enabled && nevents > 0 && fncontext == 0) {
+      if (nevents > 0 && events_enabled && fncontext == 0) {
         for (xc = 0; xc < EVENTLISTSIZE; xc++) {
           if (eventlist[ievent].pin && eventlist[ievent].enabled && eventlist[ievent].active) {
             if (eventlist[ievent].type == TGOSUB) {
@@ -10620,8 +10621,8 @@ errorhandler:
           ievent = (ievent + 1) % EVENTLISTSIZE;
         }
       }
-    }
 #endif
+    } 
   }
 }
 

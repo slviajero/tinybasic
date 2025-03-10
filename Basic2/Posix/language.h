@@ -66,7 +66,7 @@
  * HASPULSE: pulseIn() function for measuring pulse lengths. Pulse output. Both mapped to the PULSE command.
  * HASSTEFANSEXT: Stefan's BASIC extensions, including ELSE, PUT, GET, advanced FOR loops, SQR and POW.
  * HASERRORMSG: error messages for syntax and runtime errors.
- * HASVT52: VT52 terminal emulation for text output.
+ * HASVT52: VT52 terminal emulation for text output -> moved to hardware.h
  * HASFLOAT: floating point support.
  * HASGRAPH: graphics support, including line, circle, rectangle, fill, color.
  * HASDARTMOUTH: Dartmouth BASIC compatibility: single line DEF FN, ON, READ, DATA.
@@ -88,14 +88,14 @@
  * HASLONGNAMES: long variable names, up to 16 characters. Name length is set by MAXNAME in basic.h and
  * 	can be any value <128 bytes. Names are still only uppercase and all names will be uppercased by lexer.
  * HASHELP: show the commands of the interpreter. Will be extended to a help system.
- *  HASFULLINSTR: the full C64 style INSTR command. Without this flag INSTR only accepts
- *		a single character as argument. This is much faster and leaner on an Arduino. 
- * 		This macro is activated when HASMSSTRINGS is set. 
+ * HASFULLINSTR: the full C64 style INSTR command. Without this flag INSTR only accepts
+ *	a single character as argument. This is much faster and leaner on an Arduino. 
+ * 	This macro is activated when HASMSSTRINGS is set. 
  * HASLOOPOPT: optimizes the FOR loops for speed. This is a trade off between speed and 
- *     memory. It is activated by default. Speeup is about 10% on a Mac. On platforms
- *     with low memory bandwidth it is much more.
+ *  memory. It is activated by default. Speeup is about 10% on a Mac. On platforms
+ *  with low memory bandwidth it is much more.
  * HASNUMSYSTEM: constants can be hex, octal, binary or decimal. This is not activated by 
- *      default. Currently only implemented in VAL() and STR().
+ *  default. Currently only implemented in VAL() and STR().
  * HASBITWISE: has bitwise operations >>, << and the function BIT -> removed and default now.
  * 
  * If you want to set everything manually, set NOLANGUAGEHEURISTICS above
@@ -109,7 +109,6 @@
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#define HASVT52
 #define HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
@@ -157,9 +156,6 @@
  *      In this mode false is 0 and -1 is true. (1) is C style boolean arithemtic.
  *      In this mode true is 1 and false is 0. AND and OR still do bitwise operations
  *      but NOT is C not. SET 19,1 or -1 can change this at runtime.
- * HAS64BIT: use 64 bit floats for the interpreter. With this setting, 32 bit integers 
- *      can be processed exactly. It is useful for 32 bit register access. Tested on
- *      GIGA and POSIX. 
  */
 
 #undef POWERRIGHTTOLEFT
@@ -167,7 +163,8 @@
 #undef SUPPRESSSUBSTRINGS
 #define USELONGJUMP 0
 #define BOOLEANMODE -1
-#undef HAS64BIT
+#undef  HAS64BIT
+#undef  HAS32BITINT
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -178,7 +175,6 @@
 #undef HASPULSE
 #undef HASSTEFANSEXT
 #undef HASERRORMSG
-#undef HASVT52
 #undef HASFLOAT
 #undef HASGRAPH
 #undef HASDARTMOUTH
@@ -209,7 +205,6 @@
 #undef HASPULSE
 #undef HASSTEFANSEXT
 #undef HASERRORMSG
-#undef HASVT52
 #undef HASFLOAT
 #undef HASGRAPH
 #undef HASDARTMOUTH
@@ -243,7 +238,6 @@
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#define HASVT52
 #undef  HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
@@ -274,7 +268,6 @@
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#define HASVT52
 #undef  HASFLOAT
 #undef  HASGRAPH
 #define HASDARTMOUTH
@@ -305,7 +298,6 @@
 #undef  HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#undef  HASVT52
 #undef  HASFLOAT
 #undef  HASGRAPH
 #undef  HASDARTMOUTH
@@ -337,7 +329,6 @@
 #define HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#define HASVT52
 #define HASFLOAT
 #define HASGRAPH
 #define HASDARTMOUTH
@@ -368,7 +359,6 @@
 #undef HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#undef HASVT52
 #define HASFLOAT
 #undef HASGRAPH
 #define HASDARTMOUTH
@@ -399,7 +389,6 @@
 #undef HASPULSE
 #define HASSTEFANSEXT
 #define HASERRORMSG
-#undef HASVT52
 #define HASFLOAT
 #undef HASGRAPH
 #undef HASDARTMOUTH

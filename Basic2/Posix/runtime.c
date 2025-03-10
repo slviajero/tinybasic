@@ -1127,9 +1127,6 @@ unsigned long millis() {
   ftime(&thetime);
   return (thetime.time-start_time.time)*1000+(thetime.millitm-start_time.millitm);
 }
-
-/* this is just a stub, only needed in fasttickerprofile */
-unsigned long micros() { return 0; }
 #endif
 
 void playtone(uint8_t pin, uint16_t frequency, uint16_t duration, uint8_t volume) {}
@@ -1150,6 +1147,7 @@ void playtone(uint8_t pin, uint16_t frequency, uint16_t duration, uint8_t volume
 
 uint32_t lastyield=0;
 uint32_t lastlongyield=0;
+int countfasttick = 0;
 
 void byield() { 
 
@@ -1186,11 +1184,21 @@ void bdelay(uint32_t t) {
   } 
 }
 
+#ifdef FASTTICKERPROFILE
+int avgfastticker() {
+  return countfasttick;
+} 
+ 
+void clearfasttickerprofile() {
+  countfasttick=0;
+} 
+#endif
+
 /* fastticker is the hook for all timing functions */
 void fastticker() {
 /* fastticker profiling test code */
 #ifdef FASTTICKERPROFILE
-  fasttickerprofile();
+  countfasttick++;
 #endif
 /* toggle the tone pin */
 #ifdef ARDUINOTONEEMULATION
@@ -2189,24 +2197,4 @@ char spistrbuf1[SPIRAMSBSIZE];
 char spistrbuf2[SPIRAMSBSIZE];
 #endif
 
-/* 
- * This code measures the fast ticker frequency in microseconds 
- * Activate this only for test purposes. Not really useful on POSIX.
- */
-
-#ifdef FASTTICKERPROFILE
-uint32_t lastfasttick = 0;
-uint32_t fasttickcalls = 0;
-uint16_t avgfasttick = 0;
-long devfasttick = 0;
-
-void fasttickerprofile() {
-  int delta;
-  if (lastfasttick == 0) { lastfasttick=micros(); return; }
-  delta=micros()-lastfasttick;
-  lastfasttick=micros();
-  avgfasttick=(avgfasttick*fasttickcalls+delta)/(fasttickcalls+1);
-  fasttickcalls++; 
-}
-#endif
 

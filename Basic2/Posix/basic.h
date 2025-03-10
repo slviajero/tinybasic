@@ -72,13 +72,13 @@
 #define TSTEP   -109
 #define TNEXT   -108
 #define TSTOP   -107
-#define TLIST	-106
+#define TLIST   -106
 #define TNEW    -105
 #define TRUN    -104
-#define TABS 	-103
-#define TRND	-102
+#define TABS    -103
+#define TRND    -102
 #define TSIZE   -101
-#define TREM 	-100
+#define TREM    -100
 /* this is the Apple 1 language set in addition to Palo Alto (14) */
 #define TNOT    -99
 #define TAND	-98
@@ -301,11 +301,19 @@ typedef double number_t;
 typedef long long wnumber_t;
 #else
 typedef float number_t;
-typedef long wnumber_t;
+typedef long long wnumber_t;
 #endif
+#else
+#ifdef HAS64BIT
+typedef int64_t number_t;
+typedef int64_t wnumber_t;
+#elif defined(HAS32BITINT)
+typedef int32_t number_t;
+typedef int32_t wnumber_t;
 #else
 typedef int number_t;
 typedef int wnumber_t;
+#endif
 #endif
 /* default is 16bit addresses and max 64k memory, setting MEMSIZE in hardware.h overrides this */
 #if !defined(MEMSIZE) || MEMSIZE < 65536

@@ -236,8 +236,7 @@ unsigned long millis();
 #define SPIRAMSBSIZE 512
 
 /* 
- * This code measures the fast ticker frequency in microseconds 
- * Activate this only for test purposes. Not really useful on POSIX.
+ * This code measures the fast ticker frequency. 
  */
 #define FASTTICKERPROFILE
 
