@@ -87,8 +87,8 @@
 #undef ARDUINOI2CKBD
 #undef GIGAUSBKBD
 #undef ARDUINOPRT
-#define DISPLAYCANSCROLL
-#define ARDUINOLCDI2C
+#undef DISPLAYCANSCROLL
+#undef ARDUINOLCDI2C
 #undef ARDUINONOKIA51
 #undef ARDUINOILI9488
 #undef ARDUINOSSD1306
@@ -100,7 +100,7 @@
 #undef ARDUINOVGA
 #undef TFTESPI
 #undef ARDUINOEEPROM
-#define ARDUINOI2CEEPROM
+#undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
 #undef ESPSPIFFS
@@ -138,13 +138,15 @@
  */
 #undef ARDUINOPGMEEPROM
 
-/* IO control, emulate real tab by counting characters  */
+/* IO control, emulate real tab by counting characters, on by default
+  but overriden for very small boards - see hardware heuristics  */
 #define HASMSTAB
 
-/* VT52 settings */
+/* VT52 settings, on by default but override further down for very 
+  small boards, check the hardware heuristics section if you need VT52
+  on small AVR boards */
 #define HASVT52
-#define VT52WIRING 
-
+#undef VT52WIRING 
 
 /* 
  * Experimental BUILDIN feature, implemented as a filesystem. 
@@ -256,7 +258,7 @@
  *  for this: https://github.com/slviajero/SoftSD
  *  only needed for MEGA boards with an UNO shield
  */
-#undef SOFTWARE_SPI_FOR_SD
+#define SOFTWARE_SPI_FOR_SD
 
 /* 
  *  list of default i2c addresses
@@ -317,7 +319,6 @@
 #define ARDUINOKBDLANG_GERMAN
 //#define ARDUINOKBDLANG_US 
 
-
 /*
  * The heuristics. These are things that normally would make sense on a 
  * board.
@@ -345,17 +346,28 @@
  
 #ifdef HARDWAREHEURISTICS
 /* UNOS are very common. Small memory, we put the program into EEPROM and make everything small */
-#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_DUEMILANOVE) || defined(ARDUINO_AVR_NANO)
+#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_DUEMILANOVE) || defined(ARDUINO_AVR_NANO) 
 #define ARDUINOEEPROM
 #define ARDUINOPICOSERIAL
 #define ARDUINOPGMEEPROM
 #undef  LINECACHESIZE
+#undef HASMSTAB
+#undef HASVT52
+#endif
+/* der Pro */
+#if defined(ARDUINO_AVR_PRO)
+#define ARDUINOEEPROM
+#define ARDUINOPGMEEPROM
+#undef  LINECACHESIZE
+#undef HASMSTAB
+#undef HASVT52
 #endif
 /* on a DUEMILA we allocate just as little main memory as possible, currenly not working because sketch too big 
  * needs to be checked */
 #if defined(ARDUINO_AVR_DUEMILANOVE)
 #define MEMSIZE 128
 #undef  HASMSTAB
+#undef HASVT52
 #endif
 /* tested for LTQF32 Mini EVB - very low memory as core needs a lot */
 #if defined(ARDUINO_ARCH_LGT8F)
@@ -365,6 +377,7 @@
 #undef HASMSTAB
 #define MEMSIZE 256
 #define ARDUINOPGMEEPROM
+#undef HASVT52
 #endif
 /* all AVR 8 bit boards have an EEPROM (most probably) */
 #if defined(ARDUINO_ARCH_AVR)
@@ -527,7 +540,7 @@
  *  incompatibilities and library stuff
  */
 /* these platforms have no EEPROM and no emulation built-in */
-#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_MBED_GIGA)
+#if defined(ARDUINO_ARCH_SAM) || defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_MBED_GIGA)
 #undef ARDUINOEEPROM
 #endif
 
@@ -959,7 +972,7 @@
  * How restrictive are we on function recursive calls to protect the stack
  * On 8 bit Arduinos this needs to be limited strictly
  */
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_LGT8F)
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_LGT8F) || defined(ARDUINO_AVR_PRO)
 #define FNLIMIT 4
 #elif defined(ARDUINO_ARCH_ESP8266)
 #define FNLIMIT 64
@@ -991,7 +1004,7 @@
 #if defined(ARDUINO_AVR_DUEMILANOVE)
 #define BASICPALOALTO
 #endif
-#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_NANO)
+#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_NANO) || defined(ARDUINO_AVR_PRO)
 #define BASICSIMPLE
 #endif
 #if defined(ARDUINO_AVR_LEONARDO)
