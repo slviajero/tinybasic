@@ -75,7 +75,8 @@
  * ttgovga.h:
  *      the TTGO VGA 1.4 board with VGA output
  */
-#define PREDEFINEDBOARD "boards/dummy.h"
+//#define PREDEFINEDBOARD "boards/dummy.h"
+#define PREDEFINEDBOARD "boards/ttgovga.h"
 
 /* undef this if you really want it */
 #define HARDWAREHEURISTICS
@@ -122,6 +123,10 @@
 #undef STANDALONE
 #undef STANDALONESECONDSERIAL
 // #define ALTSERIAL Serial
+
+/* we debug the runtime library and where the logging goes */
+#define RTDEBUG 0
+#define RTDEBUGSTREAM 1
 
 /* the memory size, set to 0 means determine automatically 
  leaving it undefined means zero. setting it larger than 16 bit
@@ -897,10 +902,14 @@
 #endif
 
 /* 
- *  Tell BASIC we have MQTT
+ *  Tell BASIC we have MQTT and make sure one low level
+ *  interface is available
  */
 #ifdef ARDUINOMQTT
 #define HASMQTT
+#ifndef ARDUINOETH
+#define ARDUINOWIFI
+#endif
 #endif
 
 /* 

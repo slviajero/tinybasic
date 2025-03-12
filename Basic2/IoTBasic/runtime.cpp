@@ -6,8 +6,7 @@
  *
  * Author: Stefan Lenz, sl001@serverfabrik.de
  *
- * Configure the hardware settings in hardware.h.
- *
+ * Configure the hardware settings and parameters in hardware.h.
  */
 
 #include "Arduino.h"
@@ -84,73 +83,27 @@ char* nullbuffer = ibuffer;
 uint16_t nullbufsize = BUFSIZE; 
 uint8_t bufferstat(uint8_t ch) { return 1; }
 
-
 /* 
  * External libraries of the runtime environment for the peripherals.
+ * When the runtime environment is brocken down to modules this will 
+ * got into the modules. Summerized here for the sake of clarity.
  */
-
-/* 
- * Keyboard library, on AVR systems Paul Stoffregens original 
- * PS2 library works.
- * I recommend to use my patched version from 
- * https://github.com/slviajero/PS2Keyboard
- * works with ESP, has keyboard.peek()
- */
-
-#ifdef ARDUINOPS2
-#include <PS2Keyboard.h>
-#endif
 
 /*
- * The USB keyboard code - tested only on DUE and the like
- * not really good 
+ * OS specific headers.
  */
-
-#ifdef ARDUINOUSBKBD
-#include <KeyboardController.h>
-#endif
 
 /*
- * The ZX81 keyboard code - tested on AVR MEGA256
+ * ESPy stuff, pgmspace has changed location in some ESP32 cores.
  */
 
-#ifdef ARDUINOZX81KBD
-#include <ZX81Keyboard.h>
-#endif
-
-/*
- * The I2C keyboard code - tested on ESP32 T-Deck only 
- * Implementation is generic enough to work on other platforms.
- * No headers are needed as the I2C library is included in the
- * Arduino core and the keyboard implementation of the T-Deck
- * is very generic.
- */
-
-#ifdef ARDUINOI2CKBD
-#endif
-
-/*
- * This will be for the USB keyboard code on a GIGA board
- * https://docs.arduino.cc/tutorials/giga-r1-wifi/giga-usb/#usb-host-keyboard
- * 
- */
-
-#ifdef GIGAUSBKBD
-#include "USBHostGiga.h"
-#endif
-
-
-/*
- * ESPy stuff, pgmspace has changed location.
- */
-
-#ifdef ARDUINOPROGMEM
-#ifdef ARDUINO_ARCH_ESP32
-#include <pgmspace.h>
-#else
-#include <avr/pgmspace.h>
-#endif
-#endif
+ #ifdef ARDUINOPROGMEM
+ #ifdef ARDUINO_ARCH_ESP32
+ #include <pgmspace.h>
+ #else
+ #include <avr/pgmspace.h>
+ #endif
+ #endif
 
 /*
  * MBED OS type includes summarized here - tested for GIGA boards. 
@@ -162,35 +115,100 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #endif
 
 /*
- * This works for AVR and ESP EEPROM dummy. 
- * On XMC you need https://github.com/slviajero/XMCEEPROMLib
- * Throws a compiler error for other platforms.
+ * EEPROM code. Some of the boards bring their own EEPROM classes.
+ * 
+ * These are: 
+ * - AVR boards of all kinds
+ * - ESP8266 and ESP32
+ * - the LGT8F boards with the newer cores
+ * 
+ * For XMC my homebrew is now part of the interpreter.
+ * See https://github.com/slviajero/XMCEEPROMLib
+ * For more information on this or if you want to use it on other platforms.
+ * 
+ * For SAMD the FlashStorage library is used. It was orginally written by
+ * Cristian Maglie. I use the version of Khoi Huang from
+ * https://github.com/khoih-prog/FlashStorage_SAMD
+ * This is now bundled with the interpreter. The emulation buffers the
+ * entire EEPROM in RAM, so 2k should be ok but not more. If the 
+ * dual buffer strateg of EepromFS or XMC would be used, larger 
+ * EEPROMs could be emulated - this is work to be done. 
+ * 
+ * RP2040 standard cores and the DUE do not have an EEPROM emulation.
+ * This is trapped in hardware.h (EEPROM is disabled).
  */
 
 #ifdef ARDUINOEEPROM
 #if defined(ARDUINO_ARCH_XMC)
 #include "src/XMCEEPROMLib/XMCEEPROMLib.h"
 #elif defined(ARDUINO_ARCH_SAMD)
-#include <FlashStorage_SAMD.h>
+#define EEPROM_EMULATION_SIZE 2048
+#include "src/FlashStorage_SAMD/FlashStorage_SAMD.h"
 #else
 #include <EEPROM.h>
 #endif
 #endif
 
-/* Standard SPI */
+/* Standard SPI coming with the board is used */
 
 #ifdef ARDUINOSPI
 #include <SPI.h>
 #endif
 
-/* Standard wire - triggered by the HASWIRE macro now */
+/* 
+ * Standard wire - triggered by the HASWIRE or HASSIMPLEWIR macro.
+ * These macros are set in the hardware.h file depending on the subsystems.
+ */
 
 #if defined(HASWIRE) || defined(HASSIMPLEWIRE)
 #include <Wire.h>
 #endif
 
 /* 
- * The display library includes for the parallel LCD.
+ * IO channel 2 - Keyboards 
+ *
+ * This is Paul Stoffregen's PS2Keyboard library for PS2 keyboards
+ * patched for use with non AVR boards. Please download the patched
+ * version from github: https://github.com/slviajero/PS2Keyboard
+ */
+
+ #ifdef ARDUINOPS2
+ #include <PS2Keyboard.h>
+ #endif
+ 
+ /*
+  * The USB keyboard code of the Arduino DUE. Keymapping and timing
+  * need improvement. Currently not a priority. 
+  */
+ 
+ #ifdef ARDUINOUSBKBD
+ #include <KeyboardController.h>
+ #endif
+ 
+ /*
+  * The ZX81 keyboard code - tested on AVR MEGA256. Please download
+  * the library from github: https://github.com/slviajero/ZX81Keyboard
+  */
+ 
+ #ifdef ARDUINOZX81KBD
+ #include <ZX81Keyboard.h>
+ #endif
+ 
+ /*
+  * This is for the USB keyboard code on a GIGA board
+  * https://docs.arduino.cc/tutorials/giga-r1-wifi/giga-usb/#usb-host-keyboard
+  * like the DUE keyboard, this code is not recommended.
+  */
+ 
+ #ifdef GIGAUSBKBD
+ #include "USBHostGiga.h"
+ #endif
+
+/* 
+ * IO channel 2 - Displays
+ *
+ * The display library for the parallel LCD, this is a standard 
+ * Arduino library.
  */
 
 #ifdef LCDSHIELD 
@@ -198,7 +216,8 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #endif
 
 /*
- * I2C LCD displays, this library works almost universally.
+ * I2C LCD displays, this library works almost universally despite 
+ * a nasty warning message it sometimes gives. 
  */
 
 #ifdef ARDUINOLCDI2C
@@ -206,9 +225,11 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #endif
 
 /*
- * This is the monochrome library of Oli Kraus used for Nokia and SSD1306 displays
+ * This is the monochrome library of Oli Kraus used for Nokia and 
+ * SSD1306 displays.
  * https://github.com/olikraus/u8g2/wiki/u8g2reference
- * It can harware scroll, but this is not yet implemented 
+ * 
+ * It can harware scroll, but this is not yet implemented.
  */
 
 #if defined(ARDUINONOKIA51) || defined(ARDUINOSSD1306)
@@ -217,8 +238,12 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 
 /*
  * This is the (old) ILI9488 library originally created by Jarett Burket
+ * for SPI control if the very common ILI9488 displays.
+ * I created a fork as the original is no longer maintained (last commits 
+ * from 2017). Patches in my version allow use from RP2040.
  * https://github.com/slviajero/ILI9488
- * It can hardware scroll (not yet used)
+ * 
+ * It can hardware scroll (not yet used). 
  */
 
 #ifdef ARDUINOILI9488
@@ -229,10 +254,16 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 /*
  * This is the MCUFRIED library originally for parallel TFTs
  * https://github.com/prenticedavid/MCUFRIEND_kbv
+ * 
  * For R4 boards, use my patched version
  * https://github.com/slviajero/MCUFRIEND_kbv
+ * 
+ * The original library is board hardware depended as it tries
+ * to make use of the port macros. This makes it fast but 
+ * it cannot used on non supported boards.
+ * 
  * This library can drive the TFT from any board as it has a
- * generic section using the Arduino GPIOs. This is slow but 
+ * generic section using the Arduino GPIOs. This is slower but 
  * works. For R4 it uses the port macros.
  */
 
@@ -244,7 +275,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 /*
  * For TFT we use the UTFT library
  * http://www.rinkydinkelectronics.com/library.php?id=51
- * please note the License, it is not GPL but NON COMMERCIAL 
+ * Please note the License, it is not GPL but NON COMMERCIAL 
  * Creative Commons. 
  */
 
@@ -263,51 +294,63 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #include "font/firasans.h"
 #endif
 
+/*
+ * VGA is only implemented on one platform - TTGO VGA 1.4
+ * Needs https://github.com/slviajero/FabGL
+ * 
+ * There is a side effect to the network code. The Wifi library
+ * has to be sourced before FabGL. Reason is unknown.
+ */
+
+ #if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32)
+ #include <WiFi.h> 
+ #include <fabgl.h> 
+ #endif
+ 
 /* 
- * experimental networking code 
- * currently the standard Ethernet shield, ESP Wifi 
- * MKW Wifi, and RP2040 Wifi is supported. All of them 
- * with the standard library.
+ * IO channel 9 - Networking.
+ *
+ * Currently the standard Ethernet shield, ESP Wifi 
+ * MKW Wifi, RP2040 Wifi, R4 Wifi and GIGA is supported. 
+ * All of them  with the standard library.
  *
  * In addition to this Pubsub is used
  * https://github.com/slviajero/pubsubclient
- * for MQTT
+ * for MQTT. This is the standard library for MQTT on Arduino.
+ * 
+ * The ARDUINOMQTT macro is set in hardware.h while 
+ * the ARDUINOWIFI is just generated by hardware.h if
+ * Ethernet is not set but MQTT is set. We assume that 
+ * mostly it is Wifi we are dealing with.
  */
 
-#ifdef ARDUINOMQTT
+ /* the network transport layer, either Ethernet or Wifi */
 #ifdef ARDUINOETH
 #include <Ethernet.h>
 #else
-#ifdef ARDUINO_ARCH_ESP8266
+#ifdef ARDUINOWIFI
+#if defined(ARDUINO_ARCH_ESP8266)
 #include <ESP8266WiFi.h>
-#endif
-#ifdef ARDUINO_ARCH_ESP32
+#elif defined(ARDUINO_ARCH_ESP32)
 #include <WiFi.h>
-#endif
-#if defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD)
+#elif defined(ARDUINO_ARCH_RP2040) || defined(ARDUINO_ARCH_SAMD)
 #include <WiFiNINA.h>
-#endif
-#if defined(ARDUINO_UNOR4_WIFI)
+#elif defined(ARDUINO_UNOR4_WIFI)
 #include <WiFiS3.h>
-#endif
-#if defined(ARDUINO_ARCH_MBED_GIGA)
+#elif defined(ARDUINO_ARCH_MBED_GIGA)
 #include <WiFi.h>
 #endif
 #endif
+#endif
+
+/* the protocall */
+#if defined(ARDUINOMQTT)
 #include <PubSubClient.h>
 #endif
 
 /*
- * VGA is only implemented on one platform - TTGO VGA 1.4
- * Needs https://github.com/slviajero/FabGL
- */
-
-#if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32)
-#include <WiFi.h> t 
-#include <fabgl.h> 
-#endif
-
-/*
+ * IO channel 16 - the various filesystems.
+ * 
  * SD filesystems with the standard SD driver.
  *
  * For MEGA 256 a soft SPI solution is needed 
@@ -326,6 +369,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 
 /*
  * ESPSPIFFS tested on ESP8266 and ESP32 supports formating in BASIC.
+ * This is standard on all ESP boards and autoconfigured.
  */ 
 
 #ifdef ESPSPIFFS
@@ -341,7 +385,9 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 
 
 /*
- * ESP32FAT tested on ESP32 supports formating in BASIC.
+ * ESP32FAT tested on ESP32 supports formating in BASIC. Only tested 
+ * on the T-Deck. Partition at upload must be ffat. This is available
+ * on ESP32S3 but not on older boards.
  */ 
 
 #ifdef ESP32FAT
@@ -361,18 +407,6 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #include <DigitalOut.h>
 #include <FATFileSystem.h>
 #include <Arduino_USBHostMbed5.h>
-#endif
-
-/*
- * TFT_eSPI is a library for the T-Deck from Lilygo.
- * 
- * #include "utilities.h" provided by Lilygo is coded directly into hardware.h
- * For some reason this has to be included after FS and FFat. Not yet fully 
- * understood why.
- */
-
-#ifdef TFTESPI
-#include <TFT_eSPI.h>
 #endif
 
 /*
@@ -404,8 +438,8 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #endif
 
 /*
- * External flash file systems override internal filesystems
- * currently BASIC can only have one filesystem. 
+ * External flash file systems on an SD override internal filesystems
+ * (currently BASIC can only have one filesystem).
  */ 
 
 #ifdef ARDUINOSD
@@ -413,13 +447,14 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #undef RP2040LITTLEFS
 #undef ESP32FAT
 #undef GIGAUSBFS
+#define FILESYSTEMDRIVER
 #endif
 
 /*
- * Support for external EEPROMs as filesystem
- * overriding all other filessystems. This is a minimalistic
- * filesystem meant for very small systems with not enough 
- * memory for real filesystems
+ * Support for external EEPROMs as filesystem overriding all 
+ * other filessystems. This is a minimalistic filesystem meant 
+ * for very small systems with not enough memory for real 
+ * filesystems
  * https://github.com/slviajero/EepromFS
  */ 
 #ifdef ARDUINOEFS
@@ -438,19 +473,34 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #include "src/EepromFS/EepromFS.h"
 #endif
 
-/* If there is an unbuffered I2C EEPROM, use an autodetect mechanism. */
-
-#if defined(ARDUINOI2CEEPROM) 
-unsigned int i2ceepromsize = 0;
-#endif
-
 /*
  * Software SPI only on Mega2560. This only used for the SD shield typically 
  * but not necessarily with a TFT display. 
  */
 
-#ifndef ARDUINO_AVR_MEGA2560
-#undef SOFTWARE_SPI_FOR_SD
+ #ifndef ARDUINO_AVR_MEGA2560
+ #undef SOFTWARE_SPI_FOR_SD
+ #endif
+
+/*
+ * TFT_eSPI is a library for the T-Deck from Lilygo.
+ * 
+ * #include "utilities.h" provided by Lilygo is coded directly into hardware.h
+ * For some reason this has to be included after FS and FFat. Not yet fully 
+ * understood why.
+ */
+
+ #ifdef TFTESPI
+ #include <TFT_eSPI.h>
+ #endif
+
+/*
+ * Global variables of the runtime environment.
+ */
+
+/* If there is an unbuffered I2C EEPROM, use an autodetect mechanism. */
+#if defined(ARDUINOI2CEEPROM) 
+unsigned int i2ceepromsize = 0;
 #endif
 
 /* 
@@ -480,26 +530,31 @@ uint8_t blockmode = 0;
 #endif
 
 /* 
- *  Input and output functions.
+ * Implementation of the global IO function. These are the 
+ * functions that are called from the BASIC interpreter. To access 
+ * a device. 
  * 
  * ioinit(): called at setup to initialize what ever io is needed.
- * outch(): prints one ascii character.
- * inch(): gets one character (and waits for it)
- * checkch(): checks for one character (non blocking)
- * ins(): reads an entire line (uses inch except for pioserial)
+ * outch(): prints one ascii character to the output channel od.
+ * inch(): gets one character (and waits for it) from the input channel id.
+ * checkch(): checks for one character (non blocking) on the input channel id.
+ * ins(): reads an entire line (uses inch except for pioserial) from the input channel id.
+ * availch(): checks for available characters on the input channel id.
+ * inb(): reads a block of characters from the input channel id.
+ * outs(): prints a string of characters to the output channel od.
  *
  */
 void ioinit() {
 
-/* a standalone system runs from keyboard and display */
-
+/* a standalone system runs from keyboard and display, i.e channel 2 */
 #ifdef STANDALONE
   idd = IKEYBOARD;
   odd = ODSP;
 #endif
 
-/* run standalone on second serial, set the right parameters */
-
+/* run standalone on second serial, set the right parameters, this is 
+   needed for a few boars where the first serial port is not usable 
+   for BASIC */
 #ifdef STANDALONESECONDSERIAL
   idd = ISERIAL1;
   odd = OPRT;
@@ -513,80 +568,77 @@ void ioinit() {
  * with ^C, it has to be left with CALL 0, works on Linux, Mac and MINGW
  * but not on DOSBOX MSDOS as DOSBOS does not handle CTRL BREAK correctly 
  * DOS can be interrupted with the CONIO mechanism using BREAKCHAR. 
- * Here on Arduino signalon() is currentl unused. It may be needed in the future.
+ * Here on Arduino signalon() is currentl unused. 
  */ 
 
   signalon();
 
 /* This is only for RASPBERRY - wiring has to be started explicitly. */
-
   wiringbegin();
 
 /* Start all serial protocolls, ttl channels, SPI and Wire. */
-
   serialbegin();
-  
+
+/* start the second serial port */
 #ifdef ARDUINOPRT
   prtbegin();
 #endif
+
+/* start SPI (before displays and filesystems)*/
 #ifdef ARDUINOSPI
   spibegin();
 #endif
+
+/* start wire */
 #if defined(HASWIRE) || defined(HASSIMPLEWIRE)
   wirebegin();
 #endif
 
-/* Filesystems and networks */
-
+/* Filesystems */
   fsbegin();
+
+/* networks */
 #ifdef ARDUINOMQTT
   netbegin();  
   mqttbegin();
 #endif
 
 /* the keyboards */
-
 #if defined(HASKEYBOARD) || defined(HASKEYPAD)
   kbdbegin();
 #endif
 
 /* the displays */
-
 #if defined(DISPLAYDRIVER) || defined(GRAPHDISPLAYDRIVER)
   dspbegin();
 #endif
 
 /* fablib code (and framebuffer on POSIX) do not use the graphics driver startup 
-    they use vgabegin() */
-
+    they use vgabegin(), we also do not use the display driver */
 #if defined(ARDUINOVGA)
   vgabegin();  
 #endif
 
 /* sensor startup */
-
 #ifdef ARDUINOSENSORS
   sensorbegin();
 #endif
 
 /* clocks and time */
-
 #if defined(HASCLOCK)
   rtcbegin();
 #endif
 
-/* the eeprom dummy */
-
+/* the eeprom dummy needs a begin method */
   ebegin();
 
 /* activate the iodefaults */
-
   iodefaults();
+
 }
 
 
-/* the status of the io streams (on/off) */
-
+/* The status of the io streams just on/off on that why (0) for all the stat function */
 int iostat(int channel) {
   switch(channel) {
 /* channel 0, the buffer */
@@ -636,27 +688,16 @@ int iostat(int channel) {
 }
 
 /* set the iodefaults at startup and in runtime status change to interactive */
-
 void iodefaults() {
   od=odd;
   id=idd;
 }
 
-/* 
- *  Layer 0 - The generic IO code 
- *
- * inch() reads one character from the stream, mostly blocking
- * checkch() reads one character from the stream, unblocking, a peek(), 
- *  inmplemented inconsistently
- * availch() checks availablibity in the stream
- * inb() a block read function for serial interfacing, developed for 
- *  AT message receiving 
- */ 
 
-/* this is odd ;-) */
+/* char is sometimes signed and sometimes not */
 int cheof(int c) { if ((c == -1) || (c == 255)) return 1; else return 0; }
 
-/* the generic inch code reading one character from a stream */
+/* the generic inch code reading one character from a stream, blocking! */
 char inch() {
   switch(id) {
   case ONULL:
@@ -669,8 +710,8 @@ char inch() {
 #endif
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)        
   case IKEYBOARD:
-#if defined(HASVT52)
-    if (vt52avail()) return vt52read(); /* if the display has a message, read it */
+#if defined(HASVT52) /* if the display has a message, read it, it acts as a keyboard */
+    if (vt52avail()) return vt52read(); 
 #endif
 #if defined(HASKEYBOARD) || defined(HASKEYPAD)  
     return kbdread();
@@ -697,9 +738,9 @@ char inch() {
 }
 
 /* 
- * checking on a character in the stream, this is 
- * normally only used for interrupting a program,
- * for many streams this is just mapped to avail
+ * checking on a character in the stream, this is normally only used 
+ * for interrupting a program, for many streams this is just mapped 
+ * to avail. This is currently inconsistent.
  */
 char checkch(){
   switch (id) {
@@ -765,8 +806,8 @@ uint16_t availch(){
 #endif
   case IKEYBOARD:
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) || defined(HASVT52)
-#if defined(HASVT52)
-    if (vt52avail()) return vt52avail(); /* if the display has a message, read it */
+#if defined(HASVT52)  /* if the display has a message, read it */
+    if (vt52avail()) return vt52avail();
 #endif
 #if defined(HASKEYBOARD) || defined(HASKEYPAD) 
     return kbdavailable();
@@ -778,15 +819,19 @@ uint16_t availch(){
 }
 
 /* 
- *  the block mode reader for esp and sensor modules 
+ *  The block mode reader for esp and sensor modules 
  *  on a serial interface, it tries to read as many 
- *  characters as possible into a buffer
+ *  characters as possible into a buffer. 
+ * 
  *  blockmode = 1 reads once availch() bytes
  *  blockmode > 1 implements a timeout mechanism and tries 
  *    to read until blockmode milliseconds have expired
  *    this is needed for esps and other sensors without
  *    flow control and volatile timing to receive more 
- *    then 64 bytes 
+ *    then 64 bytes.
+ * 
+ * The function only exists if ARDUINOPRT is defined to 
+ * activate the second serial port.
  */
  
 uint16_t inb(char *b, uint16_t nb) {
@@ -820,8 +865,11 @@ uint16_t inb(char *b, uint16_t nb) {
 }
 
 /*
- * reading from the console with inch 
- * this version does not work for picoserial
+ * Reading one line from the console with inch(). 
+ * consins() is used for all channels where individual
+ * characters are read. Others which provide entire strings
+ * are handled by their respective string methods.
+ * (Example: picoserial, radio, wire)
  */
 uint16_t consins(char *b, uint16_t nb) {
   char c;
@@ -833,10 +881,10 @@ uint16_t consins(char *b, uint16_t nb) {
       if (id == ISERIAL || id == IKEYBOARD) {
         outch(c); /* this is local echo */
       }
-      if (c == '\r') c=inch();      /* skip carriage return */
-      if (c == '\n' || c == -1 || c == 255) {   /* terminal character is either newline or EOF */
+      if (c == '\r') c=inch(); /* skip carriage return */
+      if (c == '\n' || c == -1 || c == 255) { /* terminal character is either newline or EOF */
         break;
-      } else if (c == 127 || c == 8) {
+      } else if (c == 127 || c == 8) { /* backspace or delete */
         if (z>1) z--;
       } else {
         b[z++]=c;
@@ -849,16 +897,18 @@ uint16_t consins(char *b, uint16_t nb) {
 }
 
 /* 
- *  ins() is the generic reader into a string, by default 
- *  it works in line mode and ends reading after newline
+ * ins() is the generic reader into a string, by default 
+ * it works in line mode and ends reading after newline.
  *
- *  the first element of the buffer is the lower byte of the length
+ * The first element of the buffer is the lower byte of the length.
  *
- *  for streams providing entire strings as an input the 
- *  respective string method is called
+ * For streams providing entire strings as an input the 
+ * respective string method is called.
  *
- *  all other streams are read using consins() for character by character
- *  input until a terminal character is reached
+ * All other streams are read using consins() for character by character
+ * input until a terminal character is reached. For almost all channel
+ * this is done in a *ins() method. The advantage is that one can plug in 
+ * line oriented input here.
  */
 uint16_t ins(char *b, uint16_t nb) {
   switch(id) {
@@ -897,16 +947,17 @@ uint16_t ins(char *b, uint16_t nb) {
 }
 
 /*
- * outch() outputs one character to a stream
- * block oriented i/o like in radio not implemented here
+ * outch() outputs one character to a stream.
+ * some block oriented i/o like in radio not implemented here.
+ * Exception is mqtt where we buffer in the code for the PRINT command.
+ * 
+ * If BASIC needs a MS style tab command, then count characters on stream 
+ * 0-4 this does not work for control characters. 
  */
 void outch(char c) {
 
-/* do we have a MS style tab command, then count characters on stream 1-4 but not in fileio */
-/* this does not work for control characters - needs to go to vt52 later */
-
 #ifdef HASMSTAB
-  if (od >= 0 && od <= OPRT) {
+  if (od <= OPRT) {
     if (c > 31) charcount[od]+=1;
     if (c == 10) charcount[od]=0;
   }
@@ -981,7 +1032,7 @@ void outs(char *b, uint16_t l){
     default:
       for(i=0; i<l; i++) outch(b[i]);
   }
-  byield(); /* triggers yield after each character output */
+  byield(); /* triggers yield after each character output for ESP8266 stability */
 }
 
 /*  handling time - part of the Arduino core - only needed on POSIX OSes */
@@ -3478,10 +3529,12 @@ void rtcset(uint8_t i, uint16_t v) { }
 #endif
 
 /* 
- * External EEPROM is handled through an EFS filesystem object  
- * see https://github.com/slviajero/EepromFS 
- * for details. Here the most common parameters are set as a default.
-*/
+ * External EEPROM as a filesystem is handled through an EFS filesystem 
+ * object, see https://github.com/slviajero/EepromFS  for details. 
+ * Here the most common parameters are set as a default.
+ * The EFS library is now part of the interpreter runtime.
+ */
+
 #ifdef ARDUINOEFS
 #undef ARDUINOI2CEEPROM
 #ifndef EFSEEPROMADDR
@@ -3495,9 +3548,8 @@ EepromFS EFS(EFSEEPROMADDR);
 #endif
 
 /* 
- * External EEPROM is handled through an EFS filesystem object in raw mode
- * see https://github.com/slviajero/EepromFS 
- * for details. Here the most common parameters are set as a default.
+ * External EEPROM is also handled through an EFS filesystem object 
+ * in raw mode. This handles buffering with a minium of ram. 
 */
 
 #if defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)
@@ -3845,6 +3897,9 @@ void ebegin(){
 #if (defined(ARDUINO_ARCH_SAMD)) && defined(ARDUINOEEPROM)
 /* no begin method needed */
 #endif
+#if (defined(ARDUINO_ARCH_MBED_NANO)) && defined(ARDUINOEEPROM)
+  EEPROM.begin();
+#endif
 /* an unbuffered EEPROM, typically used to store a program */
 #if defined(ARDUINOI2CEEPROM) && !defined(ARDUINOI2CEEPROM_BUFFERED)
 /* 
@@ -3879,8 +3934,8 @@ void ebegin(){
 
 void eflush(){
 /* code for the EEPROM dummy */
-#if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) || \ 
-    defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_SAMD)) \ 
+#if (defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32) || \
+    defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_SAMD)) \
     && defined(ARDUINOEEPROM) 
   EEPROM.commit();
 #endif 
@@ -3898,18 +3953,18 @@ uint16_t elength() {
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
   return EEPROMSIZE;
 #endif
-#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_XMC) || \ 
+#if defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_MEGAAVR) || defined(ARDUINO_ARCH_XMC) || \
     defined(ARDUINO_ARCH_STM32) || defined(ARDUINO_ARCH_RENESAS) || defined(ARDUINO_ARCH_SAMD)
   return EEPROM.length(); 
 #endif
 #ifdef ARDUINO_ARCH_LGT8F 
-  return EEPROM.length(); /* on newer LGT8 cores, older ones don't have this, set 512 instead */
+  return EEPROM.length();
 #endif
   return 0;
 }
 
 void eupdate(uint16_t a, int8_t c) { 
-#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F) || \ 
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F) || \
     defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_SAMD)
   EEPROM.write(a, c);
 #else
@@ -5071,8 +5126,9 @@ void bufferwrite(char c) {
   if (!nullbuffer) return;
   switch (c) {
   case 12: /* clear screen */
-    nullbuffer[nullbuffer[0]+1]=0;
+    //nullbuffer[nullbuffer[0]+1]=0;
     nullbuffer[0]=0;
+    nullbuffer[1]=0;
     break;
   case 10: 
   case 13: /* cr and lf ignored */
@@ -5441,7 +5497,7 @@ void wireonrequest() {
  *	as a master open sets the slave id for the communication
  *	no extra begin while we stay master
  */
-void wireopen(char s, uint8_t m) {
+void wireopen(uint8_t s, uint8_t m) {
 	if (m == 0) {
 		wire_slaveid=s;
 /* we have been a slave and become master, restart wire*/
