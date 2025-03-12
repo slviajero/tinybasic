@@ -6,21 +6,9 @@
 #define ARDUINOEEPROM
 #define ARDUINOVGA
 #define ARDUINOSD
-#undef  ARDUINOMQTT /* currently broken */
+#undef ARDUINOMQTT /* not enough memory, no loonger supported */
 #define SDPIN   13
 #define STANDALONE
-/* this is a large screen with 48 kB memory, good fonts, should work for most situations */
+/* this is a large screen with 48 kB memory, good fonts, should work for most situations, only this option is supported right now */
 #define MEMSIZE 48000
 #define TTGOVGARESOLUTION VGA_640x400_70Hz
-/* a smaller screen, slightly odd fonts but graph and 60 kB, good screen 
-#define MEMSIZE 60000
-#define TTGOVGARESOLUTION VGA_512x384_60Hz 
-*/
-/* Other options that work:
- * #define MEMSIZE 48000
- * #define TTGOVGARESOLUTION VGA_640x480_73Hz
- * 
- * #define TTGOVGARESOLUTION VGA_640x384_60Hz 
- * 
- * #define TTGOVGARESOLUTION VGA_640x200_70HzRetro 
- */
