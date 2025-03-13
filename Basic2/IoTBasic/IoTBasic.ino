@@ -9286,6 +9286,13 @@ void xcall() {
     case 2:
       displaybanner();
       break;
+    /* hard network start */
+    case 3: 
+#ifdef ARDUINOMQTT
+      netbegin();  
+      mqttbegin();
+#endif
+      break;
     /* call values to 31 reserved! */
     default:
       /* your custom code into usrcall() */

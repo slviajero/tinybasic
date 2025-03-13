@@ -1872,10 +1872,24 @@ void fcircle(int x0, int y0, int r) { tft.fillCircle(x0, y0, r); }
  * 
  * This code overrides the display driver logic as fabgl brings an own 
  * terminal emulation.
+ * 
+ * Default settings is a 640*480 VGA screen with 16 colors
+ * and default fonts for the Terminal
  */
 #if defined(ARDUINOVGA) && defined(ARDUINO_TTGO_T7_V14_Mini32) 
-/* static fabgl::VGAController VGAController; */
-fabgl::VGA16Controller VGAController; /* 16 color object with less memory */
+#ifndef TTGOVGACONTROLLER
+#define TTGOVGACONTROLLER VGA16Controller
+#endif
+#ifndef TTGOVGACOLUMNS
+#define TTGOVGACOLUMNS -1
+#endif
+#ifndef TTGOVGAROWS
+#define TTGOVGAROWS -1
+#endif
+#ifndef TTGOVGARESOLUTION
+#define TTGOVGARESOLUTION VGA_640x480_60Hz
+#endif
+fabgl::TTGOVGACONTROLLER VGAController; /* 16 color object with less memory */
 static fabgl::Terminal Terminal;
 static Canvas cv(&VGAController);
 TerminalController tc(&Terminal);
@@ -1889,9 +1903,12 @@ fabgl::SoundGenerator soundGenerator;
 void vgabegin() {
 	VGAController.begin(GPIO_NUM_22, GPIO_NUM_21, GPIO_NUM_19, GPIO_NUM_18, GPIO_NUM_5, GPIO_NUM_4, GPIO_NUM_23, GPIO_NUM_15);
   VGAController.setResolution(TTGOVGARESOLUTION);
-	Terminal.begin(&VGAController);
+	Terminal.begin(&VGAController, TTGOVGACOLUMNS, TTGOVGAROWS);
 	Terminal.setBackgroundColor(vga_txt_background);
 	Terminal.setForegroundColor(vga_txt_pen);
+ #ifdef TTGOVGAFONT
+  Terminal.loadFont(&fabgl::TTGOVGAFONT);
+ #endif
   Terminal.connectLocally();
   Terminal.clear();
   Terminal.enableCursor(1); 
