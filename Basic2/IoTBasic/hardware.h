@@ -75,7 +75,6 @@
  * ttgovga.h:
  *      the TTGO VGA 1.4 board with VGA output
  */
-//#define PREDEFINEDBOARD "boards/dummy.h"
 #define PREDEFINEDBOARD "boards/ttgovga.h"
 
 /* undef this if you really want it */
@@ -104,7 +103,7 @@
 #undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
-#undef ESPSPIFFS
+#define ESPSPIFFS
 #undef ESP32FAT
 #undef RP2040LITTLEFS
 #undef STM32SDIO
@@ -160,7 +159,7 @@
  */
 #undef HASBUILDIN
 /* this is the demo module */
-#define BUILDINMODULE "buildin/buildin.h"
+#define BUILDINMODULE "buildin/buildin-games.h"
 /* a small tutorial */
 // #define BUILDINMODULE "buildin/buildin-tutorial.h"
 /* test program for Arduinos */
