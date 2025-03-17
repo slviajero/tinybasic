@@ -1,4 +1,6 @@
-This is a folder for predefined boards with components.
+This is a folder for predefined boards with components. 
+
+Purpose of this folder is to store information of entire systems. It helps to define them here is a file and then include the file in hardware.h. This way, PIN settings and hardware settings don't have to be done by hand.
 
    dummy.h: 
        do nothing.
@@ -36,4 +38,6 @@ This is a folder for predefined boards with components.
        the LILYGO T-Deck - not yet finished
   ttgovga.h:
        the TTGO VGA 1.4 board with VGA output
+  esp32cam.h
+       the camera - many hw specific definitions coming
 
