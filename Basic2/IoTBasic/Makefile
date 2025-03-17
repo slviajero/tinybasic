@@ -41,10 +41,10 @@ endif
 # Fully qualified board name
 # For a full list of FQBNs see: arduino-cli board listall
 # To add a board add the FQBN to the list and the sort name to the SBN list below.
-FQBN	:= esp32:esp32:d1_mini32 esp8266:esp8266:d1_mini esp8266:esp8266:nodemcuv2
+FQBN	:= esp32:esp32:d1_mini32 esp8266:esp8266:d1_mini esp8266:esp8266:nodemcuv2 arduino:avr:pro
 
 # board short names (=last part of the FQBN)
-SBN	:= d1_mini32 d1_mini nodemcuv2
+SBN	:= d1_mini32 d1_mini nodemcuv2 pro
 
 #  Rule to extract the FQBN based on the short name
 get_full_name = $(filter %$(1),$(FQBN))
