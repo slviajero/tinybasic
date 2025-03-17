@@ -11,6 +11,8 @@
 #define ARDUINOEFS
 #define ARDUINOMQTT
 #define ARDUINOWIRE
+/* EEPROM emulation is possible, takes 2k of memory */
+#undef ARDUINOEEPROM
 /* careful with the setting, lockout possible easily */
 #undef ARDUINOUSBKBD
 #undef STANDALONE
