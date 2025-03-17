@@ -75,7 +75,7 @@
  * ttgovga.h:
  *      the TTGO VGA 1.4 board with VGA output
  */
-#define PREDEFINEDBOARD "boards/ttgovga.h"
+#define PREDEFINEDBOARD "boards/dummy.h"
 
 /* undef this if you really want it */
 #define HARDWAREHEURISTICS
@@ -103,7 +103,7 @@
 #undef ARDUINOI2CEEPROM
 #undef ARDUINOEFS
 #undef ARDUINOSD
-#define ESPSPIFFS
+#undef ESPSPIFFS
 #undef ESP32FAT
 #undef RP2040LITTLEFS
 #undef STM32SDIO
