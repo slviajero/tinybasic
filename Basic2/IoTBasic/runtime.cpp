@@ -4425,9 +4425,9 @@ File file;
 #endif
 #endif
 #ifdef ARDUINO_ARCH_ESP8266
-#define FILE_OWRITE (O_READ | O_WRITE | O_CREAT | O_TRUNC)
+/* #define FILE_OWRITE (O_READ | O_WRITE | O_CREAT | O_TRUNC) */
 /* this is the ESP8266 definition for kernel 3.0, 3.1 has fixed this */
-/* #define FILE_OWRITE (sdfat::O_READ | sdfat::O_WRITE | sdfat::O_CREAT | sdfat::O_TRUNC) */
+#define FILE_OWRITE (sdfat::O_READ | sdfat::O_WRITE | sdfat::O_CREAT | sdfat::O_TRUNC)
 #else 
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_STM32)
 #define FILE_OWRITE FILE_WRITE
