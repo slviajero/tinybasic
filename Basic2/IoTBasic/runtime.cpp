@@ -398,6 +398,25 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #endif
 #endif
 
+/* 
+ *  ESPSDMMC code
+ */
+ 
+#ifdef ESPSDMMC
+#include "FS.h"
+#include "SD_MMC.h"
+#endif
+
+/* 
+ *  ESPSDMMC code, this is an SD card solution with direct access 
+ *  only available on ES32 and ESP32-S3
+ *  
+ *  https://github.com/espressif/arduino-esp32/tree/master/libraries/SD_MMC
+ *  
+ *  Needed for the ESP32 CAM
+ *  
+ */
+
 /*
  * The USB filesystem for the GIGA board.
  * USB device has to be connected at boot time. No remount is possible.
@@ -442,7 +461,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  * (currently BASIC can only have one filesystem).
  */ 
 
-#ifdef ARDUINOSD
+#if defined(ARDUINOSD) ||defined(ESPSDMMC)
 #undef ESPSPIFFS
 #undef RP2040LITTLEFS
 #undef ESP32FAT
@@ -4400,11 +4419,11 @@ void longyieldfunction() {
 /* typical file name length */
 #define FBUFSIZE 32
  
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO) ||defined(ESPSDMMC)
 File ifile;
 File ofile;
 char tempname[FBUFSIZE]; /* this is needed for the catalog code as these platforms do not give static C strings back */
-#if defined(ARDUINOSD) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(STM32SDIO) ||defined(ESPSDMMC)
 File root;
 File file;
 #ifdef ARDUINO_ARCH_ESP32
@@ -4486,7 +4505,7 @@ char buildin_tempname[FBUFSIZE]; /* this is needed for the catalog code as strin
 
 
 /* these filesystems may have a path prefixes, we treat STM32SDIO like an SD here */
-#if defined(RP2040LITTLEFS) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(ARDUINOSD) || defined(GIGAUSBFS)
+#if defined(RP2040LITTLEFS) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(ARDUINOSD) || defined(GIGAUSBFS) || defined(ESPSDMMC)
 char tmpfilename[10+FBUFSIZE];
 
 /* add the prefix to the filename */
@@ -4544,6 +4563,9 @@ void fsbegin() {
 #endif
 #if defined(ESP32FAT) && defined(ARDUINO_ARCH_ESP32)
   if (FFat.begin()) fsstart=1; else fsstart=0;
+#endif
+#if defined(ESPSDMMC) && defined(ARDUINO_ARCH_ESP32)
+  if (SD_MMC.begin()) fsstart=1; else fsstart=0;
 #endif
 #ifdef RP2040LITTLEFS
 	myFS = new LittleFS_MBED();
@@ -4623,7 +4645,7 @@ uint8_t fsstat(uint8_t c) {
  * only one file can be open for write and read at the same time
  */
 void filewrite(char c) {
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)||defined(ESP32FAT)||defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)||defined(ESP32FAT)||defined(STM32SDIO)|| defined(ESPSDMMC)
 	if (ofile) { ofile.write(c); return; }
 #endif
 #if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
@@ -4650,7 +4672,7 @@ char fileread() {
     return c;
   }
 #endif
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)||defined(ESP32FAT)||defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)||defined(ESP32FAT)||defined(STM32SDIO) || defined(ESPSDMMC)
 	if (ifile) c=ifile.read(); else { ioer=1; return 0; }
 	if (c == -1 || c == 255) ioer=-1;
 	return c;
@@ -4677,7 +4699,7 @@ int fileavailable(){
     if (c != '\f') return 1; else return 0;
   }
 #endif
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO) || defined(ESPSDMMC)
 	return ifile.available();
 #endif
 #if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
@@ -4734,6 +4756,10 @@ uint8_t ifileopen(const char* filename){
 	ifile=SD.open(mkfilename(filename), FILE_READ);
 	return ifile != 0;
 #endif
+#ifdef ESPSDMMC
+  ifile=SD_MMC.open(mkfilename(filename), FILE_READ);
+  return ifile != 0;
+#endif
 #if defined(STM32SDIO)
   ifile=SD.open(filename);
   return ifile != 0;
@@ -4756,7 +4782,6 @@ uint8_t ifileopen(const char* filename){
 #endif
 	return 0;
 }
-
 void ifileclose(){
 #if defined(HASBUILDIN)
   if (buildin_ifile) {
@@ -4764,7 +4789,7 @@ void ifileclose(){
     buildin_ifilepointer=0;   
   }
 #endif
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO) || defined(ESPSDMMC)
 	if (ifile) ifile.close();
 #endif	
 #if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
@@ -4793,6 +4818,16 @@ uint8_t ofileopen(const char* filename, const char* m){
 	if (*m == 'a') ofile=SD.open(mkfilename(filename), FILE_WRITE);
 #endif
 	return ofile != 0;
+#endif
+#if defined(ESPSDMMC) 
+  if (*m == 'w') ofile=SD_MMC.open(mkfilename(filename), FILE_OWRITE);
+/* ESP32 has FILE_APPEND defined */
+#ifdef FILE_APPEND
+  if (*m == 'a') ofile=SD_MMC.open(mkfilename(filename), FILE_APPEND);
+#else
+  if (*m == 'a') ofile=SD_MMC.open(mkfilename(filename), FILE_WRITE);
+#endif
+  return ofile != 0;
 #endif
 #if  defined(STM32SDIO)
   if (*m == 'w') ofile=SD.open(filename, FILE_OWRITE);
@@ -4829,7 +4864,7 @@ uint8_t ofileopen(const char* filename, const char* m){
 }
 
 void ofileclose(){
-#if defined(ARDUINOSD) || defined(ESPSPIFFS)||defined(ESP32FAT)||defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS)||defined(ESP32FAT)|| defined(STM32SDIO) || defined(ESPSDMMC)
   if (ofile) ofile.close();
 #endif
 #if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
@@ -4865,6 +4900,9 @@ void rootopen() {
   
 #if defined(ARDUINOSD) || defined(STM32SDIO)
 	root=SD.open("/");
+#endif
+#if defined(ESPSDMMC)
+  root=SD_MMC.open("/");
 #endif
 #ifdef ESPSPIFFS
 #ifdef ARDUINO_ARCH_ESP8266
@@ -4905,7 +4943,7 @@ uint8_t rootnextfile() {
  */
   if (!fsstart) return 0;
   
-#if defined(ARDUINOSD) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(STM32SDIO)||defined(ESPSDMMC)
 	file=root.openNextFile();
 	return (file != 0);
 #endif
@@ -4944,9 +4982,10 @@ uint8_t rootisfile() {
 #ifdef HASBUILDIN
   if (buildin_rootactive) return 1;
 #endif
-#if defined(ARDUINOSD) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(STM32SDIO) || defined(ESPSDMMC)
 	return (!file.isDirectory());
 #endif
+
 #ifdef ESPSPIFFS
 #ifdef ARDUINO_ARCH_ESP8266
 	return 1;
@@ -4978,7 +5017,7 @@ const char* rootfilename() {
     }
   }
 #endif
-#if defined(ARDUINOSD)
+#if defined(ARDUINOSD) || defined(ESPSDMMC)
   return rmrootfsprefix(file.name());
 #endif
 #if defined(STM32SDIO)
@@ -5020,7 +5059,7 @@ uint32_t rootfilesize() {
     }
   }
 #endif
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO) || defined(ESPSDMMC)
   return file.size();
 #endif  
 #if defined(RP2040LITTLEFS)||defined(GIGAUSBFS)
@@ -5033,7 +5072,7 @@ uint32_t rootfilesize() {
 }
 
 void rootfileclose() {
-#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(ESPSPIFFS) || defined(ESP32FAT) || defined(STM32SDIO) || defined(ESPSDMMC)
   file.close();
 #endif 
 #if defined(RP2040LITTLEFS) || defined(GIGAUSBFS)
@@ -5047,7 +5086,7 @@ void rootclose(){
 #ifdef HASBUILDIN
   buildin_rootactive=0;
 #endif
-#if defined(ARDUINOSD) || defined(STM32SDIO)
+#if defined(ARDUINOSD) || defined(STM32SDIO) || defined(ESPSDMMC)
   root.close();
 #endif
 #ifdef ESPSPIFFS
@@ -5080,6 +5119,10 @@ void removefile(const char *filename) {
 	SD.remove(mkfilename(filename));
 	return;
 #endif
+#if defined(ESPSDMMC)
+  SD_MMC.remove(mkfilename(filename));
+  return;
+#endif
 #if defined(STM32SDIO)  
   SD.remove(filename);
   return;
@@ -5106,7 +5149,8 @@ void removefile(const char *filename) {
  * formatting for fdisk of the internal filesystems
  */
 void formatdisk(uint8_t i) {
-#if defined(ARDUINOSD) || defined(STM32SDIO)||defined(GIGAUSBFS)
+#if defined(ARDUINOSD) || defined(STM32SDIO)||defined(GIGAUSBFS) || defined(ESPSDMMC)
+  return;
 	return;
 #endif
 #ifdef ESPSPIFFS
