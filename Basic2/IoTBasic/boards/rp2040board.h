@@ -11,4 +11,4 @@
 #define ARDUINORTC 
 #define ARDUINOPS2
 #define ARDUINOMQTT
-#undef STANDALONE
+#define  STANDALONE
