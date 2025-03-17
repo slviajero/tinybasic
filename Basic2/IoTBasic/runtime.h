@@ -421,7 +421,7 @@ void detachinterrupt(uint8_t);
 /* some have PinStatus and some don't */
 #if !(defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_MBED_NANO) || \
      defined(ARDUINO_ARCH_RENESAS) || defined(ARDUINO_ARCH_MBED_GIGA) || \
-     defined(ARDUINO_ARCH_SAMD)) || defined(ARDUINO_SEEED_XIAO_M0)
+     defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_MEGAAVR)) || defined(ARDUINO_SEEED_XIAO_M0)
 typedef int PinStatus;
 #endif
 
