@@ -5383,8 +5383,10 @@ nextpower:
 #endif
 
 /*
- 	term() evaluates multiplication, division and mod
-*/
+ * term() evaluates powers, multiplication, division and mod.
+ * There are two versions, one with a power operator ^ and one without.
+ */
+#ifdef HASPOWER
 void term() {
   if (DEBUG) bdebug("term\n");
   power();
@@ -5438,6 +5440,65 @@ nextfactor:
   }
   if (DEBUG) bdebug("leaving term\n");
 }
+#else 
+void term() {
+  if (DEBUG) bdebug("term\n");
+  factor();
+  if (!USELONGJUMP && er) return;
+
+nextfactor:
+  nexttoken();
+  if (DEBUG) bdebug("in term\n");
+  if (token == '*') {
+    parseoperator(factor);
+    if (!USELONGJUMP && er) return;
+    push(x * y);
+    goto nextfactor;
+  } else if (token == '/') {
+    parseoperator(factor);
+    if (!USELONGJUMP && er) return;
+    if (y != 0)
+#ifndef HASFLOAT
+      push(x / y);
+#else
+        if (forceint) push((int)x / (int)y); else push(x / y);
+#endif
+    else {
+      error(EDIVIDE);
+      return;
+    }
+    goto nextfactor;
+  } else if (token == '%') {
+    parseoperator(factor);
+    if (!USELONGJUMP && er) return;
+    if (y != 0)
+#ifndef HASFLOAT
+      push(x % y);
+#else
+      push((int)x % (int)y);
+#endif
+    else {
+      error(EDIVIDE);
+      return;
+    }
+    goto nextfactor;
+  } else if (token == TSHL) {
+    parseoperator(factor);
+    if (!USELONGJUMP && er) return;
+    push((int)x << (int)y);
+    goto nextfactor;
+  } else if (token == TSHR) {
+    parseoperator(factor);
+    if (!USELONGJUMP && er) return;
+    push((int)x >> (int)y);
+    goto nextfactor;
+  }
+  if (DEBUG) bdebug("leaving term\n");
+}
+
+
+
+#endif
 
 /* add and subtract */
 void addexpression() {
@@ -9285,6 +9346,13 @@ void xcall() {
     /* show the banner again */
     case 2:
       displaybanner();
+      break;
+    /* hard network start */
+    case 3: 
+#ifdef ARDUINOMQTT
+      netbegin();  
+      mqttbegin();
+#endif
       break;
     /* call values to 31 reserved! */
     default:
