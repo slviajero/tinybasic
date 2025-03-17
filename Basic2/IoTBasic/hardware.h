@@ -77,9 +77,25 @@
  */
 #define PREDEFINEDBOARD "boards/dummy.h"
 
-/* undef this if you really want it */
+/* undef this if you want to overide all defaults, then use the settings below */
 #define HARDWAREHEURISTICS
 
+/* 
+ * These are the individual settings. Logic: 
+ * PREDEFINEDBOARD is set, and some of the settings below are
+ * activated automatically.
+ * HARDWAREHEURISTICS is set, some of the settings below are
+ * activated automatically depending on the hardware.
+ * HARDWAREHEURISTICS is not set, all settings below are
+ * have to be set manually.
+ * 
+ * Important: HARDWAREHEURISTICS is processed last in the code
+ * so it can override all settings below.
+ * 
+ * In one sentence:
+ * First PREDEFINEDBOARD, then manual settings, then HARDWAREHEURISTICS.
+ */
+/*
 #undef ARDUINOPICOSERIAL 
 #undef ARDUINOPS2
 #undef ARDUINOUSBKBD
@@ -121,6 +137,7 @@
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
 #undef STANDALONESECONDSERIAL
+*/
 // #define ALTSERIAL Serial
 
 /* we debug the runtime library and where the logging goes */
