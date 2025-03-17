@@ -156,6 +156,10 @@
  *      In this mode false is 0 and -1 is true. (1) is C style boolean arithemtic.
  *      In this mode true is 1 and false is 0. AND and OR still do bitwise operations
  *      but NOT is C not. SET 19,1 or -1 can change this at runtime.
+ *  HAS64BIT: 64 bit floating point support on platforms that have a 64 bit double. 
+ *      Counterexample: AVR 8bit does not have 64 bit floating point.
+ * HAS32BITINT: 32 bit integer support on 8 bit platforms.
+ * HASPOWER: the POWER operator ^ is available in addition to the POW function.
  */
 
 #undef POWERRIGHTTOLEFT
@@ -165,6 +169,7 @@
 #define BOOLEANMODE -1
 #undef  HAS64BIT
 #undef  HAS32BITINT
+#define HASPOWER 
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
