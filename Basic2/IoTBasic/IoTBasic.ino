@@ -8591,7 +8591,7 @@ void xwire() {
 
 /* this code is the only place where the stack is accessed directly */
   if (args > 1) {
-    wirestart((int)stack[sp-args].n);
+    wirestart((int)stack[sp-args].n, 0);
     for(i=1; i<args; i++) wirewritebyte((int)stack[sp-args+i].n); 
     wirestop();
     sp-=args;
@@ -8604,8 +8604,12 @@ void xwire() {
 
 void xfwire() {
 #if defined(HASWIRE) || defined(HASSIMPLEWIRE)
-  push(wirereadbyte(pop()));
-#else
+  uint8_t port;
+  ioer=0;
+  port=pop();
+  if (!USELONGJUMP && er) return;
+  wirestart(port, 1);
+  push(wirereadbyte());
 #endif
 }
 
@@ -9221,6 +9225,7 @@ void xusr() {
 #else
         case 3: push(0); break;
 #endif
+/*
         case 4: push(numsize); break;
         case 5: push(maxnum); break;
         case 6: push(addrsize); break;
@@ -9235,7 +9240,7 @@ void xusr() {
         case 15: push(SBUFSIZE); break;
         case 16: push(ARRAYSIZEDEF); break;
         case 17: push(defaultstrdim); break;
-        /* - 24 reserved, don't use */
+        // - 24 reserved, don't use
         case 24: push(top); break;
         case 25: push(here); break;
         case 26: push(himem); break;
@@ -9243,8 +9248,9 @@ void xusr() {
         case 28: push(freeRam()); break;
         case 29: push(gosubsp); break;
         case 30: push(loopsp); break;
-        case 31: push(0); break; /* fnc removed as interpreter variable */
+        case 31: push(0); break; // fnc removed as interpreter variable
         case 32: push(sp); break;
+*/
 #ifdef HASDARTMOUTH
         case 33: push(data); break;
 #else

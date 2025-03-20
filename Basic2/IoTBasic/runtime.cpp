@@ -131,7 +131,7 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  * https://github.com/khoih-prog/FlashStorage_SAMD
  * This is now bundled with the interpreter. The emulation buffers the
  * entire EEPROM in RAM, so 2k should be ok but not more. If the 
- * dual buffer strateg of EepromFS or XMC would be used, larger 
+ * dual buffer strategy of EepromFS or XMC would be used, larger 
  * EEPROMs could be emulated - this is work to be done. 
  * 
  * RP2040 standard cores and the DUE do not have an EEPROM emulation.
@@ -500,7 +500,8 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 /* The EFS object is used for filesystems and raw EEPROM access. */
 
 #if (defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)) || defined(ARDUINOEFS)
-#include "src/EepromFS/EepromFS.h"
+//#include "src/EepromFS/EepromFS.h"
+#include "src/EepromFS/EepromFSI2Cdirect.h"
 #endif
 
 /*
@@ -3161,12 +3162,13 @@ void rtcbegin() {}
 uint16_t rtcget(uint8_t i) {
   
     /* set the address of the read */
-    wirestart(RTCI2CADDR);
+    wirestart(RTCI2CADDR, 0);
     wirewritebyte(i);
     wirestop();
 
     /* now read */
-    uint8_t v=wirereadbyte(RTCI2CADDR);
+    wirestart(RTCI2CADDR, 1);
+    uint8_t v=wirereadbyte();
     
     switch (i) {
     case 0: 
@@ -3211,7 +3213,7 @@ void rtcset(uint8_t i, uint16_t v) {
    }
 
 /* send the address and then the byte */
-    wirestart(RTCI2CADDR);
+    wirestart(RTCI2CADDR, 0);
     wirewritebyte(i);
     wirewritebyte(b);
     wirestop();
@@ -4051,7 +4053,7 @@ void eupdate(uint16_t a, int8_t c) {
     Wire.write((int)c);
     ioer=Wire.endTransmission();
 */
-    wirestart(I2CEEPROMADDR);
+    wirestart(I2CEEPROMADDR, 0);
     wirewritebyte((int)a/256);
     wirewritebyte((int)a%256);
     wirewritebyte((int)c);
@@ -4070,14 +4072,15 @@ int8_t eread(uint16_t a) {
 /* read directly from the EEPROM */
 
 /* set the address */
-  wirestart(I2CEEPROMADDR);
+  wirestart(I2CEEPROMADDR, 0);
   wirewritebyte((int)a/256);
   wirewritebyte((int)a%256);
   ioer=wirestop();
   
 /* read a byte */
   if (ioer == 0) {
-    return wirereadbyte(I2CEEPROMADDR);
+    wirestart(I2CEEPROMADDR, 1);
+    return wirereadbyte();
   } else return 0;
  
 #endif
@@ -5670,7 +5673,7 @@ void wirebegin() {
 }
 
 /* a generic start function for read and write*/
-void wirestartrw (uint8_t port, uint8_t n) {
+void wirestart (uint8_t port, uint8_t n) {
   
   /* form the right address*/
   port=port<<1;
@@ -5701,9 +5704,6 @@ void wirestartrw (uint8_t port, uint8_t n) {
   }
 }
 
-/* start function for write access */
-void wirestart(uint8_t port) { wirestartrw(port, 0); }
-
 /* stop, return value just a formality, error handling is done differently*/
 uint8_t wirestop () {
   TWCR = 1<<TWINT | 1<<TWEN | 1<<TWSTO;
@@ -5714,25 +5714,21 @@ uint8_t wirestop () {
 /* one byte write */
 void wirewritebyte(uint8_t b) {
   TWDR = b;
-  TWCR = 1<<TWINT | 1 << TWEN;
+  TWCR = 1<<TWINT | 1<<TWEN;
   while (!(TWCR & 1<<TWINT));
   if (!((TWSR & 0xF8) == TWSR_MTX_DATA_ACK)) ioer=1;
 }
 
-/* one byte read without stopping the bus, this may be problemantic,
-   we currently don't even count the bytes because we always restart fresh */
-int16_t wirereadbyte (uint8_t port) {
-  
-  wirestartrw (port, 1);
-  if (ioer) return; 
-  
-  // if (wirecount != 0) wirecount--;
+/* one byte read without stopping the bus */
+int16_t wirereadbyte () {
+  if (wirecount != 0) wirecount--;
   TWCR = 1<<TWINT | 1<<TWEN | ((wirecount == 0) ? 0 : (1<<TWEA));
   while (!(TWCR & 1<<TWINT));
-  
   return TWDR;
 }
 #else
+
+/* start the Wire object*/
 void wirebegin() {
 #ifndef SDA_PIN   
   Wire.begin();
@@ -5740,13 +5736,20 @@ void wirebegin() {
   Wire.begin(SDA_PIN, SCL_PIN);
 #endif
 }
-void wirestart(uint8_t port) { Wire.beginTransmission(port); }
+
+/* initiate communication for read or write */
+void wirestart(uint8_t port, uint8_t n) { 
+  if (n) {
+    if (!Wire.requestFrom(port, n)) ioer=1;
+  } else {
+    Wire.beginTransmission(port); 
+  }
+}
+
+/* stop is only explicitly used on write */
 uint8_t wirestop() { return Wire.endTransmission(); }
 void wirewritebyte(uint8_t data) { Wire.write(data); }
-int16_t wirereadbyte(uint8_t port) { 
-    if (!Wire.requestFrom(port,(uint8_t) 1)) ioer=1;
-    return Wire.read();
-}
+int16_t wirereadbyte() { return Wire.read(); }
 #endif
 #endif
 

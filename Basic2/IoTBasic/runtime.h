@@ -892,11 +892,7 @@ uint16_t kbdins(char*, uint16_t);
  * wirewrite(c): write a character to the wire system.
  * wireins(l, s): read a line l from the wire system max length is s.
  * wireouts(l, s): write a line l to the wire system max length is s.
- * wirereadbyte(s): read from single byte from the wire slave s.
- * wirewritebyte(s, b): write a single byte b to the wire slave s.
- * wirewriteword(s, b1, b2): write two bytes b1 and b2 to the wire slave s.
- * (the latter three functions cover most of the wire communication to simple
- * devices like sensors and displays). They are available in BASIC as the WIRE
+ * They are available in BASIC as the WIRE
  * command. 
  */ 
 
@@ -912,16 +908,11 @@ uint16_t kbdins(char*, uint16_t);
  uint16_t wireins(char*, uint8_t);
  void wireouts(char*, uint8_t);
 
- /* 
- int16_t wirereadbyte(uint8_t);
- void wirewritebyte(uint8_t, uint8_t);
- void wirewriteword(uint8_t, uint8_t, uint8_t);
-*/
 /* new byte wire interface for direct access */
-void wirestart(uint8_t);
+void wirestart(uint8_t, uint8_t);
 void wirewritebyte(uint8_t);
 uint8_t wirestop();
-int16_t wirereadbyte(uint8_t);
+int16_t wirereadbyte();
 
 /* 
  * IO channel 8 - the RF24 radio I/O device.
