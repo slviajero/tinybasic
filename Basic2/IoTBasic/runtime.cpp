@@ -158,9 +158,20 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 /* 
  * Standard wire - triggered by the HASWIRE or HASSIMPLEWIR macro.
  * These macros are set in the hardware.h file depending on the subsystems.
+ * 
+ * If ARDUINODIRECTI2C is set and the platform is AVR, the the Wire library 
+ * is bypassed. This saves 200 bytes of RAM and 1kB of program space. It 
+ * also removed the blocking of Wire if the slave does not respond.
+ * 
+ * In this case Wire.h should not be included in the sketch because
+ * it allocates the buffers and the Wire object.
  */
 
-#if defined(HASWIRE) || defined(HASSIMPLEWIRE)
+#if defined(HASWIRE)
+#include <Wire.h>
+#endif 
+
+#if defined(HASSIMPLEWIRE) && !(defined(ARDUINO_ARCH_AVR) && defined(TWDR) && defined(ARDUINODIRECTI2C))
 #include <Wire.h>
 #endif
 
@@ -3150,13 +3161,12 @@ void rtcbegin() {}
 uint16_t rtcget(uint8_t i) {
   
     /* set the address of the read */
-    Wire.beginTransmission(RTCI2CADDR);
-    Wire.write(i);
-    Wire.endTransmission();
+    wirestart(RTCI2CADDR);
+    wirewritebyte(i);
+    wirestop();
 
     /* now read */
-    Wire.requestFrom(RTCI2CADDR, 1);
-    uint8_t v=Wire.read();
+    uint8_t v=wirereadbyte(RTCI2CADDR);
     
     switch (i) {
     case 0: 
@@ -3201,10 +3211,11 @@ void rtcset(uint8_t i, uint16_t v) {
    }
 
 /* send the address and then the byte */
-   Wire.beginTransmission(RTCI2CADDR);
-   Wire.write(i);
-   Wire.write(b);
-   Wire.endTransmission(); 
+    wirestart(RTCI2CADDR);
+    wirewritebyte(i);
+    wirewritebyte(b);
+    wirestop();
+
 }
 #elif defined(HASBUILTINRTC) 
 /*
@@ -3949,7 +3960,7 @@ void ebegin(){
   int c32=eread(32766);
   eupdate(4094, 42);
   eupdate(32766, 84);
-  if (ert !=0 ) return;
+  if (ioer !=0 ) return;
   if (eread(32766) == 84 && eread(4094) == 42) i2ceepromsize = 32767; else i2ceepromsize = 4096;
   eupdate(4094, c4);
   eupdate(32766, c32);  
@@ -4032,11 +4043,20 @@ void eupdate(uint16_t a, int8_t c) {
 /* go directly into the EEPROM */
   if (eread(a) != c) {
   /* set the address and send the byte*/
+
+/*
     Wire.beginTransmission(I2CEEPROMADDR);
     Wire.write((int)a/256);
     Wire.write((int)a%256);
     Wire.write((int)c);
     ioer=Wire.endTransmission();
+*/
+    wirestart(I2CEEPROMADDR);
+    wirewritebyte((int)a/256);
+    wirewritebyte((int)a%256);
+    wirewritebyte((int)c);
+    ioer=wirestop();
+
   /* wait the max time */
     bdelay(5);
   }
@@ -4050,15 +4070,14 @@ int8_t eread(uint16_t a) {
 /* read directly from the EEPROM */
 
 /* set the address */
-  Wire.beginTransmission(I2CEEPROMADDR);
-  Wire.write((int)a/256);
-  Wire.write((int)a%256);
-  ioer=Wire.endTransmission();
-
+  wirestart(I2CEEPROMADDR);
+  wirewritebyte((int)a/256);
+  wirewritebyte((int)a%256);
+  ioer=wirestop();
+  
 /* read a byte */
-  if (ert == 0) {
-    Wire.requestFrom(I2CEEPROMADDR, 1);
-    return (int8_t) Wire.read();
+  if (ioer == 0) {
+    return wirereadbyte(I2CEEPROMADDR);
   } else return 0;
  
 #endif
@@ -5478,8 +5497,8 @@ uint16_t prtins(char* b, uint16_t nb) {
  * library
  */ 
 
-/* this is always here, if Wire is needed by a subsysem */
-#if defined(HASWIRE) || defined(HASSIMPLEWIRE)
+/* this is always here, if Wire is needed by a subsysem, full wire always loads the Arduino wire library */
+#if defined(HASWIRE)
 /* default begin is as a master 
  * This doesn't work properly on the ESP32C3 platform
  * See  https://github.com/espressif/arduino-esp32/issues/6376 
@@ -5624,23 +5643,113 @@ void wireouts(char *b, uint8_t l) {
 
 /* plain wire without FILE I/O functions */
 #if defined(HASSIMPLEWIRE) || defined(HASWIRE)
-/* single byte access functions on Wire */
+
+/* AVR boards can be handled with a smaller Wire implementation, this 
+   should go into a separate library soon */
+#if defined(ARDUINO_ARCH_AVR) && defined(TWDR) && defined(ARDUINODIRECTI2C) && defined(HASSIMPLEWIRE)
+
+/* a few constants */ 
+uint32_t const F_TWI = 100000L;                               
+uint8_t const TWSR_MTX_DATA_ACK = 0x28;
+uint8_t const TWSR_MTX_ADR_ACK = 0x18;
+uint8_t const TWSR_MRX_ADR_ACK = 0x40;
+uint8_t const TWSR_START = 0x08;
+uint8_t const TWSR_REP_START = 0x10;
+uint8_t const I2C_READ = 1;
+uint8_t const I2C_WRITE = 0;
+
+/* counts the bytes to be read, in this implementation not used */
+uint8_t wirecount;
+
+/* start the bus and set the frequency in TWBR */
+void wirebegin() {
+  digitalWrite(SDA, HIGH);                                      
+  digitalWrite(SCL, HIGH);
+  TWSR = 0;
+  TWBR = (F_CPU/F_TWI - 16)/2;
+}
+
+/* a generic start function for read and write*/
+void wirestartrw (uint8_t port, uint8_t n) {
+  
+  /* form the right address*/
+  port=port<<1;
+
+  /* remember the requested bytes and go to read mode if read */
+  if (n) { 
+    wirecount=n;  
+    port |= I2C_READ;
+  }
+  
+  /* start the bus and wait */
+  TWCR = 1<<TWINT | 1<<TWSTA | 1<<TWEN;
+  while (!(TWCR & 1<<TWINT));
+  
+  /* check the status */
+  if ((TWSR & 0xF8) != TWSR_START && (TWSR & 0xF8) != TWSR_REP_START) { ioer=1; return; }
+  
+  /* send the address and direction */
+  TWDR = port;
+  TWCR = 1<<TWINT | 1<<TWEN;
+  while (!(TWCR & 1<<TWINT));
+  
+  /* check the status */
+  if (port & I2C_READ) {
+    if ((TWSR & 0xF8) == TWSR_MRX_ADR_ACK) ioer=0; else ioer=1;
+  } else { 
+    if ((TWSR & 0xF8) == TWSR_MTX_ADR_ACK) ioer=0; else ioer=1;
+  }
+}
+
+/* start function for write access */
+void wirestart(uint8_t port) { wirestartrw(port, 0); }
+
+/* stop, return value just a formality, error handling is done differently*/
+uint8_t wirestop () {
+  TWCR = 1<<TWINT | 1<<TWEN | 1<<TWSTO;
+  while (TWCR & 1<<TWSTO);
+  return ioer;
+}
+
+/* one byte write */
+void wirewritebyte(uint8_t b) {
+  TWDR = b;
+  TWCR = 1<<TWINT | 1 << TWEN;
+  while (!(TWCR & 1<<TWINT));
+  if (!((TWSR & 0xF8) == TWSR_MTX_DATA_ACK)) ioer=1;
+}
+
+/* one byte read without stopping the bus, this may be problemantic,
+   we currently don't even count the bytes because we always restart fresh */
+int16_t wirereadbyte (uint8_t port) {
+  
+  wirestartrw (port, 1);
+  if (ioer) return; 
+  
+  // if (wirecount != 0) wirecount--;
+  TWCR = 1<<TWINT | 1<<TWEN | ((wirecount == 0) ? 0 : (1<<TWEA));
+  while (!(TWCR & 1<<TWINT));
+  
+  return TWDR;
+}
+#else
+void wirebegin() {
+#ifndef SDA_PIN   
+  Wire.begin();
+#else
+  Wire.begin(SDA_PIN, SCL_PIN);
+#endif
+}
+void wirestart(uint8_t port) { Wire.beginTransmission(port); }
+uint8_t wirestop() { return Wire.endTransmission(); }
+void wirewritebyte(uint8_t data) { Wire.write(data); }
 int16_t wirereadbyte(uint8_t port) { 
     if (!Wire.requestFrom(port,(uint8_t) 1)) ioer=1;
     return Wire.read();
 }
-void wirewritebyte(uint8_t port, int16_t data) { 
-  Wire.beginTransmission(port); 
-  Wire.write(data);
-  Wire.endTransmission();
-}
-void wirewriteword(uint8_t port, int16_t data1, int16_t data2) {
-  Wire.beginTransmission(port); 
-  Wire.write(data1);
-  Wire.write(data2);
-  Wire.endTransmission();
-}
 #endif
+#endif
+
 
 /*
 #ifndef HASWIRE

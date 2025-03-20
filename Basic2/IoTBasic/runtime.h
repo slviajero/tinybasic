@@ -911,9 +911,17 @@ uint16_t kbdins(char*, uint16_t);
  void wirewrite(char c);
  uint16_t wireins(char*, uint8_t);
  void wireouts(char*, uint8_t);
+
+ /* 
  int16_t wirereadbyte(uint8_t);
- void wirewritebyte(uint8_t, int16_t);
- void wirewriteword(uint8_t, int16_t, int16_t);
+ void wirewritebyte(uint8_t, uint8_t);
+ void wirewriteword(uint8_t, uint8_t, uint8_t);
+*/
+/* new byte wire interface for direct access */
+void wirestart(uint8_t);
+void wirewritebyte(uint8_t);
+uint8_t wirestop();
+int16_t wirereadbyte(uint8_t);
 
 /* 
  * IO channel 8 - the RF24 radio I/O device.

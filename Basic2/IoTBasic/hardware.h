@@ -142,7 +142,7 @@
 // #define ALTSERIAL Serial
 
 /* we debug the runtime library and where the logging goes */
-#define RTDEBUG 0
+#define RTDEBUG 1
 #define RTDEBUGSTREAM 1
 
 /* the memory size, set to 0 means determine automatically 
@@ -307,8 +307,12 @@
 /* definition for an external EEPROM */
 #define I2CEEPROMADDR 0x050
 
-/* is the I2C EEPROM buffered */
-#define ARDUINOI2CEEPROM_BUFFERED
+/* is the I2C EEPROM buffered, left open here for the board file to decided - defaults to unbuffered */
+/* #define ARDUINOI2CEEPROM_BUFFERED */
+
+/* use the direct i2c code and bypass the Wire library on AVR 
+  default off here, board file and heuristics to decide */
+/* #undef ARDUINODIRECTI2C */
 
 /*
  * Sensor library code - configure your sensors here, will go to a 

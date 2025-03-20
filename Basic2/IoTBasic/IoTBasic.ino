@@ -719,8 +719,8 @@ mem_t precision = 5;
 #endif
 
 /*
-   BASIC timer stuff, this is a core interpreter function now
-*/
+ *  BASIC timer stuff, this is a core interpreter function now
+ */
 
 /* the millis function for BASIC */
 void bmillis() {
@@ -731,17 +731,17 @@ void bmillis() {
 }
 
 /*
-    Determine the possible basic memory size.
- 	using malloc causes some overhead which can be relevant on the smaller
- 	boards.
+ *   Determine the possible basic memory size.
+ * 	using malloc causes some overhead which can be relevant on the smaller
+ *	boards.
+ *
+ * Set MEMSIZE instead to a static value. In this case ballocmem
+ * just returns the static MEMSIZE.
+ * 
+ * If SPIRAMINTERFACE is defined, we use the memory from a serial RAM and dont
+ * allocate it here at all.
+ */
 
-  	Set MEMSIZE instead to a static value. In this case ballocmem
- 	just returns the static MEMSIZE.
-
- 	If SPIRAMINTERFACE is defined, we use the memory from a serial RAM and dont
- 	allocate it here at all.
-
-*/
 #if (!defined(MEMSIZE) || MEMSIZE == 0) && !(defined(SPIRAMINTERFACE))
 address_t ballocmem() {
 
@@ -8582,22 +8582,19 @@ void xsleep() {
 */
 
 void xwire() {
-  short port, data1, data2;
-
+  int i;
+  
   nexttoken();
 #if defined(HASWIRE) || defined(HASSIMPLEWIRE)
   parsearguments();
   if (!USELONGJUMP && er) return;
 
-  if (args == 3) {
-    data2 = pop();
-    data1 = pop();
-    port = pop();
-    wirewriteword(port, data1, data2);
-  } else if (args == 2) {
-    data1 = pop();
-    port = pop();
-    wirewritebyte(port, data1);
+/* this code is the only place where the stack is accessed directly */
+  if (args > 1) {
+    wirestart((int)stack[sp-args].n);
+    for(i=1; i<args; i++) wirewritebyte((int)stack[sp-args+i].n); 
+    wirestop();
+    sp-=args;
   } else {
     error(EARGS);
     return;
