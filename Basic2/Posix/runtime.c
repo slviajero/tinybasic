@@ -1489,8 +1489,9 @@ void bufferwrite(char c) {
   if (!nullbuffer) return;
   switch (c) {
   case 12: /* clear screen */
-    nullbuffer[nullbuffer[0]+1]=0;
+    //nullbuffer[nullbuffer[0]+1]=0;
     nullbuffer[0]=0;
+    nullbuffer[1]=0;
     break;
   case 10: 
   case 13: /* cr and lf ignored */
@@ -2004,10 +2005,10 @@ uint8_t wirestat(uint8_t c) {
   return 1; 
 }
 
-void wireopen(char s, uint8_t m) {
+void wireopen(uint8_t s, uint8_t m) {
   if (m == 0) {
     wire_slaveid=s;
-  } else if ( m == 1 ) { 
+  } else if (m == 1) { 
     outsc("** wire slave mode not implemented"); outcr();
   } else 
     error(EORANGE);
@@ -2121,12 +2122,12 @@ char wireread() {
 #else
 void wirebegin() {}
 uint8_t wirestat(uint8_t c) {return 0; }
-void wireopen(char s, uint8_t m) {}
+void wireopen(uint8_t s, uint8_t m) {}
 uint16_t wireins(char *b, uint8_t l) { b[0]=0; return 0; }
 void wireouts(char *b, uint8_t l) {}
 uint16_t wireavailable() { return 1; }
-int16_t wirereadbyte(uint8_t port) { return 0; }
-void wirewritebyte(uint8_t  port, int16_t data) { return; }
+int16_t wirereadbyte() { return 0; }
+void wirewritebyte(uint8_t data) { return; }
 void wirewriteword(uint8_t port, int16_t data1, int16_t data2) { return; }
 /* just a helper to make GET work, wire is string oriented */
 char wireread() { return 0; }

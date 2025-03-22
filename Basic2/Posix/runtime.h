@@ -1,11 +1,13 @@
 /*
- * Stefan's basic interpreter 
+ * Stefan's basic interpreter. 
  *
  * Prototypes for the runtime environment of the BASIC interpreter.
  *
- * Needs to be included by runtime.c or runtime.cpp and basic.c
+ * Needs to be included by runtime.c or runtime.cpp and basic.c as 
+ * it describes the interface between the BASIC interpreter and the
+ * runtime environment.
  * 
- * Parametrized by hardware.h.
+ * Most configurable parameters are in hardware.h.
  *
  * Author: Stefan Lenz, sl001@serverfabrik.de
  * 
@@ -14,15 +16,11 @@
 #if !defined(__RUNTIMEH__)
 #define __RUNTIMEH__ 
 
-/* we debug the runtime library and where the logging goes */
-#define RTDEBUG 0
-#define RTDEBUGSTREAM 1
-
 /* 
  * The system type identifiers
  * 
  * SYSTYPE_UNKNOWN: unknown system, typically an unknown Arduino
- * SYSTYPE_AVR: an AVR based Arduino, like the UNO, NANO, MEGA
+ * SYSTYPE_AVR: an AVR based Arduino, like the UNO, NANO, MEGA, PRO
  * SYSTYPE_ESP8266: an ESP8266 based Arduino, like the Wemos D1, very common and generic
  * SYSTYPE_ESP32: an ESP32 based Arduino, like the Wemos Lolin32, very common and generic
  * SYSTYPE_RP2040: a Raspberry PI Pico, the first RP2040 based Arduino
@@ -117,7 +115,8 @@ extern int8_t ioer;
  * Io control flags.
  *
  * These flags are used to control the I/O devices.
- * kbdrepeat: the keyboard repeat flag
+ * kbdrepeat: the keyboard repeat flag for the keypad of a shield
+ *  only used by SET and defined in the keypad code
  * blockmode: the blockmode flag, switch a channel to blockmode
  * sendcr: the sendcr flag, send a carriage return after a newline if true
  */
@@ -168,7 +167,71 @@ extern char mqttname[];
 extern uint8_t bsystype;
 
 /* 
- * The main IO interface. This is how BASIC uses I/O functions
+ *  Console logger functions for the runtime code. Runtime does not know 
+ *  anything about output deviced. BASIC is to provide this. This 
+ *  is used for debugging and logging.
+ */
+
+ extern void consolelog(char*);
+ extern void consolelognum(int);
+ 
+/*
+ * Statup function. They start the runtime environment.
+ * 
+ * The functions timeinit(), wiringbegin(), signalon()
+ * are always empty on Arduino, they are only used in 
+ * the POSIX branch of the code.
+ * 
+ * timeinit() initializes the time functions.
+ * wiringbegin() initializes the wiring functions, this is needed on 
+ *   Raspberry PI.
+ * signalon() initializes the signal handling, this is needed on
+ *   Unix like systems and Windows. 
+ * 
+ * BASIC calls these functions once to start the timing, wiring, and 
+ * signal handling.
+ */
+
+ void timeinit();	
+ void wiringbegin();	
+ void signalon();
+
+/* 
+ * Start the SPI bus. Called once on start. Needed on Arduino. 
+ * Empty in the POSIX branch of the code.
+ * 
+ * Some libraries also try to start the SPI which may lead to on override of 
+ * the PIN settings if the library code is not clean - currenty no conflict known.
+ * for the libraries used here. Old SD card libraries have problems as they always 
+ * start the SPI bus with default settings and cannot get the settings from the
+ * SPI.begin() call. In these cases patching of the SD library is needed.
+ */
+
+ void spibegin();
+
+/*
+ * Memory allocation functions.
+ * 
+ * BASIC calls freememorysize() to detemine how much memory can be allocated 
+ * savely on the heap.
+ * BASIC calls restartsystem() for a complete reboot. 
+ * freeRam() is the actual free heap. Used by freememorysize() and in USR()
+ * 
+ * Arduino data from https://docs.arduino.cc/learn/programming/memory-guide
+ */
+
+ long freememorysize(); /* determine how much actually to allocate */
+ void restartsystem(); /* cold start of the MCU */
+ long freeRam();	/* try to find the free heap after alocating all globals */
+ 
+ /* Test function for real time clock interrupt, currently not useable. 
+     Kept for the future. */ 
+ void rtcsqw();
+ void aftersleepinterrupt(void);
+ void activatesleep(long);
+ 
+/* 
+ * The main IO interface. This is how BASIC uses I/O functions.
  *
  * ioinit(): called at setup to initialize what ever io is needed
  * iostat(): check which io devices are available
@@ -195,59 +258,6 @@ extern uint8_t bsystype;
  uint16_t ins(char*, uint16_t);
  void outch(char);
  void outs(char*, uint16_t);
-
-/* 
- *  Console logger functions for the runtime code. Runtime does not know 
- *  anything about output deviced. BASIC is to provide this. This 
- *  is used for debugging and logging.
- */
-
-extern void consolelog(char*);
-extern void consolelognum(int);
-
-/*
- * These functions are always empty on Arduino, they are only used in 
- * the POSIX branch of the code.
- * 
- * BASIC calls these functions once to start the timing, wiring, and 
- * signal handling.
- */
-
-void timeinit();	/* handling time - part of the Arduino core - only needed on POSIX OSes */
-void wiringbegin();	/* starting wiring is only needed on raspberry */
-void signalon();	/* POSIX signals - not needed on Ardunino */
-
-/*
- * Memory allocation functions.
- * 
- * BASIC calls freememorysize() to detemine how much memory can be allocated 
- * savely on the heap.
- * BASIC calls restartsystem() for a complete reboot. 
- * freeRam() is the actual free heap. Used by freememorysize() and in USR()
- * 
- * Arduino data from https://docs.arduino.cc/learn/programming/memory-guide
- */
-
-long freememorysize(); /* determine how much actually to allocate */
-void restartsystem(); /* cold start of the MCU */
-long freeRam();	/* try to find the free heap after alocating all globals */
-
-/* This is unfinished, don't use, sleep and RTC interrupt code. */ 
-void rtcsqw();
-void aftersleepinterrupt(void);
-void activatesleep(long);
-
-/* 
- * Start the SPI bus. Called once on start. 
- * 
- * Some libraries also try to start the SPI which may lead to on override of 
- * the PIN settings if the library code is not clean - currenty no conflict known.
- * for the libraries used here. Old SD card libraries have problems as they always 
- * start the SPI bus with default settings and cannot get the settings from the
- * SPI.begin() call. In these cases patching of the SD library is needed.
- */
-
-void spibegin();
 
 /* 
  *  Timeing functions and background tasks. 
@@ -358,7 +368,6 @@ int8_t eread(uint16_t);
  *   The tone is generated in the background, the function returns immediately.
  * tonetoggle(): toggle the tone generation, needed for the tone emulation, this is called 
  *  by byield() to generate the tone.
- *
  */ 
 
 uint16_t aread(uint8_t);
@@ -401,6 +410,121 @@ int ddrread(uint8_t);
 int pinread(uint8_t);
 
 /*
+ * Prototypes for the interrupt interface. This uses the standard Arduino
+ * interrupt functions. 
+ */
+
+uint8_t pintointerrupt(uint8_t);
+void attachinterrupt(uint8_t, void (*f)(), uint8_t);
+void detachinterrupt(uint8_t);
+
+/* some have PinStatus and some don't */
+#if !(defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_MBED_NANO) || \
+     defined(ARDUINO_ARCH_RENESAS) || defined(ARDUINO_ARCH_MBED_GIGA) || \
+     defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_MEGAAVR)) || defined(ARDUINO_SEEED_XIAO_M0)
+typedef int PinStatus;
+#endif
+
+/*
+ * IO channel 0 - the buffer I/O device.
+ *
+ * This is a stream to write to the input buffer from BASIC. 
+ */
+
+ void bufferbegin();
+ uint8_t bufferstat(uint8_t);
+ void bufferwrite(char);
+ char bufferread();
+ char buffercheckch();
+ uint16_t bufferavailable();
+ uint16_t bufferins(char*, uint16_t);
+ void bufferouts(char*, uint16_t);
+ 
+
+/*
+  * IO channel 1 - the serial I/O device.
+  * 
+  * Primary serial code uses the Serial object or Picoserial on 
+  * Arduino. On POSIX systems it uses the standard input/output.
+  * 
+  * Functions are: 
+  * 
+  * serialbegin(): start the serial port
+  * serialread(): read a character from the serial port, this is blocking 
+  *  for the standard Serial object and non blocking for Picoserial.
+  *  Picoserial is not character oriented. It read one entire line. 
+  * serialstat(s): check the status of the serial port
+  * serialwrite(c): write a character to the serial port
+  * serialcheckch(): check if a character is available without blocking
+  * serialavailable(): check if characters are available
+  * serialflush(): flush the serial port
+  * serialins(s, l): read a line from the serial port
+  */
+ 
+ void serialbegin();
+ char serialread();
+ uint8_t serialstat(uint8_t); /* state information on the serial port */
+ void serialwrite(char); /* write to a serial stream */
+ char serialcheckch(); /* check on a character, needed for breaking */
+ uint16_t serialavailable(); /* avail method, needed for AVAIL() */ 
+ void serialflush(); /* flush serial */
+ uint16_t serialins(char*, uint16_t); /* read a line from serial */
+ 
+ /*
+  * reading from the console with inch or the picoserial callback.
+  * consins() is used for all devices that have a character oriented
+  * input and creates entire lines from it.
+  */
+
+ uint16_t consins(char *, uint16_t);
+
+/* 
+ * On Arduino Serial is a big object that needs a lot of memory 
+ * on the smaller boards. Picoserial is smaller. It is mainly 
+ * for the small 8bit AVR boards. It uses the UART macros directly.
+ * 
+ * The picoseria has an own interrupt function. This is used to fill 
+ * the input buffer directly on read. Write is standard like in 
+ * the serial code. Currently picoserial is only implemented for
+ * AVR UNO, NANO and MEGA. 
+ *  
+ * As echoing is done in the interrupt routine, the code cannot be 
+ * used to receive keystrokes from serial and then display the echo
+ * directly to a display. To do this the write command in picogetchar
+ * would have to be replaced with a outch() that then redirects to the 
+ * display driver. This would be very tricky from the timing point of 
+ * view if the display driver code is slow. 
+ * 
+ * The code for the UART control is mostly taken from PicoSerial
+ * https://github.com/gitcnd/PicoSerial, originally written by Chris Drake
+ * and published under GPL3.0 just like this code.
+ * 
+ * Functions for the picoserial code are:
+ * 
+ * picobegin(baud): start the picoserial port with the baud rate baud
+ * picowrite(c): write a character to the picoserial port
+ * picoins(s, l): read a line from the picoserial port
+ * 
+ */
+
+ void picobegin(uint32_t);
+ void picowrite(char);
+ uint16_t picoins(char *, uint16_t);
+ 
+ /* 
+  *  picogetchar: this is the interrupt service routine.  It 
+  *  recieves a character and feeds it into a buffer and echos it
+  *  back. The logic here is that the ins() code sets the buffer 
+  *  to the input buffer. Only then the routine starts writing to the 
+  *  buffer. Once a newline is received, the length information is set 
+  *  and picoa is also set to 1 indicating an available string, this stops
+  *  recevieing bytes until the input is processed by the calling code.
+  */
+ void picogetchar(char);
+
+/*
+ * IO channel 2 - the display I/O device. 
+ *
  * DISPLAY driver code section. The display driver is a generic text and graphics
  * output device. Characters are buffered in a display buffer if DISPLAYCANSCROLL 
  * is defined. These displays can scroll. Scrolling is handled by the display driver.
@@ -620,7 +744,6 @@ void dspscroll(uint8_t, uint8_t);
 void dspreversescroll(uint8_t); 
 
 /*
- * 
  * A VT52 state engine is implemented and works for buffered and 
  * unbuffered displays. Only buffered displays have the full VT52
  * feature set including most of the GEMDOS extensions described here:
@@ -671,6 +794,8 @@ void vgawrite(char);
 void vgaend();
 
 /* 
+ * IO channel 2 (input) - the keyboard I/O device.
+ *
  * Keyboard code for either the Fablib Terminal class,  
  * PS2Keyboard or other keyboards. 
  * 
@@ -703,6 +828,298 @@ uint8_t kbdavailable();
 char kbdread();
 char kbdcheckch();
 uint16_t kbdins(char*, uint16_t);
+
+/* IO channel 3 - reserved for future use */
+
+ /*
+  * IO channel 4 - the second serial I/O device.
+  * 
+  * This is the (mostly) the Serial1 object 
+  * on Arduino. On POSIX systems this opens a serial port like /dev/ttyUSB1.
+  * This &4 in BASIC.
+  * 
+  * Functions are:
+  * 
+  * prtbegin(): start the serial port
+  * prtopen(name, baud): open the serial port with the baud rate baud. Only 
+  *  neded in POSIX to open the port.
+  * prtclose(): close the serial port
+  * prtstat(s): check the status of the serial port
+  * prtwrite(c): write a character to the serial port
+  * prtread(): read a character from the serial port
+  * prtcheckch(): check if a character is available without blocking
+  * prtavailable(): check if characters are available
+  * prtset(baud): set the baud rate of the serial port
+  * prtins(s, l): read a line from the serial port
+  */
+ 
+  void prtbegin();
+  char prtopen(char*, uint16_t); 
+  void prtclose();
+  uint8_t prtstat(uint8_t);
+  void prtwrite(char);
+  char prtread();
+  char prtcheckch();
+  uint16_t prtavailable();
+  void prtset(uint32_t);
+  uint16_t prtins(char*, uint16_t);
+
+/* 
+ * IO channel 7 - I2C through the Wire library.
+ *
+ * The wire code, direct access to wire communication.
+ *
+ * In master mode wire_slaveid is the I2C address bound 
+ * to channel &7 and wire_myid is 0.
+ * 
+ * In slave mode wire_myid is the devices slave address
+ * and wire_slaveid is 0.
+ * 
+ * The maximum number of bytes the Wire library can handle
+ * is 32. This is given by the Wire library.
+ * 
+ * Wire is handled through the following functions:
+ * 
+ * wirebegin(): start the wire system. 
+ * wireslavebegin(id): start the wire system as a slave with the id.
+ * wirestat(s): check if the wire system is available.
+ * wireavailable(): check if characters are available in slave mode.
+ * wireonreceive(h): set the event handler for received data on a slave.
+ * wireonrequest(): set the event handler for request on a slave.
+ * wireopen(id, slaveid): open the wire system as a master with id to 
+ *   the slave id.
+ * wireread(): read a character from the wire system.
+ * wirewrite(c): write a character to the wire system.
+ * wireins(l, s): read a line l from the wire system max length is s.
+ * wireouts(l, s): write a line l to the wire system max length is s.
+ * They are available in BASIC as the WIRE
+ * command. 
+ */ 
+
+ void wirebegin();
+ void wireslavebegin(uint8_t);
+ uint8_t wirestat(uint8_t);
+ uint16_t wireavailable(); 
+ void wireonreceive(int);
+ void wireonrequest(); 
+ void wireopen(uint8_t, uint8_t);
+ char wireread(); 
+ void wirewrite(char c);
+ uint16_t wireins(char*, uint8_t);
+ void wireouts(char*, uint8_t);
+
+/* new byte wire interface for direct access */
+void wirestart(uint8_t, uint8_t);
+void wirewritebyte(uint8_t);
+uint8_t wirestop();
+int16_t wirereadbyte();
+
+/* 
+ * IO channel 8 - the RF24 radio I/O device.
+ *
+ * Read from the radio interface, radio is always block 
+ * oriented. This function is called from ins for an entire 
+ * line.
+ * 
+ * In blockmode the entire message is returned in the 
+ * receiving string while in line mode the length of the 
+ * string is adapted. Blockmode can be used to transfer
+ * binary data.
+ * 
+ * The radio code is rather obsolet and not used a lot.
+ * 
+ * On RF24 we always read from pipe 1 and use pipe 0 for writing, 
+ * the filename is the pipe address, by default the radio 
+ * goes to reading mode after open and is only stopped for 
+ * write.
+ */
+
+ uint8_t radiostat(uint8_t); 
+ uint64_t pipeaddr(const char*); 
+ uint16_t radioins(char*, uint8_t); 
+ void radioouts(char *, uint8_t); 
+ uint16_t radioavailable(); 
+ char radioread();
+ void iradioopen(const char *);
+ void oradioopen(const char *);
+ void radioset(uint8_t);
+
+/*
+ * IO channel 9 - the network I/O device.
+ *
+ * Only MQTT is implemented at the moment. Other protocols
+ * will be channel 10-15. 
+ *
+ * Underlying networks can be the Wifi classes of the ESP, MKR, and
+ * STM32 cores. The network code is based on the PubSubClient library.
+ * Ethernet is supported with the standard Ethernet library on Arduino.
+ * 
+ * On POSIX systems networking is currently not supported.
+ *
+ * No encryptionis implemented in MQTT. Only unencrypted servers can be used.
+ * 
+ * Buffers are defined above in the mqtt section.
+ * 
+ * MQTTLENGTH: the length of the mqtt topic, restricted to 32 by default.
+ * MQTTBLENGTH: the length of the mqtt buffer, 128 by default.
+ * MQTTNAMELENGTH: the length of the autogenerated mqtt name, 12 by default.
+ *
+ * wifisettings.h is the generic network definition file all network settings 
+ * are compiled into the code. BASIC cannot change them at runtime.
+ * 
+ * Low level network functions are:
+ * 
+ * netbegin(): start the network
+ * netstop(): stop the network
+ * netreconnect(): reconnect the network
+ * netconnected(): check if the network is connected
+ * 
+ * BASIC uses these function to control the network and reconnect if
+ * the connection is lost.
+ */
+
+ void netbegin();
+ void netstop();
+ void netreconnect();
+ uint8_t netconnected();
+ 
+ /*
+  * The mqtt prototypes used by BASIC are:
+  * 
+  * mqttbegin(): start the mqtt client
+  * mqttsetname(): set the name of the mqtt client. The name is autogenerated.
+  * mqttstat(s): check the status of the mqtt client
+  * mqttreconnect(): reconnect the mqtt client
+  * mqttstate(): get the state of the mqtt client (redunant to mqttstat())
+  * mqttsubscribe(t): subscribe to a topic
+  * mqttunsubscribe(): unsubscribe from a topic
+  * mqttsettopic(t): set the topic of the mqtt client
+  * mqttouts(s, l): send a string of length l to the mqtt server
+  * mqttwrite(c): send a character to the mqtt server.
+  * These two functions work buffered. The write to the MQTT output buffer. Only
+  * when the buffer is full or a newline is received, the buffer is sent to the
+  * server.
+  * mqttread(): read a character from the mqtt input buffer.
+  * mqttins(s, l): read a line from the mqtt input buffer.
+  * mqttavailable(): check if characters are available in the mqtt input buffer. 
+  * mqttcheckch(): get the next character from the mqtt input buffer without advancing.
+  */
+
+ void mqttbegin();
+ void mqttsetname();
+ uint8_t mqttstat(uint8_t);
+ uint8_t mqttreconnect();
+ uint8_t mqttstate();
+ void mqttsubscribe(const char*);
+ void mqttunsubscribe();
+ void mqttsettopic(const char*);
+ void mqttouts(const char*, uint16_t);
+ void mqttwrite(const char);
+ char mqttread();
+ uint16_t mqttins(char*, uint16_t);
+ uint16_t mqttavailable();
+ char mqttcheckch();
+ 
+ /*
+  * The callback function of the pubsub client. This is called when a
+  * message is received from the mqtt server. 
+  * 
+  * The Arduino type byte is used here because it is used this way in Pubsub.
+  */
+ void mqttcallback(char*, byte*, unsigned int);
+ 
+/* 
+ * IO channel 16 - the file system I/O device.
+ *
+ * The file system driver - all methods needed to support BASIC fs access. 
+ * 
+ * Different filesystems need different prefixes and fs objects, these 
+ * filesystems use the stream API in the Arduino world.
+ * 
+ *  The functions to access the filesystem are:
+ * 
+ * fsbegin(): start the filesystem
+ * fsstat(s): check the status of the filesystem
+ * mkfilename(s): make a filename from a string
+ * rmrootfsprefix(s): remove the prefix from a filename
+ * 
+ * Different filesystems have different prefixes. In BASIC we 
+ * only show a flat file system with no path names and prefixes.
+ * 
+ * Supported filesystems are:
+ * 
+ * SPIFF - the internal flash file system of the ESP32 and ESP8266
+ * SD - the SD card file system (no formatting)
+ * EFS - the file system EFS for I2C EEPROMs
+ * LittleFS - the LittleFS file system on RP2040
+ * USB devices on Arduino GIGA boards
+ * Posix and Windows file systems on POSIX systems
+ */
+
+ void fsbegin(); 
+ uint8_t fsstat(uint8_t);
+ char* mkfilename(const char*);
+ const char* rmrootfsprefix(const char*); 
+ 
+ /*
+  *	File I/O function on an Arduino:
+  * 
+  *  filewrite(c): write a character to a file
+  *  fileread(): read a character from a file
+  *  fileavailable(): check if a character is available in the file
+  *  ifileopen(s): open a file for input
+  *  ifileclose(): close a file for input
+  *  ofileopen(s, m): open a file for output with mode m
+  *  ofileclose(): close a file for output 
+  * 
+  * The wrapper and BASIC currently only support one file for read 
+  * and one file for write.
+  */
+ 
+ void filewrite(char);
+ char fileread();
+ int fileavailable(); /* is int because some of the fs do this */
+ uint8_t ifileopen(const char*);
+ void ifileclose();
+ uint8_t ofileopen(const char*, const char*);
+ void ofileclose();
+ 
+ /*
+  * Directory handling for the catalog function these methods are
+  * needed for a walkthtrough of one directory. 
+  * 
+  * The logic is:
+  *
+  * rootopen()
+  * while rootnextfile()
+  * 	if rootisfile() print rootfilename() rootfilesize()
+  *	rootfileclose()
+  * rootclose()
+  * 
+  * rootopen(): opens the root directory
+  * rootnextfile(): gets the next file in the directory
+  * rootisfile(): checks if the file is a file or something else
+  * rootfilename(): gets the name of the file
+  * rootfilesize(): gets the size of the file
+  * rootfileclose(): closes the root file
+  */
+
+ void rootopen();
+ uint8_t rootnextfile(); 
+ uint8_t rootisfile();
+ const char* rootfilename();
+ uint32_t rootfilesize();
+ void rootfileclose(); 
+ void rootclose();
+ 
+ /* delete a file, needed in the DELETE command of BASIC */
+ void removefile(const char*);
+ 
+ /*
+  * Formatting for fdisk of the internal filesystems. This 
+  * is not implemented for all filesystems.
+  */
+ void formatdisk(uint8_t);
 
 /* 
  * The Real Time clock. The interface here offers the values as number_t 
@@ -747,361 +1164,6 @@ void rtcset(uint8_t, uint16_t);
 void rtctimetoutime();
 void rtcutimetotime();
 
-/*
- * The network code. Only MQTT is implemented at the moment.
- * It is accessible as io stream &9 in BASIC like a file. 
- *
- * Underlying networks can be the Wifi classes of the ESP, MKR, and
- * STM32 cores. The network code is based on the PubSubClient library.
- * Ethernet is supported with the standard Ethernet library on Arduino.
- * 
- * On POSIX systems networking is currently not supported.
- *
- * No encryptionis implemented in MQTT. Only unencrypted servers can be used.
- * 
- * Buffers are defined above in the mqtt section.
- * 
- * MQTTLENGTH: the length of the mqtt topic, restricted to 32 by default.
- * MQTTBLENGTH: the length of the mqtt buffer, 128 by default.
- * MQTTNAMELENGTH: the length of the autogenerated mqtt name, 12 by default.
- *
- * wifisettings.h is the generic network definition file all network settings 
- * are compiled into the code. BASIC cannot change them at runtime.
- * 
- * Low level network functions are:
- * 
- * netbegin(): start the network
- * netstop(): stop the network
- * netreconnect(): reconnect the network
- * netconnected(): check if the network is connected
- * 
- * BASIC uses these function to control the network and reconnect if
- * the connection is lost.
- */
-
-void netbegin();
-void netstop();
-void netreconnect();
-uint8_t netconnected();
-
-/*
- * The mqtt prototypes used by BASIC are:
- * 
- * mqttbegin(): start the mqtt client
- * mqttsetname(): set the name of the mqtt client. The name is autogenerated.
- * mqttstat(s): check the status of the mqtt client
- * mqttreconnect(): reconnect the mqtt client
- * mqttstate(): get the state of the mqtt client (redunant to mqttstat())
- * mqttsubscribe(t): subscribe to a topic
- * mqttunsubscribe(): unsubscribe from a topic
- * mqttsettopic(t): set the topic of the mqtt client
- * mqttouts(s, l): send a string of length l to the mqtt server
- * mqttwrite(c): send a character to the mqtt server.
- * These two functions work buffered. The write to the MQTT output buffer. Only
- * when the buffer is full or a newline is received, the buffer is sent to the
- * server.
- * mqttread(): read a character from the mqtt input buffer.
- * mqttins(s, l): read a line from the mqtt input buffer.
- * mqttavailable(): check if characters are available in the mqtt input buffer. 
- * mqttcheckch(): get the next character from the mqtt input buffer without advancing.
- */
-void mqttbegin();
-void mqttsetname();
-uint8_t mqttstat(uint8_t);
-uint8_t mqttreconnect();
-uint8_t mqttstate();
-void mqttsubscribe(const char*);
-void mqttunsubscribe();
-void mqttsettopic(const char*);
-void mqttouts(const char*, uint16_t);
-void mqttwrite(const char);
-char mqttread();
-uint16_t mqttins(char*, uint16_t);
-uint16_t mqttavailable();
-char mqttcheckch();
-
-/*
- * The callback function of the pubsub client. This is called when a
- * message is received from the mqtt server. 
- * 
- * The Arduino type byte is used here because it is used this way in Pubsub.
- */
-void mqttcallback(char*, byte*, unsigned int);
-
-/* 
- *	The file system driver - all methods needed to support BASIC fs access. 
- *  The file system is accessed through io stream &16 in BASIC. 
- * 
- * 	Different filesystems need different prefixes and fs objects, these 
- * 	filesystems use the stream API in the Arduino world.
- * 
- *  The functions to access the filesystem are:
- * 
- * fsbegin(): start the filesystem
- * fsstat(s): check the status of the filesystem
- * mkfilename(s): make a filename from a string
- * rmrootfsprefix(s): remove the prefix from a filename
- * 
- * Different filesystems have different prefixes. In BASIC we 
- * only show a flat file system with no path names and prefixes.
- * 
- * Supported filesystems are:
- * 
- * SPIFF - the internal flash file system of the ESP32 and ESP8266
- * SD - the SD card file system (no formatting)
- * EFS - the file system EFS for I2C EEPROMs
- * LittleFS - the LittleFS file system on RP2040
- * USB devices on Arduino GIGA boards
- * Posix and Windows file systems on POSIX systems
- */
-
-void fsbegin(); 
-uint8_t fsstat(uint8_t);
-char* mkfilename(const char*);
-const char* rmrootfsprefix(const char*); 
-
-/*
- *	File I/O function on an Arduino:
- * 
- *  filewrite(c): write a character to a file
- *  fileread(): read a character from a file
- *  fileavailable(): check if a character is available in the file
- *  ifileopen(s): open a file for input
- *  ifileclose(): close a file for input
- *  ofileopen(s, m): open a file for output with mode m
- *  ofileclose(): close a file for output 
- * 
- * The wrapper and BASIC currently only support one file for read 
- * and one file for write.
- */
-
-void filewrite(char);
-char fileread();
-int fileavailable(); /* is int because some of the fs do this */
-uint8_t ifileopen(const char*);
-void ifileclose();
-uint8_t ofileopen(const char*, const char*);
-void ofileclose();
-
-/*
- * Directory handling for the catalog function these methods are
- * needed for a walkthtrough of one directory. 
- * 
- * The logic is:
- *
- * rootopen()
- * while rootnextfile()
- * 	if rootisfile() print rootfilename() rootfilesize()
- *	rootfileclose()
- * rootclose()
- * 
- * rootopen(): opens the root directory
- * rootnextfile(): gets the next file in the directory
- * rootisfile(): checks if the file is a file or something else
- * rootfilename(): gets the name of the file
- * rootfilesize(): gets the size of the file
- * rootfileclose(): closes the root file
- * 
- */
-void rootopen();
-uint8_t rootnextfile(); 
-uint8_t rootisfile();
-const char* rootfilename();
-uint32_t rootfilesize();
-void rootfileclose(); 
-void rootclose();
-
-/* delete a file, needed in the DELETE command of BASIC */
-void removefile(const char*);
-
-/*
- * Formatting for fdisk of the internal filesystems. This 
- * is not implemented for all filesystems.
- */
-void formatdisk(uint8_t);
-
-/*
- * The buffer I/O device. This is a stream to write to the input buffer
- * from BASIC.
- */
-
-void bufferbegin();
-uint8_t bufferstat(uint8_t);
-void bufferwrite(char);
-char bufferread();
-char buffercheckch();
-uint16_t bufferavailable();
-uint16_t bufferins(char*, uint16_t);
-void bufferouts(char*, uint16_t);
-
-/*
- * Primary serial code uses the Serial object or Picoserial
- *
- * The picoseria an own interrupt function. This is used to fill 
- * the input buffer directly on read. Write is standard like in 
- * the serial code. Currently picoserial is only implemented for
- * AVR UNO, NANO and MEGA. 
- *  
- * As echoing is done in the interrupt routine, the code cannot be 
- * used to receive keystrokes from serial and then display the echo
- * directly to a display. To do this the write command in picogetchar
- * would have to be replaced with a outch() that then redirects to the 
- * display driver. This would be very tricky from the timing point of 
- * view if the display driver code is slow. 
- * 
- * The code for the UART control is mostly taken from PicoSerial
- * https://github.com/gitcnd/PicoSerial, originally written by Chris Drake
- * and published under GPL3.0 just like this code.
- * 
- * Functions for the picoserial code are:
- * 
- * picobegin(baud): start the picoserial port with the baud rate baud
- * picowrite(c): write a character to the picoserial port
- * picoins(s, l): read a line from the picoserial port
- * 
- */
-
-void picobegin(uint32_t);
-void picowrite(char);
-uint16_t picoins(char *, uint16_t);
-
-/* 
- *  picogetchar: this is the interrupt service routine.  It 
- *  recieves a character and feeds it into a buffer and echos it
- *  back. The logic here is that the ins() code sets the buffer 
- *  to the input buffer. Only then the routine starts writing to the 
- *  buffer. Once a newline is received, the length information is set 
- *  and picoa is also set to 1 indicating an available string, this stops
- *  recevieing bytes until the input is processed by the calling code.
- */
-void picogetchar(char);
-
-/* 
- * The serial io stream is &1 in BASIC. On Arduino this is the
- * (mostly) the standard Serial object. On POSIX systems this is
- * the standard input/output stream.
- * 
- * Functions are: 
- * 
- * serialbegin(): start the serial port
- * serialread(): read a character from the serial port, this is blocking 
- *  for the standard Serial object and non blocking for Picoserial.
- *  Picoserial is not character oriented. It read one entire line. 
- * serialstat(s): check the status of the serial port
- * serialwrite(c): write a character to the serial port
- * serialcheckch(): check if a character is available without blocking
- * serialavailable(): check if characters are available
- * serialflush(): flush the serial port
- * serialins(s, l): read a line from the serial port
- */
-
-
-void serialbegin();
-char serialread();
-uint8_t serialstat(uint8_t); /* state information on the serial port */
-void serialwrite(char); /* write to a serial stream */
-char serialcheckch(); /* check on a character, needed for breaking */
-uint16_t serialavailable(); /* avail method, needed for AVAIL() */ 
-void serialflush(); /* flush serial */
-uint16_t serialins(char*, uint16_t); /* read a line from serial */
-
-/*
- * reading from the console with inch or the picoserial callback.
- * consins() is used for all devices that have a character oriented
- * input and creates entire lines from it.
- */
-uint16_t consins(char *, uint16_t);
-
-/*
- * The second serial port code. This is the (mostly) the Serial1 object 
- * on Arduino. On POSIX systems this opens a serial port like /dev/ttyUSB1.
- * This &4 in BASIC.
- * 
- * Functions are:
- * 
- * prtbegin(): start the serial port
- * prtopen(name, baud): open the serial port with the baud rate baud. Only 
- *  neded in POSIX to open the port.
- * prtclose(): close the serial port
- * prtstat(s): check the status of the serial port
- * prtwrite(c): write a character to the serial port
- * prtread(): read a character from the serial port
- * prtcheckch(): check if a character is available without blocking
- * prtavailable(): check if characters are available
- * prtset(baud): set the baud rate of the serial port
- * prtins(s, l): read a line from the serial port
- */
-
-void prtbegin();
-char prtopen(char*, uint16_t); 
-void prtclose();
-uint8_t prtstat(uint8_t);
-void prtwrite(char);
-char prtread();
-char prtcheckch();
-uint16_t prtavailable();
-void prtset(uint32_t);
-uint16_t prtins(char*, uint16_t);
-
-/* 
- * The wire code, direct access to wire communication
- * in master mode wire_slaveid is the I2C address bound 
- * to channel &7 and wire_myid is 0
- * in slave mode wire_myid is the devices slave address
- * and wire_slaveid is 0
- * ARDUINOWIREBUFFER is the maximum length of meesages the 
- * underlying library can process. This is 32 for the Wire
- * library
- */ 
-
-void wirebegin();
-void wireslavebegin(uint8_t);
-uint8_t wirestat(uint8_t); /* wire status - just checks if wire is compiled */
-uint16_t wireavailable(); /* available characters - test code ecapsulation prep for slave*/
-void wireonreceive(int h); /* eventhandler for received data */
-void wireonrequest(); /* event handler for request, deliver the message and forget the buffer */ 
-
-/*
- *	as a master open sets the slave id for the communication
- *	no extra begin while we stay master
- */
-void wireopen(char, uint8_t);
-char wireread(); /* */
-void wirewrite(char c); /* */
-uint16_t wireins(char*, uint8_t);  /* input an entire string */
-void wireouts(char*, uint8_t); /* send an entire string - truncate radically */
-int16_t wirereadbyte(uint8_t);
-void wirewritebyte(uint8_t, int16_t);
-void wirewriteword(uint8_t, int16_t, int16_t);
-
-/* 
- *	Read from the radio interface, radio is always block 
- *	oriented. This function is called from ins for an entire 
- *	line.
- *
- *	In blockmode the entire message is returned in the 
- *	receiving string while in line mode the length of the 
- *	string is adapted. Blockmode can be used to transfer
- *	binary data.
- */
-
-uint8_t radiostat(uint8_t); 
-uint64_t pipeaddr(const char*); /* generate a uint64_t pipe address from the filename string for RF24 */
-uint16_t radioins(char*, uint8_t); /* read an entire string */
-void radioouts(char *, uint8_t); /* write to radio, no character mode here */
-uint16_t radioavailable(); /* radio available */
-char radioread();
-
-/* 
- *	we always read from pipe 1 and use pipe 0 for writing, 
- *	the filename is the pipe address, by default the radio 
- *	goes to reading mode after open and is only stopped for 
- *	write
- */
-void iradioopen(const char *);
-void oradioopen(const char *);
-void radioset(uint8_t);
-
 /* 
  *	Arduino Sensor library code 
  *		The sensorread() is a generic function called by 
@@ -1111,20 +1173,6 @@ void radioset(uint8_t);
  */
 void sensorbegin();
 float sensorread(uint8_t, uint8_t);
-
-/*
- * prototypes for the interrupt interface
- */
-/* some have it and some dont */
-#if !(defined(ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_MBED_NANO) || \
-     defined(ARDUINO_ARCH_RENESAS) || defined(ARDUINO_ARCH_MBED_GIGA) || \
-     defined(ARDUINO_ARCH_SAMD)) || defined(ARDUINO_SEEED_XIAO_M0)
-typedef int PinStatus;
-#endif
-
-uint8_t pintointerrupt(uint8_t);
-void attachinterrupt(uint8_t, void (*f)(), uint8_t);
-void detachinterrupt(uint8_t);
 
 /*
  * Experimental code to drive SPI SRAM 

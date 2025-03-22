@@ -50,7 +50,7 @@
  * POSIXWIRE: simple Raspberry PI wire code
  * POSIXMQTT: analogous to ARDUINOMQTT, send and receive MQTT messages (unfinished)
  * POSIXWIRING: use the (deprectated) wiring code for gpio on Raspberry Pi
- * POSIXPIGPIO: use the pigpio library on a Raspberry PI 
+ * POSIXPIGPIO: use the pigpio library on a Raspberry PI  - currently broken - wire change - don't use
  */
 
 #define POSIXTERMINAL

@@ -135,7 +135,7 @@ const char sfclose[]	PROGMEM = "CLOSE";
 const char sfdisk[]		PROGMEM = "FDISK";
 #endif
 /* low level access functions */
-#ifdef HASSTEFANSEXT
+#ifdef HASUSRCALL
 const char susr[]   PROGMEM = "USR";
 const char scall[]  PROGMEM = "CALL";
 #endif
@@ -265,7 +265,7 @@ const char* const keyword[] PROGMEM = {
 #ifdef HASFILEIO
   scatalog, sdelete, sfopen, sfclose, sfdisk,
 #endif
-#ifdef HASSTEFANSEXT
+#ifdef HASUSRCALL
   susr, scall,
 #endif
 #ifdef HASFLOAT
@@ -719,8 +719,8 @@ mem_t precision = 5;
 #endif
 
 /*
-   BASIC timer stuff, this is a core interpreter function now
-*/
+ *  BASIC timer stuff, this is a core interpreter function now
+ */
 
 /* the millis function for BASIC */
 void bmillis() {
@@ -731,17 +731,17 @@ void bmillis() {
 }
 
 /*
-    Determine the possible basic memory size.
- 	using malloc causes some overhead which can be relevant on the smaller
- 	boards.
+ *   Determine the possible basic memory size.
+ * 	using malloc causes some overhead which can be relevant on the smaller
+ *	boards.
+ *
+ * Set MEMSIZE instead to a static value. In this case ballocmem
+ * just returns the static MEMSIZE.
+ * 
+ * If SPIRAMINTERFACE is defined, we use the memory from a serial RAM and dont
+ * allocate it here at all.
+ */
 
-  	Set MEMSIZE instead to a static value. In this case ballocmem
- 	just returns the static MEMSIZE.
-
- 	If SPIRAMINTERFACE is defined, we use the memory from a serial RAM and dont
- 	allocate it here at all.
-
-*/
 #if (!defined(MEMSIZE) || MEMSIZE == 0) && !(defined(SPIRAMINTERFACE))
 address_t ballocmem() {
 
@@ -5246,11 +5246,13 @@ void factor() {
     case TMAP:
       parsefunction(xmap, 5);
       break;
-    case TUSR:
-      parsefunction(xusr, 2);
-      break;
     case TPOW:
       parsefunction(xpow, 2);
+      break;
+#endif
+#ifdef HASUSRCALL
+    case TUSR:
+      parsefunction(xusr, 2);
       break;
 #endif
       /* Arduino I/O */
@@ -8582,22 +8584,19 @@ void xsleep() {
 */
 
 void xwire() {
-  short port, data1, data2;
-
+  int i;
+  
   nexttoken();
 #if defined(HASWIRE) || defined(HASSIMPLEWIRE)
   parsearguments();
   if (!USELONGJUMP && er) return;
 
-  if (args == 3) {
-    data2 = pop();
-    data1 = pop();
-    port = pop();
-    wirewriteword(port, data1, data2);
-  } else if (args == 2) {
-    data1 = pop();
-    port = pop();
-    wirewritebyte(port, data1);
+/* this code is the only place where the stack is accessed directly */
+  if (args > 1) {
+    wirestart((int)stack[sp-args].n, 0);
+    for(i=1; i<args; i++) wirewritebyte((int)stack[sp-args+i].n); 
+    wirestop();
+    sp-=args;
   } else {
     error(EARGS);
     return;
@@ -8607,8 +8606,12 @@ void xwire() {
 
 void xfwire() {
 #if defined(HASWIRE) || defined(HASSIMPLEWIRE)
-  push(wirereadbyte(pop()));
-#else
+  uint8_t port;
+  ioer=0;
+  port=pop();
+  if (!USELONGJUMP && er) return;
+  wirestart(port, 1);
+  push(wirereadbyte());
 #endif
 }
 
@@ -9165,7 +9168,7 @@ void xfdisk() {
   nexttoken();
 }
 
-#ifdef HASSTEFANSEXT
+#ifdef HASUSRCALL
 /*
  	USR low level function access of the interpreter
  	for each group of functions there is a call vector
@@ -9238,7 +9241,7 @@ void xusr() {
         case 15: push(SBUFSIZE); break;
         case 16: push(ARRAYSIZEDEF); break;
         case 17: push(defaultstrdim); break;
-        /* - 24 reserved, don't use */
+        // - 24 reserved, don't use
         case 24: push(top); break;
         case 25: push(here); break;
         case 26: push(himem); break;
@@ -9246,7 +9249,7 @@ void xusr() {
         case 28: push(freeRam()); break;
         case 29: push(gosubsp); break;
         case 30: push(loopsp); break;
-        case 31: push(0); break; /* fnc removed as interpreter variable */
+        case 31: push(0); break; // fnc removed as interpreter variable
         case 32: push(sp); break;
 #ifdef HASDARTMOUTH
         case 33: push(data); break;
@@ -9266,7 +9269,7 @@ void xusr() {
         case 50: push(od); break;
         case 51: push(odd); break;
         default: push(0);
-      }
+      } 
       break;
     /* access to properties of stream 1 - serial	*/
     case 1:
@@ -9319,7 +9322,6 @@ void xusr() {
       if (fn > 31) push(usrfunction(fn, v)); else push(0);
   }
 }
-#endif
 
 /*
    CALL currently only to exit the interpreter
@@ -9365,6 +9367,8 @@ void xcall() {
       return;
   }
 }
+#endif
+
 
 /* the dartmouth stuff */
 #ifdef HASDARTMOUTH
@@ -10363,7 +10367,9 @@ void statement() {
       case TLOCATE:
         xlocate();
         break;
-      /* low level functions as part of Stefan's extension */
+#endif
+#ifdef HASUSRCALL
+      /* low level functions */
       case TCALL:
         xcall();
         break;
