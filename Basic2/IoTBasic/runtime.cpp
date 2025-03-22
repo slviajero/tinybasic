@@ -5661,7 +5661,7 @@ uint8_t const TWSR_REP_START = 0x10;
 uint8_t const I2C_READ = 1;
 uint8_t const I2C_WRITE = 0;
 
-/* counts the bytes to be read, in this implementation not used */
+/* counts the bytes to be read, in this implementation not used, kept for later */
 uint8_t wirecount;
 
 /* start the bus and set the frequency in TWBR */

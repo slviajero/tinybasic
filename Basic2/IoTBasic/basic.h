@@ -223,6 +223,8 @@
  *
  * ****  right now unused and untested **** */
 
+ #define TCAM -128
+
 /* BASEKEYWORD is used by the lexer. From this keyword on it tries to match. */
 #define BASEKEYWORD -121
 

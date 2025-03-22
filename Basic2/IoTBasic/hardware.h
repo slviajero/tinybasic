@@ -372,29 +372,33 @@
  
 #ifdef HARDWAREHEURISTICS
 /* UNOS are very common. Small memory, we put the program into EEPROM and make everything small */
-/* VT52 would be possible, needs to be reviewed - VT52 code size too big */
-#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_DUEMILANOVE) || defined(ARDUINO_AVR_NANO) 
+#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_NANO) 
 #define ARDUINOEEPROM
 #define ARDUINOPICOSERIAL
 #define ARDUINOPGMEEPROM
 #undef  LINECACHESIZE
-#undef HASMSTAB
-#undef HASVT52
+#undef  HASMSTAB
+#define MEMSIZE 768
 #endif
 /* der Pro */
 #if defined(ARDUINO_AVR_PRO)
 #define ARDUINOEEPROM
 #define ARDUINOPGMEEPROM
 #undef  LINECACHESIZE
-#undef HASMSTAB
-#undef HASVT52
+#undef  HASMSTAB
+#undef  HASVT52
+#define MEMSIZE 512
 #endif
 /* on a DUEMILA we allocate just as little main memory as possible, currenly not working because sketch too big 
  * needs to be checked */
 #if defined(ARDUINO_AVR_DUEMILANOVE)
-#define MEMSIZE 128
+#define ARDUINOEEPROM
+#define ARDUINOPICOSERIAL
+#define ARDUINOPGMEEPROM
+#undef  LINECACHESIZE
 #undef  HASMSTAB
-#undef HASVT52
+#define MEMSIZE 128
+#undef  HASVT52
 #endif
 /* tested for LTQF32 Mini EVB - very low memory as core needs a lot */
 #if defined(ARDUINO_ARCH_LGT8F)

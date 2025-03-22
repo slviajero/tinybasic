@@ -135,7 +135,7 @@ const char sfclose[]	PROGMEM = "CLOSE";
 const char sfdisk[]		PROGMEM = "FDISK";
 #endif
 /* low level access functions */
-#ifdef HASSTEFANSEXT
+#ifdef HASUSRCALL
 const char susr[]   PROGMEM = "USR";
 const char scall[]  PROGMEM = "CALL";
 #endif
@@ -265,7 +265,7 @@ const char* const keyword[] PROGMEM = {
 #ifdef HASFILEIO
   scatalog, sdelete, sfopen, sfclose, sfdisk,
 #endif
-#ifdef HASSTEFANSEXT
+#ifdef HASUSRCALL
   susr, scall,
 #endif
 #ifdef HASFLOAT
@@ -5246,11 +5246,13 @@ void factor() {
     case TMAP:
       parsefunction(xmap, 5);
       break;
-    case TUSR:
-      parsefunction(xusr, 2);
-      break;
     case TPOW:
       parsefunction(xpow, 2);
+      break;
+#endif
+#ifdef HASUSRCALL
+    case TUSR:
+      parsefunction(xusr, 2);
       break;
 #endif
       /* Arduino I/O */
@@ -9166,7 +9168,7 @@ void xfdisk() {
   nexttoken();
 }
 
-#ifdef HASSTEFANSEXT
+#ifdef HASUSRCALL
 /*
  	USR low level function access of the interpreter
  	for each group of functions there is a call vector
@@ -9225,7 +9227,6 @@ void xusr() {
 #else
         case 3: push(0); break;
 #endif
-/*
         case 4: push(numsize); break;
         case 5: push(maxnum); break;
         case 6: push(addrsize); break;
@@ -9250,7 +9251,6 @@ void xusr() {
         case 30: push(loopsp); break;
         case 31: push(0); break; // fnc removed as interpreter variable
         case 32: push(sp); break;
-*/
 #ifdef HASDARTMOUTH
         case 33: push(data); break;
 #else
@@ -9269,7 +9269,7 @@ void xusr() {
         case 50: push(od); break;
         case 51: push(odd); break;
         default: push(0);
-      }
+      } 
       break;
     /* access to properties of stream 1 - serial	*/
     case 1:
@@ -9322,7 +9322,6 @@ void xusr() {
       if (fn > 31) push(usrfunction(fn, v)); else push(0);
   }
 }
-#endif
 
 /*
    CALL currently only to exit the interpreter
@@ -9368,6 +9367,8 @@ void xcall() {
       return;
   }
 }
+#endif
+
 
 /* the dartmouth stuff */
 #ifdef HASDARTMOUTH
@@ -10366,7 +10367,9 @@ void statement() {
       case TLOCATE:
         xlocate();
         break;
-      /* low level functions as part of Stefan's extension */
+#endif
+#ifdef HASUSRCALL
+      /* low level functions */
       case TCALL:
         xcall();
         break;

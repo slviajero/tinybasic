@@ -160,6 +160,8 @@
  *      Counterexample: AVR 8bit does not have 64 bit floating point.
  * HAS32BITINT: 32 bit integer support on 8 bit platforms.
  * HASPOWER: the POWER operator ^ is available in addition to the POW function.
+ * HASUSRCALL: the USR and CALL functions. On small systems they need a lot 
+ *      of flash and can be disabled.
  */
 
 #undef POWERRIGHTTOLEFT
@@ -170,6 +172,7 @@
 #undef  HAS64BIT
 #undef  HAS32BITINT
 #define HASPOWER 
+#define HASUSRCALL
 
 /* Palo Alto plus Arduino functions */
 #ifdef BASICMINIMAL
@@ -199,6 +202,8 @@
 #undef HASFULLINSTR
 #undef HASLOOPOPT
 #undef HASNUMSYSTEM
+#undef HASPOWER
+#undef HASUSRCALL
 #endif
 
 /* the original Palo Alto Tinybasic, this is the real minimum */
@@ -232,6 +237,8 @@
 #undef HASFULLINSTR
 #undef HASLOOPOPT
 #undef HASNUMSYSTEM
+#undef HASPOWER
+#undef HASUSRCALL
 #endif
 
 /* all features minus float and tone */
@@ -264,7 +271,7 @@
 #define HASNUMSYSTEM
 #endif
 
-/* a simple integer basic for small systems (UNO etc) */
+/* a simple integer basic for small systems mainly the UNO */
 #ifdef  BASICSIMPLE
 #define HASAPPLE1
 #define HASARDUINOIO
@@ -292,6 +299,8 @@
 #undef HASFULLINSTR
 #undef HASLOOPOPT
 #undef HASNUMSYSTEM
+#undef HASPOWER
+#undef HASUSRCALL
 #endif
 
 /* a small integer BASIC for 32kB systems with big cores */
@@ -312,8 +321,8 @@
 #define HASTIMER
 #define HASEVENTS
 #define HASERRORHANDLING
-#undef   HASSTRUCT
-#undef  HASMSSTRINGS
+#undef  HASSTRUCT
+#undef HASMSSTRINGS
 #undef HASMULTILINEFUNCTIONS
 #undef HASEDITOR
 #define HASTINYBASICINPUT
@@ -322,6 +331,8 @@
 #undef HASFULLINSTR
 #undef HASLOOPOPT
 #undef HASNUMSYSTEM
+#undef HASPOWER
+#undef HASUSRCALL
 #endif
 
 
@@ -383,6 +394,8 @@
 #undef HASFULLINSTR
 #undef HASLOOPOPT
 #undef HASNUMSYSTEM
+#undef HASPOWER
+#undef HASUSRCALL
 #endif
 
 /* a Tinybasic with float support */
@@ -413,6 +426,8 @@
 #undef HASFULLINSTR
 #undef HASLOOPOPT
 #undef HASNUMSYSTEM
+#undef HASPOWER
+#undef HASUSRCALL
 #endif
 
 /* 
