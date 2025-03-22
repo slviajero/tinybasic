@@ -79,7 +79,7 @@
 /* build in BASIC programs on Posix currently without function */
 #define HASBUILDIN
 /* this is the demo module */
-// #define BUILDINMODULE "buildin.h"
+// #define BUILDINMODULE "buildin/buildin.h"
 /* a small tutorial */
 // #define BUILDINMODULE "buildin/buildin-tutorial.h"
 #define BUILDINMODULE "buildin/buildin-arduinotest.h"
