@@ -13,6 +13,10 @@ A large number of BASIC extensions are now available. Multiline functions, struc
 
 The language is scalable and can run from 2 kB memory Arduino UNOs to large memory machines with MBs of BASIC memory. 
 
+Read the tutorials for more info on how to use BASIC on Arduino in practice: 
+- Introduction - Compile and run it on any Arduino: https://github.com/slviajero/tinybasic/blob/main/docs/tutorial/BASIC%20on%20Arduinos%20-%20Introduction.epub
+
+
 ## What is special - peripheral and Arduino I/O support
 
 Just like the home computer BASICs of the old times, BASIC is a small standalone operating system. It supports a number of peripherals and can be extended to new peripherals fast as there are generic device driver stubbs in the code.
