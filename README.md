@@ -18,6 +18,15 @@ Read the tutorials for more info on how to use BASIC on Arduino in practice:
 - Cotrolling Ciruits: https://www.hackster.io/sl001/basic-on-arduinos-volume-2-built-in-examples-a172a8
 - Simple Displays: https://www.hackster.io/sl001/basic-on-arduinos-volume-3-simple-displays-4d64f7
 
+Building standalone computer with BASIC:
+- AIM65 lookalike: https://www.hackster.io/sl001/aim65-lookalike-computer-from-scratch-8d94d6
+- 8266 based IoT standalone computer: https://www.hackster.io/sl001/the-10-euro-iot-computer-with-esp-8266-e93681
+- TFT screen with an Arduino DUE: https://www.hackster.io/sl001/homecomputer-from-scratch-a04fb9
+- VGA Computer: https://www.hackster.io/sl001/a-vga-computer-based-on-esp32-and-fabgl-with-sound-graphics-976894
+- An RP2040 box: https://www.hackster.io/sl001/arduino-rp2040-standalone-iot-computer-running-basic-433144
+
+Special systems:
+- A BASIC robot: https://www.instructables.com/Build-a-Robot-Car-With-an-80s-Style-Home-Computer-/
 
 ## What is special - peripheral and Arduino I/O support
 
