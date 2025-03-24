@@ -14,7 +14,9 @@ A large number of BASIC extensions are now available. Multiline functions, struc
 The language is scalable and can run from 2 kB memory Arduino UNOs to large memory machines with MBs of BASIC memory. 
 
 Read the tutorials for more info on how to use BASIC on Arduino in practice: 
-- Introduction - Compile and run it on any Arduino: https://github.com/slviajero/tinybasic/blob/main/docs/tutorial/BASIC%20on%20Arduinos%20-%20Introduction.epub
+- Intro: https://www.hackster.io/sl001/basic-on-arduinos-5b4e24
+- Cotrolling Ciruits: https://www.hackster.io/sl001/basic-on-arduinos-volume-2-built-in-examples-a172a8
+- Simple Displays: https://www.hackster.io/sl001/basic-on-arduinos-volume-3-simple-displays-4d64f7
 
 
 ## What is special - peripheral and Arduino I/O support
