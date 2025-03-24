@@ -8588,6 +8588,15 @@ void xwire() {
   
   nexttoken();
 #if defined(HASWIRE) || defined(HASSIMPLEWIRE)
+/* a stop causes a release of the bus, can be used after multiple one byte writes
+   currently part of the cycle */
+/*
+  if (token == STOP) { 
+     wirestop(); 
+     return;
+  }
+*/
+
   parsearguments();
   if (!USELONGJUMP && er) return;
 
@@ -8606,7 +8615,7 @@ void xwire() {
 
 void xfwire() {
 #if defined(HASWIRE) || defined(HASSIMPLEWIRE)
-  uint8_t port;
+  int port;
   ioer=0;
   port=pop();
   if (!USELONGJUMP && er) return;
