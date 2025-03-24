@@ -42,6 +42,8 @@
  *      do nothing.
  *  avrlcd.h:
  *      a AVR system with a LCD shield
+ *  avrmcufriend.h:
+ *      a AVR system with a parallel TFT 
  *  wemosshield.h: 
  *      a ESP8266 UNO lookalike with a modified datalogger shield
  *      great hardware for small BASIC based IoT projects.
@@ -75,7 +77,7 @@
  * ttgovga.h:
  *      the TTGO VGA 1.4 board with VGA output
  */
-#define PREDEFINEDBOARD "boards/dummy.h"
+#define PREDEFINEDBOARD "boards/avrmcufriend.h"
 
 /* undef this if you want to overide all defaults, then use the settings below */
 #define HARDWAREHEURISTICS
