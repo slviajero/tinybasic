@@ -77,7 +77,7 @@
  * ttgovga.h:
  *      the TTGO VGA 1.4 board with VGA output
  */
-#define PREDEFINEDBOARD "boards/avrmcufriend.h"
+#define PREDEFINEDBOARD "boards/dummy.h"
 
 /* undef this if you want to overide all defaults, then use the settings below */
 #define HARDWAREHEURISTICS
