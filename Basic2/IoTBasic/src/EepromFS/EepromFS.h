@@ -1,5 +1,6 @@
+/* this version of the library used the code from the BASIC runtime environment 
+it cannot be used standalone and will be included in the toolkit for small systems */
 #include <Arduino.h>
-#include <Wire.h>
 
 #define EFS_HEADERSIZE 4
 #define EFS_FILENAMELENGTH 12
@@ -56,8 +57,9 @@ public:
 	// directory pointer
 	uint8_t dirp;
 
-	// error flag
-	uint8_t ferror;
+	// error flag not used, error handling goes through the runtime 
+	// environments error flag ioer
+	// uint8_t ferror;
 
 	// raw read and write methods - bypass the filesystem 
 	// and just offer buffered eeprom access
@@ -123,7 +125,6 @@ EepromFS::EepromFS(uint8_t e, unsigned long sz) {
 	eepromaddr=e;
 	pagenumber=-1;
 	pagechanged=false;
-	ferror=0;
 };
 
 // even lazier constructor - no size
@@ -132,65 +133,73 @@ EepromFS::EepromFS(uint8_t e) {
 	eepromaddr=e;
 	pagenumber=-1;
 	pagechanged=false;
-	ferror=0;
 };
 
 uint8_t EepromFS::readbyte(unsigned int a) {
 
-	// send the address
-	Wire.beginTransmission(eepromaddr);
-	Wire.write((int)a/256);
-	Wire.write((int)a%256);
-	ferror=Wire.endTransmission();
+	// clear the error flag
+	ioer=0;
 
-	// get a byte
-	if (ferror == 0) {
-		Wire.requestFrom((int)eepromaddr, (int)1);
-		return Wire.read();
-	} else 
-		return 0;
+	// send the address
+    wirestart(eepromaddr, 0);
+    wirewritebyte((int)a/256);
+    wirewritebyte((int)a%256);
+    ioer=wirestop();
+
+	// get a byte if there was no error
+    if (ioer) return 0;
+	wirestart(eepromaddr, 1);
+    return wirereadbyte();
 };
 
 void EepromFS::writebyte(unsigned int a, uint8_t v) {
+
+	// clear the error flag
+	ioer=0;
+
 	// send the address and the byte
-	Wire.beginTransmission(eepromaddr);
-	Wire.write((int)a/256);
-	Wire.write((int)a%256);
-	Wire.write((int) v);
-	ferror=Wire.endTransmission();
-	delay(5);
+    wirestart(eepromaddr, 0);
+    wirewritebyte((int)a/256);
+    wirewritebyte((int)a%256);
+    wirewritebyte((int)v);
+    ioer=wirestop();
+
+	// typical update time of one cell in the EEPROM
+    bdelay(5);
 };
 
 
 // the raw sequential read method 
 uint8_t EepromFS::rawread(unsigned int a){
+
+	// clear the error flag
+	ioer=0;
+
 	// the new page needs to be loaded
 	int p=a/EFS_PAGESIZE;
 	if (p != pagenumber) {
-		// on page fault
-		// flush the page before reloading
+		// on page fault flush the page before reloading
 		rawflush();
-		// load the page 
-		// send the address
-		Wire.beginTransmission(eepromaddr);
+		// load the page at the address pa
 		unsigned int pa=p*EFS_PAGESIZE;
-		Wire.write((int)pa/256);
-		Wire.write((int)pa%256);
-		Wire.endTransmission();
-		// and then get data
-		Wire.requestFrom((int)eepromaddr, (int)EFS_PAGESIZE);
-		// wait for wire to respond and yield in the meantime
-		int dc=0;
-		while( !Wire.available() && dc++ < 1000) delay(0);
-		// collect the data
-		if (Wire.available() == EFS_PAGESIZE) {
-			for(uint8_t i=0; i<EFS_PAGESIZE; i++) pagebuffer[i]=(uint8_t) Wire.read();
-			pagenumber=p;
-			pagechanged=false;
-		} else {
-			ferror|=1;
-			return 0;
+
+		/* send the address */
+		wirestart(eepromaddr, 0);
+		wirewritebyte((int)pa/256);
+		wirewritebyte((int)pa%256);
+		ioer=wirestop();
+
+		if (ioer) return 0;
+
+		wirestart(eepromaddr, EFS_PAGESIZE);
+        // readbyte sets the runtime environments ioer flag
+        for (uint8_t i=0; i<EFS_PAGESIZE; i++) {
+			pagebuffer[i]=wirereadbyte();
+			if (ioer) return 0;
 		}
+
+        pagenumber=p;
+        pagechanged=false;
 	}
 	return pagebuffer[a%EFS_PAGESIZE];
 }
@@ -206,16 +215,20 @@ void EepromFS::rawwrite(unsigned int a, uint8_t d){
 	pagechanged=true;
 }
 
-// the raw flush methods - sets ferror according to transmission status
+// the raw flush methods - sets ioer according to transmission status
 void EepromFS::rawflush(){
+
+	// clear the error flag
+	ioer=0;
+
 	if (pagechanged) {
 		unsigned int pa=pagenumber*EFS_PAGESIZE;
-		Wire.beginTransmission(eepromaddr);
-		Wire.write((int)pa/256);
-		Wire.write((int)pa%256);
-		if (Wire.write(pagebuffer, EFS_PAGESIZE) != EFS_PAGESIZE) ferror|=1;
-		ferror+=2*Wire.endTransmission();
-		delay(10); // the write delay according to the AT24x datasheet
+        wirestart(eepromaddr, 0);
+        wirewritebyte((int)pa/256);
+        wirewritebyte((int)pa%256);
+        for (uint8_t i=0; i<EFS_PAGESIZE; i++) wirewritebyte(pagebuffer[i]);
+        ioer=wirestop();
+		bdelay(10); // the write delay according to the AT24x datasheet for an entire block
 		pagechanged=false;
 	}
 }
@@ -224,13 +237,16 @@ void EepromFS::rawflush(){
 // begin wants a formated filesystem
 uint8_t EepromFS::begin() { 
 
+	// clear the error flag
+	ioer=0;
+
 	// find the size this only works for 4096 and 32768 eeproms 
 	if (eepromsize == 0) {
 		uint8_t c4 = readbyte(4094);
 		uint8_t c32 = readbyte(32766);
 		writebyte(4094, 42);
     	writebyte(32766, 84);
-  		if (ferror !=0 ) return 0;
+  		if (ioer !=0 ) return 0;
   		if (readbyte(32766) == 84 && readbyte(4094) == 42) eepromsize = 32767; else eepromsize = 4096;
   		writebyte(4094, c4);
  		writebyte(32766, c32);	
