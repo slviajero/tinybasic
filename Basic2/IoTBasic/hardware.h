@@ -313,8 +313,10 @@
 /* #define ARDUINOI2CEEPROM_BUFFERED */
 
 /* use the direct i2c code and bypass the Wire library on AVR 
-  default off here, board file and heuristics to decide */
-/* #undef ARDUINODIRECTI2C */
+ * default off here, board file and heuristics to decide, this 
+ * is currently only implemented on ARDUINO_ARCH_AVR and tested on UNO 
+ */
+#undef ARDUINODIRECTI2C
 
 /*
  * Sensor library code - configure your sensors here, will go to a 
@@ -378,9 +380,11 @@
 #define ARDUINOEEPROM
 #define ARDUINOPICOSERIAL
 #define ARDUINOPGMEEPROM
+#define ARDUINODIRECTI2C
+#undef  ARDUINOI2CEEPROM_BUFFERED
 #undef  LINECACHESIZE
 #undef  HASMSTAB
-#define MEMSIZE 768
+#define MEMSIZE 512
 #endif
 /* der Pro */
 #if defined(ARDUINO_AVR_PRO)
@@ -389,7 +393,7 @@
 #undef  LINECACHESIZE
 #undef  HASMSTAB
 #undef  HASVT52
-#define MEMSIZE 512
+#define MEMSIZE 768
 #endif
 /* on a DUEMILA we allocate just as little main memory as possible, currenly not working because sketch too big 
  * needs to be checked */
@@ -488,6 +492,14 @@
  * the WIRE command in basic.
  */
 
+/*
+ * Safety net for ARDUINODIRECTI2C, architectures that are 
+ * not AVR 8 bit and do not have TWDR are not supported.
+ */
+#if !defined(ARDUINO_ARCH_AVR) || !defined(TWDR)
+#undef ARDUINODIRECTI2C
+#endif
+
 /* a clock needs wire */
 #ifdef ARDUINORTC
 #define HASSIMPLEWIRE
@@ -508,6 +520,11 @@
 #define HASSIMPLEWIRE
 #endif
 
+/* external EEPROM buffered needs full wire support, because EFS not ported */
+#if defined(ARDUINOI2CEEPROM) && defined(ARDUINOI2CEEPROM_BUFFERED)
+#define HASWIRE
+#endif
+
 /* plain Wire support also needs wire ;-) */
 #if defined(ARDUINOWIRE) || defined(ARDUINOWIRESLAVE)
 #define HASWIRE
@@ -518,6 +535,7 @@
 #define HASSIMPLEWIRE
 #endif
 
+/* the BASIC command/function WIRE */
 #if defined (ARDUINOSIMPLEWIRE)
 #define HASSIMPLEWIRE
 #endif
