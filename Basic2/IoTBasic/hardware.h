@@ -79,6 +79,7 @@
  */
 #define PREDEFINEDBOARD "boards/dummy.h"
 
+
 /* undef this if you want to overide all defaults, then use the settings below */
 #define HARDWAREHEURISTICS
 
@@ -1057,7 +1058,7 @@
  */
 #if defined(ARDUINO_ARCH_AVR)
 #if defined(ARDUINO_AVR_DUEMILANOVE)
-#define BASICPALOALTO
+#define BASICMINIMAL
 #endif
 #if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_NANO) || defined(ARDUINO_AVR_PRO)
 #define BASICSIMPLE
