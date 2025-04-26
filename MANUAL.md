@@ -6,13 +6,13 @@ This manual is for the released version 1.4 and 2.0 of Stefan's IoT BASIC interp
 
 ## Supported hardware 
 
-BASIC runs on Mac, Windows, Raspberry PI, MSDOS and many Arduino plattforms. I test regularly on 8 and 32 bit AVR, ESP8266. ESP2, RP2040 but also on some less common platforms like MKR, XMC, SMT, and GIGA. Have a look in the hardware section for more information. Many peripherals are supported. You find details in the hardware section of the manual.
+BASIC runs on Mac, Windows, Raspberry PI, MSDOS and many Arduino platforms. I test regularly on 8 and 32 bit AVR, ESP8266. ESP2, RP2040 but also on some less common platforms like MKR, XMC, SMT, and GIGA. Have a look in the hardware section for more information. Many peripherals are supported. You find details in the hardware section of the manual.
 
 ## BASIC language sets
 
 This BASIC interpreter is structured in language sets. They can be compiled into the code separately. With every language set there are more features and command. This makes it adaptable to the purpose. The manual is structured according to the language sets. 
 
-The intepreter has two data types - numbers and strings. The number type can be set at compile time. It is either an integer or foating point. Depending on the definition of number_t in the code the interpreter can use everything from 16 bit integers to 64 bit floats as basic number type. Default is single precision floats for all real OSes and integer on all Arduinos. In practice all but the UNO boards can run single precision floats.
+The interpreter has two data types - numbers and strings. The number type can be set at compile time. It is either an integer or floating point. Depending on the definition of number_t in the code the interpreter can use everything from 16 bit integers to 64 bit floats as basic number type. Default is single precision floats for all real OS´s and integer on all Arduinos. In practice all but the UNO boards can run single precision floats.
 
 Arrays and string variables are part of the Apple 1 language sets. Strings are static. They reserve the entire length of the string on the heap. Depending on the definition of the string index type in the code, strings can be either 255 characters or 65535 characters maximum length. 
 
@@ -32,7 +32,7 @@ Most Arduino built-in examples from https://docs.arduino.cc/built-in-examples/ h
 
 BASIC has a lot of Apple 1 and Palo Alto DNA. Some of the language constructs and conventions are taken from these languages and not from the more common Microsoft type BASICs. The subtle differences of BASIC dialects made programs hard to port even in the old days of the 1970s and 1980s. From version 2.0 on this BASIC interpreter has the feature of setting personalities at runtime. 
 
-One command controls how boolean arithemtic, string syntax, random number generator behaviour and array dimensions are handled. 
+One command controls how boolean arithmetic, string syntax, random number generator behaviour and array dimensions are handled. 
 
 SET 22, "Microsoft"
 
@@ -52,7 +52,7 @@ Default of the interpreter is "Apple1" with the exception of the boolean mode wh
 
 ## Compiling BASIC
 
-Basic 2.0 consists now of 6 files. basic.c is the interpreter and basic.h the prototypes. runtime.c or runtime.cpp are the runtime environments. They differ for real computers (runtime.c) and Arduinos (runtime.cpp). The prototypes i.e. the interface the the runtime code are identical and are called runtime.h. There are almost no configuarable parameters in these files. 
+Basic 2.0 consists now of 6 files. basic.c is the interpreter and basic.h the prototypes. runtime.c or runtime.cpp are the runtime environments. They differ for real computers (runtime.c) and Arduinos (runtime.cpp). The prototypes i.e. the interface the the runtime code are identical and are called runtime.h. There are almost no configurable parameters in these files. 
 
 Configuration of the hardware is done in hardware.h. Please look into the hardware section of this manual for more details. 
 
@@ -106,7 +106,7 @@ Tutorial programs: hello.bas and table.bas.
 
 A positive number aligns to the right Palo Alto BASIC style. A negative number aligns to the right side. Setting #0 removes the format.
 
-BASIC I/O is stream based. Streams are numbered. The console I/O on a POSIX system or Serial on an Arduino is stream number 1. Other prefefined stream numbers are 2 for displays, 4 for secondary serial and 16 for files. Please look at the file I/O section and the hardware driver chapter for more information. 
+BASIC I/O is stream based. Streams are numbered. The console I/O on a POSIX system or Serial on an Arduino is stream number 1. Other predefined stream numbers are 2 for displays, 4 for secondary serial and 16 for files. Please look at the file I/O section and the hardware driver chapter for more information. 
 
 Printing to a display would be done with 
 
@@ -122,13 +122,13 @@ PRINT ends a line with LF. No CR is sent at the end of a line.
 
 ### LET
 
-LET assigns an expression to a variable. It can be ommited and is only added to the language set to ensure compatibility. Typical LET statement would be 
+LET assigns an expression to a variable. It can be omitted and is only added to the language set to ensure compatibility. Typical LET statement would be 
 
 LET A=10
 
 A=B/2+C
 
-Expression evaluation is done left to right with multiplication and division precedence before addition and subtraction. Comparision have lowest precedence and evalute true to -1 and false to 0. This is not C style boolean logic but closer to the old MS BASIC definition. With this, NOT, AND and OR in the Apple 1 language set can be used as bitwise operators because NOT -1 is 0.
+Expression evaluation is done left to right with multiplication and division precedence before addition and subtraction. Comparisons have lowest precedence and evaluate true to -1 and false to 0. This is not C style boolean logic but closer to the old MS BASIC definition. With this, NOT, AND and OR in the Apple 1 language set can be used as bitwise operators because NOT -1 is 0.
 
 Strings evaluate to the ASCII value of the first character.
 
@@ -160,7 +160,7 @@ would read data from the keyboard of a Arduino standalone system.
 
 In version 2.0 INPUT can do most of the things MS BASIC INPUT does. Arrays and string arrays are fully supported. The string substring notation can also be used in INPUT. 
 
-Comma seperated input of numbers is fed into comma separated variable lists. Hence
+Comma separated input of numbers is fed into comma separated variable lists. Hence
 
 10 INPUT A, B
 
@@ -228,7 +228,7 @@ FOR have the form
 
 FOR I=1 TO 10 STEP 2: PRINT I: NEXT I
 
-Specifying the parameter I in NEXT is optional. STEP can be ommited and defaults to STEP 1. 
+Specifying the parameter I in NEXT is optional. STEP can be omitted and defaults to STEP 1. 
 
 Unlike in other BASIC dialects the loops. 
 
@@ -313,7 +313,7 @@ The random number seed can be changes by using the special variable @R. See the 
 
 With SET 19, 1 the base of the random number can be changed to follow Palo Alto BASIC conventions. In this case numbers are created from 1 to 8. 
 
-SET 19, -1 sets the random number generator to Microsoft mode. In this mode RND(x) always produces numbers between 0 and 1 (exclusively). Called with a negative argument, the random number generator is initlialized with the absolute value of the argument to start a new sequence. This is equivalent to setting the sequence with @R. Called with 0 as an argument the same number is created. Called with any positive argument new random numbers are produced. This setting can be used to make the interpreter more compatible to Microsoft BASIC interpreters. 
+SET 19, -1 sets the random number generator to Microsoft mode. In this mode RND(x) always produces numbers between 0 and 1 (exclusively). Called with a negative argument, the random number generator is initialized with the absolute value of the argument to start a new sequence. This is equivalent to setting the sequence with @R. Called with 0 as an argument the same number is created. Called with any positive argument new random numbers are produced. This setting can be used to make the interpreter more compatible to Microsoft BASIC interpreters. 
 
 ### SIZE
 
@@ -403,7 +403,7 @@ String variables can also have two characters followed by the \$ symbol. Example
 
 ME\$="Hello World"
 
-Unlike in the original Apple 1 BASIC, strings can be used without explicitely dimensioning them. They are auto dimensioned to length 32. Strings are static. The entire space is allocated on the heap and stays reserved. This is very different from MS BASIC with a dynamic heap. The saves memory but requires a garbage collector. Static strings like in this BASIC need more memory but make the execution of time critical code more deterministic. 
+Unlike in the original Apple 1 BASIC, strings can be used without explicitly dimensioning them. They are auto dimensioned to length 32. Strings are static. The entire space is allocated on the heap and stays reserved. This is very different from MS BASIC with a dynamic heap. The saves memory but requires a garbage collector. Static strings like in this BASIC need more memory but make the execution of time critical code more deterministic. 
 
 A string can be dimensioned with DIM to any length. Example: 
 
@@ -423,7 +423,7 @@ Hello W World
 
 as an output. 
 
-Substrings can be the lefthandside of an expression
+Substrings can be the left-hand side of an expression
 
 A\$="Hello World"
 
@@ -449,7 +449,7 @@ In BASIC 2.0 strings can be enclosed in two ways "This a string" or 'This is a s
 
 ### Arrays
 
-Arrays are autodimensioned to length 10. They start with index 1. If a different array length is needed the DIM command can be used. Example: 
+Arrays are auto-dimensioned to length 10. They start with index 1. If a different array length is needed the DIM command can be used. Example: 
 
 DIM A(100)
 
@@ -463,7 +463,7 @@ With
 
 SET 12, 0
 
-the array lower bound can be changed to 0. The array ranges from A(0) to A(99) now. It still has 100 elements. SET 12 can be used to set any postive lower bound. This holds for all arrays except the special arrays starting with @. It can be changed at any time as SET 12 only modifies the offset but not the memory location.
+the array lower bound can be changed to 0. The array ranges from A(0) to A(99) now. It still has 100 elements. SET 12 can be used to set any positive lower bound. This holds for all arrays except the special arrays starting with @. It can be changed at any time as SET 12 only modifies the offset but not the memory location.
 
 Any setting with SET 12 will remain active even after NEW or CLR clears the interpreter state. See the section of the SET command for more information.
 
@@ -497,7 +497,7 @@ If PEEK and POKE are used with negative numbers they address the EEPROM of an Ar
 
 ### THEN
 
-THEN is added for comaptibity reasons. Typical statements would be 
+THEN is added for compatibility reasons. Typical statements would be 
 
 IF A=0 THEN PRINT "Zero"
 
@@ -533,7 +533,7 @@ The SGN function is 1 for positive arguments and -1 for negative arguments. SGN(
 
 ### Multidim and String Array capability
 
-If BASIC is compiled with the HASMULTIDIM option, arrays can be twodimensional. Example: 
+If BASIC is compiled with the HASMULTIDIM option, arrays can be two-dimensional. Example: 
 
 DIM A(8,9)
 
@@ -631,7 +631,7 @@ PRINT "The EEPROM size is ", USR(0,10)
 
 ### Low level calls CALL
 
-CALL expects a numerical expression as an argumen. Currently only CALL 0 is implemented. It flushes all open files and ends the interpreter on POSIX systems. On Arduinos CALL 0 restarts the interpreter. 
+CALL expects a numerical expression as an argument. Currently only CALL 0 is implemented. It flushes all open files and ends the interpreter on POSIX systems. On Arduinos CALL 0 restarts the interpreter. 
 
 ### Setting system properties with SET
 
@@ -659,7 +659,7 @@ See math.bas in the tutorial for more information.
 
 ### POW
 
-This two argument function calulates the n-th power of a number. It replaces the '^' operator of some BASIC dialects. Example: 
+This two argument function calculates the n-th power of a number. It replaces the '^' operator of some BASIC dialects. Example: 
 
 PRINT POW(2,4)
 
@@ -701,7 +701,7 @@ writes the first 100 bytes of the EEPROM.
 
 ### Error Message capability
 
-Error messages are stored in Arduino program memory. For systems with low program memory undefining the #HASERRORMSG flag removes explicit error messages. 
+Error messages are stored in Arduino program memory. For systems with low program memory un-defining the #HASERRORMSG flag removes explicit error messages. 
 
 ### Terminal emulation and VT52 capability on display systems
 
@@ -759,7 +759,7 @@ PINM LED, 1
 
 DWRITE LED, 1
 
-lights the buildin led.
+lights the built-in led.
 
 ### AWRITE, AREAD, and AZERO
 
@@ -801,7 +801,7 @@ A contains the time since start in milliseconds. B is the time since start in se
 
 ### PULSE and PLAY extensions
 
-Two more compley Arduino I/O function are available from BASIC. 
+Two more complex Arduino I/O functions are available from BASIC. 
 
 PULSE reads a pulse on a pin if used as a function. The first argument is the pin number, the second whether a LOW=0 or HIGH=1 state is expected. The third argument is the timeout in milliseconds. Note the difference to the original Arduino pulseIN() where this is microseconds. The low level Arduino commands delivers the pulse length in microseconds. PULSE delivers the pulse length in 10 microsecond units to be compatible with Integer BASIC number ranges. Example:
 
@@ -821,13 +821,13 @@ PULSE 4, 10, 0
 
 writes a 100 microsecond LOW pulse to the pin and then sets the pin again to HIGH=1.
 
-An number of repetitions and an intervall can be specified as well. Example:
+An number of repetitions and an interval can be specified as well. Example:
 
 PULSE 4, 1, 1, 10, 100
 
 writes 10 pulses with 1000 microseconds time difference of length 10 microseconds on pin 4.
 
-The time unit of PULSE can be changes with SET 14, timeunit. Example: 
+The time unit of PULSE can be changes with SET 14, time-unit. Example: 
 
 SET 14, 1 
 
@@ -865,7 +865,7 @@ OPEN &7, 64, 1
 
 This command opens the Wire stream for write addressing the device 64 as a target. 
 
-If the modifier & is ommited, it is always assumed that the file stream &16 is meant.
+If the modifier & is omitted, it is always assumed that the file stream &16 is meant.
 
 See the hardware section for more information on supported filesystems.
 
@@ -893,9 +893,9 @@ writes "Hello World" to the open write file.
 
 INPUT &16, A\$
 
-reads the string A\$ from the file. INPUT can have comma seperated arguments and reads comma separated data from BASIC 2.0 on. 
+reads the string A\$ from the file. INPUT can have comma separated arguments and reads comma separated data from BASIC 2.0 on. 
 
-I/O operations ususally report no errors on the console and keep the the program running if an error occurs. The variable @S contains the error status of the operation. @S has to be reset explicitly before using it because it remembers and error status of previous operations and is never reset by the interpreter. Example:
+I/O operations usually report no errors on the console and keep the the program running if an error occurs. The variable @S contains the error status of the operation. @S has to be reset explicitly before using it because it remembers and error status of previous operations and is never reset by the interpreter. Example:
 
 @S=0
 
@@ -919,7 +919,7 @@ would read one byte from the file putting the signed ASCII value to variable A.
 
 ### Introduction
 
-Floating point arithemtic is taken from the standard C float library of the platform. The size of the numbers is the size of the base type number_t in the C code. It is set to float as a default but can be changed to double. 
+Floating point arithmetic is taken from the standard C float library of the platform. The size of the numbers is the size of the base type number_t in the C code. It is set to float as a default but can be changed to double. 
 
 ### SIN, COS, TAN, ATAN
 
@@ -935,7 +935,7 @@ Tutorial: trig.bas
 
 ### LOG and EXP
 
-LOG is the natural logarithm and EXP the exponantial function. 
+LOG is the natural logarithm and EXP the exponential function. 
 
 Tutorial: stir.bas
 
@@ -973,7 +973,7 @@ Hello
 
 Strings have to be in quotes. Reading data with the READ command converts the data in the same way than the assignment commands. Strings reading numbers with contain the respective ASCII character. Numbers reading strings will contain the numerical ASCII code. 
 
-Unlike other BASIC versions, reading past the end of DATA will not lead to an error. The status variable @S will contain the value 1 once one reads past the last DATA item. @S has to be resetted explicitely after this. 
+Unlike other BASIC versions, reading past the end of DATA will not lead to an error. The status variable @S will contain the value 1 once one reads past the last DATA item. @S has to be reset explicitly after this. 
 
 RESTORE resets the data pointer. 
 
@@ -1071,13 +1071,13 @@ A = MALLOC(1, 64)
 
 This reserves 64 bytes which can be accessed with PEEK and POKE as 8 bit signed integers. 
 
-MALLOC helps to reserve storage in a controlled way. It is no side effects and can be used savely as long as the POKEs stay within the allocated range.
+MALLOC helps to reserve storage in a controlled way. It is no side effects and can be used safely as long as the POKEs stay within the allocated range.
 
 Tutorial: malloc.bas
 
 ### FIND
 
-FIND finds a memory segement on the heap. It can be used to find memory segements allocated with MALLOC but it also finds variables, strings and arrays. 
+FIND finds a memory segment on the heap. It can be used to find memory segments allocated with MALLOC but it also finds variables, strings and arrays. 
 
 In all of these examples the argument of the function is the name of an object and not an expression. It has to be the pure string or array without any subscripts.
 
@@ -1089,7 +1089,7 @@ PRINT FIND(A0)
 
 This command outputs the address of the variable A0. The variable is stored with the least significant byte first. The size of the variable area is the size of number_t. It is 2 bytes for integer BASICs and 4 bytes for floating point BASICs.
 
-Arrays are searched by specifiying the array name without arguments. Example:
+Arrays are searched by specifying the array name without arguments. Example:
 
 DIM A(8)
 
@@ -1197,7 +1197,7 @@ A\$="125"
 
 A=VAL(A\$)
 
-VAL uses the special variable @V to report back the number of characters in the number. The status of the conversion is stored in @S. If @S is 0 after a conversion a number was found. Otherwise @S is 1. @V is set to the number of characters only if the conversion was succesful. 
+VAL uses the special variable @V to report back the number of characters in the number. The status of the conversion is stored in @S. If @S is 0 after a conversion a number was found. Otherwise @S is 1. @V is set to the number of characters only if the conversion was successful. 
 
 If the setting HASNUMSYSTEM is on in BASIC 2, VAL can process hexadecimal, octal and binary constants. These constants begin with 0x for hex, 0o for octal, and 0b for binary. The letter can also be uppercase. Examples would be 0xFF, 0b100110, 0o4750. The maximum length of the entire string is 32 characters. This limits the number range of binaries. Example:
 
@@ -1219,7 +1219,7 @@ Tutorial: splitstr.bas, converst.bas
 
 ### SENSOR
 
-SENSOR is the generic sensor interface. It handles sensor drivers in the hardware dependent code. The first argument of the function is the sensor number. The second argument can be used to indentify interal properties of the sensor. If the second argument is zero, SENSOR returns if the sensor code is available. Example: 
+SENSOR is the generic sensor interface. It handles sensor drivers in the hardware dependent code. The first argument of the function is the sensor number. The second argument can be used to identify internal properties of the sensor. If the second argument is zero, SENSOR returns if the sensor code is available. Example: 
 
 10 IF SENSOR(1, 0)=0 THEN PRINT "no DHT11 sensor detected": END
 
@@ -1233,7 +1233,7 @@ SLEEP puts a system into deep sleep mode. It requires one argument which is the 
 
 ### NETSTAT
 
-In command mode NETSTAT displays the network status. It is implemented for all Wifi systems and Arduino Ethernet. As a arithemtic constant it returns a network status. With 0 the system is not connected. 1 means connected but no MQTT connection. 3 is network and MQTT connected.
+In command mode NETSTAT displays the network status. It is implemented for all Wifi systems and Arduino Ethernet. As a arithmetic constant it returns a network status. With 0 the system is not connected. 1 means connected but no MQTT connection. 3 is network and MQTT connected.
 
 The network code is under active development.
 
@@ -1255,7 +1255,7 @@ After 1000 milliseconds the interpreter branches to line 100. The command
 
 10 AFTER 500 GOSUB 200
 
-will GOSUB to line 200. A RETURN will resume program execution whereevery the program has been interrupted.
+will GOSUB to line 200. A RETURN will resume program execution where every the program has been interrupted.
 
 AFTER 0 
  
@@ -1439,7 +1439,7 @@ RECT 100, 100, 200, 200
 
 ### Introduction 
 
-The structured language set introduces a few loop and conditional statements into BASIC for a more GOTO free code. The curent implementation is not GOTO save. This means that jumping out of loops and into loops is possible but not handled by the interpreter in a save way. Nested loop errors are also not always detected.
+The structured language set introduces a few loop and conditional statements into BASIC for a more GOTO free code. The current implementation is not GOTO safe. This means that jumping out of loops and into loops is possible but not handled by the interpreter in a safe way. Nested loop errors are also not always detected.
 
 ### WHILE and WEND
 
@@ -1521,7 +1521,7 @@ Example:
 
 ## BASIC 2 language extensions 
 
-BASIC 2 seperates the runtime environment from the interpreter code. In addition to this more technical change and removal of technical debts it also adds new features. As tokens can now be two byte long, there is no limit any more on the number of commands. 
+BASIC 2 separates the runtime environment from the interpreter code. In addition to this more technical change and removal of technical debts it also adds new features. As tokens can now be two byte long, there is no limit any more on the number of commands. 
 
 ### String compatibility with MS Basics
 
@@ -1641,9 +1641,9 @@ Key bindings to terminals are in preparation. A full editor is also in the backl
 
 Typing HELP will display the commands and the language set of the interpreter. HELP will be extended to a full help system later.
 
-### Bitwise arithemtic operators
+### Bitwise arithmetic operators
 
-In BASIC 2 two operators and one function have been added for bitwise operations. The operators >> and << shift the value on the left side bitwise. The logic is like in the C programming language. Operator precendence is equivalent to multiplication. Typical use would be 
+In BASIC 2 two operators and one function have been added for bitwise operations. The operators >> and << shift the value on the left side bitwise. The logic is like in the C programming language. Operator precedence is equivalent to multiplication. Typical use would be 
 
 PRINT 1<<2 
 
@@ -1667,7 +1667,7 @@ The numerical value of BIT depends on the interpreters boolean mode. If the bit 
 
 BASIC 2.x can have a few BASIC programs compiled into the code. They have to be provided in modules like buildin.h. This feature is activated by setting HASBUILDIN in hardware.h and setting the right BUILDINMODULE. 
 
-Buildin programs can be loaded and saved with LOAD and SAVE. They can be openend and read with OPEN and they can be shown with CATALOG. 
+Buildin programs can be loaded and saved with LOAD and SAVE. They can be opened and read with OPEN and they can be shown with CATALOG. 
 
 These programs are always scanned first, hence a program with the same name on the filesystem cannot be accessed. Best use a name convention or prefix that distinguished the build in programs from normal programs. If the characters _ or . are used as prefixes for the build in program, they are invisible for CATALOG.
 
@@ -1696,7 +1696,7 @@ Streams are
 
 All other stream numbers are currently unused but will be allocated to drivers in the future. The stream numbers below 32 should not be used for extensions. 
 
-Stream numbers are agruments of the modifier of OPEN, CLOSE, PRINT, INPUT, GET and PUT. Typical commands would look like:
+Stream numbers are arguments of the modifier of OPEN, CLOSE, PRINT, INPUT, GET and PUT. Typical commands would look like:
 
 INPUT &2, A$
 
@@ -1750,7 +1750,7 @@ will wait for a character. AVAIL(1) or @A will always return 1 to make sure that
 
 10 IF AVAIL(1)<>0 THEN GET A
 
-runs correctly on both archtitectures.
+runs correctly on both architectures.
 
 For line oriented input with the INPUT command, the difference is irrelevant. INPUT works in the same way on both system types.
 
@@ -1760,7 +1760,7 @@ A line end is LF, which means ASCII 10. This is UNIX style end of line. DOS and 
 
 ### Display and keyboard drivers
 
-Keyboard and display are accessed through stream 2. Only one device can be present, i.e. one keyboard and one display. Multidisplay or multikeyboard systems are not supported. Stream 3 is reserved for these usecases but currently not implemented. 
+Keyboard and display are accessed through stream 2. Only one device can be present, i.e. one keyboard and one display. Multi-display or multi-keyboard systems are not supported. Stream 3 is reserved for these use-cases but currently not implemented. 
 
 BASIC currently supports either PS2 keyboards and the keypad of the LCDSHIELD as input device. For PS2 keyboards on standard Arduino systems the patches PS2keyboard library should be downloaded from my repo for optimal functionality. It implements keyboard.peek() which has a few advantages. 
 
@@ -1794,7 +1794,7 @@ ASCII output to a display is sent through the output stream 2. Displays are hand
 
 In non buffered mode the display driver has the following functions: 
 
-The cursor of the display can be accessed special variables @X and @Y. Both variables are read/write. One can find out where the cursor is and set its position. Output with PUT &2 and PRINT &2 goes to the next cursor postion.
+The cursor of the display can be accessed special variables @X and @Y. Both variables are read/write. One can find out where the cursor is and set its position. Output with PUT &2 and PRINT &2 goes to the next cursor position.
 
 ASCII character 7 is the bell character. It calls the dspbell() function which is empty by default. Any action can be implemented here.
 
@@ -1934,7 +1934,7 @@ ESC y low high
 
 ESC z char
 
-Like in cursor control the arguments are transfered as printable characters. 32 is subtracted from the ASCII value of low, high or char. 
+Like in cursor control the arguments are transferred as printable characters. 32 is subtracted from the ASCII value of low, high or char. 
 
 Graphics commands are initiated by 
 
@@ -1962,7 +1962,7 @@ Color is set with ESC c.
 
 ### Secondary serial stream
 
-The secondary serial stream is addressed through stream number 4. For microcontroller platforms with a hardware secondary serial port, the Serial1 object on the Arduino library is used. This can be changed in hardware-arduino.h (1.x) or hardware.h (2.x) by modifiying the functions beginning with prt. For microcontrollers without multiple hardware serial ports Softwareserial is used. The RX and TX pins are set through the macro SOFTSERIALRX and SOFTSERIALTX. Default are pin 11 and 12. This conflicts with the SPI pins. If SPI is to be used the soft serial pins have to be changed.
+The secondary serial stream is addressed through stream number 4. For microcontroller platforms with a hardware secondary serial port, the Serial1 object on the Arduino library is used. This can be changed in hardware-arduino.h (1.x) or hardware.h (2.x) by modifying the functions beginning with port. For microcontrollers without multiple hardware serial ports Softwareserial is used. The RX and TX pins are set through the macro SOFTSERIALRX and SOFTSERIALTX. Default are pin 11 and 12. This conflicts with the SPI pins. If SPI is to be used the soft serial pins have to be changed.
 
 Default baudrate on the secondary serial port is 9600 baud.
 
@@ -1976,7 +1976,7 @@ With the command
 
 SET 7, 1 
 
-the blockmode parameter can be set to 1. In this mode the entire serial buffer is transfered to the string A$. The number of characters waiting in the serial buffer for transfer can be found by the function AVAIL(4). This number of character is in the string after INPUT &4 with the length of the string set to the value of AVAIL(4) before INPUT. Immediately after read, AVAIL(4) is zero. For secondary serial blockmode 1 is the default.
+the blockmode parameter can be set to 1. In this mode the entire serial buffer is transferred to the string A$. The number of characters waiting in the serial buffer for transfer can be found by the function AVAIL(4). This number of character is in the string after INPUT &4 with the length of the string set to the value of AVAIL(4) before INPUT. Immediately after read, AVAIL(4) is zero. For secondary serial blockmode 1 is the default.
 
 Setting the blockmode parameter to a value greater 1 the timeout mode is activated. INPUT reads all characters in the buffer and waits timeout microseconds for further input until it returns. It also returns if the string is full. Example: 
 
@@ -1998,15 +1998,15 @@ would print the characters "A", "T", followed by a LF (ASCII 10) and a CR (ASCII
 
 Answer of a model could be collected with the input sequence above.
 
-Unlike the primary serial port, the baudrate of the secondary port can be changed by the BASIC program. Example:
+Unlike the primary serial port, the baud rate of the secondary port can be changed by the BASIC program. Example:
 
 SET 8, 31250 
 
-would set the baudrate to the standard MIDI baudrate of 31250. Any allowed baudrate of the hardware platform can be used. The serial port is reset after this command.
+would set the baud rate to the standard MIDI baud rate of 31250. Any allowed baud rate of the hardware platform can be used. The serial port is reset after this command.
 
 ### Wire communication
 
-Stream &7 is used for Wire i.e. the I2C protocol. BASIC uses the implementation of the Arduino Wire library and the Wire object. Actually, the I2C protocol is very compley and the Wire library hides this complexity making it a byte stream. PRINT, INPUT, GET and PUT can deal well with byte streams, therefore most of the Wire libraries functionality can be used from BASIC. There is a master and a slave mode implementation.
+Stream &7 is used for Wire i.e. the I2C protocol. BASIC uses the implementation of the Arduino Wire library and the Wire object. Actually, the I2C protocol is very complex and the Wire library hides this complexity making it a byte stream. PRINT, INPUT, GET and PUT can deal well with byte streams, therefore most of the Wire libraries functionality can be used from BASIC. There is a master and a slave mode implementation.
 
 In master mode, the OPEN statement for the I2C stream is used in read mode. Example: 
 
@@ -2066,7 +2066,7 @@ PRINT &7, A\$
 
 After this, USR(7, 1) will be zero once the master has collected the data from the buffer. 
 
-Alternatively, the slave can deposite data in the buffer before the master has even requested it. A master request at a later time will be answered with the data. This would be useful for sensors of all kind. The slave measures data, puts it in the buffer with PRINT &7 and waits a while e.g. with DELAY until it does the next measurement. The new data overwrite the old one after every measurement cycle. A master can request data asynchronously at any time and will receive the data in the buffer. This BASIC program does not need to handle this.
+Alternatively, the slave can deposit data in the buffer before the master has even requested it. A master request at a later time will be answered with the data. This would be useful for sensors of all kind. The slave measures data, puts it in the buffer with PRINT &7 and waits a while e.g. with DELAY until it does the next measurement. The new data overwrite the old one after every measurement cycle. A master can request data asynchronously at any time and will receive the data in the buffer. This BASIC program does not need to handle this.
 
 See examples/13wire/slave* for more info on slave mode.
 
@@ -2084,17 +2084,17 @@ The first command opens a stream for reading, using the string given as file nam
 
 OPEN on the radio interface sets @S if there is in a error in the module communication. Typically this would mean that the module is not connected properly.
 
-After opening INPUT, PRINT, PUT and GET on stream &8 work similar to Wire. The maximum message length is restricted by the unterlying library to 32 bytes.
+After opening INPUT, PRINT, PUT and GET on stream &8 work similar to Wire. The maximum message length is restricted by the underlying library to 32 bytes.
 
-The radio module is started with maximum power. To power it down SET 9, x can be used. x is an integer between 0 and 3. 3 is maximum power and 0 is minumum power.
+The radio module is started with maximum power. To power it down SET 9, x can be used. x is an integer between 0 and 3. 3 is maximum power and 0 is minimum power.
 
 ### MQTT
 
-Stream &9 is used for networking with MQTT. MQTT is the only network protocoll that is supported and the code is experimental. The network code is generic and more protocols will be integrated in the future. 
+Stream &9 is used for networking with MQTT. MQTT is the only network protocol that is supported and the code is experimental. The network code is generic and more protocols will be integrated in the future. 
 
 Supported network adapters are Ardunio Ethernet shields, ESP8266 and ESP32 WLAN, Arduino MKR and RP2040 WifiNINA. These network codes have some timing needs like yielding the CPU and refreshing DHCP leases. BASIC integrates this in the central statement loop processing all time critical tasks in the function byield(). This code is best tested and very stable on ESP8266 and ESP32. Other platforms are alpha. 
 
-For Wifi systems, the SSID and password are hardcoded in the BASIC interpreter binary by setting the respective lines in "wifisettings.h". In this file there are two lines defining the MQTT server and port. This data is also compiled into the code. Currently only unencrypted and unautheticated MQTT is supported as this is only a toy. The fiths line in the code is a MAC address which is needed for the Arduino Ethernet shield. For all other hardware platforms this line is ignored.
+For Wifi systems, the SSID and password are hardcoded in the BASIC interpreter binary by setting the respective lines in "wifisettings.h". In this file there are two lines defining the MQTT server and port. This data is also compiled into the code. Currently only unencrypted and un-autheticated MQTT is supported as this is only a toy. The fifth line in the code is a MAC address which is needed for the Arduino Ethernet shield. For all other hardware platforms this line is ignored.
 
 After startup of the microcontroller it tries to connect to Wifi or Ethernet. The command NETSTAT can be used to see the connection status. This command is meant for interactive use only. 
 
@@ -2118,7 +2118,7 @@ OPEN &9, "iotbasic/command", 0
 
 would open the topic "iotbasic/command" for read. 
 
-There can be one read and write topic simulataneously. After opening the topics, data can be written by the commands PRINT, INPUT, GET, and PUT.
+There can be one read and write topic simultaneously. After opening the topics, data can be written by the commands PRINT, INPUT, GET, and PUT.
 
 Every command will generate one MQTT message. 
 
@@ -2140,7 +2140,7 @@ The network code will be extended in version 1.4. Currently it is only a proof o
 
 ### Filesystems
 
-BASIC runs on very different platforms. From small 8 bit AVR based system to 64 bit Macs. These computers have different filesystems and capabilities. The BASIC commands are designed to make a minimal file I/O possible. Only one directory is supported. One file can be open for reading and another for writing simulateously. Stream &16 is used for file I/O.
+BASIC runs on very different platforms. From small 8 bit AVR based system to 64 bit Macs. These computers have different filesystems and capabilities. The BASIC commands are designed to make a minimal file I/O possible. Only one directory is supported. One file can be open for reading and another for writing simultaneously. Stream &16 is used for file I/O.
 
 Supported filesystems are SD on all microcontroller platforms that have it, ESPSPIFFS for ESP8266 and ESP32, LittleFS for Arduino MKR and RP2040 based systems. The file system driver removed leading rootfs names and everything else starting with a '/'. It shows a flat namespace of filenames. BASIC itself limits filenames to a maximum of 32 bytes. Some filesystems cannot handle this. In this case the name is truncated. No check is made if the filename is legal for the particular filesystem. For ESPSPIFFS and LittleFS the FDISK command is supported. Example: 
 
@@ -2152,13 +2152,13 @@ Format disk (y/N)?
 
 and then format the disk. No parameters are used here.
 
-In addition to the standard filesystems, I developed a minimalist EEPROM filesystem. This filesystem partitions an I2C EEPROM into n equal size slots that can be used for files. Formating this filesystem requires the number of slots as a parameter. Example: 
+In addition to the standard filesystems, I developed a minimalist EEPROM filesystem. This filesystem partitions an I2C EEPROM into n equal size slots that can be used for files. Formatting this filesystem requires the number of slots as a parameter. Example: 
 
 FDISK 4
 
-would partition the EEPROM to 4 equal slot. For the very common 32kB serial EEPROM it would mean that 4 files of maximum of 8k can be stored. The EEPROM size has to be hard coded into the BASIC interpeter at the moment. This will change in the future.
+would partition the EEPROM to 4 equal slot. For the very common 32kB serial EEPROM it would mean that 4 files of maximum of 8k can be stored. The EEPROM size has to be hard coded into the BASIC interpreter at the moment. This will change in the future.
 
-On POSIX and SD no formating is supported. 
+On POSIX and SD no formatting is supported. 
 
 ### Real time clock support
 
@@ -2196,7 +2196,7 @@ The hardware section of the interpreter contains mechanism to make the platform 
 
 Systems compiled with the POSIX hardware driver use the features of the OS for most I/O operations. They differ from Arduino's and other MCU in some aspects.
 
-Ususally BASIC is started from the command line on these systems. The BASIC interpreter can be started with a file argument. In this case the interpreter starts and runs the file and terminates after the program has ended. 
+Usually BASIC is started from the command line on these systems. The BASIC interpreter can be started with a file argument. In this case the interpreter starts and runs the file and terminates after the program has ended. 
 
 ./basic file.bas
 
@@ -2222,7 +2222,7 @@ I2C and other wiring features like PULSE are not yet supported.
 
 ### Wemos D1R1 systems and shields
 
-These UNO form factor 8266 are really popular as they are cheap and powerful. BASIC supports these boards as datalogger and standalone systems. They are not really UNO hardware compatible, so some precautions are required. 
+These UNO form factor 8266 are really popular as they are cheap and powerful. BASIC supports these boards as data-logger and standalone systems. They are not really UNO hardware compatible, so some precautions are required. 
 
 BASIC uses the raw ESP822 pinout on the right side of this table:
 
@@ -2266,7 +2266,7 @@ More on ESP8266: https://tttapa.github.io/ESP8266/Chap04%20-%20Microcontroller.h
 
 ### ESP32 VGA with FabGL
 
-BASIC runs on TTGO VGA ESP32 hardware boards. These boards are specifically designed for retro computin applications. They have a PS2 keyboard and mouse, a VGA adapter and an SD card slot. Many old OSes and computer games can run on them. 
+BASIC runs on TTGO VGA ESP32 hardware boards. These boards are specifically designed for retro computing applications. They have a PS2 keyboard and mouse, a VGA adapter and an SD card slot. Many old OS's and computer games can run on them. 
 
 I ported the BASIC interpreter to it with a VGA 640x200 screen. The sound generator and the SD is also supported. This makes the TTGO VGA board a fully function 64 kB home computer. 
 
@@ -2278,7 +2278,7 @@ PLAY n, frequency, duration, volume.
 
 The parameters volume and duration are optional. Duration is measured in ms. This is like Arduinos. Setting the volume is not possible for Arduinos. The parameter is directly passed to the FabGL library. On Arduinos this parameter is ignored.
 
-The first parameter n would be the pin number in an Arduino configuation. For FabGL it sets the wave form generator instead. The following values are possible:
+The first parameter n would be the pin number in an Arduino configuration. For FabGL it sets the wave form generator instead. The following values are possible:
 
 128: Sine wave 
 
@@ -2302,13 +2302,13 @@ Networking is possible but not really supported. There are internal memory confl
 
 ### SPI RAM systems 
 
-8bit AVR systems have rather small RAM sizes. The UNO has just 2 kB which limits the number of appliactions. Otherwise an Arduino UNO would be a great computer for BASIC. The RAM limitation of the smaller 8bit microcontrollers can be removed by using 64kB serial RAM modules. The chips are really cheap and the can be connected easily. 
+8bit AVR systems have rather small RAM sizes. The UNO has just 2 kB which limits the number of applications. Otherwise an Arduino UNO would be a great computer for BASIC. The RAM limitation of the smaller 8bit microcontrollers can be removed by using 64kB serial RAM modules. The chips are really cheap and the can be connected easily. 
 
 Activating the ARDUINOSPIRAM flag on compile time will use the SPI RAM interface for memory access. If a 16 bit integer BASIC is compiled, the computer will show 32 kB of BASIC memory. If a floating point BASIC is compiled, it will see 64 kB of memory. Only 64 kByte ATMEGA 23LCV512 SPI RAM modules are supported. There is no library needed, the device driver is integrated in BASIC. 
 
 All BASIC commands work the same. Most of them with a similar performance as local RAM. This is due to the fact that the interpreter has two memory access mechanisms, one for the program token stream and one for read/write of variables. Both are buffered separately, reducing SPI memory access. 
 
-The one exception is string commands. Strings have to be copied to local memory, can be processed there and have to be compied back. String buffers of 128 bytes handle this task. For this reason, the maximum string length is restructed to 128 bytes when using the SPI RAM interface. Also, string commands should not be nested in complicated expressions. This part of the code is not tested a lot. String code is considerably slower then in direct memory situations but still faster than many old 8 bit homecomputers.
+The one exception is string commands. Strings have to be copied to local memory, can be processed there and have to be copied back. String buffers of 128 bytes handle this task. For this reason, the maximum string length is restricted to 128 bytes when using the SPI RAM interface. Also, string commands should not be nested in complicated expressions. This part of the code is not tested a lot. String code is considerably slower then in direct memory situations but still faster than many old 8 bit home computers.
 
 Well behaved BASIC programs like the game library of David Ahl in examples/14games have been tested and run on SPI RAM.
 
@@ -2342,13 +2342,13 @@ SET 6,1 sets the CR output of the secondary serial port. A CR is sent after each
 
 SET 7,1 switches on blockmode of the secondary serial port input. SET 7, timeout with a number timeout>1 sets an input timeout in ms. In both cases INPUT &4 does not wait for a line feed. SET 7,0 resets block mode. 
 
-SET 8,baud will set the baudrate of the secondary serial port and resets the port. Default is 9600.
+SET 8,baud will set the baud rate of the secondary serial port and resets the port. Default is 9600.
 
 SET 9,n will set the radio signal strength. n is between 0 and 3. 3 is maximal signal strength. 
 
 SET 10,1 sets the display update to page mode. In this mode the display does not display text or graphics until am ETX (ASCII 3) is sent.
 
-SET 11,1 sets the TAB command to Microsoft mode. In this mode the TAB position is the absolute character count and not a relative postion. SET 11,0 resets the behaviout.
+SET 11,1 sets the TAB command to Microsoft mode. In this mode the TAB position is the absolute character count and not a relative position. SET 11,0 resets the behaviour.
 
 SET 12,0 sets the lower bound of all arrays to 0. This means that arrays with 8 elements DIMed with DIM A(8) go from 0 to 7 instead of 1 to 8. SET 12, 1 resets the value. This command does not change the array or anything in memory. It merely adds an offset. Any positive value can be used as an argument.
 
@@ -2360,15 +2360,15 @@ SET 15 controls on the VT52 to ANSI emulation, by default it is on. This means t
 
 The following SET commands control language behaviour. They are not part of the runtime properties and listed here for completeness. They only exist in BASIC 2.
 
-SET 16 controls the default dimension of a string on creation. Default is 32. SET 16,20 would set the default size of undimensioned strings to 20. This parameter is only used when the string is created. Previously created string remain unaffected.
+SET 16 controls the default dimension of a string on creation. Default is 32. SET 16,20 would set the default size of un-dimensioned strings to 20. This parameter is only used when the string is created. Previously created string remain unaffected.
 
-SET 17 controls the boolean mode of the interpreter. With the default value -1 the interpreter behaves like a MS BASIC interpreter. True is -1 and NOT -1 is 0. The operations NOT, AND, OR are all three bitwise logical operations of 16 bit signed integers. SET 17,1 sets the boolean mode to C style logic. This was also used by some of the old BASIC interpretes like Apple1, Palo Alto, and Cromeco. True is 1 and NOT 1 is 0. AND and OR still are bitwise logical operations but NOT behaves like the C logical NOT. This setting helps when BASIC programs of older interpreters are used. Check out trek.bas in the expamples section. 
+SET 17 controls the boolean mode of the interpreter. With the default value -1 the interpreter behaves like a MS BASIC interpreter. True is -1 and NOT -1 is 0. The operations NOT, AND, OR are all three bitwise logical operations of 16 bit signed integers. SET 17,1 sets the boolean mode to C style logic. This was also used by some of the old BASIC interpreters like Apple1, Palo Alto, and Cromeco. True is 1 and NOT 1 is 0. AND and OR still are bitwise logical operations but NOT behaves like the C logical NOT. This setting helps when BASIC programs of older interpreters are used. Check out trek.bas in the examples section. 
 
 SET 18,1 sets the interpreter to integer mode even if if is compiled with HASFLOAT. Variables still stay floats internally but values are truncated on store or print. The arithmetic is integer in this mode hence A=1/2 produces A to be 0 and A=1/2\*2 also produces A to be 0. This setting is used for compatibility with some programs of Integer BASICs including the #undef HASFLOAT variants of this interpreter.
 
 SET 19 controls the behaviour of the random number generator. One some BASIC interpreters RND(8) would produce numbers from 0 to 7 (or 7.999999 in floating point BASICs). The value 8 is never reached. This is the default behaviour. Other BASIC would produce numbers in the range from 1 to 8. SET 19,1 switches on this mode. 
 
-SET 20 controls the substring logic. With SET 20, 0 the substring syntax is surpressed and the language feels more Microsofty. Default is 1: substrings on.
+SET 20 controls the substring logic. With SET 20, 0 the substring syntax is suppressed and the language feels more Microsofty. Default is 1: substrings on.
 
 SET 21 controls the array creation behaviour. With SET 21, 1 the language creates arrays in the range of 0 to 10 with DIM A(10) i.e. in Microsoft conventions. With SET 21, 0 the array limits are 1 to 10. 
 
