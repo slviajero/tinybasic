@@ -5,7 +5,7 @@
 My attempt to create a basic interpreter from scratch. The project was inspired by Steve Wozniak's statement that the Apple 1 basic interpreter was the biggest challenge in his professional life. Bill Gates also had started his career and his fortune by writing a basic interpreter for the Altair microcomputer around the some time. 
 
 The project has outgrown its beginnings by now. It became a full featured BASIC interpreter with IoT and microcontroller specific features. There is an underlying hardware abstraction layer making the interpreter
-useable on a number of architectures like Arduino AVR, ESP8266, ESP32, SAMD, RP2040 and ARM. 
+useable on a number of architectures like Arduino, ESP8266, ESP32, SAMD, RP2040 and various ARMs. Posix and MSDOS.  
 
 Arithmetic is 16 bit, 32bit or float depending on the compiler settings and the platform. The full set of Dartmouth language features like ON GOSUB and (multiline) DEF FN is implemented. Strings are Apple 1 style. They are essentially character arrays like in C and remain static in memory. Some compatibility features with other BASIC interpreters are implemented.
 
@@ -140,6 +140,12 @@ EEPROM emulations on XMC needs the XMCEEPROM library.
 Displays, filesystem, networking, and sensors need libraries. 
 
 Please consult the wiki https://github.com/slviajero/tinybasic/wiki/Hardware-Platforms for this.
+
+## Supported platforms: 
+
+Arduino, ESP8266, ESP32, SAMD, RP2040 and various ARMs. Posix and MSDOS.  
+
+While I have developed this also for STM32 boards, I don't support this any more. The reason for this is the large number of incompatible clones with all kinds of problems when uploading software and using serial on the USB port. This is not a weakness of STM32 but of the manufacturer of clones.  
 
 ## What's next
 
