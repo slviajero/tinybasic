@@ -51,6 +51,7 @@
  * POSIXMQTT: analogous to ARDUINOMQTT, send and receive MQTT messages (unfinished)
  * POSIXWIRING: use the (deprectated) wiring code for gpio on Raspberry Pi
  * POSIXPIGPIO: use the pigpio library on a Raspberry PI  - currently broken - wire change - don't use
+ * ESP32CAMERA: a stub to help with development of the MCU code
  */
 
 #define POSIXTERMINAL
@@ -62,6 +63,7 @@
 #undef POSIXMQTT
 #undef POSIXWIRING
 #undef POSIXPIGPIO
+#define ESP32CAMERA
 
 /* simulates SPI RAM, only test code, keep undefed if you don't want to do something special */
 #undef SPIRAMSIMULATOR
@@ -204,6 +206,11 @@ unsigned long millis();
  *  Tell BASIC we have a radio adapter
  */
 #undef HASRF24
+
+/* the camera development helper */
+#ifdef ESP32CAMERA
+#define HASCAMERA
+#endif
 
 /* 
  *  Tell BASIC we have MQTT

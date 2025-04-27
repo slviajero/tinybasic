@@ -2150,6 +2150,10 @@ char radioread() { return 0; }
 void sensorbegin() {}
 float sensorread(uint8_t s, uint8_t v) {return 0;};
 
+/* the camera - a stub to help with development */
+#ifdef HASCAMERA
+#include "src/Runtime/esp32cam.h"
+#endif
 
 /* 
  *  event handling wrappers, to keep Arduino specifics out of BASIC

@@ -232,6 +232,9 @@ const char shelp[]		PROGMEM = "HELP";
 const char sshl[]		PROGMEM = "<<";
 const char sshr[]		PROGMEM = ">>";
 const char sbit[]		PROGMEM = "BIT";
+#ifdef HASCAMERA
+const char scam[]	PROGMEM = "CAM";
+#endif
 
 
 /* zero terminated keyword storage */
@@ -315,6 +318,9 @@ const char* const keyword[] PROGMEM = {
   shelp,
 #endif
   sshl, sshr, sbit,
+#ifdef HASCAMERA
+  scam,
+#endif
   0
 };
 
@@ -396,6 +402,9 @@ const token_t tokens[] PROGMEM = {
   THELP,
 #endif
   TSHL, TSHR, TBIT,
+#ifdef HASCAMERA
+  TCAM,
+#endif
   0
 };
 
@@ -7065,6 +7074,30 @@ void xhelp() {
   }
 }
 
+/* 
+ * The camera control command for ESP32 cameras and similar MCU cams
+ * currently only a stub, no functionality, just to shape the syntax
+ */
+
+void xcam() {
+  nexttoken(); 
+  switch(token) {
+    case TGET: /* get an image from the camera to the buffer */
+      nexttoken();
+      cameraget();
+      break;
+    case TSET: /* set the camera parameters */
+      nexttoken();
+      cameraset();
+      break;
+    case TSAVE: /* save the image to the filesystem */
+      nexttoken();
+      camerasave();
+      break;
+  }
+  while(!termsymbol()) nexttoken();
+}
+
 /*
    NEW the general cleanup function - new deletes everything
 
@@ -8588,6 +8621,15 @@ void xwire() {
   
   nexttoken();
 #if defined(HASWIRE) || defined(HASSIMPLEWIRE)
+/* a stop causes a release of the bus, can be used after multiple one byte writes
+   currently part of the cycle */
+/*
+  if (token == STOP) { 
+     wirestop(); 
+     return;
+  }
+*/
+
   parsearguments();
   if (!USELONGJUMP && er) return;
 
@@ -8606,7 +8648,7 @@ void xwire() {
 
 void xfwire() {
 #if defined(HASWIRE) || defined(HASSIMPLEWIRE)
-  uint8_t port;
+  int port;
   ioer=0;
   port=pop();
   if (!USELONGJUMP && er) return;
@@ -10542,6 +10584,11 @@ void statement() {
 #ifdef HASHELP
       case THELP:
         xhelp();
+        break;
+#endif
+#ifdef HASCAMERA
+      case TCAM:
+        xcam();
         break;
 #endif
       default:

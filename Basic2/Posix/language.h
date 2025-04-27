@@ -128,8 +128,8 @@
 #define HASFULLINSTR
 #define HASLOOPOPT
 #define HASNUMSYSTEM
+#define HASCAMERA
 #endif
-
 
 /*
  *
@@ -204,6 +204,7 @@
 #undef HASNUMSYSTEM
 #undef HASPOWER
 #undef HASUSRCALL
+#undef HASCAMERA
 #endif
 
 /* the original Palo Alto Tinybasic, this is the real minimum */
@@ -239,6 +240,7 @@
 #undef HASNUMSYSTEM
 #undef HASPOWER
 #undef HASUSRCALL
+#undef HASCAMERA
 #endif
 
 /* all features minus float and tone */
@@ -269,6 +271,7 @@
 #define HASFULLINSTR
 #define HASLOOPOPT
 #define HASNUMSYSTEM
+#undef  HASCAMERA
 #endif
 
 /* a simple integer basic for small systems mainly the UNO */
@@ -301,6 +304,7 @@
 #undef HASNUMSYSTEM
 #undef HASPOWER
 #undef HASUSRCALL
+#undef HASCAMERA
 #endif
 
 /* a small integer BASIC for 32kB systems with big cores */
@@ -333,6 +337,7 @@
 #undef HASNUMSYSTEM
 #undef HASPOWER
 #undef HASUSRCALL
+#undef HASCAMERA
 #endif
 
 
@@ -364,6 +369,7 @@
 #define HASFULLINSTR
 #define HASLOOPOPT
 #define HASNUMSYSTEM
+#define HASCAMERA
 #endif
 
 /* a simple BASIC with float support */
@@ -396,6 +402,7 @@
 #undef HASNUMSYSTEM
 #undef HASPOWER
 #undef HASUSRCALL
+#undef HASCAMERA
 #endif
 
 /* a Tinybasic with float support */
@@ -428,6 +435,7 @@
 #undef HASNUMSYSTEM
 #undef HASPOWER
 #undef HASUSRCALL
+#undef HASCAMERA
 #endif
 
 /* 
@@ -461,4 +469,9 @@
 /* dependencies on the hardware */
 #if !defined(DISPLAYHASGRAPH) 
 #undef HASGRAPH
+#endif
+
+/* the camera sits in the long token space */
+#if defined(HASCAMERA)
+#define HASLONGTOKENS
 #endif
