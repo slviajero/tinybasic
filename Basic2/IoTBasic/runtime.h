@@ -1175,6 +1175,16 @@ void sensorbegin();
 float sensorread(uint8_t, uint8_t);
 
 /*
+ * The camera code, this is not an IO stream!
+ */
+void camerabegin(int8_t, int8_t);
+uint8_t camerastat(uint8_t);
+void camerasave(char*);
+void cameraget();
+void cameraset(int8_t, int8_t);
+void cameraend();
+
+/*
  * Experimental code to drive SPI SRAM 
  *
  * Currently only the 23LCV512 is implemented, assuming a 64kB SRAM.

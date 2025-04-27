@@ -141,6 +141,7 @@
 #undef ARDUINOSPIRAM 
 #undef STANDALONE
 #undef STANDALONESECONDSERIAL
+#undef ESP32CAMERA
 */
 // #define ALTSERIAL Serial
 
@@ -957,6 +958,14 @@
 #ifndef ARDUINOETH
 #define ARDUINOWIFI
 #endif
+#endif
+
+/* 
+ * The ESP32 Camera code tells BASIC we have a camera
+ */
+#ifdef ESP32CAMERA
+#define HASCAMERA
+#define ESPSDMMC
 #endif
 
 /* 

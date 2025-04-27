@@ -410,15 +410,6 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
 #endif
 
 /* 
- *  ESPSDMMC code
- */
- 
-#ifdef ESPSDMMC
-#include "FS.h"
-#include "SD_MMC.h"
-#endif
-
-/* 
  *  ESPSDMMC code, this is an SD card solution with direct access 
  *  only available on ES32 and ESP32-S3
  *  
@@ -427,6 +418,11 @@ uint8_t bufferstat(uint8_t ch) { return 1; }
  *  Needed for the ESP32 CAM
  *  
  */
+
+#ifdef ESPSDMMC
+#include "FS.h"
+#include "SD_MMC.h"
+#endif
 
 /*
  * The USB filesystem for the GIGA board.
@@ -6033,6 +6029,13 @@ float sensorread(uint8_t s, uint8_t v) {
 #else
 void sensorbegin() {}
 float sensorread(uint8_t s, uint8_t v) {return 0;};
+#endif
+
+/* 
+ * camera code, first code that is in a separate runtime module 
+ */
+#ifdef ESP32CAMERA
+#include "src/Runtime/esp32cam.h"
 #endif
 
 /* 

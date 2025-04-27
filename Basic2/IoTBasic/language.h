@@ -98,6 +98,9 @@
  *  default. Currently only implemented in VAL() and STR().
  * HASBITWISE: has bitwise operations >>, << and the function BIT -> removed and default now.
  * 
+ * not explicitely shown up here is HASCAMERA which is only triggered by the language heuristic
+ * and is part of the runtime and hardware code
+ * 
  * If you want to set everything manually, set NOLANGUAGEHEURISTICS above
  */
 
@@ -129,7 +132,6 @@
 #define HASLOOPOPT
 #define HASNUMSYSTEM
 #endif
-
 
 /*
  *
@@ -461,4 +463,9 @@
 /* dependencies on the hardware */
 #if !defined(DISPLAYHASGRAPH) 
 #undef HASGRAPH
+#endif
+
+/* the camera sits in the long token space */
+#if defined(HASCAMERA)
+#define HASLONGTOKENS
 #endif

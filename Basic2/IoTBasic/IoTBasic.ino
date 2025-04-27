@@ -232,6 +232,9 @@ const char shelp[]		PROGMEM = "HELP";
 const char sshl[]		PROGMEM = "<<";
 const char sshr[]		PROGMEM = ">>";
 const char sbit[]		PROGMEM = "BIT";
+#ifdef HASCAMERA
+const char scam[]	PROGMEM = "CAM";
+#endif
 
 
 /* zero terminated keyword storage */
@@ -315,6 +318,9 @@ const char* const keyword[] PROGMEM = {
   shelp,
 #endif
   sshl, sshr, sbit,
+#ifdef HASCAMERA
+  scam,
+#endif
   0
 };
 
@@ -396,6 +402,9 @@ const token_t tokens[] PROGMEM = {
   THELP,
 #endif
   TSHL, TSHR, TBIT,
+#ifdef HASCAMERA
+  TCAM,
+#endif
   0
 };
 
@@ -7065,6 +7074,78 @@ void xhelp() {
   }
 }
 
+/* 
+ * The camera control command for ESP32 cameras and similar MCU cams
+ * currently only a stub, no functionality, just to shape the syntax
+ */
+
+#ifdef HASCAMERA
+void xcam() {
+  int framesize = -1;
+  int pixelformat = -1;
+  int value = 0;
+  int setting = 0;
+  char* filename = NULL;
+
+  nexttoken(); 
+  switch(token) {
+    case TRUN:
+      nexttoken();
+
+      /* on start of the camera, the pixel format and the frame size 
+          can be given as numerical argument, -1 is default */
+      parsearguments();
+      if (!USELONGJUMP && er) return;
+      switch (args) {
+        case 0:
+          break;
+        case 1:
+          pixelformat = pop();
+          break;
+        case 2:
+          framesize = pop();
+          pixelformat = pop();
+          break;
+        default:
+          error(EARGS);
+          return;
+      }
+      camerabegin(framesize, pixelformat);
+      break;
+    case TGET: /* get an image from the camera to the buffer */
+      nexttoken();
+      cameraget();
+      break;
+    case TSET: /* set the camera parameters */
+      nexttoken();
+      parsearguments();
+      if (!USELONGJUMP && er) return;
+      if (args != 2) {
+        error(EARGS);
+        return;
+      }
+      value = pop();
+      setting = pop();
+      cameraset(setting, value);
+      break;
+    case TSAVE: /* save the image to the filesystem */
+      nexttoken();
+      filename = getfilename2(0);
+      if (filename == NULL) {
+        camerasave("/camimage.img");
+      } else {
+        camerasave(filename);
+      }
+      break;
+    case TEND:
+      nexttoken();
+      cameraend();
+      break;
+  }
+  while(!termsymbol()) nexttoken();
+}
+#endif
+
 /*
    NEW the general cleanup function - new deletes everything
 
@@ -10551,6 +10632,11 @@ void statement() {
 #ifdef HASHELP
       case THELP:
         xhelp();
+        break;
+#endif
+#ifdef HASCAMERA
+      case TCAM:
+        xcam();
         break;
 #endif
       default:

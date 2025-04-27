@@ -220,8 +220,7 @@
  * Extension tokens can be in the range from -128 upwards.
  * one needs to set HASLONGTOKENS. Currently ony one set of 
  * extension tokens is implemented ranging from -128 to -255.
- *
- * ****  right now unused and untested **** */
+ */
 
  #define TCAM -128
 
@@ -822,6 +821,9 @@ void xendswitch();
 
 /* the editor */
 void xedit(); 
+
+/* camera support with a meta command */
+void xcam();
 
 /* the statement loop */
 void statement();
