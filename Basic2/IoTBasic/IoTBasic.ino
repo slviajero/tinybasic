@@ -353,7 +353,7 @@ const token_t tokens[] PROGMEM = {
 #ifdef HASFILEIO
   TCATALOG, TDELETE, TOPEN, TCLOSE, TFDISK,
 #endif
-#ifdef HASSTEFANSEXT
+#ifdef HASUSRCALL
   TUSR, TCALL,
 #endif
 #ifdef HASFLOAT
@@ -1645,6 +1645,12 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
       case 'D':
         if (getset == 'g') *value = dspget(object->i - 1);
         else if (getset == 's') dspset(object->i - 1, *value);
+        return;
+#endif
+#if defined(HASCAMERA)
+      case 'F':
+        if (getset == 'g') *value = camerafbget(object->i);
+        else if (getset == 's') camerafbset(object->i, *value);
         return;
 #endif
 #if defined(HASCLOCK)
