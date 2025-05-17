@@ -1058,7 +1058,7 @@ void outs(char *b, uint16_t l){
     default:
       for(i=0; i<l; i++) outch(b[i]);
   }
-  byield(); /* triggers yield after each character output for ESP8266 stability */
+  byield(); /* triggers yield after each character  string output for ESP8266 stability */
 }
 
 /*  handling time - part of the Arduino core - only needed on POSIX OSes */
@@ -1298,9 +1298,7 @@ uint8_t rgbtovga(uint8_t r, uint8_t g, uint8_t b) {
 /* LCD shield pins to Arduino
  *  RS, EN, d4, d5, d6, d7; 
  * backlight on pin 10;
- */
-
- 
+ */ 
 #ifndef LCDSHIELDPINS 
 #ifdef ARDUINO_ESP8266_WEMOS_D1R1
 #define LCDSHIELDPINS 0,2,4,14,12,13
@@ -1312,8 +1310,10 @@ uint8_t rgbtovga(uint8_t r, uint8_t g, uint8_t b) {
 const int dsp_rows=2;
 const int dsp_columns=16;
 LiquidCrystal lcd(LCDSHIELDPINS);
-void dspbegin() { lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1);  }
-void dspprintchar(char c, uint8_t col, uint8_t row) { lcd.setCursor(col, row); if (c) lcd.write(c);}
+void dspbegin() { lcd.begin(dsp_columns, dsp_rows); dspsetscrollmode(1, 1); }
+void dspprintchar(char c, uint8_t col, uint8_t row) {  
+  lcd.setCursor(col, row); if (c) lcd.write(c);
+}
 void dspclear() { lcd.clear(); }
 void dspupdate() {}
 void dspsetcursor(uint8_t c) { if (c) lcd.blink(); else lcd.noBlink(); }

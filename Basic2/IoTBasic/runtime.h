@@ -1183,6 +1183,8 @@ void camerasave(char*);
 void cameraget();
 void cameraset(int8_t, int8_t);
 void cameraend();
+void camerafbset(int, uint8_t);
+int camerafbget(int);
 
 /*
  * Experimental code to drive SPI SRAM 

@@ -73,10 +73,13 @@
  * mkboard.h:
  *      a digital signage and low energy board
  * tdeck.h: 
- *      the LILYGO T-Deck - not yet finished
+ *      the LILYGO T-Deck - not yet finished (unfinished)
  * ttgovga.h:
- *      the TTGO VGA 1.4 board with VGA output
+ *      the TTGO VGA 1.4 board with VGA output 
+ * esp32cam.h: 
+ *      the AI Thinker board with camera support
  */
+ 
 #define PREDEFINEDBOARD "boards/dummy.h"
 
 
@@ -146,7 +149,7 @@
 // #define ALTSERIAL Serial
 
 /* we debug the runtime library and where the logging goes */
-#define RTDEBUG 1
+#define RTDEBUG 0
 #define RTDEBUGSTREAM 1
 
 /* the memory size, set to 0 means determine automatically 
@@ -382,7 +385,7 @@
 #define ARDUINOEEPROM
 #define ARDUINOPICOSERIAL
 #define ARDUINOPGMEEPROM
-#define ARDUINODIRECTI2C
+#undef  ARDUINODIRECTI2C
 #undef  ARDUINOI2CEEPROM_BUFFERED
 #undef  LINECACHESIZE
 #undef  HASMSTAB
