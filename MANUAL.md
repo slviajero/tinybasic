@@ -36,7 +36,7 @@ One command controls how boolean arithmetic, string syntax, random number genera
 
 SET 22, "Microsoft"
 
-activates the Microsoft mode. In this mode, random numbers are always between 0 and 1 and the argument of RND controls the random number generators seed. Arrays start at 0 and have n+1 elements. Substring notation for strings is switched of and string commands can be used normally. Booleans false is -1.
+activates the Microsoft mode. In this mode, random numbers are always between 0 and 1 and the argument of RND controls the random number generators seed. Arrays start at 0 and have n+1 elements. Substring notation for strings is switched off and string commands can be used normally. Booleans false is -1.
 
 SET 22, "Apple1"
 
@@ -334,6 +334,8 @@ LOAD "myprog.bas"
 i.e. with the filename enclosed quotes. 
 
 Started from the command line, LOAD will merge a program loaded with the program already in memory. In RUN mode a LOAD replaces the program in memory, clears all FOR, GOSUB and DATA pointer but keeps the variables. This way a program can chain another program. 
+
+A program stored with the name "autorun.bas" is automatically started when the interpreter is started. On microcontroller platforms, this is at boot of the interpreter. On Posix this is when the interpreter is first started. This mechanism is available on all platforms with a file systeme. 
 
 ### Special variables and arrays 
 
