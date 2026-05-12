@@ -1608,7 +1608,7 @@ void storecstring(address_t ax, address_t s, char* b) {
 
 /* length of a c string up to a limit l */
 address_t cstringlength(char* c, address_t l) {
-	address_t a;
+	address_t a = 0;
 
 	while(a < l && c[a] != 0) a++;
 	return a;
