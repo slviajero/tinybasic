@@ -1867,7 +1867,7 @@ void getstring(string_t* strp, name_t* name, address_t b, address_t j) {
       case 0:
         strp->ir = ibuffer + b;
         strp->length = ibuffer[0];
-        strp->strdim = BUFSIZ - 2;
+        strp->strdim = BUFSIZE - 2;
         return;
       default:
         error(EVARIABLE);
@@ -6938,7 +6938,7 @@ undo: /* this is the undo point */
         case 'a': /* append multiple characters at the end of the line */
           l = (unsigned char)ibuffer[0] + 1;
         case 'i': /* insert multiple characters at the cursor position */
-          if (i - k + (unsigned char)ibuffer[0] < BUFSIZ) {
+          if (i - k + (unsigned char)ibuffer[0] < BUFSIZE) {
             for (j = i - k + (unsigned char)ibuffer[0]; j >= l; j--) {
               ibuffer[j + i - k] = ibuffer[j];
               if (j <= l + i - k) ibuffer[j] = sbuffer[k + 1 + (j - l)];
