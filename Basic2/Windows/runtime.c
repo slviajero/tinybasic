@@ -973,8 +973,10 @@ void ebegin(){
 void eflush(){
   FILE* efile;
   efile=fopen("eeprom.dat", "w");
-  if (efile) fwrite(eeprom, EEPROMSIZE, 1, efile);
-  fclose(efile);
+  if (efile) {
+	fwrite(eeprom, EEPROMSIZE, 1, efile);
+  	fclose(efile);
+  }
 }
 
 uint16_t elength() { return EEPROMSIZE; }
