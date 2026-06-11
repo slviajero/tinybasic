@@ -741,6 +741,7 @@ void xlocate();
 /* file access and other i/o */
 void stringtobuffer(char*, string_t*);
 void getfilename(char*, char);
+char* getfilename2(char);
 void xsave();
 void xload(const char*);
 void xget();

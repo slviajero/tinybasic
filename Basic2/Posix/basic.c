@@ -353,7 +353,7 @@ const token_t tokens[] PROGMEM = {
 #ifdef HASFILEIO
   TCATALOG, TDELETE, TOPEN, TCLOSE, TFDISK,
 #endif
-#ifdef HASSTEFANSEXT
+#ifdef HASUSRCALL
   TUSR, TCALL,
 #endif
 #ifdef HASFLOAT
@@ -1645,6 +1645,12 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
       case 'D':
         if (getset == 'g') *value = dspget(object->i - 1);
         else if (getset == 's') dspset(object->i - 1, *value);
+        return;
+#endif
+#if defined(HASCAMERA)
+      case 'F':
+        if (getset == 'g') *value = camerafbget(object->i);
+        else if (getset == 's') camerafbset(object->i, *value);
         return;
 #endif
 #if defined(HASCLOCK)
@@ -7079,24 +7085,72 @@ void xhelp() {
  * currently only a stub, no functionality, just to shape the syntax
  */
 
+#ifdef HASCAMERA
 void xcam() {
+  int framesize = -1;
+  int pixelformat = -1;
+  int value = 0;
+  int setting = 0;
+  char* filename = NULL;
+
   nexttoken(); 
   switch(token) {
+    case TRUN:
+      nexttoken();
+
+      /* on start of the camera, the pixel format and the frame size 
+          can be given as numerical argument, -1 is default */
+      parsearguments();
+      if (!USELONGJUMP && er) return;
+      switch (args) {
+        case 0:
+          break;
+        case 1:
+          pixelformat = pop();
+          break;
+        case 2:
+          framesize = pop();
+          pixelformat = pop();
+          break;
+        default:
+          error(EARGS);
+          return;
+      }
+      camerabegin(framesize, pixelformat);
+      break;
     case TGET: /* get an image from the camera to the buffer */
       nexttoken();
       cameraget();
       break;
     case TSET: /* set the camera parameters */
       nexttoken();
-      cameraset();
+      parsearguments();
+      if (!USELONGJUMP && er) return;
+      if (args != 2) {
+        error(EARGS);
+        return;
+      }
+      value = pop();
+      setting = pop();
+      cameraset(setting, value);
       break;
     case TSAVE: /* save the image to the filesystem */
       nexttoken();
-      camerasave();
+      filename = getfilename2(0);
+      if (filename == NULL) {
+        camerasave("/camimage.img");
+      } else {
+        camerasave(filename);
+      }
+      break;
+    case TEND:
+      nexttoken();
+      cameraend();
       break;
   }
   while(!termsymbol()) nexttoken();
 }
+#endif
 
 /*
    NEW the general cleanup function - new deletes everything
