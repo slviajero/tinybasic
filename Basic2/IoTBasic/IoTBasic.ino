@@ -353,7 +353,7 @@ const token_t tokens[] PROGMEM = {
 #ifdef HASFILEIO
   TCATALOG, TDELETE, TOPEN, TCLOSE, TFDISK,
 #endif
-#ifdef HASUSRCALL
+#ifdef HASSTEFANSEXT
   TUSR, TCALL,
 #endif
 #ifdef HASFLOAT
@@ -1647,12 +1647,6 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
         else if (getset == 's') dspset(object->i - 1, *value);
         return;
 #endif
-#if defined(HASCAMERA)
-      case 'F':
-        if (getset == 'g') *value = camerafbget(object->i);
-        else if (getset == 's') camerafbset(object->i, *value);
-        return;
-#endif
 #if defined(HASCLOCK)
       case 'T':
         if (getset == 'g') *value = rtcget(object->i);
@@ -1873,7 +1867,7 @@ void getstring(string_t* strp, name_t* name, address_t b, address_t j) {
       case 0:
         strp->ir = ibuffer + b;
         strp->length = ibuffer[0];
-        strp->strdim = BUFSIZ - 2;
+        strp->strdim = BUFSIZE - 2;
         return;
       default:
         error(EVARIABLE);
@@ -6944,7 +6938,7 @@ undo: /* this is the undo point */
         case 'a': /* append multiple characters at the end of the line */
           l = (unsigned char)ibuffer[0] + 1;
         case 'i': /* insert multiple characters at the cursor position */
-          if (i - k + (unsigned char)ibuffer[0] < BUFSIZ) {
+          if (i - k + (unsigned char)ibuffer[0] < BUFSIZE) {
             for (j = i - k + (unsigned char)ibuffer[0]; j >= l; j--) {
               ibuffer[j + i - k] = ibuffer[j];
               if (j <= l + i - k) ibuffer[j] = sbuffer[k + 1 + (j - l)];
@@ -7085,72 +7079,24 @@ void xhelp() {
  * currently only a stub, no functionality, just to shape the syntax
  */
 
-#ifdef HASCAMERA
 void xcam() {
-  int framesize = -1;
-  int pixelformat = -1;
-  int value = 0;
-  int setting = 0;
-  char* filename = NULL;
-
   nexttoken(); 
   switch(token) {
-    case TRUN:
-      nexttoken();
-
-      /* on start of the camera, the pixel format and the frame size 
-          can be given as numerical argument, -1 is default */
-      parsearguments();
-      if (!USELONGJUMP && er) return;
-      switch (args) {
-        case 0:
-          break;
-        case 1:
-          pixelformat = pop();
-          break;
-        case 2:
-          framesize = pop();
-          pixelformat = pop();
-          break;
-        default:
-          error(EARGS);
-          return;
-      }
-      camerabegin(framesize, pixelformat);
-      break;
     case TGET: /* get an image from the camera to the buffer */
       nexttoken();
       cameraget();
       break;
     case TSET: /* set the camera parameters */
       nexttoken();
-      parsearguments();
-      if (!USELONGJUMP && er) return;
-      if (args != 2) {
-        error(EARGS);
-        return;
-      }
-      value = pop();
-      setting = pop();
-      cameraset(setting, value);
+      cameraset();
       break;
     case TSAVE: /* save the image to the filesystem */
       nexttoken();
-      filename = getfilename2(0);
-      if (filename == NULL) {
-        camerasave("/camimage.img");
-      } else {
-        camerasave(filename);
-      }
-      break;
-    case TEND:
-      nexttoken();
-      cameraend();
+      camerasave();
       break;
   }
   while(!termsymbol()) nexttoken();
 }
-#endif
 
 /*
    NEW the general cleanup function - new deletes everything
