@@ -14,6 +14,10 @@
  *
  */
 
+/* general definitions */
+#include "common.h"
+
+/* hardware and runtime prototypes */
 #include "hardware.h"
 #include "runtime.h"
 
