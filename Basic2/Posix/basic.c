@@ -10376,6 +10376,7 @@ void statement() {
           error(EFUN);
           return;
         }
+        FALLTHROUGH;
       case TGOTO:
         xgoto();
         break;
