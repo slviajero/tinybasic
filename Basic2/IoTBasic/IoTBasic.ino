@@ -28,6 +28,9 @@
   	The interface to BASIC is identical.
 */
 
+/* general stuff for all modules */
+#include "common.h"
+
 /* the runtime environment */
 #include "hardware.h"
 #include "runtime.h"
@@ -1710,6 +1713,8 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
           if (getset == 'g') *value = pinread(object->i - 32);
           return;
         }
+        error(EORANGE);
+        return;
       default:
         error(EVARIABLE);
         return;

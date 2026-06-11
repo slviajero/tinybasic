@@ -10,6 +10,7 @@
  */
 
 #include "Arduino.h"
+#include "common.h"
 #include "hardware.h"
 #include "runtime.h"
 
