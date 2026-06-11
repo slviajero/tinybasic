@@ -1853,6 +1853,7 @@ void serialwrite(char c) {
     case 12:
       sendcsi();
       putchar('2'); putchar('J');
+      FALLTHROUGH;
 /* home sequence in the arduino code */
     case 2: 
       sendcsi();
