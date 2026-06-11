@@ -4008,7 +4008,7 @@ uint16_t elength() {
 }
 
 void eupdate(uint16_t a, int8_t c) { 
-#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)|| defined(AARDUINO_ARCH_LGT8F) || \
+#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)|| defined(ARDUINO_ARCH_LGT8F) || \
     defined(ARDUINO_ARCH_XMC) || defined(ARDUINO_ARCH_SAMD)
   EEPROM.write(a, c);
 #else
