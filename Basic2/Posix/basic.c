@@ -5731,6 +5731,7 @@ separators:
   switch (token) {
     case ',':
       if (!modifier) outspc();
+      FALLTHROUGH;
     case ';':
       semicolon = 1;
       nexttoken();
@@ -8530,6 +8531,7 @@ void xfind() {
     case TFN:
       if (!expect('(', EUNKNOWN)) return;
       if (!expect(')', EUNKNOWN)) return;
+      FALLTHROUGH;
     case VARIABLE:
     case STRINGVAR:
       nexttoken();
@@ -8735,6 +8737,7 @@ void xerror() {
       break;
     case TCONT:
       berrorh.type = TCONT;
+      FALLTHROUGH;
     case TSTOP:
       nexttoken();
       break;
@@ -8948,6 +8951,7 @@ void xevent() {
         error(EARGS);
         return;
       }
+      FALLTHROUGH;
     case 1:
       pin = pop();
       break;
@@ -10336,6 +10340,7 @@ void statement() {
           error(EUNKNOWN);
           break;
         }
+        FALLTHROUGH;
       case STRINGVAR:
       case ARRAYVAR:
       case VARIABLE:
@@ -10361,6 +10366,7 @@ void statement() {
         break;
 #ifndef HASMULTILINEFUNCTIONS
       case TGOSUB:
+        FALLTHROUGH;
       case TGOTO:
         xgoto();
         break;
@@ -10410,6 +10416,7 @@ void statement() {
           xcont();
           break;
         }		/* no break here, because interactively CONT=RUN minus CLR */
+        FALLTHROUGH;
       case TRUN:
         xrun();
         return;
