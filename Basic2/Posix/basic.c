@@ -6948,14 +6948,15 @@ undo: /* this is the undo point */
           break;
         case 'a': /* append multiple characters at the end of the line */
           l = (unsigned char)ibuffer[0] + 1;
+          FALLTHROUGH;
         case 'i': /* insert multiple characters at the cursor position */
           if (i - k + (unsigned char)ibuffer[0] < BUFSIZE) {
             for (j = i - k + (unsigned char)ibuffer[0]; j >= l; j--) {
               ibuffer[j + i - k] = ibuffer[j];
               if (j <= l + i - k) ibuffer[j] = sbuffer[k + 1 + (j - l)];
             }
+            ibuffer[0] = (unsigned char)ibuffer[0] + i - k;
           }
-          ibuffer[0] = (unsigned char)ibuffer[0] + i - k;
           k = i;
           break;
         case '^': /* vi style start of line */
