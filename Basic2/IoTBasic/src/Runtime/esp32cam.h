@@ -164,9 +164,9 @@ void cameraget() {
 
 void camerasave(char* filename) {
 	char* tmpfilename;
-	consolelog("esp32cam: camera save\n");
+	if (RTDEBUG) consolelog("esp32cam: camera save\n");
 	tmpfilename = mkfilename(filename); /* create the root prefix if needed for MMC not important */
-	File camfile = SD_MMC.open(filename, FILE_WRITE);
+	File camfile = SD_MMC.open(tmpfilename, FILE_WRITE); /* the buffer is global in runtime! */
 	if (!camfile) {
 		if (RTDEBUG) consolelog("Camera file open failed.\n");
 		ioer=1;
@@ -237,4 +237,53 @@ void cameraend() {
 	}
 	esp_camera_deinit();
 }
+
+/*
+  the get and set function map the meta data of the framebuffer
+  to indices 0-3 of the frambuffer array @F() in BASIC, the buffer
+  itself is mapped to indices 4-... of the array.
+*/
+int camerafbget(int index) {
+	if (RTDEBUG) consolelog("esp32cam: camera fbget\n");
+	if (!esp32_camera_fb) {
+		if (RTDEBUG) consolelog("Camera frame buffer not available.\n");
+		ioer=1;
+		return 0;
+	}
+	switch (index) {
+		case 0: return esp32_camera_fb->width;
+		case 1: return esp32_camera_fb->height;
+		case 2: return esp32_camera_fb->len;
+		case 3: return esp32_camera_fb->format;
+		default: {
+			if (index-4 < 0 || index-4  > esp32_camera_fb->len) {
+				if (RTDEBUG) consolelog("Camera frame buffer index out of range.\n");
+				ioer=1;
+				return 0;
+			}
+			return esp32_camera_fb->buf[index-4];
+		}
+	}
+}
+
+/* provide a set function for the frame buffer only */
+void camerafbset(int index, uint8_t value) {
+	if (RTDEBUG) consolelog("esp32cam: camera fbset\n");
+	if (!esp32_camera_fb) {
+		if (RTDEBUG) consolelog("Camera frame buffer not available.\n");
+		ioer=1;
+		return;
+	}
+
+	/* we only allow write of the buffer but not the meta data */
+	if (index-4 < 0 || index-4 > esp32_camera_fb->len) {
+		if (RTDEBUG) consolelog("Camera frame buffer index out of range.\n"); {
+			ioer=1;
+			return;
+		}
+		esp32_camera_fb->buf[index-4] = value;
+	}
+}
+
+
  
