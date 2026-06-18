@@ -386,7 +386,7 @@ uint16_t availch(){
  */
  
 uint16_t inb(char *b, int16_t nb) {
-  long m;
+  unsigned long m;
   uint16_t z;
   int16_t i = 0; // check this 
 
@@ -402,7 +402,7 @@ uint16_t inb(char *b, int16_t nb) {
     m=millis();
     while (i < nb-1) {
       if (availch()) b[++i]=inch();
-      if (millis() > m+blockmode) break;
+      if (millis() - m > blockmode) break;
     }
     b[0]=(unsigned char)i;
     z=i;
