@@ -546,9 +546,9 @@ void usrcall(address_t);
 
 /* get keywords and tokens from PROGMEM */
 char* getkeyword(address_t);
-char* getmessage(char);
+char* getmessage(address_t);
 token_t gettokenvalue(address_t);
-void printmessage(char);
+void printmessage(address_t);
 
 /* error handling */
 void error(token_t);

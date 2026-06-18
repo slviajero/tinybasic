@@ -2203,8 +2203,8 @@ char* getkeyword(address_t i) {
 }
 
 /* messages are read from the message array */
-char* getmessage(char i) {
-  if (i >= messagesize || i < 0) return 0;
+char* getmessage(address_t i) {
+  if (i >= messagesize) return 0;
 #ifndef ARDUINOPROGMEM
   return (char *) message[i];
 #else
@@ -2215,7 +2215,7 @@ char* getmessage(char i) {
 
 /* tokens read here are token_t constructed from multi byte sequences */
 token_t gettokenvalue(address_t i) {
-  if (i >= tokensize || i < 0) return 0;
+  if (i >= tokensize) return 0;
 #ifndef ARDUINOPROGMEM
   return tokens[i];
 #else
@@ -2228,7 +2228,7 @@ token_t gettokenvalue(address_t i) {
 }
 
 /* print a message directly to the default outpur stream */
-void printmessage(char i) {
+void printmessage(address_t i) {
 #ifndef HASERRORMSG
   if (i > EGENERAL) return;
 #endif
