@@ -5995,7 +5995,7 @@ nextstring:
          see if there is more to come. For inplace strings this is odd because
          one term can change during adding (A$ = B$ + A$).
       */
-addstring:
+/* addstring: removed because unneeded in the present code */
       if (token == '+') {
         lhs.i = lhs.i + copybytes;
         nexttoken();
