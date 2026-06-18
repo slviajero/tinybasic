@@ -4547,9 +4547,9 @@ char stringvalue(string_t* strp) {
           if (i == 0) i = 1;
           if (i > k) l = 0;
           if (k < i + l) l = k - i + 1;
-          if (l < 0) l = 0;
+          // if (l < 0) l = 0;
           if (strp->address != 0) strp->address = strp->address + i - 1;
-          if (strp->ir) strp->ir = strp->ir + i - 1;;
+          if (strp->ir) strp->ir = strp->ir + i - 1;
           break;
       }
       strp->length = l;
