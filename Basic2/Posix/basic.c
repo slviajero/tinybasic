@@ -6139,7 +6139,8 @@ nextstring:
   }
 
   /* now we check for a variable and parse it */
-nextvariable:
+/* logical bug here in some cases. Recheck .*/
+/* nextvariable: */
   if (token == VARIABLE || token == ARRAYVAR || token == STRINGVAR) {
 
     /* check for a valid lefthandside expression */
