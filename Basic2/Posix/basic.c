@@ -7840,6 +7840,7 @@ void xload(const char* f) {
     while (fileavailable()) {
       ch = fileread();
 
+      /* a line is processed */
       if (ch == '\n' || ch == '\r' || cheof(ch)) {
         *bi = 0;
         bi = ibuffer + 1;
@@ -7853,13 +7854,16 @@ void xload(const char* f) {
           bi = ibuffer + 1;
         }
       } else {
+
+        /* is there space to store the character */
+        if ((bi - ibuffer) > BUFSIZE - 1) {
+          error(EOUTOFMEMORY);
+          break;
+        }
         *bi++ = ch;
       }
 
-      if ((bi - ibuffer) > BUFSIZE) {
-        error(EOUTOFMEMORY);
-        break;
-      }
+
     }
     ifileclose();
     /* after a successful load we save top to the EEPROM header */
@@ -8596,7 +8600,7 @@ void xeval() {
   l = s.length;
   if (!USELONGJUMP && er) return;
 
-  if (l > BUFSIZE - 1) {
+  if (l > BUFSIZE - 2) {
     error(EORANGE);
     return;
   }
