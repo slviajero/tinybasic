@@ -9586,7 +9586,7 @@ void xread() {
   lhsobject_t lhs;
 
   mem_t datat;	/* the type of the data element */
-  address_t lendest, lensource, newlength;
+  address_t newlength;
   int k;
   string_t s;
 
@@ -9644,7 +9644,7 @@ nextdata:
         if (!USELONGJUMP && er) return;
 
         /* the length of the lefthandside string */
-        lendest = s.length;
+        // lendest = s.length;
 
         if (DEBUG) {
           outsc("* read stringcode "); outname(&lhs.name); outcr();
