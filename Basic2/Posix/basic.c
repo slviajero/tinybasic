@@ -1028,7 +1028,7 @@ address_t bmalloc(name_t* name, address_t l) {
 
 address_t bfind(name_t* name) {
   address_t b, b0;
-  address_t i = 0;
+  /* address_t i = 0; // unused */
 
   /* Initial DEBUG message. */
   if (DEBUG) {
