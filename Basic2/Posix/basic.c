@@ -411,6 +411,10 @@ const token_t tokens[] PROGMEM = {
   0
 };
 
+/* the size of the token array */
+const int tokensize = sizeof(tokens) / sizeof(token_t);
+
+
 /* experimental, do not use right now */
 const bworkfunction_t workfunctions[] PROGMEM = {
   0, 0, 0, xprint, 0
@@ -479,6 +483,9 @@ const char* const message[] PROGMEM = {
   , mbasiclangset, mlangset, mkeywords
 #endif
 };
+
+/* the size of the message array */
+const int messagesize = sizeof(message) / sizeof(char*);
 
 /*
  	maxnum: the maximum accurate(!) integer of a
@@ -2197,7 +2204,7 @@ char* getkeyword(address_t i) {
 
 /* messages are read from the message array */
 char* getmessage(char i) {
-  if (i >= sizeof(message) || i < 0) return 0;
+  if (i >= messagesize || i < 0) return 0;
 #ifndef ARDUINOPROGMEM
   return (char *) message[i];
 #else
@@ -2208,7 +2215,7 @@ char* getmessage(char i) {
 
 /* tokens read here are token_t constructed from multi byte sequences */
 token_t gettokenvalue(address_t i) {
-  if (i >= sizeof(tokens)) return 0;
+  if (i >= tokensize || i < 0) return 0;
 #ifndef ARDUINOPROGMEM
   return tokens[i];
 #else
