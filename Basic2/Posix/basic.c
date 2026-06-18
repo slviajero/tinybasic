@@ -1862,7 +1862,7 @@ address_t cstringlength(char* c, address_t l) {
 
 /* get a memory pointer to a string, new version */
 void getstring(string_t* strp, name_t* name, address_t b, address_t j) {
-  address_t k, zt;
+  /* address_t k, zt; // unused */
   address_t ax;
 
   /* we know nothing about the string */
@@ -2962,11 +2962,11 @@ address_t tinydtostrf(number_t v, index_t p, char* c) {
 
 address_t writenumber2(char *c, number_t vi) {
   index_t i;
-  index_t nd;
+  /* index_t nd; // unused */
   number_t f;
   index_t exponent = 0;
   mem_t eflag = 0;
-  const int p = 5;
+  /* const int p = 5; // unused */
 
   /* pseudo integers are displayed as integer
   		zero trapped here */
@@ -4289,7 +4289,7 @@ number_t bpow(number_t x, number_t y) {
 void parsestringvar(string_t* strp, lhsobject_t* lhs) {
 #ifdef HASAPPLE1
   blocation_t l;
-  address_t temp;
+  /* address_t temp; // unused */
 
   /* remember the variable name and prep the indices */
   copyname(&lhs->name, &name);
@@ -5669,7 +5669,7 @@ void xprint() {
   char oldod;
   char modifier = 0;
   string_t s;
-  stringlength_t i;
+  /* stringlength_t i; // unused */
 
   form = 0;
   oldod = od;
@@ -5778,7 +5778,7 @@ separators:
 void lefthandside(lhsobject_t* lhs) {
 
   /* just to provide it for parsestringvar to reuse the righthandside code */
-  address_t temp;
+  /* address_t temp; // unused */
 
   if (DEBUG) {
     outsc("assigning to variable ");
@@ -5881,7 +5881,7 @@ void assignnumber2(lhsobject_t* lhs, number_t x) {
 void assignment() {
   address_t newlength, copybytes;
   mem_t s;
-  index_t k;
+  /* index_t k; // unused */
   char tmpchar; /* for number conversion only */
   string_t sr, sl; /* the right and left hand side strings */
 
@@ -7798,7 +7798,7 @@ void xsave() {
 void xload(const char* f) {
   char* filename;
   char ch;
-  address_t here2;
+  /* address_t here2; // unused */
   mem_t chain = 0;
 
   if (f == 0) {
@@ -8375,7 +8375,7 @@ void xpulse() {
 /* read a pulse, units given by bpulseunit - default 10 microseconds */
 void bpulsein() {
   address_t x, y;
-  unsigned long t, pt;
+  unsigned long t;
 
   t = ((unsigned long) popaddress()) * 1000;
   y = popaddress();
@@ -9590,9 +9590,9 @@ void xread() {
 
   lhsobject_t lhs;
 
-  mem_t datat;	/* the type of the data element */
+  /* mem_t datat; // unused */ 	/* the type of the data element */
   address_t newlength;
-  int k;
+  /* int k; // unused */
   string_t s;
 
 
@@ -10223,7 +10223,7 @@ void xuntil() {
 void xswitch() {
   number_t r;
   mem_t match = 0;
-  mem_t swcount = 0;
+  /* mem_t swcount = 0; // unused */
   blocation_t l;
 
   /* lets look at the condition */
