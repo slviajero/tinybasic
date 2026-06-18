@@ -1683,7 +1683,7 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
       case 0:
         h = (himem - top) / numsize;
         a = himem - numsize * (object->i + 1) + 1;
-        if (object->i < 0 || a < top) {
+        if (a < top) {
           error(EORANGE);
           return;
         }
@@ -1694,7 +1694,7 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
       case 'M':
         h = himem - top;
         a = himem - object->i;
-        if (object->i < 0 || a < top) {
+        if (a < top) {
           error(EORANGE);
           return;
         }
@@ -1704,7 +1704,7 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
 #endif
       case 'P':
         /* the io ports */
-        if (object->i >= 0 && object->i < 16) {
+        if (object->i < 16) {
           if (getset == 'g') *value = portread(object->i);
           else if (getset == 's') portwrite(object->i, *value);
           return;
