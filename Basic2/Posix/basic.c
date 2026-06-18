@@ -3006,7 +3006,7 @@ address_t writenumber2(char *c, number_t vi) {
   }
 
   /* remove trailing zeros */
-  for (i = 0; (i < (index_t) SBUFSIZE && c[i] != 0 ); i++);
+  for (i = 0; (i < SBUFSIZE && c[i] != 0 ); i++);
   i--;
 
   /* */
@@ -7617,7 +7617,7 @@ void dumpmem(address_t r, address_t b, char eflag) {
 void stringtobuffer(char *buffer, string_t* s) {
   index_t i = s->length;
 
-  if (i >= (index_t) SBUFSIZE) { i = SBUFSIZE - 1; ert=1; }
+  if (i >= SBUFSIZE) { i = SBUFSIZE - 1; ert=1; }
   buffer[i--] = 0;
   while (i >= 0) {
     buffer[i] = s->ir[i];
@@ -7668,7 +7668,7 @@ void getfilename(char *buffer, char d) {
     if (d) {
       sbuffer = getmessage(MFILE);
       s = 0;
-      while ((sbuffer[s] != 0) && (s < (index_t)SBUFSIZE - 1)) {
+      while ((sbuffer[s] != 0) && (s < SBUFSIZE - 1)) {
         buffer[s] = sbuffer[s];
         s++;
       }
@@ -7710,7 +7710,7 @@ char* getfilename2(char d) {
     if (!sr.ir) getstringtobuffer(&sr, sbuffer, SBUFSIZE);
 #endif
     nexttoken(); /* undo the rewind of stringvalue, only then use the buffer */
-    for (s = 0; s < sr.length && s < (index_t) SBUFSIZE - 1; s++) sbuffer[s] = sr.ir[s];
+    for (s = 0; s < sr.length && s < SBUFSIZE - 1; s++) sbuffer[s] = sr.ir[s];
     sbuffer[s] = 0;
     return sbuffer;
   } else {
@@ -9059,7 +9059,7 @@ void deleteevent(mem_t pin) {
 char streq(const char *s, char *m) {
   short i = 0;
 
-  while (m[i] != 0 && s[i] != 0 && i < (index_t) SBUFSIZE) {
+  while (m[i] != 0 && s[i] != 0 && i < SBUFSIZE) {
     if (s[i] != m[i]) return 0;
     i++;
   }

@@ -28,7 +28,7 @@
  */
 
 /* Additional buffers and vars, VARSIZE only needed for Tinybasics */
-#define SBUFSIZE       	16*sizeof(number_t) 
+#define SBUFSIZE       	(index_t)(16*sizeof(number_t))
 #define VARSIZE         26
 
 /* Default sizes of arrays and strings if they are not DIMed */
