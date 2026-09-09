@@ -411,6 +411,10 @@ const token_t tokens[] PROGMEM = {
   0
 };
 
+/* the size of the token array */
+const int tokensize = sizeof(tokens) / sizeof(token_t);
+
+
 /* experimental, do not use right now */
 const bworkfunction_t workfunctions[] PROGMEM = {
   0, 0, 0, xprint, 0
@@ -479,6 +483,9 @@ const char* const message[] PROGMEM = {
   , mbasiclangset, mlangset, mkeywords
 #endif
 };
+
+/* the size of the message array */
+const int messagesize = sizeof(message) / sizeof(char*);
 
 /*
  	maxnum: the maximum accurate(!) integer of a
@@ -1021,7 +1028,7 @@ address_t bmalloc(name_t* name, address_t l) {
 
 address_t bfind(name_t* name) {
   address_t b, b0;
-  address_t i = 0;
+  /* address_t i = 0; // unused */
 
   /* Initial DEBUG message. */
   if (DEBUG) {
@@ -1676,7 +1683,7 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
       case 0:
         h = (himem - top) / numsize;
         a = himem - numsize * (object->i + 1) + 1;
-        if (object->i < 0 || a < top) {
+        if (a < top) {
           error(EORANGE);
           return;
         }
@@ -1687,7 +1694,7 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
       case 'M':
         h = himem - top;
         a = himem - object->i;
-        if (object->i < 0 || a < top) {
+        if (a < top) {
           error(EORANGE);
           return;
         }
@@ -1697,7 +1704,7 @@ void array(lhsobject_t* object, mem_t getset, number_t* value) {
 #endif
       case 'P':
         /* the io ports */
-        if (object->i >= 0 && object->i < 16) {
+        if (object->i < 16) {
           if (getset == 'g') *value = portread(object->i);
           else if (getset == 's') portwrite(object->i, *value);
           return;
@@ -1855,7 +1862,7 @@ address_t cstringlength(char* c, address_t l) {
 
 /* get a memory pointer to a string, new version */
 void getstring(string_t* strp, name_t* name, address_t b, address_t j) {
-  address_t k, zt;
+  /* address_t k, zt; // unused */
   address_t ax;
 
   /* we know nothing about the string */
@@ -2196,8 +2203,8 @@ char* getkeyword(address_t i) {
 }
 
 /* messages are read from the message array */
-char* getmessage(char i) {
-  if (i >= sizeof(message) || i < 0) return 0;
+char* getmessage(address_t i) {
+  if (i >= messagesize) return 0;
 #ifndef ARDUINOPROGMEM
   return (char *) message[i];
 #else
@@ -2208,7 +2215,7 @@ char* getmessage(char i) {
 
 /* tokens read here are token_t constructed from multi byte sequences */
 token_t gettokenvalue(address_t i) {
-  if (i >= sizeof(tokens)) return 0;
+  if (i >= tokensize) return 0;
 #ifndef ARDUINOPROGMEM
   return tokens[i];
 #else
@@ -2221,7 +2228,7 @@ token_t gettokenvalue(address_t i) {
 }
 
 /* print a message directly to the default outpur stream */
-void printmessage(char i) {
+void printmessage(address_t i) {
 #ifndef HASERRORMSG
   if (i > EGENERAL) return;
 #endif
@@ -2955,11 +2962,11 @@ address_t tinydtostrf(number_t v, index_t p, char* c) {
 
 address_t writenumber2(char *c, number_t vi) {
   index_t i;
-  index_t nd;
+  /* index_t nd; // unused */
   number_t f;
   index_t exponent = 0;
   mem_t eflag = 0;
-  const int p = 5;
+  /* const int p = 5; // unused */
 
   /* pseudo integers are displayed as integer
   		zero trapped here */
@@ -4282,7 +4289,7 @@ number_t bpow(number_t x, number_t y) {
 void parsestringvar(string_t* strp, lhsobject_t* lhs) {
 #ifdef HASAPPLE1
   blocation_t l;
-  address_t temp;
+  /* address_t temp; // unused */
 
   /* remember the variable name and prep the indices */
   copyname(&lhs->name, &name);
@@ -4540,9 +4547,9 @@ char stringvalue(string_t* strp) {
           if (i == 0) i = 1;
           if (i > k) l = 0;
           if (k < i + l) l = k - i + 1;
-          if (l < 0) l = 0;
+          // if (l < 0) l = 0;
           if (strp->address != 0) strp->address = strp->address + i - 1;
-          if (strp->ir) strp->ir = strp->ir + i - 1;;
+          if (strp->ir) strp->ir = strp->ir + i - 1;
           break;
       }
       strp->length = l;
@@ -5662,7 +5669,7 @@ void xprint() {
   char oldod;
   char modifier = 0;
   string_t s;
-  stringlength_t i;
+  /* stringlength_t i; // unused */
 
   form = 0;
   oldod = od;
@@ -5731,6 +5738,7 @@ separators:
   switch (token) {
     case ',':
       if (!modifier) outspc();
+      FALLTHROUGH;
     case ';':
       semicolon = 1;
       nexttoken();
@@ -5770,7 +5778,7 @@ separators:
 void lefthandside(lhsobject_t* lhs) {
 
   /* just to provide it for parsestringvar to reuse the righthandside code */
-  address_t temp;
+  /* address_t temp; // unused */
 
   if (DEBUG) {
     outsc("assigning to variable ");
@@ -5873,7 +5881,7 @@ void assignnumber2(lhsobject_t* lhs, number_t x) {
 void assignment() {
   address_t newlength, copybytes;
   mem_t s;
-  index_t k;
+  /* index_t k; // unused */
   char tmpchar; /* for number conversion only */
   string_t sr, sl; /* the right and left hand side strings */
 
@@ -5987,7 +5995,7 @@ nextstring:
          see if there is more to come. For inplace strings this is odd because
          one term can change during adding (A$ = B$ + A$).
       */
-addstring:
+/* addstring: removed because unneeded in the present code */
       if (token == '+') {
         lhs.i = lhs.i + copybytes;
         nexttoken();
@@ -6131,7 +6139,8 @@ nextstring:
   }
 
   /* now we check for a variable and parse it */
-nextvariable:
+/* logical bug here in some cases. Recheck .*/
+/* nextvariable: */
   if (token == VARIABLE || token == ARRAYVAR || token == STRINGVAR) {
 
     /* check for a valid lefthandside expression */
@@ -7789,7 +7798,7 @@ void xsave() {
 void xload(const char* f) {
   char* filename;
   char ch;
-  address_t here2;
+  /* address_t here2; // unused */
   mem_t chain = 0;
 
   if (f == 0) {
@@ -7832,6 +7841,7 @@ void xload(const char* f) {
     while (fileavailable()) {
       ch = fileread();
 
+      /* a line is processed */
       if (ch == '\n' || ch == '\r' || cheof(ch)) {
         *bi = 0;
         bi = ibuffer + 1;
@@ -7845,13 +7855,16 @@ void xload(const char* f) {
           bi = ibuffer + 1;
         }
       } else {
+
+        /* is there space to store the character */
+        if ((bi - ibuffer) > BUFSIZE - 1) {
+          error(EOUTOFMEMORY);
+          break;
+        }
         *bi++ = ch;
       }
 
-      if ((bi - ibuffer) > BUFSIZE) {
-        error(EOUTOFMEMORY);
-        break;
-      }
+
     }
     ifileclose();
     /* after a successful load we save top to the EEPROM header */
@@ -8362,7 +8375,7 @@ void xpulse() {
 /* read a pulse, units given by bpulseunit - default 10 microseconds */
 void bpulsein() {
   address_t x, y;
-  unsigned long t, pt;
+  unsigned long t;
 
   t = ((unsigned long) popaddress()) * 1000;
   y = popaddress();
@@ -8530,6 +8543,7 @@ void xfind() {
     case TFN:
       if (!expect('(', EUNKNOWN)) return;
       if (!expect(')', EUNKNOWN)) return;
+      FALLTHROUGH;
     case VARIABLE:
     case STRINGVAR:
       nexttoken();
@@ -8587,7 +8601,7 @@ void xeval() {
   l = s.length;
   if (!USELONGJUMP && er) return;
 
-  if (l > BUFSIZE - 1) {
+  if (l > BUFSIZE - 2) {
     error(EORANGE);
     return;
   }
@@ -8735,6 +8749,7 @@ void xerror() {
       break;
     case TCONT:
       berrorh.type = TCONT;
+      FALLTHROUGH;
     case TSTOP:
       nexttoken();
       break;
@@ -8948,6 +8963,7 @@ void xevent() {
         error(EARGS);
         return;
       }
+      FALLTHROUGH;
     case 1:
       pin = pop();
       break;
@@ -9574,9 +9590,9 @@ void xread() {
 
   lhsobject_t lhs;
 
-  mem_t datat;	/* the type of the data element */
-  address_t lendest, lensource, newlength;
-  int k;
+  /* mem_t datat; // unused */ 	/* the type of the data element */
+  address_t newlength;
+  /* int k; // unused */
   string_t s;
 
 
@@ -9633,7 +9649,7 @@ nextdata:
         if (!USELONGJUMP && er) return;
 
         /* the length of the lefthandside string */
-        lendest = s.length;
+        // lendest = s.length;
 
         if (DEBUG) {
           outsc("* read stringcode "); outname(&lhs.name); outcr();
@@ -10207,7 +10223,7 @@ void xuntil() {
 void xswitch() {
   number_t r;
   mem_t match = 0;
-  mem_t swcount = 0;
+  /* mem_t swcount = 0; // unused */
   blocation_t l;
 
   /* lets look at the condition */
@@ -10336,6 +10352,7 @@ void statement() {
           error(EUNKNOWN);
           break;
         }
+        FALLTHROUGH;
       case STRINGVAR:
       case ARRAYVAR:
       case VARIABLE:
@@ -10361,6 +10378,7 @@ void statement() {
         break;
 #ifndef HASMULTILINEFUNCTIONS
       case TGOSUB:
+        FALLTHROUGH;
       case TGOTO:
         xgoto();
         break;
@@ -10370,6 +10388,7 @@ void statement() {
           error(EFUN);
           return;
         }
+        FALLTHROUGH;
       case TGOTO:
         xgoto();
         break;
@@ -10410,6 +10429,7 @@ void statement() {
           xcont();
           break;
         }		/* no break here, because interactively CONT=RUN minus CLR */
+        FALLTHROUGH;
       case TRUN:
         xrun();
         return;

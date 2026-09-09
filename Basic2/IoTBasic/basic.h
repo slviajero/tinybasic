@@ -28,7 +28,7 @@
  */
 
 /* Additional buffers and vars, VARSIZE only needed for Tinybasics */
-#define SBUFSIZE       	16*sizeof(number_t) 
+#define SBUFSIZE       	((index_t)(16*sizeof(number_t)))
 #define VARSIZE         26
 
 /* Default sizes of arrays and strings if they are not DIMed */
@@ -546,9 +546,9 @@ void usrcall(address_t);
 
 /* get keywords and tokens from PROGMEM */
 char* getkeyword(address_t);
-char* getmessage(char);
+char* getmessage(address_t);
 token_t gettokenvalue(address_t);
-void printmessage(char);
+void printmessage(address_t);
 
 /* error handling */
 void error(token_t);
