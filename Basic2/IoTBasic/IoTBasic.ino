@@ -4220,6 +4220,10 @@ void sqr() {
   number_t l = 0;
 
   r = pop();
+  if (r < 0) {
+    error(EORANGE);
+    return;
+  }
   t = r;
   while (t > 0) {
     t >>= 1;
