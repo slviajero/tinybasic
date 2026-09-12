@@ -80,7 +80,7 @@
  *      the AI Thinker board with camera support
  */
  
-#define PREDEFINEDBOARD "boards/dummy.h"
+#define PREDEFINEDBOARD "boards/avrlcd.h"
 
 
 /* undef this if you want to overide all defaults, then use the settings below */
@@ -385,7 +385,7 @@
 #define ARDUINOEEPROM
 #define ARDUINOPICOSERIAL
 #define ARDUINOPGMEEPROM
-#undef  ARDUINODIRECTI2C
+#define ARDUINODIRECTI2C
 #undef  ARDUINOI2CEEPROM_BUFFERED
 #undef  LINECACHESIZE
 #undef  HASMSTAB
